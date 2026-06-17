@@ -30,17 +30,21 @@
 
 ```
 valuelens/
-├─ index.html            # 앱의 시작점
-├─ package.json          # 필요한 라이브러리 목록
-├─ vite.config.js        # 개발 서버 설정
-├─ .env.example          # 키를 어디 넣는지 보여주는 예시 (실제 키 X)
+├─ index.html                    # 앱의 시작점
+├─ package.json                  # 필요한 라이브러리 목록
+├─ vite.config.js                # 개발 서버 설정
+├─ .env.example                  # 키를 어디 넣는지 보여주는 예시 (실제 키 X)
+├─ ValueLens_APEX_recs__3_.jsx   # 내가 만든 원본 화면+로직 (그대로 둠)
 ├─ src/
-│  ├─ main.jsx           # React 시작 코드
-│  └─ App.jsx            # 내가 만든 화면 + 로직 (원본을 웹앱용으로 수정)
+│  └─ main.jsx                   # 시작 코드 + 웹앱 적응(저장소·AI우회·실시간가격)
 └─ api/
-   ├─ ai.js              # AI 호출 대행 (Anthropic 키 보관)
-   └─ quote.js           # 실시간 시세 대행 (Finnhub/야후)
+   ├─ ai.js                      # AI 호출 대행 (Anthropic 키 보관)
+   └─ quote.js                   # 실시간 시세 대행 (Finnhub/야후)
 ```
+
+> 💡 원본 `ValueLens_APEX_recs__3_.jsx` 는 한 글자도 고치지 않았어요.
+> 웹앱으로 돌아가게 만드는 적응(브라우저 저장소, AI 요청을 `/api/ai` 로 우회,
+> 실시간 가격 주입)은 전부 `src/main.jsx` 에서 처리합니다.
 
 ---
 
