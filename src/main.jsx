@@ -1830,7 +1830,7 @@ async function fetchApartmentData(query) {
 아래 JSON만 출력 (설명·마크다운·백틱 금지):
 {"region":"시군구","dong":"법정동","complexName":"단지명","areaSqm":전용면적㎡숫자,"pyeong":통상분양평형숫자,"priceArea":currentPrice기준전용면적㎡숫자,"buildYear":준공연도숫자,"topFloor":단지최고층숫자,"currentPrice":최근매매실거래만원,"kbSalePrice":KB매매시세만원,"kbJeonse":KB전세시세만원,"jeonse":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"sale":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"areaOptions":[{"areaSqm":전용㎡,"pyeong":통상평형}]}
 규칙: 모든 가격은 만원 단위 정수(7억4000만→74000). 취소거래 제외. jeonse/sale 각 최대 10건.`;
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetch("/api/ai", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500, messages: [{ role: "user", content: prompt }], tools: [{ type: "web_search_20250305", name: "web_search" }] }),
   });
@@ -1972,7 +1972,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       const prompt = `이 이미지는 한국 부동산 매물 화면(네이버 부동산·중개사 매물 등)의 캡처야. 화면에 보이는 정보만 추출해 아래 JSON만 출력 (설명·마크다운·백틱 금지):
 {"region":"시군구","dong":"법정동","complexName":"단지명","pyeong":평형숫자,"areaExclusive":전용면적㎡숫자,"buildYear":준공연도숫자,"currentPrice":매물호가만원,"floor":해당층숫자,"tradeType":"매매|전세|월세"}
 규칙: 가격은 만원 단위 정수(12억4000만→124000). 화면에 안 보이는 값은 0/빈문자. 추정하지 말고 보이는 값만.`;
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/ai", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: mediaType, data: base64 } }, { type: "text", text: prompt }] }] }),
       });
@@ -2992,7 +2992,7 @@ function SellView({ onContext }) {
 아래 JSON만 출력 (설명·백틱 금지):
 {"region":"시군구","dong":"법정동","complexName":"단지명","areaSqm":전용㎡숫자,"pyeong":통상평형숫자,"buildYear":준공연도숫자,"topFloor":최고층숫자,"kbSalePrice":KB매매시세만원,"kbJeonse":KB전세시세만원,"jeonse":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"sale":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"areaOptions":[{"areaSqm":전용㎡,"pyeong":통상평형}]}
 규칙: 가격은 만원 정수(7억4000만→74000). 취소거래 제외. 각 최대 10건. 못 찾은 값만 0/빈배열 (지어내지 말 것).`;
-      const response = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500, messages: [{ role: "user", content: prompt }], tools: [{ type: "web_search_20250305", name: "web_search" }] }) });
+      const response = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500, messages: [{ role: "user", content: prompt }], tools: [{ type: "web_search_20250305", name: "web_search" }] }) });
       const data = await response.json();
       const text = (data.content || []).map((i) => (i.type === "text" ? i.text : "")).filter(Boolean).join("\n");
       const mt = text.replace(/```json|```/g, "").trim().match(/\{[\s\S]*\}/);
@@ -3028,7 +3028,7 @@ function SellView({ onContext }) {
       const prompt = `이 이미지는 한국 부동산 매물 화면의 캡처야. 화면에 보이는 정보만 추출해 아래 JSON만 출력 (설명·백틱 금지):
 {"region":"시군구","dong":"법정동","complexName":"단지명","pyeong":평형숫자,"areaExclusive":전용㎡숫자,"buildYear":준공연도숫자}
 규칙: 화면에 안 보이는 값은 0/빈문자. 추정하지 말고 보이는 값만.`;
-      const response = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: mediaType, data: base64 } }, { type: "text", text: prompt }] }] }) });
+      const response = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: mediaType, data: base64 } }, { type: "text", text: prompt }] }] }) });
       const data = await response.json();
       const text = (data.content || []).map((i) => (i.type === "text" ? i.text : "")).filter(Boolean).join("\n");
       const m = text.replace(/```json|```/g, "").trim().match(/\{[\s\S]*\}/);
