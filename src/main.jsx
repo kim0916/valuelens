@@ -2045,7 +2045,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
         {/* 메인 버튼 */}
         <button onClick={quickSearch} disabled={aiLoading} className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
-          {aiLoading ? "AI 조회 중…" : "이 집 사도 될까? — AI 매수판단"}
+          {aiLoading ? "AI 조회 중… (실거래·시세 데이터 수집 중, 1~2분 소요)" : "이 집 사도 될까? — AI 매수판단"}
         </button>
 
         {/* 조회 실패 메시지 */}
@@ -3072,7 +3072,7 @@ function SellView({ onContext }) {
         </div>
         {Number(f.areaExclusive) > 0 && <p className="mt-1.5 text-xs text-slate-500">전용면적: {f.areaExclusive}㎡ · 통상 평형: 약 {typicalPyeong(f.areaExclusive)}평형</p>}
         <input type="number" value={f.currentPrice} placeholder="희망 매도가 (만원) — 예: 50000" onChange={(e) => set("currentPrice", e.target.value)} className="mt-2 w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
-        <button onClick={quickSearch} disabled={aiLoading} className="mt-3 w-full rounded-2xl py-3.5 text-base font-bold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>{aiLoading ? "AI 분석 중…" : "AI 분석 — 시세 채우고 평가하기"}</button>
+        <button onClick={quickSearch} disabled={aiLoading} className="mt-3 w-full rounded-2xl py-3.5 text-base font-bold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>{aiLoading ? "AI 분석 중… (실거래·시세 데이터 수집 중, 1~2분 소요)" : "AI 분석 — 시세 채우고 평가하기"}</button>
         {aiMsg && <p className="mt-2 text-xs leading-relaxed text-indigo-700">{aiMsg}</p>}
         <div className="mt-3 flex flex-wrap items-center gap-1.5"><span className="text-xs text-slate-400">샘플:</span><button onClick={() => { setF({ ...SAMPLE, acqPrice: 35000, holdingYears: 8, loanBalance: 10000, sellPurpose: "갈아타기" }); setShowManual(true); }} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">동부</button><button onClick={() => { setF({ ...PRESET_EUNMA, acqPrice: 120000, holdingYears: 15, sellPurpose: "투자금 회수" }); setShowManual(true); }} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">은마</button></div>
         <button onClick={() => setShowManual((v) => !v)} className="mt-4 w-full rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-500">{showManual ? "직접 입력·수정 닫기 ▴" : "시세 직접 입력 · 캡처 업로드 · 취득가 입력 ▾"}</button>
