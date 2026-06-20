@@ -3066,8 +3066,8 @@ function SellView({ onContext }) {
         <label className="block text-sm font-bold text-slate-800">단지 검색 + 희망 매도가</label>
         <p className="mt-1 text-xs text-slate-400">동·단지명·전용면적을 입력하면 그 면적 기준 시세를 채웁니다.</p>
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <input type="text" value={f.dong} placeholder="동 (예: 공릉동)" onChange={(e) => set("dong", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          <input type="text" value={f.complexName} placeholder="단지명 (예: 동신)" onChange={(e) => set("complexName", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          <DongAutocomplete value={f.dong} onChange={(v) => set("dong", v)} onSelect={(v) => { set("dong", v); set("complexName", ""); }} placeholder="동 (예: 공릉동)" className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          <ComplexAutocomplete dong={f.dong} value={f.complexName} onChange={(v) => set("complexName", v)} onSelect={(v) => set("complexName", v)} placeholder="단지명 (예: 동신)" className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
           <input type="number" value={f.areaExclusive} placeholder="전용면적 ㎡ (예: 59.99)" onChange={(e) => set("areaExclusive", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
         </div>
         {Number(f.areaExclusive) > 0 && <p className="mt-1.5 text-xs text-slate-500">전용면적: {f.areaExclusive}㎡ · 통상 평형: 약 {typicalPyeong(f.areaExclusive)}평형</p>}
