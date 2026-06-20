@@ -1781,8 +1781,8 @@ export default function App() {
       </nav>
       <main className="mx-auto max-w-2xl px-4 py-8">
         {ptype === "apartment" && (<>
-          {(aptTab === "fair" || aptTab === "buy") && <BuyView mode={aptTab === "fair" ? "fair" : "buy"} onSaveHistory={(h) => setHistory((p) => [h, ...p])} onAddWatch={(w) => setWatch((p) => [w, ...p.filter((x) => x.key !== w.key)])} onContext={(c) => setBuyCtx(c)} />}
-          {aptTab === "sell" && <SellView onContext={(c) => setSellCtx(c)} />}
+          <div style={{display: (aptTab === "fair" || aptTab === "buy") ? "block" : "none"}}><BuyView mode={aptTab === "fair" ? "fair" : "buy"} onSaveHistory={(h) => setHistory((p) => [h, ...p])} onAddWatch={(w) => setWatch((p) => [w, ...p.filter((x) => x.key !== w.key)])} onContext={(c) => setBuyCtx(c)} /></div>
+          <div style={{display: aptTab === "sell" ? "block" : "none"}}><SellView onContext={(c) => setSellCtx(c)} /></div>
           {aptTab === "tax" && <TaxView buyCtx={buyCtx} sellCtx={sellCtx} />}
           {aptTab === "reco" && <BudgetView onProfile={(p) => setFinProfile(p)} />}
           {aptTab === "adv" && <AdvancedView watch={watch} setWatch={setWatch} history={history} finProfile={finProfile} onReanalyze={() => setAptTab("fair")} />}
