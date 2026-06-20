@@ -1,3 +1,4 @@
+import "./index.css";
 import React, { useState, useRef, useEffect } from "react";
 
 // ── 자동완성 데이터 (하드코딩 · API 연동 전까지 사용) ──
