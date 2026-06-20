@@ -2161,7 +2161,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch }) {
             <p className="text-[11px] text-slate-400">다른 면적 선택:</p>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {edit._aiAreaOptions.map((o, i) => (
-                <button key={i} onClick={() => setE("areaExclusive", String(o.areaSqm))}
+                <button key={i} onClick={() => { setE("areaExclusive", String(o.areaSqm)); if (onRefetch) onRefetch(o.areaSqm); }}
                   className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${Number(edit.areaExclusive) === o.areaSqm ? "bg-white text-slate-900" : "bg-slate-700 text-slate-300"}`}>
                   {o.areaSqm}㎡ / {o.pyeong}평형
                 </button>
