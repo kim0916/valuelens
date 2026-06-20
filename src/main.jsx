@@ -1829,7 +1829,11 @@ async function fetchApartmentData(query) {
 
 아래 JSON만 출력 (설명·마크다운·백틱 금지):
 {"region":"시군구","dong":"법정동","complexName":"단지명","areaSqm":전용면적㎡숫자,"pyeong":통상분양평형숫자,"priceArea":currentPrice기준전용면적㎡숫자,"buildYear":준공연도숫자,"topFloor":단지최고층숫자,"currentPrice":최근매매실거래만원,"kbSalePrice":KB매매시세만원,"kbJeonse":KB전세시세만원,"jeonse":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"sale":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"areaOptions":[{"areaSqm":전용㎡,"pyeong":통상평형}]}
-규칙: 모든 가격은 만원 단위 정수(7억4000만→74000). 취소거래 제외. jeonse/sale 각 최대 10건.`;
+규칙: 모든 가격은 만원 단위 정수(7억4000만→74000, 25억→250000, 15억5000만→155000). 취소거래 제외. jeonse/sale 각 최대 10건.
+- currentPrice: 현재 네이버부동산·호갱노노 매물 호가(만원). 반드시 채울 것.
+- kbSalePrice: KB부동산 매매 시세(만원). 반드시 채울 것.
+- kbJeonse: KB부동산 전세 시세(만원). 반드시 채울 것.
+- 못 찾으면 0 대신 최근 실거래가로 대체.`;
   const response = await fetch("/api/ai", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500, messages: [{ role: "user", content: prompt }], tools: [{ type: "web_search_20250305", name: "web_search" }] }),
