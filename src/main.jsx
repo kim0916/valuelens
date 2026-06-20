@@ -1930,15 +1930,15 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   //   [2] buildAnalysisInput  → 변환 모듈 (rawData → analyze() 입력 형태)
   //   [3] analyze()           → 계산 엔진 (ConfirmStep → doAnalyze에서 실행, 절대 수정 금지)
   // ─────────────────────────────────────────────────────────────
-  async function quickSearch() {
+  async function quickSearch(overrideArea) {
     if (!f.complexName) { setAiMsg("최소한 단지명을 입력하세요. (예: 동부)"); return; }
-    setAiLoading(true); setAiMsg(null);
+    setAiLoading(true); setAiMsg(null); setPending(null);
     try {
       // ── [1] 조회 모듈 ── API 전환 시 fetchApartmentData 함수만 교체하면 됨
       const rawData = await fetchApartmentData({
         complexName: f.complexName,
         dong: f.dong,
-        areaExclusive: f.areaExclusive,
+        areaExclusive: overrideArea ? String(overrideArea) : f.areaExclusive,
       });
       // ── [2] 변환 모듈 ── rawData → analyze() 입력 형태 조립
       const { filled, ff, jeonseCalc, saleCalc, blockReason } = buildAnalysisInput(
@@ -2976,10 +2976,11 @@ function SellView({ onContext }) {
 
   // 단일 검색 → AI가 시세·실거래·연식 채움 (희망 매도가는 사용자 입력) · 데모용
   // TODO(상용화): 실거래·연식 = 국토부 API / 시세 = KB API
-  async function quickSearch() {
+  async function quickSearch(overrideArea) {
     if (!f.complexName) { setAiMsg("최소한 단지명을 입력하세요."); return; }
-    if (!f.currentPrice) { setAiMsg("희망 매도가를 입력하세요. (AI는 시세·실거래만 채웁니다)"); return; }
-    const q = [f.dong, f.complexName, Number(f.areaExclusive) > 0 ? `전용 ${f.areaExclusive}㎡` : ""].filter(Boolean).join(" ");
+    if (!f.currentPrice && !overrideArea) { setAiMsg("희망 매도가를 입력하세요. (AI는 시세·실거래만 채웁니다)"); return; }
+    setPending(null);
+    const q = [f.dong, f.complexName, Number(overrideArea || f.areaExclusive) > 0 ? `전용 ${overrideArea || f.areaExclusive}㎡` : ""].filter(Boolean).join(" ");
     setAiLoading(true); setAiMsg(null);
     try {
       const prompt = `너는 한국 부동산 실거래가 조사원이야. 국토교통부 실거래가 공개시스템·집품·아실·KB부동산을 웹 검색해 아래 단지의 실제 데이터를 찾아.
