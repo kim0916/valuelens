@@ -2013,7 +2013,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     ? <FairValueResult r={r} f={f} onBack={() => setR(null)} />
     : <BuyResult r={r} f={f} onBack={() => setR(null)} saved={saved} onSave={() => { onAddWatch({ key: `${f.complexName}-${f.dong}`, complex: f.complexName, dong: f.dong, fairPrice: r.fairPrice, currentPrice: Number(f.currentPrice), target: "" }); setSaved(true); }} />;
   // ConfirmStep: onConfirm은 수정된 { ff, jeonseCalc, saleCalc } 객체를 받아 분석 실행
-  if (pending) return <ConfirmStep p={pending} f={f} onBack={() => setPending(null)} onConfirm={doAnalyze} mode={mode} />;
+  if (pending) return <ConfirmStep p={pending} f={f} onBack={() => setPending(null)} onConfirm={doAnalyze} mode={mode} onRefetch={(area) => { setF(prev => ({...prev, areaExclusive: String(area)})); quickSearch(area); }} />;
   return (
     <>
       <header className="mb-6 text-center">
@@ -2074,7 +2074,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 // - 읽기전용 테이블 → 수정 가능 입력 카드로 전환
 // - 고급설정/직접입력 기능 흡수 (별도 메뉴 최소화)
 // - 사용자가 값을 검증하고 수정한 뒤 분석 실행
-function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy" }) {
+function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch }) {
   // ConfirmStep 내부에서 직접 수정 가능한 상태 관리
   const [edit, setEdit] = useState({ ...p.ff });
   const [dealsOpen, setDealsOpen] = useState(false);
@@ -3057,7 +3057,7 @@ function SellView({ onContext }) {
     if (onContext) onContext({ acqPrice: Number(f.acqPrice) || 0, sellPrice: Number(f.currentPrice), years: Number(f.holdingYears) || 5, loanBalance: Number(f.loanBalance) || 0 });
   }
   if (r) return <SellResult r={r} f={f} onBack={() => setR(null)} />;
-  if (pending) return <ConfirmStep p={pending} f={f} mode="sell" onBack={() => setPending(null)} onConfirm={doAnalyze} />;
+  if (pending) return <ConfirmStep p={pending} f={f} mode="sell" onBack={() => setPending(null)} onConfirm={doAnalyze} onRefetch={(area) => { set("areaExclusive", String(area)); quickSearch(area); }} />;
   const fields = [["지역 (시/구)", "region", "text", "노원구"], ["법정동", "dong", "text", "공릉동"], ["단지명", "complexName", "text", "동부"], ["전용면적 (㎡)", "areaExclusive", "number", "59"], ["희망 매도가 (만원)", "currentPrice", "number", "50000"], ["KB 매매시세 (만원)", "kbSalePrice", "number", "50250"], ["KB 전세시세 (만원)", "kbJeonse", "number", "35500"], ["기준 전세가 (만원, 수동)", "baseJeonse", "number", "35000"], ["준공연도", "buildYear", "number", "1999"], ["취득가 (만원, 양도세용·선택)", "acqPrice", "number", ""]];
   return (
     <>
