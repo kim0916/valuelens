@@ -2207,16 +2207,46 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch }) {
 
           {/* KB 매매시세 */}
           <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold text-slate-600">KB 매매시세 (만원)</span>
-            <input type="number" className={inp2} value={edit.kbSalePrice} placeholder="예: 56500"
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-600">KB 매매시세 (만원)</span>
+              <div className="flex gap-1">
+                <a href={`https://kbland.kr/map?searchText=${encodeURIComponent((edit.dong || "") + " " + (edit.complexName || ""))}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-700 hover:bg-yellow-200">
+                  KB부동산
+                </a>
+                <a href={`https://land.naver.com/search?query=${encodeURIComponent((edit.dong || "") + " " + (edit.complexName || ""))}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">
+                  네이버
+                </a>
+              </div>
+            </div>
+            <input type="number" className={inp2} value={edit.kbSalePrice} placeholder="KB부동산·네이버에서 중간값 확인 후 입력"
               onChange={(e) => setE("kbSalePrice", e.target.value)} />
+            <p className="mt-1 text-[10px] text-slate-400">⚠ AI가 정확히 못 가져올 수 있어요 — 직접 확인 권장</p>
           </label>
 
           {/* KB 전세시세 */}
           <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold text-slate-600">KB 전세시세 (만원)</span>
-            <input type="number" className={inp2} value={edit.kbJeonse} placeholder="예: 34000"
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-600">KB 전세시세 (만원)</span>
+              <div className="flex gap-1">
+                <a href={`https://kbland.kr/map?searchText=${encodeURIComponent((edit.dong || "") + " " + (edit.complexName || ""))}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-700 hover:bg-yellow-200">
+                  KB부동산
+                </a>
+                <a href={`https://land.naver.com/search?query=${encodeURIComponent((edit.dong || "") + " " + (edit.complexName || ""))}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">
+                  네이버
+                </a>
+              </div>
+            </div>
+            <input type="number" className={inp2} value={edit.kbJeonse} placeholder="KB부동산·네이버에서 중간값 확인 후 입력"
               onChange={(e) => setE("kbJeonse", e.target.value)} />
+            <p className="mt-1 text-[10px] text-slate-400">⚠ AI가 정확히 못 가져올 수 있어요 — 직접 확인 권장</p>
           </label>
 
           {/* 기준 전세가 */}
@@ -3098,7 +3128,24 @@ function SellView({ onContext }) {
               <label className={`mt-3 block w-full cursor-pointer rounded-xl px-4 py-2.5 text-center text-sm font-semibold text-white ${aiLoading ? "opacity-50" : ""}`} style={{ backgroundColor: "#4f46e5" }}>{aiLoading ? "이미지 분석 중…" : "📷 매물 캡처 업로드 → 자동 인식"}<input type="file" accept="image/*" disabled={aiLoading} className="hidden" onChange={(e) => { const file = e.target.files && e.target.files[0]; if (file) extractFromImage(file); e.target.value = ""; }} /></label>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {fields.map(([l, k, t, ph]) => (<label key={k} className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">{l}</span><input type={t} className={inp} value={f[k]} placeholder={ph} onChange={(e) => set(k, e.target.value)} /></label>))}
+              {fields.map(([l, k, t, ph]) => {
+                if (k === "kbSalePrice" || k === "kbJeonse") {
+                  return (
+                    <label key={k} className="block">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-500">{l}</span>
+                        <div className="flex gap-1">
+                          <a href={`https://kbland.kr/map?searchText=${encodeURIComponent((f.dong||"")+" "+(f.complexName||""))}`} target="_blank" rel="noopener noreferrer" className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-700 hover:bg-yellow-200">KB부동산</a>
+                          <a href={`https://land.naver.com/search?query=${encodeURIComponent((f.dong||"")+" "+(f.complexName||""))}`} target="_blank" rel="noopener noreferrer" className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">네이버</a>
+                        </div>
+                      </div>
+                      <input type={t} className={inp} value={f[k]} placeholder="중간값 직접 확인 후 입력" onChange={(e) => set(k, e.target.value)} />
+                      <p className="mt-1 text-[10px] text-slate-400">⚠ AI가 정확히 못 가져올 수 있어요</p>
+                    </label>
+                  );
+                }
+                return (<label key={k} className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">{l}</span><input type={t} className={inp} value={f[k]} placeholder={ph} onChange={(e) => set(k, e.target.value)} /></label>);
+              })}
               <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">시장충격 위험도</span><select className={inp} value={f.shockLevel} onChange={(e) => set("shockLevel", e.target.value)}>{["낮음", "보통", "높음", "매우높음"].map((x) => <option key={x}>{x}</option>)}</select></label>
             </div>
             <div className="mt-4 rounded-2xl bg-slate-50 p-4">
