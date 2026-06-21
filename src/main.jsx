@@ -786,15 +786,19 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse") {
   const confLabel = conf >= 75 ? "높음" : conf >= 55 ? "보통" : "낮음";
 
   const rs = [];
-  if (reasons.floor1) rs.push(`1층 ${reasons.floor1}`);
-  if (reasons.banjiha) rs.push(`반지하 ${reasons.banjiha}`);
-  if (reasons.top) rs.push(`최고층 ${reasons.top}`);
-  if (reasons.urgent) rs.push(`${urgentLabel} ${reasons.urgent}`);
-  if (reasons.related) rs.push(`특수관계 ${reasons.related}`);
-  if (reasons.dev20) rs.push(`±20%초과 ${reasons.dev20}`);
-  const reasonBody = rs.length ? rs.join(", ") + " 제외" : "제외 거래 없음";
-  const kbNote = kbWeight > 0 ? ` · 표본 부족으로 KB시세 ${Math.round(kbWeight * 100)}% 가중` : " · KB 보정 없음";
-  const reasonText = `최근 6개월 ${total}건 중 ${reasonBody}${kbNote}`;
+  if (reasons.floor1) rs.push(`저층(1층) ${reasons.floor1}건`);
+  if (reasons.banjiha) rs.push(`반지하 ${reasons.banjiha}건`);
+  if (reasons.top) rs.push(`최고층 ${reasons.top}건`);
+  if (reasons.urgent) rs.push(`${urgentLabel} ${reasons.urgent}건`);
+  if (reasons.related) rs.push(`특수관계거래 의심 ${reasons.related}건`);
+  if (reasons.dev20) rs.push(`비정상가격(중앙값 ±20% 초과) ${reasons.dev20}건`);
+  const excludeText = rs.length ? rs.join(", ") + " 제외" : "";
+  const kbNote = kbWeight > 0 ? `표본 부족으로 KB시세 ${Math.round(kbWeight * 100)}% 가중` : "";
+  const parts = [`${total}건 조회`];
+  if (excludeText) parts.push(excludeText);
+  parts.push(`→ ${used}건 사용`);
+  if (kbNote) parts.push(kbNote);
+  const reasonText = parts.join(" · ");
 
   return { value, used, excluded: total - used, total, confidence: conf, confLabel, kbWeight, reasonText };
 }
@@ -3205,7 +3209,12 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
               placeholder="예: 34000"
               onChange={(e) => setE("baseJeonse", e.target.value)} />
             {jeonseCalc && jeonseCalc.used > 0 && (
-              <p className="mt-1 text-[11px] text-emerald-600">실거래 {jeonseCalc.used}건 정제평균 자동 반영</p>
+              <div className="mt-1">
+                <p className="text-[11px] text-emerald-600">실거래 {jeonseCalc.used}건 정제평균 자동 반영</p>
+                {jeonseCalc.excluded > 0 && jeonseCalc.reasonText && (
+                  <p className="text-[10px] text-slate-400 leading-relaxed mt-0.5">↳ {jeonseCalc.reasonText}</p>
+                )}
+              </div>
             )}
           </label>
 
@@ -3242,9 +3251,31 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
         {/* 정제평균 요약 */}
         {(p.jeonseCalc || p.saleCalc) && (
           <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
-            <p className="font-semibold text-slate-600 mb-1">AI 조회 정제평균 (참고)</p>
-            {p.jeonseCalc && <p>전세 정제평균 {won(p.jeonseCalc.value)} (사용 {p.jeonseCalc.used}건 · 제외 {p.jeonseCalc.excluded}건)</p>}
-            {p.saleCalc && <p className="mt-0.5">매매 정제평균 {won(p.saleCalc.value)} (사용 {p.saleCalc.used}건 · 제외 {p.saleCalc.excluded}건)</p>}
+            <p className="font-semibold text-slate-600 mb-1.5">AI 조회 정제평균 (참고)</p>
+            {p.jeonseCalc && (
+              <div className="mb-1.5">
+                <p className="text-slate-600">
+                  전세 정제평균 <span className="font-semibold text-slate-800">{won(p.jeonseCalc.value)}</span>
+                  {" "}({p.jeonseCalc.total}건 조회 → <span className="text-emerald-700 font-medium">{p.jeonseCalc.used}건 사용</span>
+                  {p.jeonseCalc.excluded > 0 && <span className="text-amber-600"> · {p.jeonseCalc.excluded}건 제외</span>})
+                </p>
+                {p.jeonseCalc.reasonText && (
+                  <p className="mt-0.5 text-[10px] text-slate-400 leading-relaxed">↳ {p.jeonseCalc.reasonText}</p>
+                )}
+              </div>
+            )}
+            {p.saleCalc && (
+              <div>
+                <p className="text-slate-600">
+                  매매 정제평균 <span className="font-semibold text-slate-800">{won(p.saleCalc.value)}</span>
+                  {" "}({p.saleCalc.total}건 조회 → <span className="text-emerald-700 font-medium">{p.saleCalc.used}건 사용</span>
+                  {p.saleCalc.excluded > 0 && <span className="text-amber-600"> · {p.saleCalc.excluded}건 제외</span>})
+                </p>
+                {p.saleCalc.reasonText && (
+                  <p className="mt-0.5 text-[10px] text-slate-400 leading-relaxed">↳ {p.saleCalc.reasonText}</p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
