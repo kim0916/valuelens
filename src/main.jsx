@@ -2282,10 +2282,11 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       const { filled, ff: builtFf, jeonseCalc, saleCalc, blockReason } = buildAnalysisInput(
         rawData, ff, Number(ff.areaExclusive) || 0
       );
-      // KB시세/매물가를 캡처에서 가져온 값으로 보정
+      // KB시세/매물가/면적을 캡처에서 가져온 값으로 보정
       if (ff.kbSalePrice) filled.kbSalePrice = ff.kbSalePrice;
       if (ff.kbJeonse) filled.kbJeonse = ff.kbJeonse;
       if (ff.currentPrice) filled.currentPrice = ff.currentPrice;
+      if (ff.areaExclusive && !filled.areaExclusive) filled.areaExclusive = ff.areaExclusive;
       setF(filled);
       // 면적 옵션 저장
       const opts = (filled._aiAreaOptions && filled._aiAreaOptions.length > 0)
