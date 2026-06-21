@@ -2016,11 +2016,12 @@ function matchAptName(itemName, complexName, exactAptNm) {
   return common >= Math.min(2, minLen);
 }
 
-// 면적 매칭 — ±1㎡ → ±3㎡ → ±5% 순서로 확장
-function matchArea(itemArea, targetArea) {
+// 면적 매칭 — tolerance 파라미터로 단계 제어
+// tolerance: 0 = exact(±0.5㎡), 1 = ±1㎡, 3 = ±3㎡(같은평형그룹)
+function matchArea(itemArea, targetArea, tolerance = 3) {
   if (!targetArea || Number(targetArea) <= 0) return true;
   const diff = Math.abs(Number(itemArea) - Number(targetArea));
-  return diff <= 3; // ±3㎡ 허용
+  return diff <= tolerance;
 }
 
 // 거래금액 파싱 (콤마 제거)
@@ -2031,7 +2032,8 @@ function parsePrice(val) {
 // ── 공통 실거래 조회 함수 ──
 async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, exactAptNm = "", dong = "") {
   const now = new Date();
-  const results = { sale: [], jeonse: [], allAreas: new Set() };
+  // 단계별 면적 tolerance: 0=exact(±0.5), 1=±1㎡, 3=±3㎡(같은평형그룹)
+  const AREA_STEPS = [0.5, 1, 3];
 
   // 월 목록 생성
   const monthList = Array.from({ length: months }, (_, mi) => {
@@ -2039,7 +2041,7 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
     return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  // 월별 조회 함수
+  // 월별 전체 raw 데이터 수집 (면적 필터 없이)
   const fetchMonth = async (ym) => {
     try {
       const [saleResp, rentResp] = await Promise.all([
@@ -2053,75 +2055,107 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
       return { saleItems: saleData.items || [], rentItems: rentData.items || [] };
     } catch(fetchErr) {
       console.warn(`molit ${ym} 조회 실패 (skip):`, fetchErr.message);
-      return { saleItems: [], rentItems: [] };
+      return { saleItems: [], rentItems: [], failed: true };
     }
   };
 
-  // 전체 병렬 조회
   const settled = await Promise.allSettled(monthList.map(fetchMonth));
 
-  // 결과 처리
-  for (const settledResult of settled) {
-    if (settledResult.status !== "fulfilled") continue;
-    const { saleItems, rentItems } = settledResult.value;
+  // 전체 raw 아이템 수집 (면적 필터 전)
+  const allSaleRaw = [], allRentRaw = [];
+  let apiFailed = 0;
+  const allAreas = new Set();
 
-    // 면적 수집 (모든 달, 모든 아이템)
-    for (const item of [...saleItems, ...rentItems]) {
-      const area = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
-      if (area > 0) results.allAreas.add(area);
-    }
-
-
-    // 매매 실거래 처리 — 단지명 필터는 항상 적용
+  for (const s of settled) {
+    if (s.status !== "fulfilled") { apiFailed++; continue; }
+    const { saleItems, rentItems, failed } = s.value;
+    if (failed) apiFailed++;
     for (const item of saleItems) {
-      try {
-        if (!matchAptName(item.aptNm, complexName, exactAptNm)) continue;
-        if (!matchArea(item.excluUseAr, areaExclusive)) continue;
-        const price = parsePrice(item.dealAmount);
-        if (!price) continue;
-        results.sale.push({
-          ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
-          price: Math.round(price),
-          floor: Number(item.floor) || 5,
-          areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
-          complexName: item.aptNm || complexName,
-          buildYear: Number(item.buildYear) || 0,
-          region: item.siGunGu || item.sggNm || "",
-        });
-      } catch(itemErr) {
-        console.warn("매매 항목 처리 오류:", itemErr.message);
-      }
+      if (!matchAptName(item.aptNm, complexName, exactAptNm)) continue;
+      const area = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
+      if (area > 0) allAreas.add(area);
+      allSaleRaw.push(item);
     }
-
-    // 전세 실거래 처리 — 단지명 필터는 useAreaOnly 여부와 무관하게 항상 적용
     for (const item of rentItems) {
-      try {
-        if (!matchAptName(item.aptNm, complexName, exactAptNm)) continue;
-        if (!matchArea(item.excluUseAr, areaExclusive)) continue;
-        if (item.monthlyRent && Number(item.monthlyRent) > 0) continue; // 월세 제외
-        const price = parsePrice(item.deposit);
-        if (!price) continue;
-        results.jeonse.push({
-          ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
-          price: Math.round(price),
-          floor: Number(item.floor) || 5,
-          areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
-          complexName: item.aptNm || complexName,
-          buildYear: Number(item.buildYear) || 0,
-        });
-      } catch(itemErr) {
-        console.warn("전세 항목 처리 오류:", itemErr.message);
-      }
+      if (!matchAptName(item.aptNm, complexName, exactAptNm)) continue;
+      if (item.monthlyRent && Number(item.monthlyRent) > 0) continue; // 월세 제외
+      const area = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
+      if (area > 0) allAreas.add(area);
+      allRentRaw.push(item);
     }
   }
 
-  // 최신순 정렬, 각 최대 10건
-  results.sale.sort((a, b) => b.ym.localeCompare(a.ym));
-  results.jeonse.sort((a, b) => b.ym.localeCompare(a.ym));
-  results.sale = results.sale.slice(0, 10);
-  results.jeonse = results.jeonse.slice(0, 10);
+  // 단지 전체 거래 건수 (면적 무관)
+  const complexSaleTotal = allSaleRaw.length;
+  const complexRentTotal = allRentRaw.length;
 
-  return results;
+  // 면적 3단계 확장: 목표 3건 이상 또는 마지막 단계
+  const targetCount = 3;
+  let usedTolerance = AREA_STEPS[0];
+  let sale = [], jeonse = [];
+
+  if (Number(areaExclusive) > 0) {
+    for (const tol of AREA_STEPS) {
+      const s = allSaleRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, tol));
+      const j = allRentRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, tol));
+      sale = s; jeonse = j;
+      usedTolerance = tol;
+      if (s.length >= targetCount && j.length >= targetCount) break;
+      if (s.length >= targetCount || j.length >= targetCount) break; // 한쪽만 충족해도 다음 단계 계속
+      // 둘다 부족하면 다음 단계
+    }
+    // 둘 중 하나가 여전히 부족하면 마지막 단계(±3㎡) 적용
+    if (sale.length < targetCount || jeonse.length < targetCount) {
+      sale = allSaleRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, 3));
+      jeonse = allRentRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, 3));
+      usedTolerance = 3;
+    }
+  } else {
+    // 면적 미지정: 전체 사용
+    sale = allSaleRaw;
+    jeonse = allRentRaw;
+    usedTolerance = -1;
+  }
+
+  // 거래 데이터 변환
+  const toSale = (item) => ({
+    ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
+    price: Math.round(parsePrice(item.dealAmount)),
+    floor: Number(item.floor) || 5,
+    areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
+    complexName: item.aptNm || complexName,
+    buildYear: Number(item.buildYear) || 0,
+    region: item.siGunGu || item.sggNm || "",
+  });
+  const toJeonse = (item) => ({
+    ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
+    price: Math.round(parsePrice(item.deposit)),
+    floor: Number(item.floor) || 5,
+    areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
+    complexName: item.aptNm || complexName,
+    buildYear: Number(item.buildYear) || 0,
+  });
+
+  const saleOut = sale.map(toSale).filter(d => d.price > 0).sort((a, b) => b.ym.localeCompare(a.ym)).slice(0, 10);
+  const jeonseOut = jeonse.map(toJeonse).filter(d => d.price > 0).sort((a, b) => b.ym.localeCompare(a.ym)).slice(0, 10);
+
+  // 원인 진단
+  // apiFail: 절반 이상 실패면 API 오류
+  const apiFailRatio = apiFailed / monthList.length;
+  const diagnosis = {
+    apiFailed: apiFailRatio > 0.5,
+    complexNoTrade: complexSaleTotal === 0 && complexRentTotal === 0,
+    saleAreaShort: saleOut.length < targetCount,
+    jeonseAreaShort: jeonseOut.length < targetCount,
+    jeonseExistsOtherArea: complexRentTotal > 0 && jeonseOut.length < targetCount,
+    usedTolerance,        // 실제 사용된 면적 tolerance
+    complexSaleTotal,
+    complexRentTotal,
+  };
+
+  console.log("fetchMolitData 진단:", diagnosis, "sale:", saleOut.length, "jeonse:", jeonseOut.length);
+
+  return { sale: saleOut, jeonse: jeonseOut, allAreas, diagnosis };
 }
 
 async function fetchApartmentData(query) {
@@ -2153,20 +2187,47 @@ async function fetchApartmentData(query) {
   if (!lawdCd) throw new Error(`지역코드를 찾을 수 없습니다 (${qRegion}). 지역(구)명을 확인하세요.`);
 
   // ── 4. 실거래 조회 (6개월, exactAptNm 완전일치) ──
-  let sale = [], jeonse = [], noTradeWarning = null;
+  let sale = [], jeonse = [], tradeStatus = null;
   let molitResult;
   try {
     molitResult = await fetchMolitData(lawdCd, qExactAptNm || qComplexName, String(qArea), 6, qExactAptNm, qDong);
     sale   = molitResult.sale   || [];
     jeonse = molitResult.jeonse || [];
+    const d = molitResult.diagnosis || {};
+
+    // ── 5. 원인별 tradeStatus 생성 ──
+    if (d.apiFailed) {
+      tradeStatus = { code: "API_FAIL", msg: "국토부 API 조회 실패 — 잠시 후 다시 시도하거나 KB시세를 직접 입력하세요." };
+    } else if (d.complexNoTrade) {
+      tradeStatus = { code: "COMPLEX_NO_TRADE", msg: `${qComplexName} 최근 6개월 거래 없음 — KB시세를 직접 입력하세요.` };
+    } else {
+      // 단지 거래는 있지만 선택 면적 거래 부족
+      const saleShort = d.saleAreaShort;
+      const jeonseShort = d.jeonseAreaShort;
+      const jeonseElsewhere = d.jeonseExistsOtherArea;
+      const tolLabel = d.usedTolerance <= 0.5 ? "정확히" : d.usedTolerance <= 1 ? "±1㎡" : "±3㎡";
+
+      if (saleShort && jeonseShort) {
+        if (jeonseElsewhere) {
+          tradeStatus = { code: "AREA_SHORT_JEONSE_ELSEWHERE", msg: `선택 면적(${qArea}㎡) 전세 실거래 부족 — 다른 평형에 전세 거래 있음`, saleShort: true, jeonseShort: true, canExpand: true };
+        } else {
+          tradeStatus = { code: "AREA_SHORT_BOTH", msg: `선택 면적(${qArea}㎡) 매매·전세 실거래 부족 (${tolLabel} 범위 사용)`, saleShort: true, jeonseShort: true, canExpand: true };
+        }
+      } else if (jeonseShort) {
+        if (jeonseElsewhere) {
+          tradeStatus = { code: "JEONSE_AREA_SHORT", msg: `선택 면적 전세 실거래 부족 — 다른 평형에 전세 거래 있음`, jeonseShort: true, canExpand: true };
+        } else {
+          tradeStatus = { code: "JEONSE_SHORT", msg: `전세 실거래 부족 — KB전세시세를 직접 입력하세요.`, jeonseShort: true };
+        }
+      } else if (saleShort) {
+        tradeStatus = { code: "SALE_SHORT", msg: `매매 실거래 부족 (${tolLabel} 범위 ${sale.length}건 사용)`, saleShort: true };
+      } else {
+        tradeStatus = { code: "OK", msg: null }; // 정상
+      }
+    }
   } catch(e) {
     console.error("국토부 API 조회 실패:", e);
     throw new Error("국토부 API 호출 실패: " + e.message);
-  }
-
-  // ── 5. 거래 없으면 KB시세 입력 유도 ──
-  if (sale.length === 0 && jeonse.length === 0) {
-    noTradeWarning = "KB_INPUT_NEEDED";
   }
 
   // ── 6. 면적 목록 추출 ──
@@ -2238,7 +2299,7 @@ async function fetchApartmentData(query) {
     jeonse,
     sale,
     areaOptions,
-    noTradeWarning,
+    tradeStatus,
   };
 }
 
@@ -2266,8 +2327,12 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
 
   // 정합성 검증
   const warns = [];
-  if (p.noTradeWarning && p.noTradeWarning !== "KB_INPUT_NEEDED") warns.push(`⚠️ ${p.noTradeWarning}`);
-  const needKbInput = p.noTradeWarning === "KB_INPUT_NEEDED";
+  const ts = p.tradeStatus || {};
+  // tradeStatus 기반 경고
+  if (ts.code && ts.code !== "OK" && ts.msg) warns.push(`⚠️ ${ts.msg}`);
+  // KB 입력 필요 조건: API 실패, 단지 거래 없음, 또는 매매+전세 둘 다 부족
+  const needKbInput = ["API_FAIL", "COMPLEX_NO_TRADE", "AREA_SHORT_BOTH"].includes(ts.code) ||
+    (ts.jeonseShort && !ts.canExpand);
   if (p.buildYearWarning) warns.push(`⚠️ ${p.buildYearWarning} — 준공연도를 직접 확인 후 입력하세요.`);
   if (areaSqm <= 0 && !askedArea) warns.push("전용면적 미확인 — 면적을 직접 확인/입력하세요.");
   const mismatch = areaSqm > 0 && priceArea > 0 && Math.abs(priceArea - areaSqm) > Math.max(3, areaSqm * 0.06);
@@ -2290,6 +2355,7 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
     kbJeonse: Number(p.kbJeonse) || "",
     deals: jd, saleDeals: sd, shockLevel: "보통",
     _aiFilled: true, _aiSource: "국토부 실거래·KB·호갱노노 웹검색(AI)", _needKbInput: needKbInput,
+    _tradeStatus: ts,
     _aiWarns: warns, _aiAreaOptions: areaOptions,
   };
 
@@ -2754,24 +2820,38 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         </div>
         )}
 
-        {/* 6개월 내 전세 실거래 없을 때만 KB전세시세 입력 카드 */}
-        {f._needKbInput && (
-          <div className="mt-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
-            <p className="text-sm font-bold text-amber-800">⚠️ 최근 6개월 전세 실거래가 없습니다</p>
-            <p className="mt-0.5 text-xs text-amber-600">네이버 부동산 또는 KB부동산원에서 KB전세시세를 확인 후 입력해 주세요.</p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <div>
-                <p className="mb-1 text-xs font-medium text-amber-700">KB매매시세 (만원)</p>
-                <input type="number" value={f.kbSalePrice} placeholder="예: 50250" onChange={(e) => set("kbSalePrice", e.target.value)} className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500" />
-              </div>
-              <div>
-                <p className="mb-1 text-xs font-medium text-amber-700">KB전세시세 (만원)</p>
-                <input type="number" value={f.kbJeonse} placeholder="예: 35000" onChange={(e) => set("kbJeonse", e.target.value)} className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500" />
-              </div>
+        {/* 실거래 상태 안내 카드 — 원인별 구분 */}
+        {f._tradeStatus && f._tradeStatus.code !== "OK" && (() => {
+          const ts = f._tradeStatus;
+          const isApiFail = ts.code === "API_FAIL";
+          const isNoTrade = ts.code === "COMPLEX_NO_TRADE";
+          const needKb = isApiFail || isNoTrade || (ts.jeonseShort && !ts.canExpand);
+          return (
+            <div className="mt-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
+              <p className="text-sm font-bold text-amber-800">
+                {isApiFail ? "⚠️ API 조회 실패" :
+                 isNoTrade ? "⚠️ 단지 거래 없음" :
+                 ts.code === "JEONSE_AREA_SHORT" || ts.code === "AREA_SHORT_JEONSE_ELSEWHERE" ? "ℹ️ 선택 면적 전세 실거래 부족" :
+                 ts.code === "SALE_SHORT" ? "ℹ️ 매매 실거래 부족" :
+                 "ℹ️ 선택 면적 실거래 부족"}
+              </p>
+              <p className="mt-0.5 text-xs text-amber-600">{ts.msg}</p>
+              {needKb && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-amber-700">KB매매시세 (만원)</p>
+                    <input type="number" value={f.kbSalePrice} placeholder="예: 50250" onChange={(e) => set("kbSalePrice", e.target.value)} className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500" />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-amber-700">KB전세시세 (만원)</p>
+                    <input type="number" value={f.kbJeonse} placeholder="예: 35000" onChange={(e) => set("kbJeonse", e.target.value)} className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500" />
+                  </div>
+                </div>
+              )}
+              <p className="mt-2 text-[10px] text-amber-500">네이버 부동산 → 시세/실거래가 탭 → KB시세 중간값 확인 후 입력</p>
             </div>
-            <p className="mt-2 text-[10px] text-amber-500">네이버 부동산 → 시세/실거래가 탭 → KB시세 중간값 확인 후 입력</p>
-          </div>
-        )}
+          );
+        })()}
 
         {/* 캡처 업로드 */}
         <div className="mt-3 rounded-2xl bg-indigo-50 p-3 ring-1 ring-indigo-100">
@@ -3011,32 +3091,55 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
             )}
           </label>
 
-          {/* KB시세 — 실거래 없을 때만 표시 */}
-          {edit._needKbInput && (<>
-          <label className="block col-span-2">
-            <div className="mb-2 rounded-xl bg-amber-50 px-3 py-2 ring-1 ring-amber-200">
-              <p className="text-xs font-bold text-amber-800">⚠️ 최근 6개월 실거래 없음 — KB시세 입력 필요</p>
-              <p className="mt-0.5 text-[10px] text-amber-600">네이버 부동산 → 시세/실거래가 탭 → KB시세 중간값 확인 후 입력하세요.</p>
-              <button type="button"
-                onClick={() => { const q = ((edit.dong||"")+" "+(edit.complexName||"")).trim(); navigator.clipboard.writeText(q); window.open("https://land.naver.com/search/complexSearch.nhn?keyword="+encodeURIComponent(q), "_blank", "noopener,noreferrer"); }}
-                className="mt-1.5 rounded px-2 py-1 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">
-                📋 네이버 KB시세 확인 →
-              </button>
-            </div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <div>
-                <p className="mb-1 text-xs font-semibold text-slate-600">KB 매매시세 (만원)</p>
-                <input type="number" className={inp2} value={edit.kbSalePrice} placeholder="예: 50250"
-                  onChange={(e) => setE("kbSalePrice", e.target.value)} />
-              </div>
-              <div>
-                <p className="mb-1 text-xs font-semibold text-slate-600">KB 전세시세 (만원)</p>
-                <input type="number" className={inp2} value={edit.kbJeonse} placeholder="예: 35000"
-                  onChange={(e) => setE("kbJeonse", e.target.value)} />
-              </div>
-            </div>
-          </label>
-          </>)}
+          {/* 실거래 상태 안내 — 원인별 구분 */}
+          {edit._tradeStatus && edit._tradeStatus.code !== "OK" && (() => {
+            const ts = edit._tradeStatus;
+            const isApiFail = ts.code === "API_FAIL";
+            const isNoTrade = ts.code === "COMPLEX_NO_TRADE";
+            const needKb = isApiFail || isNoTrade || (ts.jeonseShort && !ts.canExpand);
+            const label =
+              isApiFail ? "⚠️ API 조회 실패" :
+              isNoTrade ? "⚠️ 단지 거래 없음" :
+              ts.code === "JEONSE_AREA_SHORT" || ts.code === "AREA_SHORT_JEONSE_ELSEWHERE" ? "ℹ️ 선택 면적 전세 실거래 부족" :
+              ts.code === "SALE_SHORT" ? "ℹ️ 매매 실거래 부족" :
+              "ℹ️ 선택 면적 실거래 부족";
+            return (
+              <label className="block col-span-2">
+                <div className="mb-2 rounded-xl bg-amber-50 px-3 py-2.5 ring-1 ring-amber-200">
+                  <p className="text-xs font-bold text-amber-800">{label}</p>
+                  <p className="mt-0.5 text-[10px] text-amber-600">{ts.msg}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <button type="button"
+                      onClick={() => { const q = ((edit.dong||"")+" "+(edit.complexName||"")).trim(); window.open("https://land.naver.com/search/complexSearch.nhn?keyword="+encodeURIComponent(q), "_blank", "noopener,noreferrer"); }}
+                      className="rounded px-2 py-1 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">
+                      📋 네이버 KB시세 확인 →
+                    </button>
+                    {ts.canExpand && onRefetch && Number(edit.areaExclusive) > 0 && (
+                      <button type="button"
+                        onClick={() => onRefetch(Number(edit.areaExclusive))}
+                        className="rounded px-2 py-1 text-[10px] font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200">
+                        🔍 면적 범위 확장 재조회
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {needKb && (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="mb-1 text-xs font-semibold text-slate-600">KB 매매시세 (만원)</p>
+                      <input type="number" className={inp2} value={edit.kbSalePrice} placeholder="예: 50250"
+                        onChange={(e) => setE("kbSalePrice", e.target.value)} />
+                    </div>
+                    <div>
+                      <p className="mb-1 text-xs font-semibold text-slate-600">KB 전세시세 (만원)</p>
+                      <input type="number" className={inp2} value={edit.kbJeonse} placeholder="예: 35000"
+                        onChange={(e) => setE("kbJeonse", e.target.value)} />
+                    </div>
+                  </div>
+                )}
+              </label>
+            );
+          })()}
 
           {/* 기준 전세가 */}
           <label className="block">
