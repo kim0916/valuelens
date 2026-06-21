@@ -2244,6 +2244,163 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
 }
 // ═══════════════════════════════════════════════════════════════
 
+// ── 초성 매핑 ──
+const CHO_RANGES = [
+  ["ㄱ",0xAC00,0xB097],["ㄴ",0xB098,0xB2E3],["ㄷ",0xB2E4,0xB527],
+  ["ㄹ",0xB528,0xB77B],["ㅁ",0xB77C,0xB9C7],["ㅂ",0xB9C8,0xBC13],
+  ["ㅅ",0xBC14,0xBE5F],["ㅇ",0xBE60,0xC0AB],["ㅈ",0xC0AC,0xC2F7],
+  ["ㅊ",0xC2F8,0xC543],["ㅋ",0xC544,0xC78F],["ㅌ",0xC790,0xC9DB],
+  ["ㅍ",0xC9DC,0xCC27],["ㅎ",0xCC28,0xCE73],
+];
+function matchCho(str, cho) {
+  const range = CHO_RANGES.find(([c]) => c === cho);
+  if (!range || !str) return false;
+  const code = str.charCodeAt(0);
+  return code >= range[1] && code < range[2] + 588;
+}
+function fuzzyMatch(text, query) {
+  if (!query) return true;
+  const q = query.trim();
+  const t = (text||"").replace(/\s/g,"");
+  if (q.length === 1 && /[ㄱ-ㅎ]/.test(q)) return matchCho(t, q);
+  return t.toLowerCase().includes(q.replace(/\s/g,"").toLowerCase());
+}
+
+// ── 주소 단계별 선택 컴포넌트 ──
+function LocationPicker({ onComplete }) {
+  const SIDO_LIST = ["서울","경기","인천","부산","대구","광주","대전","울산","세종","충북","충남","전북","전남","경북","경남","제주"];
+  const [sido, setSido] = React.useState("");
+  const [sidoQ, setSidoQ] = React.useState("");
+  const [sigunguList, setSigunguList] = React.useState([]);
+  const [sigungu, setSigungu] = React.useState("");
+  const [sigunguQ, setSigunguQ] = React.useState("");
+  const [dongList, setDongList] = React.useState([]);
+  const [dong, setDong] = React.useState("");
+  const [dongQ, setDongQ] = React.useState("");
+  const [complexQ, setComplexQ] = React.useState("");
+  const [complexList, setComplexList] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+
+  const filteredSido = SIDO_LIST.filter(s => fuzzyMatch(s, sidoQ));
+  const filteredSigungu = sigunguList.filter(s => fuzzyMatch(s, sigunguQ));
+  const filteredDong = dongList.filter(d => fuzzyMatch(d, dongQ));
+
+  async function selectSido(s) {
+    setSido(s); setSidoQ(""); setSigungu(""); setSigunguQ(""); setDong(""); setDongQ(""); setComplexQ(""); setComplexList([]);
+    const res = await fetch("/api/lawdCd", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"sigungu", sido: s }) });
+    const d = await res.json();
+    setSigunguList(d.list || []);
+  }
+
+  async function selectSigungu(sg) {
+    setSigungu(sg); setSigunguQ(""); setDong(""); setDongQ(""); setComplexQ(""); setComplexList([]);
+    const res = await fetch("/api/lawdCd", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"dong", sido, sigungu: sg }) });
+    const d = await res.json();
+    setDongList(d.list || []);
+  }
+
+  async function selectDong(dg) {
+    setDong(dg); setDongQ(""); setComplexQ(""); setComplexList([]);
+  }
+
+  async function searchComplex(kw) {
+    setComplexQ(kw);
+    if (!sigungu || kw.length < 1) { setComplexList([]); return; }
+    setLoading(true);
+    try {
+      const lawdRes = await fetch("/api/lawdCd", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"lawdCd", sido, sigungu }) });
+      const { lawdCd } = await lawdRes.json();
+      if (!lawdCd) return;
+      const cRes = await fetch("/api/molit", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"complexList", lawdCd, complexName: kw }) });
+      const cd = await cRes.json();
+      setComplexList(cd.list || []);
+    } catch(e) { setComplexList([]); }
+    finally { setLoading(false); }
+  }
+
+  function selectComplex(name) {
+    onComplete({ sido, sigungu, dong, complexName: name });
+  }
+
+  const stepCls = "mb-4";
+  const tagCls = (active) => `rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${active ? "text-white shadow" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`;
+  const inp = "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400 mb-2";
+
+  return (
+    <div className="space-y-4">
+      {/* 1. 시/도 */}
+      <div className={stepCls}>
+        <p className="mb-1.5 text-xs font-bold text-slate-500">① 시/도</p>
+        <input value={sidoQ} onChange={e => setSidoQ(e.target.value)} placeholder="예: ㅅ → 서울, 세종..." className={inp} />
+        <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+          {filteredSido.map(s => (
+            <button key={s} onClick={() => selectSido(s)}
+              className={tagCls(sido===s)} style={sido===s ? {backgroundColor: NAVY} : {}}>
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 2. 구/군 */}
+      {sido && (
+        <div className={stepCls}>
+          <p className="mb-1.5 text-xs font-bold text-slate-500">② 구/군 <span className="font-normal text-slate-400">({sido})</span></p>
+          <input value={sigunguQ} onChange={e => setSigunguQ(e.target.value)} placeholder="예: ㄴ → 노원구..." className={inp} />
+          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+            {filteredSigungu.map(sg => (
+              <button key={sg} onClick={() => selectSigungu(sg)}
+                className={tagCls(sigungu===sg)} style={sigungu===sg ? {backgroundColor: NAVY} : {}}>
+                {sg}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 3. 동 */}
+      {sigungu && (
+        <div className={stepCls}>
+          <p className="mb-1.5 text-xs font-bold text-slate-500">③ 동 <span className="font-normal text-slate-400">({sigungu})</span></p>
+          <input value={dongQ} onChange={e => setDongQ(e.target.value)} placeholder="예: ㄱ → 공릉동..." className={inp} />
+          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+            {filteredDong.map(dg => (
+              <button key={dg} onClick={() => selectDong(dg)}
+                className={tagCls(dong===dg)} style={dong===dg ? {backgroundColor: NAVY} : {}}>
+                {dg}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4. 단지명 */}
+      {dong && (
+        <div className={stepCls}>
+          <p className="mb-1.5 text-xs font-bold text-slate-500">④ 단지명 <span className="font-normal text-slate-400">({dong})</span></p>
+          <input value={complexQ} onChange={e => searchComplex(e.target.value)}
+            placeholder="단지명 입력 (예: 동부, 래미안...)"
+            className={inp} />
+          {loading && <p className="text-xs text-slate-400">조회 중…</p>}
+          {complexList.length > 0 && (
+            <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-100 bg-white shadow-md">
+              {complexList.map((name, i) => (
+                <button key={i} onClick={() => selectComplex(name)}
+                  className="block w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 border-b border-slate-50 last:border-0">
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
+          {!loading && complexQ.length > 0 && complexList.length === 0 && (
+            <p className="text-xs text-slate-400">단지를 찾지 못했습니다. 단지명을 직접 입력 후 면적 조회하세요.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   const [f, setF] = useState(EMPTY);
   const [r, setR] = useState(null);
@@ -2257,6 +2414,27 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   const [fetchingAreas, setFetchingAreas] = useState(false);
 
   // 면적만 먼저 조회하는 함수
+  // 외부에서 파라미터 받는 버전 (단지 선택 즉시 호출용)
+  async function fetchAreasFor(region, dong, complexName) {
+    if (!complexName || !region) return;
+    setFetchingAreas(true); setAiMsg(null); setAreaOptions([]);
+    try {
+      const lawdCd = getLawdCd(dong, region);
+      if (!lawdCd) { setAiMsg("지역 코드를 찾지 못했습니다."); return; }
+      const result = await fetchMolitData(lawdCd, complexName, "", 6);
+      const allAreas = [...(result.sale || []), ...(result.jeonse || [])].map(d => d.areaSqm).filter(a => a > 0);
+      const unique = [...new Set(allAreas)].sort((a, b) => a - b);
+      const opts = unique.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
+      if (opts.length === 0) {
+        setAiMsg("최근 6개월 실거래가 없습니다. KB시세를 입력하거나 면적을 직접 입력하세요.");
+        setF(prev => ({ ...prev, _needKbInput: true }));
+      } else {
+        setAreaOptions(opts);
+      }
+    } catch(e) { setAiMsg("면적 조회 실패."); }
+    finally { setFetchingAreas(false); }
+  }
+
   async function fetchAreas() {
     if (!f.complexName || !f.region) { setAiMsg("지역(구)과 단지명을 입력하세요."); return; }
     setFetchingAreas(true); setAiMsg(null); setAreaOptions([]);
@@ -2395,17 +2573,27 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     <>
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
         <p className="mb-3 text-sm font-bold text-slate-800">단지 검색</p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <input type="text" value={f.region} placeholder="지역 (예: 노원구)" onChange={(e) => { set("region", e.target.value); setAreaOptions([]); }} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          <input type="text" value={f.complexName} placeholder="단지명 (예: 동부)" onChange={(e) => { set("complexName", e.target.value); setAreaOptions([]); }} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-        </div>
 
-        {/* 면적 조회 버튼 */}
-        <button onClick={fetchAreas} disabled={fetchingAreas || aiLoading}
-          className="mt-2 w-full rounded-2xl py-3 text-sm font-bold text-white disabled:opacity-50"
-          style={{ backgroundColor: "#334155" }}>
-          {fetchingAreas ? "면적 조회 중…" : "🔍 면적 조회 →"}
-        </button>
+        {/* 선택된 단지 표시 */}
+        {f.complexName && f.region ? (
+          <div className="mb-3 flex items-center justify-between rounded-2xl bg-slate-800 px-4 py-3">
+            <div>
+              <p className="text-xs text-slate-400">{f.region} · {f.dong}</p>
+              <p className="text-base font-bold text-white">{f.complexName}</p>
+            </div>
+            <button onClick={() => { setF(p => ({...p, region:"", dong:"", complexName:"", areaExclusive:""})); setAreaOptions([]); setAiMsg(null); }}
+              className="rounded-lg bg-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-600">
+              변경
+            </button>
+          </div>
+        ) : (
+          <LocationPicker onComplete={({ sido, sigungu, dong, complexName }) => {
+            setF(p => ({ ...p, region: sigungu, dong, complexName, areaExclusive: "" }));
+            setAreaOptions([]);
+            // 단지 선택 즉시 면적 자동 조회
+            setTimeout(() => fetchAreasFor(sigungu, dong, complexName), 100);
+          }} />
+        )}
 
         {/* 면적 버튼 */}
         {areaOptions.length > 0 && (
@@ -2422,12 +2610,15 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
             {f.areaExclusive && <p className="mt-1.5 text-xs text-amber-700">선택: 전용 {f.areaExclusive}㎡ · 약 {typicalPyeong(f.areaExclusive)}평형</p>}
           </div>
         )}
+        {fetchingAreas && <p className="mt-2 text-xs text-slate-400 text-center">면적 조회 중…</p>}
 
         {/* 매물가 입력 */}
+        {f.complexName && (
         <div className="mt-3">
           <p className="mb-1 text-xs font-medium text-slate-500">현재 매물가 (만원) <span className="text-red-500">*필수</span></p>
           <input type="number" value={f.currentPrice} placeholder="예: 50000" onChange={(e) => set("currentPrice", e.target.value)} className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
         </div>
+        )}
 
         {/* 6개월 내 거래 없을 때만 KB시세 입력 카드 표시 */}
         {f._needKbInput && (
