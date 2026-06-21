@@ -2755,6 +2755,27 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   const abortRef = useRef(null);
   const [areaOptions, setAreaOptions] = useState([]);
   const [fetchingAreas, setFetchingAreas] = useState(false);
+  // 국토부 원본 데이터 보관 — 면적 변경 시 API 재호출 없이 재필터
+  const rawMolitRef = useRef(null); // { complexName, dong, sale:[], jeonse:[], areaOptions:[], allAreas:Set, lawdCd }
+
+  // 면적 선택 그룹 기반 로컬 재필터 (API 재호출 없음)
+  function refilterByArea(overrideArea, exclusiveAreas) {
+    const raw = rawMolitRef.current;
+    if (!raw) return null; // 원본 없으면 null → quickSearch가 API 호출
+    const areaTarget = exclusiveAreas && exclusiveAreas.length > 0 ? exclusiveAreas : Number(overrideArea) || null;
+    if (!areaTarget) return null;
+
+    const filterDeals = (deals) => {
+      if (!areaTarget) return deals;
+      if (Array.isArray(areaTarget)) return deals.filter(d => areaTarget.some(a => Math.abs(d.areaSqm - a) <= 1));
+      return deals.filter(d => Math.abs(d.areaSqm - Number(areaTarget)) <= 3);
+    };
+
+    const sale   = filterDeals(raw.sale);
+    const jeonse = filterDeals(raw.jeonse);
+    console.log(`[refilter] area=${overrideArea} excl=${JSON.stringify(exclusiveAreas)} → 매매${sale.length}건 전세${jeonse.length}건`);
+    return { ...raw, sale, jeonse, areaSqm: Number(overrideArea) || 0 };
+  }
 
   // 면적만 먼저 조회하는 함수
   // 외부에서 파라미터 받는 버전 (단지 선택 즉시 호출용)
@@ -2830,91 +2851,109 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   async function quickSearch(overrideArea, overrideForm, exclusiveAreas = null) {
     const ff = overrideForm ? { ...f, ...overrideForm } : f;
     if (!ff.complexName && !(ff.currentPrice && ff.kbJeonse)) { setAiMsg("최소한 단지명을 입력하세요. (예: 동부)"); return; }
+
+    // 면적 변경인지 판단 — 단지명 같고 원본 있으면 로컬 재필터
+    const isSameComplex = rawMolitRef.current &&
+      rawMolitRef.current.complexName === (ff.exactAptNm || ff.complexName) &&
+      rawMolitRef.current.dong === ff.dong;
+    const isAreaChange = overrideArea && isSameComplex;
+
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     setAiLoading(true); setAiMsg(null); setPending(null);
-    try {
-      console.log("분석시작 complexName:", ff.complexName, "area:", overrideArea, "exclusiveAreas:", exclusiveAreas);
-      const rawData = await fetchApartmentData({
-        complexName: ff.complexName,
-        exactAptNm: ff.exactAptNm,
-        dong: ff.dong,
-        region: ff.region,
-        sido: ff.sido || "",
-        areaExclusive: overrideArea ? String(overrideArea) : ff.areaExclusive,
-        exclusiveAreas: exclusiveAreas || null, // 평형 그룹 전체 면적 배열
-      });
-      console.log("rawData:", rawData?.sale?.length, "매매", rawData?.jeonse?.length, "전세");
-      // ── [2] 변환 모듈 ── rawData에 사용자 입력값 미리 주입
-      const rawDataWithUserInput = {
-        ...rawData,
-        currentPrice: Number(ff.currentPrice) || rawData.currentPrice || 0,
-        kbSalePrice: Number(ff.kbSalePrice) || rawData.kbSalePrice || 0,
-        kbJeonse: Number(ff.kbJeonse) || rawData.kbJeonse || 0,
-        buildYear: ff.buildYear || rawData.buildYear || 0,
-        buildYearWarning: rawData.buildYearWarning || null,
-      };
-      const effectiveArea = Number(overrideArea) || Number(ff.areaExclusive) || Number(f.areaExclusive) || 0;
-      console.log("[quickSearch] effectiveArea:", effectiveArea, "overrideArea:", overrideArea, "ff.area:", ff.areaExclusive, "f.area:", f.areaExclusive);
-      const { filled, ff: builtFf, jeonseCalc, saleCalc, blockReason } = buildAnalysisInput(
-        rawDataWithUserInput, ff, effectiveArea
-      );
-      // 사용자 입력값 강제 보정 (rawData가 0으로 덮어쓰는 것 방지)
-      if (ff.currentPrice) filled.currentPrice = ff.currentPrice;
-      if (ff.kbSalePrice) filled.kbSalePrice = ff.kbSalePrice;
-      if (ff.kbJeonse) filled.kbJeonse = ff.kbJeonse;
-      // 면적: overrideArea > ff.areaExclusive 우선
-      if (overrideArea) filled.areaExclusive = String(overrideArea);
-      else if (ff.areaExclusive) filled.areaExclusive = ff.areaExclusive;
-      if (ff.buildYear && !filled.buildYear) filled.buildYear = ff.buildYear;
-      console.log("[quickSearch] 보정 후 area:", filled.areaExclusive, "effectiveArea:", effectiveArea, "blockReason:", blockReason);
-      setF(filled);
-      // 면적 옵션 저장
-      const opts = (filled._aiAreaOptions && filled._aiAreaOptions.length > 0)
-        ? filled._aiAreaOptions
-        : (rawData.areaOptions && rawData.areaOptions.length > 0 ? rawData.areaOptions : []);
-      setAreaOptions(opts);
 
-      // 면적 미지정 + 옵션 있으면 → 면적 선택 먼저, ConfirmStep 안 감
-      const askedArea = Number(overrideArea) || Number(ff.areaExclusive) || Number(f.areaExclusive) || 0;
-      console.log("5. askedArea:", askedArea, "overrideArea:", overrideArea, "ff.area:", ff.areaExclusive, "f.area:", f.areaExclusive);
-      if (askedArea <= 0 && opts.length > 0) {
-        setAiMsg(null);
-        return;
+    // 면적 변경 시 이전 분석값 초기화 안내
+    if (isAreaChange) {
+      setAiMsg("⏳ 면적 변경 중 — 거래 데이터 재필터 중...");
+    }
+
+    try {
+      let rawData;
+      if (isAreaChange) {
+        // ── 로컬 재필터 (API 재호출 없음) ──
+        rawData = refilterByArea(overrideArea, exclusiveAreas);
+        if (!rawData) {
+          // 재필터 실패 → API 재호출로 fallback
+          rawData = await _fetchRawData(ff, overrideArea, exclusiveAreas);
+        }
+      } else {
+        // ── 신규 단지 또는 원본 없음 → API 호출 ──
+        rawData = await _fetchRawData(ff, overrideArea, exclusiveAreas);
       }
 
-      // currentPrice 최종 확정 (사용자 입력 우선)
-      const finalCurrentPrice = Number(ff.currentPrice) || Number(filled.currentPrice) || 0;
-      const finalBlockReason = !finalCurrentPrice ? "현재 매물가를 입력하세요." : blockReason;
+      // ── 공통 처리 ──
+      _processRawData(rawData, ff, overrideArea, exclusiveAreas);
 
-      const pendingFf = builtFf
-        ? { ...builtFf, currentPrice: finalCurrentPrice }
-        : {
-            ...filled,
-            currentPrice: finalCurrentPrice,
-            baseJeonse: Number(filled.kbJeonse) || 0,
-            kbSalePrice: Number(filled.kbSalePrice) || 0,
-            jeonseUsed: 0, saleUsed: 0,
-            jeonseCalc: null, saleCalc: null, dataSource: "ai",
-          };
-      console.log("setPending 호출 pendingFf.currentPrice:", pendingFf.currentPrice);
-      setPending({ ff: pendingFf, jeonseCalc, saleCalc, blockReason: finalBlockReason });
-      console.log("분석완료 → ConfirmStep 이동");
     } catch (e) {
       console.error("fetchApartmentData 오류:", e);
-      // 에러여도 ConfirmStep으로 이동 — 수기 입력 가능하게
+      setAiMsg(`조회 실패: ${e.message} — 아래에서 값을 직접 입력하세요.`);
       const fallbackFf = {
-        ...ff,
-        currentPrice: Number(ff.currentPrice) || 0,
-        baseJeonse: Number(ff.kbJeonse) || 0,
-        kbSalePrice: Number(ff.kbSalePrice) || 0,
-        jeonseUsed: 0, saleUsed: 0,
-        jeonseCalc: null, saleCalc: null, dataSource: "manual",
+        ...ff, currentPrice: Number(ff.currentPrice) || 0,
+        baseJeonse: Number(ff.kbJeonse) || 0, kbSalePrice: Number(ff.kbSalePrice) || 0,
+        jeonseUsed: 0, saleUsed: 0, jeonseCalc: null, saleCalc: null, dataSource: "manual",
       };
       setPending({ ff: fallbackFf, jeonseCalc: null, saleCalc: null,
         blockReason: e.message || "조회 실패 — 아래에서 값을 직접 입력하세요." });
     } finally { setAiLoading(false); }
+  }
+
+  async function _fetchRawData(ff, overrideArea, exclusiveAreas) {
+    const data = await fetchApartmentData({
+      complexName: ff.complexName, exactAptNm: ff.exactAptNm,
+      dong: ff.dong, region: ff.region, sido: ff.sido || "",
+      areaExclusive: overrideArea ? String(overrideArea) : ff.areaExclusive,
+      exclusiveAreas: exclusiveAreas || null,
+    });
+    // 원본 보관 (단지명+동 기준)
+    rawMolitRef.current = {
+      ...data,
+      complexName: ff.exactAptNm || ff.complexName,
+      dong: ff.dong,
+    };
+    console.log("[raw] 저장:", (data.sale||[]).length, "매매", (data.jeonse||[]).length, "전세");
+    return data;
+  }
+
+  function _processRawData(rawData, ff, overrideArea, exclusiveAreas) {
+    const rawDataWithUserInput = {
+      ...rawData,
+      // 면적 변경 시 KB시세/현재가는 이전 값 유지 — 사용자가 입력한 값이 우선
+      currentPrice: Number(ff.currentPrice) || rawData.currentPrice || 0,
+      kbSalePrice:  Number(ff.kbSalePrice)  || rawData.kbSalePrice  || 0,
+      kbJeonse:     Number(ff.kbJeonse)     || rawData.kbJeonse     || 0,
+      buildYear:    ff.buildYear || rawData.buildYear || 0,
+      buildYearWarning: rawData.buildYearWarning || null,
+    };
+    const effectiveArea = Number(overrideArea) || Number(ff.areaExclusive) || Number(f.areaExclusive) || 0;
+    const { filled, ff: builtFf, jeonseCalc, saleCalc, blockReason } = buildAnalysisInput(
+      rawDataWithUserInput, ff, effectiveArea
+    );
+    // 면적: overrideArea 우선
+    if (overrideArea) filled.areaExclusive = String(overrideArea);
+    else if (ff.areaExclusive) filled.areaExclusive = ff.areaExclusive;
+    if (ff.buildYear && !filled.buildYear) filled.buildYear = ff.buildYear;
+
+    // 면적 변경 알림 메시지 (이전 분석 무효)
+    if (overrideArea && rawMolitRef.current) {
+      filled._areaChangedMsg = `면적이 ${overrideArea}㎡로 변경되어 기존 분석값을 초기화했습니다. 다시 AI 분석을 실행하세요.`;
+    }
+
+    setF(filled);
+    const opts = filled._aiAreaOptions?.length > 0 ? filled._aiAreaOptions : (rawData.areaOptions || []);
+    setAreaOptions(opts);
+
+    const askedArea = effectiveArea;
+    if (askedArea <= 0 && opts.length > 0) { setAiMsg(null); return; }
+
+    const finalCurrentPrice = Number(ff.currentPrice) || Number(filled.currentPrice) || 0;
+    const finalBlockReason = !finalCurrentPrice ? "현재 매물가를 입력하세요." : blockReason;
+    const pendingFf = builtFf
+      ? { ...builtFf, currentPrice: finalCurrentPrice }
+      : { ...filled, currentPrice: finalCurrentPrice, baseJeonse: Number(filled.kbJeonse) || 0,
+          kbSalePrice: Number(filled.kbSalePrice) || 0, jeonseUsed: 0, saleUsed: 0,
+          jeonseCalc: null, saleCalc: null, dataSource: "ai" };
+    setPending({ ff: pendingFf, jeonseCalc, saleCalc, blockReason: finalBlockReason });
   }
 
   // 매물 캡처(이미지)에서 정보 추출 — 사용자가 올린 화면만 분석
@@ -2988,6 +3027,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         ) : (
           <LocationPicker onComplete={({ sido, sigungu, dong, complexName, exactAptNm }) => {
             setF(p => ({ ...p, region: sigungu, sido, dong, complexName, exactAptNm, areaExclusive: "" }));
+            rawMolitRef.current = null; // 새 단지 선택 시 원본 데이터 초기화
             setAreaOptions([]);
             setTimeout(() => fetchAreasFor(sigungu, dong, complexName, exactAptNm, sido), 100);
           }} />
@@ -3232,6 +3272,12 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
           ) : (
             <p className="mt-1 text-xs text-red-500">아래에서 값을 직접 수정한 뒤 분석을 실행하세요.</p>
           )}
+        </div>
+      )}
+      {/* 면적 변경 안내 */}
+      {edit._areaChangedMsg && (
+        <div className="mb-3 rounded-xl bg-blue-50 px-4 py-3 ring-1 ring-blue-200">
+          <p className="text-xs font-semibold text-blue-700">📐 {edit._areaChangedMsg}</p>
         </div>
       )}
       {Array.isArray(edit._aiWarns) && edit._aiWarns.length > 0 && (
@@ -4771,6 +4817,7 @@ function Empty({ title, desc }) {
 }
 import ReactDOM from 'react-dom/client';
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
 
 
 
