@@ -2209,44 +2209,34 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch }) {
           <label className="block">
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-600">KB 매매시세 (만원)</span>
-              <div className="flex gap-1">
-                <a href={`https://kbland.kr/map?searchText=${encodeURIComponent((edit.dong || "") + " " + (edit.complexName || ""))}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-700 hover:bg-yellow-200">
-                  KB부동산
-                </a>
-                <a href={`https://land.naver.com/search/complexSearch.nhn?keyword=${encodeURIComponent((edit.dong || "") + " " + (edit.complexName || ""))}`}
-                  target="_blank" rel="noopener noreferrer"
+              <div className="flex items-center gap-1">
+                <button type="button"
+                  onClick={() => { const q = ((edit.dong||"")+" "+(edit.complexName||"")).trim(); navigator.clipboard.writeText(q); window.open("https://land.naver.com/search/complexSearch.nhn?keyword="+encodeURIComponent(q), "_blank", "noopener,noreferrer"); }}
                   className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">
-                  네이버
-                </a>
+                  📋 네이버 KB시세 확인
+                </button>
               </div>
             </div>
-            <input type="number" className={inp2} value={edit.kbSalePrice} placeholder="KB부동산·네이버에서 중간값 확인 후 입력"
+            <input type="number" className={inp2} value={edit.kbSalePrice} placeholder="네이버 시세탭 → KB시세 중간값 입력"
               onChange={(e) => setE("kbSalePrice", e.target.value)} />
-            <p className="mt-1 text-[10px] text-slate-400">⚠ AI가 정확히 못 가져올 수 있어요 — 직접 확인 권장</p>
+            <p className="mt-1 text-[10px] text-slate-400">버튼 클릭 → 새 창에서 단지 검색 → 시세 탭 → KB 중간값 확인 후 입력</p>
           </label>
 
           {/* KB 전세시세 */}
           <label className="block">
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-600">KB 전세시세 (만원)</span>
-              <div className="flex gap-1">
-                <a href={`https://kbland.kr/map?searchText=${encodeURIComponent((edit.dong || "") + " " + (edit.complexName || ""))}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-700 hover:bg-yellow-200">
-                  KB부동산
-                </a>
-                <a href={`https://land.naver.com/search/complexSearch.nhn?keyword=${encodeURIComponent((edit.dong || "") + " " + (edit.complexName || ""))}`}
-                  target="_blank" rel="noopener noreferrer"
+              <div className="flex items-center gap-1">
+                <button type="button"
+                  onClick={() => { const q = ((edit.dong||"")+" "+(edit.complexName||"")).trim(); navigator.clipboard.writeText(q); window.open("https://land.naver.com/search/complexSearch.nhn?keyword="+encodeURIComponent(q), "_blank", "noopener,noreferrer"); }}
                   className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">
-                  네이버
-                </a>
+                  📋 네이버 KB시세 확인
+                </button>
               </div>
             </div>
-            <input type="number" className={inp2} value={edit.kbJeonse} placeholder="KB부동산·네이버에서 중간값 확인 후 입력"
+            <input type="number" className={inp2} value={edit.kbJeonse} placeholder="네이버 시세탭 → KB시세 중간값 입력"
               onChange={(e) => setE("kbJeonse", e.target.value)} />
-            <p className="mt-1 text-[10px] text-slate-400">⚠ AI가 정확히 못 가져올 수 있어요 — 직접 확인 권장</p>
+            <p className="mt-1 text-[10px] text-slate-400">버튼 클릭 → 새 창에서 단지 검색 → 시세 탭 → KB 중간값 확인 후 입력</p>
           </label>
 
           {/* 기준 전세가 */}
@@ -3135,8 +3125,7 @@ function SellView({ onContext }) {
                       <div className="mb-1.5 flex items-center justify-between">
                         <span className="text-xs font-medium text-slate-500">{l}</span>
                         <div className="flex gap-1">
-                          <a href={`https://kbland.kr/map?searchText=${encodeURIComponent((f.dong||"")+" "+(f.complexName||""))}`} target="_blank" rel="noopener noreferrer" className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-700 hover:bg-yellow-200">KB부동산</a>
-                          <a href={`https://land.naver.com/search/complexSearch.nhn?keyword=${encodeURIComponent((f.dong||"")+" "+(f.complexName||""))}`} target="_blank" rel="noopener noreferrer" className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">네이버</a>
+                          <button type="button" onClick={() => { const q=((f.dong||"")+" "+(f.complexName||"")).trim(); navigator.clipboard.writeText(q); window.open("https://land.naver.com/search/complexSearch.nhn?keyword="+encodeURIComponent(q),"_blank","noopener,noreferrer"); }} className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">📋 네이버 KB시세 확인</button>
                         </div>
                       </div>
                       <input type={t} className={inp} value={f[k]} placeholder="중간값 직접 확인 후 입력" onChange={(e) => set(k, e.target.value)} />
