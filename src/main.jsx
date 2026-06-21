@@ -2071,24 +2071,21 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
       if (area > 0) results.allAreas.add(area);
     }
 
-    const useAreaOnly = Number(areaExclusive) > 0;
 
-    // 매매 실거래 처리
+    // 매매 실거래 처리 — 단지명 필터는 항상 적용
     for (const item of saleItems) {
       try {
-        if (!useAreaOnly && !matchAptName(item.aptNm, complexName, exactAptNm)) continue;
+        if (!matchAptName(item.aptNm, complexName, exactAptNm)) continue;
         if (!matchArea(item.excluUseAr, areaExclusive)) continue;
         const price = parsePrice(item.dealAmount);
         if (!price) continue;
-        // buildYear는 단지명 일치하는 아이템에서만 신뢰
-        const nameMatched = matchAptName(item.aptNm, complexName, exactAptNm);
         results.sale.push({
           ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
           price: Math.round(price),
           floor: Number(item.floor) || 5,
           areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
           complexName: item.aptNm || complexName,
-          buildYear: nameMatched ? (Number(item.buildYear) || 0) : 0,
+          buildYear: Number(item.buildYear) || 0,
           region: item.siGunGu || item.sggNm || "",
         });
       } catch(itemErr) {
@@ -2096,22 +2093,21 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
       }
     }
 
-    // 전세 실거래 처리
+    // 전세 실거래 처리 — 단지명 필터는 useAreaOnly 여부와 무관하게 항상 적용
     for (const item of rentItems) {
       try {
-        if (!useAreaOnly && !matchAptName(item.aptNm, complexName, exactAptNm)) continue;
+        if (!matchAptName(item.aptNm, complexName, exactAptNm)) continue;
         if (!matchArea(item.excluUseAr, areaExclusive)) continue;
         if (item.monthlyRent && Number(item.monthlyRent) > 0) continue; // 월세 제외
         const price = parsePrice(item.deposit);
         if (!price) continue;
-        const nameMatchedJ = matchAptName(item.aptNm, complexName, exactAptNm);
         results.jeonse.push({
           ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
           price: Math.round(price),
           floor: Number(item.floor) || 5,
           areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
           complexName: item.aptNm || complexName,
-          buildYear: nameMatchedJ ? (Number(item.buildYear) || 0) : 0,
+          buildYear: Number(item.buildYear) || 0,
         });
       } catch(itemErr) {
         console.warn("전세 항목 처리 오류:", itemErr.message);
@@ -2185,22 +2181,44 @@ async function fetchApartmentData(query) {
     areaSqm = found || 0;
   }
 
-  // ── 8. buildYear 추출 — 단지명 일치 아이템(buildYear>0)에서만
-  const recentSale = sale[0];
-  const recentJeonseForYear = jeonse[0];
-  const buildYearFromSale = sale.find(d => d.buildYear > 0)?.buildYear || 0;
-  const buildYearFromJeonse = jeonse.find(d => d.buildYear > 0)?.buildYear || 0;
-  const buildYear = buildYearFromSale || buildYearFromJeonse || 0;
-  console.log("buildYear 추출:", buildYear, "from", buildYearFromSale ? "매매" : buildYearFromJeonse ? "전세" : "없음");
+  // ── 8. buildYear 추출 — 단지명 필터된 아이템에서만, 최빈값 사용 ──
+  const allBuildYears = [...sale, ...jeonse]
+    .map(d => d.buildYear)
+    .filter(y => y > 1900 && y <= new Date().getFullYear());
+
+  let buildYear = 0;
+  let buildYearWarning = null;
+
+  if (allBuildYears.length === 0) {
+    buildYearWarning = "준공연도 확인 필요";
+  } else {
+    // 최빈값 계산
+    const freq = {};
+    for (const y of allBuildYears) freq[y] = (freq[y] || 0) + 1;
+    const modeYear = Number(Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0]);
+
+    // 이상값 판단: 같은 법정동에서 다른 단지가 섞였을 가능성
+    // 후보 연도가 2개 이상이고 최빈값이 전체 50% 미만이면 경고
+    const uniqueYears = Object.keys(freq).length;
+    const modeRatio = freq[modeYear] / allBuildYears.length;
+
+    if (uniqueYears > 1 && modeRatio < 0.5) {
+      buildYearWarning = "준공연도 확인 필요";
+      buildYear = modeYear; // 최빈값은 일단 넣되 경고
+    } else {
+      buildYear = modeYear;
+    }
+  }
+
+  console.log("buildYear 추출(최빈값):", buildYear, buildYearWarning ? `[경고: ${buildYearWarning}]` : "");
 
   // ── 9. 지역명 역변환 ──
   const LAWD_CD_REVERSE = Object.fromEntries(Object.entries(LAWD_CD_MAP).map(([k, v]) => [String(v), k]));
   const regionFromCode = LAWD_CD_REVERSE[lawdCd] || "";
-  const regionName = qRegion || regionFromCode || (recentSale ? recentSale.region || "" : "");
+  const regionName = qRegion || regionFromCode || (sale[0]?.region || "");
 
   // ── 10. 기준 전세가 추정 ──
-  const recentJeonse = jeonse[0];
-  const baseJeonseEstimate = recentJeonse ? recentJeonse.price : 0;
+  const baseJeonseEstimate = jeonse[0] ? jeonse[0].price : 0;
 
   return {
     region: regionName,
@@ -2210,6 +2228,7 @@ async function fetchApartmentData(query) {
     pyeong: areaSqm > 0 ? typicalPyeong(areaSqm) : 0,
     priceArea: areaSqm,
     buildYear,
+    buildYearWarning,
     topFloor: 0,
     currentPrice: 0,
     kbSalePrice: 0,
@@ -2248,6 +2267,7 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
   const warns = [];
   if (p.noTradeWarning && p.noTradeWarning !== "KB_INPUT_NEEDED") warns.push(`⚠️ ${p.noTradeWarning}`);
   const needKbInput = p.noTradeWarning === "KB_INPUT_NEEDED";
+  if (p.buildYearWarning) warns.push(`⚠️ ${p.buildYearWarning} — 준공연도를 직접 확인 후 입력하세요.`);
   if (areaSqm <= 0 && !askedArea) warns.push("전용면적 미확인 — 면적을 직접 확인/입력하세요.");
   const mismatch = areaSqm > 0 && priceArea > 0 && Math.abs(priceArea - areaSqm) > Math.max(3, areaSqm * 0.06);
   if (mismatch) warns.push(`가격은 전용 ${priceArea}㎡ 기준인데 단지 기준면적은 ${areaSqm}㎡로 다릅니다.`);
@@ -2263,6 +2283,7 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
     complexName: p.complexName || baseForm.complexName,
     pyeong, areaExclusive: areaSqm || "", priceArea,
     buildYear: p.buildYear || "",
+    buildYearWarning: p.buildYearWarning || null,
     currentPrice: Number(p.currentPrice) || "",
     kbSalePrice: Number(p.kbSalePrice) || "",
     kbJeonse: Number(p.kbJeonse) || "",
@@ -2571,6 +2592,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         kbSalePrice: Number(ff.kbSalePrice) || rawData.kbSalePrice || 0,
         kbJeonse: Number(ff.kbJeonse) || rawData.kbJeonse || 0,
         buildYear: ff.buildYear || rawData.buildYear || 0,
+        buildYearWarning: rawData.buildYearWarning || null,
       };
       const { filled, ff: builtFf, jeonseCalc, saleCalc, blockReason } = buildAnalysisInput(
         rawDataWithUserInput, ff, Number(ff.areaExclusive) || 0
@@ -3035,6 +3057,9 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
             <span className="mb-1.5 block text-xs font-semibold text-slate-600">준공연도</span>
             <input type="number" className={inp2} value={edit.buildYear} placeholder="예: 1999"
               onChange={(e) => setE("buildYear", e.target.value)} />
+            {edit.buildYearWarning && (
+              <p className="mt-1 text-[11px] text-amber-600 font-semibold">⚠️ {edit.buildYearWarning} — 직접 입력하세요</p>
+            )}
             {age !== null && (
               <p className="mt-1 text-[11px] text-slate-400">{age}년차{age >= 28 ? " · 재건축권" : ""}</p>
             )}
@@ -4368,3 +4393,4 @@ function Empty({ title, desc }) {
 }
 import ReactDOM from 'react-dom/client';
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
