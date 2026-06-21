@@ -2446,10 +2446,18 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch }) {
           {/* 전용면적 */}
           <label className="block">
             <span className="mb-1.5 block text-xs font-semibold text-slate-600">전용면적 (㎡)</span>
-            <input type="number" className={inp2} value={edit.areaExclusive} placeholder="예: 59.99"
-              onChange={(e) => setE("areaExclusive", e.target.value)} />
+            <div className="flex gap-2">
+              <input type="number" className={inp2} value={edit.areaExclusive} placeholder="예: 59.99"
+                onChange={(e) => setE("areaExclusive", e.target.value)} />
+              {Number(edit.areaExclusive) > 0 && onRefetch && (
+                <button type="button" onClick={() => onRefetch(Number(edit.areaExclusive))}
+                  className="shrink-0 rounded-xl bg-slate-800 px-3 text-xs font-bold text-white hover:bg-slate-700">
+                  재조회
+                </button>
+              )}
+            </div>
             {Number(edit.areaExclusive) > 0 && (
-              <p className="mt-1 text-[11px] text-slate-400">통상 약 {typicalPyeong(edit.areaExclusive)}평형</p>
+              <p className="mt-1 text-[11px] text-slate-400">통상 약 {typicalPyeong(edit.areaExclusive)}평형 · 면적 입력 후 재조회 버튼 클릭</p>
             )}
           </label>
 
