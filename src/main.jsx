@@ -2441,11 +2441,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
                   buildYear: p.buildYear || f.buildYear,
                 };
                 setF(prev => ({ ...prev, ...merged }));
-                setCaptureMsg(`✅ 캡처 인식 완료 — ${merged.complexName||"단지"} ${merged.areaExclusive?merged.areaExclusive+"㎡":""} ${merged.currentPrice?"매물가 "+(merged.currentPrice/10000).toFixed(1)+"억":""}`);
-                // 캡처 완료 후 자동 조회
-                if (merged.complexName || (merged.currentPrice && merged.kbJeonse)) {
-                  setTimeout(() => quickSearch(merged.areaExclusive || undefined, merged), 100);
-                }
+                setCaptureMsg(`✅ 캡처 인식 완료 — ${merged.complexName||"단지"} ${merged.areaExclusive?merged.areaExclusive+"㎡":""} ${merged.currentPrice?"매물가 "+(merged.currentPrice/10000).toFixed(1)+"억":""}. 추가 캡처 올리거나 버튼을 눌러 분석하세요.`);
               } catch(e) {
                 setAiMsg("캡처 인식 실패 — 직접 입력해주세요.");
               } finally { setAiLoading(false); e.target.value=""; }
