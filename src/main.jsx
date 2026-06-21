@@ -2071,12 +2071,35 @@ function matchAptName(itemName, complexName, exactAptNm) {
   return common >= Math.min(2, minLen);
 }
 
-// 면적 매칭 — tolerance 파라미터로 단계 제어
-// tolerance: 0 = exact(±0.5㎡), 1 = ±1㎡, 3 = ±3㎡(같은평형그룹)
+// 전용면적 배열을 평형 그룹으로 묶기 (±2㎡ 이내 = 같은 그룹)
+// 반환: [{ rep: 대표면적, areas: [59.97, 59.99, 60.0], pyeong: 25 }, ...]
+function groupAreasByPyeong(areaList) {
+  const sorted = [...new Set(areaList.map(a => Math.round(a*100)/100))].sort((a,b)=>a-b);
+  const groups = [];
+  for (const a of sorted) {
+    const last = groups[groups.length - 1];
+    if (last && a - last.rep <= 3) {
+      last.areas.push(a);
+      // 대표값은 최빈값으로 업데이트
+      last.rep = last.areas.reduce((p,c,_,arr) => arr.filter(x=>x===c).length >= arr.filter(x=>x===p).length ? c : p, last.areas[0]);
+    } else {
+      groups.push({ rep: a, areas: [a], pyeong: typicalPyeong(a) });
+    }
+  }
+  return groups;
+}
+
+// 면적 매칭 — targetArea는 숫자 또는 숫자 배열(exclusiveAreas)
+// tolerance: ±㎡ 허용 범위
 function matchArea(itemArea, targetArea, tolerance = 3) {
-  if (!targetArea || Number(targetArea) <= 0) return true;
-  const diff = Math.abs(Number(itemArea) - Number(targetArea));
-  return diff <= tolerance;
+  const item = Number(itemArea);
+  if (!targetArea) return true;
+  if (Array.isArray(targetArea)) {
+    // 배열이면 하나라도 tolerance 이내면 통과
+    return targetArea.some(t => Math.abs(item - Number(t)) <= tolerance);
+  }
+  if (Number(targetArea) <= 0) return true;
+  return Math.abs(item - Number(targetArea)) <= tolerance;
 }
 
 // 거래금액 파싱 (콤마 제거)
@@ -2085,10 +2108,12 @@ function parsePrice(val) {
 }
 
 // ── 공통 실거래 조회 함수 ──
-async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, exactAptNm = "", dong = "") {
+async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, exactAptNm = "", dong = "", exclusiveAreas = null) {
   const now = new Date();
-  const AREA_STEPS = [0.5, 1, 3, 5]; // 단계별 면적 tolerance
-  const MIN_DEALS = 5; // 충분한 표본 기준
+  const AREA_STEPS = [0.5, 1, 3, 5];
+  const MIN_DEALS = 5;
+  // 면적 필터 기준: exclusiveAreas 배열 우선, 없으면 단일값
+  const areaTarget = exclusiveAreas && exclusiveAreas.length > 0 ? exclusiveAreas : (Number(areaExclusive) > 0 ? Number(areaExclusive) : null);
 
   const monthList = Array.from({ length: months }, (_, mi) => {
     const d = new Date(now.getFullYear(), now.getMonth() - mi, 1);
@@ -2162,13 +2187,17 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
 
   // ── Step3: 면적 필터 (단계적 확장) ──
   let saleArea = [], rentArea = [], usedTol = -1;
-  if (Number(areaExclusive) > 0) {
+  if (areaTarget) {
     for (const tol of AREA_STEPS) {
-      const s = saleAptFiltered.filter(i => matchArea(i.excluUseAr, areaExclusive, tol));
-      const j = rentRaw.filter(i => matchArea(i.excluUseAr, areaExclusive, tol));
+      const s = saleAptFiltered.filter(i => matchArea(i.excluUseAr, areaTarget, tol));
+      const j = rentRaw.filter(i => matchArea(i.excluUseAr, areaTarget, tol));
       saleArea = s; rentArea = j; usedTol = tol;
       if (s.length >= 3 && j.length >= 3) break;
     }
+    // 파이프라인 로그: 어떤 면적들이 통과했나
+    const rentAreas = rentArea.map(i => Number(i.excluUseAr));
+    const saleAreas = saleArea.map(i => Number(i.excluUseAr));
+    console.log(`[pipe] 면적필터(±${usedTol}㎡): 매매통과면적`, [...new Set(saleAreas)], "전세통과면적", [...new Set(rentAreas)], "기준", areaTarget);
   } else {
     saleArea = saleAptFiltered;
     rentArea = rentRaw;
@@ -2208,7 +2237,10 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
     if (apiFailed >= monthList.length) return "API 조회 실패";
     if (pipe.step1_raw === 0) return "국토부 응답 0건 (법정동 코드 확인 필요)";
     if (pipe.step2_aptNm === 0) return `단지명 매칭 실패 (원본: ${[...new Set(pipe.aptNmSamples)].slice(0,5).join(", ")})`;
-    if (pipe.step3_area === 0) return `선택 면적(${areaExclusive}㎡) 거래 없음 (단지 면적: ${pipe.areaSamples.slice(0,5).join(", ")}㎡)`;
+    if (pipe.step3_area === 0) {
+      const targetLabel = Array.isArray(areaTarget) ? areaTarget.slice(0,3).join("/")+"㎡" : `${areaExclusive}㎡`;
+      return `선택 면적(${targetLabel}) 거래 없음 (단지 면적: ${pipe.areaSamples.slice(0,5).join(", ")}㎡)`;
+    }
     if (pipe.step6_final === 0) return "가격 파싱 실패 또는 전체 이상치";
     return null;
   };
@@ -2243,15 +2275,17 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
 }
 
 async function fetchApartmentData(query) {
-  // query: { complexName, exactAptNm, dong, region, sido, areaExclusive }
+  // query: { complexName, exactAptNm, dong, region, sido, areaExclusive, exclusiveAreas }
 
-  // ── 1. 변수 명확히 선언 ──
   const qComplexName  = String(query.complexName  || "");
   const qExactAptNm   = String(query.exactAptNm   || "");
   const qDong         = String(query.dong         || "");
   const qRegion       = String(query.region       || "");
   const qSido         = String(query.sido         || "");
-  const qArea         = Number(query.areaExclusive) || 0; // 전용면적(㎡)
+  const qArea         = Number(query.areaExclusive) || 0;
+  // 평형 그룹 전체 면적 배열 — 있으면 필터를 배열 기반으로
+  const qExclusiveAreas = Array.isArray(query.exclusiveAreas) && query.exclusiveAreas.length > 0
+    ? query.exclusiveAreas : null;
 
   // ── 2. 필수 검증 ──
   if (!qComplexName && !qExactAptNm) throw new Error("단지명을 다시 선택해주세요.");
@@ -2274,7 +2308,7 @@ async function fetchApartmentData(query) {
   let sale = [], jeonse = [], tradeStatus = null;
   let molitResult;
   try {
-    molitResult = await fetchMolitData(lawdCd, qExactAptNm || qComplexName, String(qArea), 24, qExactAptNm, qDong);
+    molitResult = await fetchMolitData(lawdCd, qExactAptNm || qComplexName, String(qArea), 24, qExactAptNm, qDong, qExclusiveAreas);
     sale   = molitResult.sale   || [];
     jeonse = molitResult.jeonse || [];
     const d = molitResult.diagnosis || {};
@@ -2316,10 +2350,30 @@ async function fetchApartmentData(query) {
     throw new Error("국토부 API 호출 실패: " + e.message);
   }
 
-  // ── 6. 면적 목록 추출 ──
-  const allAreas = [...sale, ...jeonse].map(d => d.areaSqm).filter(a => a > 0);
-  const uniqueAreas = [...new Set(allAreas)].sort((a, b) => a - b);
-  const areaOptions = uniqueAreas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
+  // ── 6. 면적 목록 추출 — 매매 기준 평형 그룹으로 묶기 ──
+  // 매매 데이터만 사용 (전세는 다른 평형이 섞일 수 있음)
+  const saleAreaList = sale.map(d => d.areaSqm).filter(a => a > 0);
+  const jeonseAreaList = jeonse.map(d => d.areaSqm).filter(a => a > 0);
+  // 매매 없으면 전세도 포함
+  const areaSourceList = saleAreaList.length > 0 ? saleAreaList : [...saleAreaList, ...jeonseAreaList];
+  const areaGroups = groupAreasByPyeong(areaSourceList);
+  // areaOptions: { areaSqm(대표), exclusiveAreas[], pyeong, supplySqm }
+  const areaOptions = areaGroups.map(g => ({
+    areaSqm: g.rep,
+    exclusiveAreas: g.areas,
+    pyeong: g.pyeong,
+    supplySqm: null, // 국토부 API 미제공 → UI에서 ×1.35 추정
+  }));
+
+  // 다른 평형 전세 거래 분리 (참고 표시용)
+  const selectedGroup = qArea > 0 ? areaGroups.find(g => g.areas.some(a => Math.abs(a - qArea) <= 5)) : null;
+  const otherAreaJeonse = selectedGroup
+    ? jeonse.filter(d => !selectedGroup.areas.some(a => Math.abs(d.areaSqm - a) <= 1))
+    : [];
+  if (otherAreaJeonse.length > 0) {
+    const otherAreas = [...new Set(otherAreaJeonse.map(d => d.areaSqm))].slice(0, 5);
+    console.log("[area] 다른 평형 전세 거래(참고):", otherAreas.join(", ") + "㎡");
+  }
 
   // ── 7. 대표 면적 결정 ──
   let areaSqm = 0;
@@ -2386,6 +2440,8 @@ async function fetchApartmentData(query) {
     sale,
     areaOptions,
     tradeStatus,
+    otherAreaJeonse,          // 다른 평형 전세 거래 (참고용)
+    selectedAreaGroup: selectedGroup, // 선택된 평형 그룹 정보
   };
 }
 
@@ -2453,6 +2509,7 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
     deals: jd, saleDeals: sd, shockLevel: "보통",
     _aiFilled: true, _aiSource: "국토부 실거래·KB·호갱노노 웹검색(AI)", _needKbInput: needKbInput,
     _tradeStatus: ts,
+    _otherAreaJeonse: p.otherAreaJeonse || [],
     _aiWarns: warns, _aiAreaOptions: areaOptions,
   };
 
@@ -2730,7 +2787,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   //   [2] buildAnalysisInput  → 변환 모듈 (rawData → analyze() 입력 형태)
   //   [3] analyze()           → 계산 엔진 (ConfirmStep → doAnalyze에서 실행, 절대 수정 금지)
   // ─────────────────────────────────────────────────────────────
-  async function quickSearch(overrideArea, overrideForm) {
+  async function quickSearch(overrideArea, overrideForm, exclusiveAreas = null) {
     const ff = overrideForm ? { ...f, ...overrideForm } : f;
     if (!ff.complexName && !(ff.currentPrice && ff.kbJeonse)) { setAiMsg("최소한 단지명을 입력하세요. (예: 동부)"); return; }
     if (abortRef.current) abortRef.current.abort();
@@ -2738,8 +2795,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     abortRef.current = controller;
     setAiLoading(true); setAiMsg(null); setPending(null);
     try {
-      console.log("분석시작 complexName:", ff.complexName, "area:", ff.areaExclusive);
-      // ── [1] 조회 모듈 ──
+      console.log("분석시작 complexName:", ff.complexName, "area:", overrideArea, "exclusiveAreas:", exclusiveAreas);
       const rawData = await fetchApartmentData({
         complexName: ff.complexName,
         exactAptNm: ff.exactAptNm,
@@ -2747,6 +2803,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         region: ff.region,
         sido: ff.sido || "",
         areaExclusive: overrideArea ? String(overrideArea) : ff.areaExclusive,
+        exclusiveAreas: exclusiveAreas || null, // 평형 그룹 전체 면적 배열
       });
       console.log("rawData:", rawData?.sale?.length, "매매", rawData?.jeonse?.length, "전세");
       // ── [2] 변환 모듈 ── rawData에 사용자 입력값 미리 주입
@@ -2905,7 +2962,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
                 const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
                 const selected = String(f.areaExclusive) === String(o.areaSqm);
                 return (
-                  <button key={i} onClick={() => { set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm); }}
+                  <button key={i} onClick={() => { set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm, undefined, o.exclusiveAreas || null); }}
                     className={`rounded-xl px-3 py-2 text-left border transition-all ${selected ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400"}`}>
                     <p className="text-sm font-semibold leading-tight">{mainLabel}</p>
                     {subLabel && <p className={`text-[10px] mt-0.5 ${selected ? "text-amber-100" : "text-slate-400"}`}>{subLabel}</p>}
@@ -3371,6 +3428,11 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
               <p className="text-[10px] font-semibold text-slate-400 mb-1">조회 파이프라인</p>
               {mkRow(pipe.sale, "매매")}
               {mkRow(pipe.jeonse, "전세")}
+              {/* 다른 평형 전세 거래 참고 표시 */}
+              {edit._otherAreaJeonse && edit._otherAreaJeonse.length > 0 && (() => {
+                const areas = [...new Set(edit._otherAreaJeonse.map(d => d.areaSqm))].slice(0,5).join(", ");
+                return <p className="text-[10px] text-slate-400 mt-1">ℹ️ 다른 평형 전세 거래 있음 (전용 {areas}㎡) — 선택 평형과 달라 분석 제외</p>;
+              })()}
             </div>
           );
         })()}
