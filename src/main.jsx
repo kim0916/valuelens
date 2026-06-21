@@ -2066,167 +2066,155 @@ function parsePrice(val) {
 // ── 공통 실거래 조회 함수 ──
 async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, exactAptNm = "", dong = "") {
   const now = new Date();
-  const AREA_STEPS = [0.5, 1, 3];
+  const AREA_STEPS = [0.5, 1, 3, 5]; // 단계별 면적 tolerance
 
   const monthList = Array.from({ length: months }, (_, mi) => {
     const d = new Date(now.getFullYear(), now.getMonth() - mi, 1);
     return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  // ── [로그 1] 요청 파라미터
-  console.log("[MOLIT] 요청:", { lawdCd, complexName, exactAptNm, areaExclusive, dong, months });
+  // ── 파이프라인 진단 객체 (매매/전세 각각) ──
+  const mkPipe = () => ({
+    step1_raw: 0,        // 국토부 원본 수집
+    step2_aptNm: 0,      // 단지명 필터 후
+    step3_area: 0,       // 면적 필터 후
+    step4_period: 0,     // 기간 필터 후 (computeTrimmedMean 내부)
+    step5_refined: 0,    // 정제 후 (1층/이상치 제외)
+    step6_final: 0,      // 최종 화면 표시
+    aptNmSamples: [],    // 원본 단지명 샘플
+    areaSamples: [],     // 원본 면적 샘플
+    failReason: null,    // 0건 원인
+    usedTolerance: null,
+  });
+  const salePipe = mkPipe(), jeonseP = mkPipe();
+  let apiFailed = 0;
+  const allAreas = new Set();
 
+  // ── Step1: 국토부 원본 수집 ──
   const fetchMonth = async (ym) => {
     try {
-      const [saleResp, rentResp] = await Promise.all([
+      const [sR, rR] = await Promise.all([
         fetchWithTimeout("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "sale", lawdCd, dealYmd: ym, complexName: exactAptNm || complexName, targetDong: dong }) }, 8000),
+          body: JSON.stringify({ type: "sale", lawdCd, dealYmd: ym, targetDong: dong }) }, 8000),
         fetchWithTimeout("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "rent", lawdCd, dealYmd: ym, complexName: exactAptNm || complexName, targetDong: dong }) }, 8000),
+          body: JSON.stringify({ type: "rent", lawdCd, dealYmd: ym, targetDong: dong }) }, 8000),
       ]);
-      const saleData = await saleResp.json();
-      const rentData = await rentResp.json();
-
-      // ── [로그 2] 월별 API 응답 건수
-      console.log(`[MOLIT] ${ym} 서버응답: 매매${(saleData.items||[]).length}건, 전월세${(rentData.items||[]).length}건`);
-
-      // ── [로그 3] 전월세 rawData 샘플 (첫 3건 aptNm, excluUseAr, monthlyRent, deposit)
-      if ((rentData.items||[]).length > 0) {
-        console.log(`[MOLIT] ${ym} 전월세 샘플:`, (rentData.items||[]).slice(0, 5).map(i => ({
-          aptNm: i.aptNm, area: i.excluUseAr, deposit: i.deposit, monthlyRent: i.monthlyRent
-        })));
-      }
-
-      return { saleItems: saleData.items || [], rentItems: rentData.items || [] };
-    } catch(fetchErr) {
-      console.warn(`[MOLIT] ${ym} 조회 실패:`, fetchErr.message);
+      const sd = await sR.json(), rd = await rR.json();
+      return { saleItems: sd.items || [], rentItems: rd.items || [] };
+    } catch(e) {
+      console.warn(`[pipe] ${ym} 조회실패:`, e.message);
       return { saleItems: [], rentItems: [], failed: true };
     }
   };
 
   const settled = await Promise.allSettled(monthList.map(fetchMonth));
-
   const allSaleRaw = [], allRentRaw = [];
-  let apiFailed = 0;
-  const allAreas = new Set();
-  let rentSkipAptNm = 0, rentSkipMonthly = 0, rentPass = 0;
-  let saleSkipAptNm = 0, salePass = 0;
-  const rawAptNmSamples = new Set(); // 원본 aptNm 샘플 수집
 
   for (const s of settled) {
     if (s.status !== "fulfilled") { apiFailed++; continue; }
     const { saleItems, rentItems, failed } = s.value;
-    if (failed) apiFailed++;
-
-    for (const item of saleItems) {
-      if (item.aptNm) rawAptNmSamples.add(item.aptNm);
-      if (!matchAptName(item.aptNm, complexName, exactAptNm)) { saleSkipAptNm++; continue; }
-      salePass++;
-      const area = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
-      if (area > 0) allAreas.add(area);
-      allSaleRaw.push(item);
-    }
-
-    for (const item of rentItems) {
-      // ── [로그 4] aptNm 필터 단계
-      if (!matchAptName(item.aptNm, complexName, exactAptNm)) { rentSkipAptNm++; continue; }
-      // ── [로그 5] 월세 제외 단계
-      if (item.monthlyRent && Number(item.monthlyRent) > 0) { rentSkipMonthly++; continue; }
-      const area = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
-      if (area > 0) allAreas.add(area);
-      allRentRaw.push(item);
-      rentPass++;
-    }
+    if (failed) { apiFailed++; continue; }
+    salePipe.step1_raw += saleItems.length;
+    jeonseP.step1_raw += rentItems.length;
+    // 단지명 샘플 수집
+    for (const i of saleItems) { if (i.aptNm && salePipe.aptNmSamples.length < 10) salePipe.aptNmSamples.push(i.aptNm); }
+    for (const i of rentItems) { if (i.aptNm && jeonseP.aptNmSamples.length < 10) jeonseP.aptNmSamples.push(i.aptNm); }
+    allSaleRaw.push(...saleItems);
+    allRentRaw.push(...rentItems);
   }
 
-  // ── [로그 6] 단지명 필터 결과 상세
-  const aptNmList = Array.from(rawAptNmSamples).slice(0, 15);
-  console.log("[MOLIT] 원본 aptNm 목록(최대15):", aptNmList);
-  console.log("[MOLIT] 매칭 파라미터:", { complexName, exactAptNm });
-  console.log("[MOLIT] 매매 단지명필터:", { 총원본: saleSkipAptNm + salePass, 제외: saleSkipAptNm, 통과: salePass });
-  console.log("[MOLIT] 전세 단지명필터:", { aptNm제외: rentSkipAptNm, 월세제외: rentSkipMonthly, 통과: rentPass });
-  console.log("[MOLIT] 전용면적 목록(allRentRaw):", allRentRaw.map(i => i.excluUseAr));
-  console.log("[MOLIT] 전용면적 목록(allSaleRaw):", allSaleRaw.map(i => i.excluUseAr));
+  // ── Step2: 단지명 필터 ──
+  const saleAptFiltered = allSaleRaw.filter(i => matchAptName(i.aptNm, complexName, exactAptNm));
+  const rentRaw = allRentRaw.filter(i => {
+    if (!matchAptName(i.aptNm, complexName, exactAptNm)) return false;
+    if (i.monthlyRent && Number(i.monthlyRent) > 0) return false; // 월세 제외
+    return true;
+  });
+  salePipe.step2_aptNm = saleAptFiltered.length;
+  jeonseP.step2_aptNm = rentRaw.length;
 
-  const complexSaleTotal = allSaleRaw.length;
-  const complexRentTotal = allRentRaw.length;
+  // 면적 샘플 수집
+  salePipe.areaSamples = [...new Set(saleAptFiltered.map(i => Number(i.excluUseAr)).filter(Boolean))].sort((a,b)=>a-b);
+  jeonseP.areaSamples = [...new Set(rentRaw.map(i => Number(i.excluUseAr)).filter(Boolean))].sort((a,b)=>a-b);
+  for (const i of [...saleAptFiltered, ...rentRaw]) { const a = Math.round((Number(i.excluUseAr)||0)*100)/100; if (a>0) allAreas.add(a); }
 
-  const targetCount = 3;
-  let usedTolerance = AREA_STEPS[0];
-  let sale = [], jeonse = [];
-
+  // ── Step3: 면적 필터 (단계적 확장) ──
+  let saleArea = [], rentArea = [], usedTol = -1;
   if (Number(areaExclusive) > 0) {
-    // 단계별 확장: 매매·전세 둘 다 충족해야 break, 한쪽만 충족해도 계속 진행
     for (const tol of AREA_STEPS) {
-      const s = allSaleRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, tol));
-      const j = allRentRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, tol));
-      console.log(`[MOLIT] 면적필터 tol=±${tol}㎡: 매매${s.length}건, 전세${j.length}건`, {
-        목표면적: areaExclusive,
-        전세면적값들: allRentRaw.map(i => Number(i.excluUseAr)),
-        매매면적값들: allSaleRaw.map(i => Number(i.excluUseAr)),
-      });
-      sale = s; jeonse = j;
-      usedTolerance = tol;
-      // 둘 다 충족해야 종료 (한쪽만 충족은 계속 확장)
-      if (s.length >= targetCount && j.length >= targetCount) break;
-    }
-    // 루프 후에도 전세 0건이면: 평형그룹 ±5㎡까지 확장
-    if (jeonse.length === 0 && allRentRaw.length > 0) {
-      const j5 = allRentRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, 5));
-      console.log(`[MOLIT] 면적필터 tol=±5㎡(평형그룹): 전세${j5.length}건`, allRentRaw.map(i => Number(i.excluUseAr)));
-      if (j5.length > 0) { jeonse = j5; usedTolerance = 5; }
-    }
-    if (sale.length === 0 && allSaleRaw.length > 0) {
-      const s5 = allSaleRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, 5));
-      if (s5.length > 0) { sale = s5; usedTolerance = Math.max(usedTolerance, 5); }
+      const s = saleAptFiltered.filter(i => matchArea(i.excluUseAr, areaExclusive, tol));
+      const j = rentRaw.filter(i => matchArea(i.excluUseAr, areaExclusive, tol));
+      saleArea = s; rentArea = j; usedTol = tol;
+      if (s.length >= 3 && j.length >= 3) break;
     }
   } else {
-    sale = allSaleRaw;
-    jeonse = allRentRaw;
-    usedTolerance = -1;
+    saleArea = saleAptFiltered;
+    rentArea = rentRaw;
+    usedTol = -1;
   }
+  salePipe.step3_area = saleArea.length;
+  jeonseP.step3_area = rentArea.length;
+  salePipe.usedTolerance = usedTol;
+  jeonseP.usedTolerance = usedTol;
 
+  // ── Step4~6: 변환 + price>0 필터 (기간 필터는 computeTrimmedMean 내부) ──
   const toSale = (item) => ({
     ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
     price: Math.round(parsePrice(item.dealAmount)),
     floor: Number(item.floor) || 5,
-    areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
+    areaSqm: Math.round((Number(item.excluUseAr)||0)*100)/100,
     complexName: item.aptNm || complexName,
     buildYear: Number(item.buildYear) || 0,
     region: item.siGunGu || item.sggNm || "",
   });
-  const toJeonse = (item) => {
-    const ym = `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`;
-    const price = Math.round(parsePrice(item.deposit));
-    // ── [로그 RAW] 전세 변환 직전 원본 필드 전체
-    console.log("[MOLIT] toJeonse raw:", {
-      aptNm: item.aptNm, dealYear: item.dealYear, dealMonth: item.dealMonth,
-      excluUseAr: item.excluUseAr, deposit: item.deposit, monthlyRent: item.monthlyRent,
-      floor: item.floor, buildYear: item.buildYear,
-      "→ym": ym, "→price": price,
-    });
-    return { ym, price, floor: Number(item.floor) || 5,
-      areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
-      complexName: item.aptNm || complexName, buildYear: Number(item.buildYear) || 0 };
+  const toJeonse = (item) => ({
+    ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
+    price: Math.round(parsePrice(item.deposit)),
+    floor: Number(item.floor) || 5,
+    areaSqm: Math.round((Number(item.excluUseAr)||0)*100)/100,
+    complexName: item.aptNm || complexName,
+    buildYear: Number(item.buildYear) || 0,
+  });
+
+  const saleOut = saleArea.map(toSale).filter(d => d.price > 0).sort((a,b)=>b.ym.localeCompare(a.ym)).slice(0, 10);
+  const jeonseOut = rentArea.map(toJeonse).filter(d => d.price > 0).sort((a,b)=>b.ym.localeCompare(a.ym)).slice(0, 10);
+  salePipe.step6_final = saleOut.length;
+  jeonseP.step6_final = jeonseOut.length;
+
+  // ── 0건 원인 판단 ──
+  const whyZero = (pipe, label) => {
+    if (apiFailed >= monthList.length) return "API 조회 실패";
+    if (pipe.step1_raw === 0) return "국토부 응답 0건 (법정동 코드 확인 필요)";
+    if (pipe.step2_aptNm === 0) return `단지명 매칭 실패 (원본: ${[...new Set(pipe.aptNmSamples)].slice(0,5).join(", ")})`;
+    if (pipe.step3_area === 0) return `선택 면적(${areaExclusive}㎡) 거래 없음 (단지 면적: ${pipe.areaSamples.slice(0,5).join(", ")}㎡)`;
+    if (pipe.step6_final === 0) return "가격 파싱 실패 또는 전체 이상치";
+    return null;
   };
+  salePipe.failReason = saleOut.length === 0 ? whyZero(salePipe, "매매") : null;
+  jeonseP.failReason = jeonseOut.length === 0 ? whyZero(jeonseP, "전세") : null;
 
-  const saleOut = sale.map(toSale).filter(d => { if (d.price <= 0) { console.log("[MOLIT] 매매 price=0 탈락:", d); return false; } return true; }).sort((a, b) => b.ym.localeCompare(a.ym)).slice(0, 10);
-  const jeonseOut = jeonse.map(toJeonse).filter(d => { if (d.price <= 0) { console.log("[MOLIT] 전세 price=0 탈락:", d); return false; } return true; }).sort((a, b) => b.ym.localeCompare(a.ym)).slice(0, 10);
+  // ── 콘솔 파이프라인 요약 ──
+  const fmt = (p, label) => `${label}: 원본${p.step1_raw}→단지명${p.step2_aptNm}→면적${p.step3_area}(±${p.usedTolerance}㎡)→최종${p.step6_final}건${p.failReason ? ` ❌${p.failReason}` : ""}`;
+  console.log("[pipe]", fmt(salePipe, "매매"));
+  console.log("[pipe]", fmt(jeonseP, "전세"));
+  if (salePipe.step2_aptNm === 0 || jeonseP.step2_aptNm === 0) {
+    console.log("[pipe] 단지명 샘플:", [...new Set([...salePipe.aptNmSamples, ...jeonseP.aptNmSamples])].slice(0,10));
+    console.log("[pipe] 매칭 시도:", { complexName, exactAptNm });
+  }
 
-  // ── [로그 8] 최종 결과
-  console.log("[MOLIT] 최종:", { sale: saleOut.length, jeonse: jeonseOut.length, usedTolerance });
-  console.log("[MOLIT] 최종 전세 배열:", jeonseOut);
-
-  const apiFailRatio = apiFailed / monthList.length;
+  // ── diagnosis 객체 (UI 표시용) ──
+  const targetCount = 3;
   const diagnosis = {
-    apiFailed: apiFailRatio > 0.5,
-    complexNoTrade: complexSaleTotal === 0 && complexRentTotal === 0,
+    apiFailed: apiFailed >= monthList.length,
+    complexNoTrade: salePipe.step2_aptNm === 0 && jeonseP.step2_aptNm === 0,
     saleAreaShort: saleOut.length < targetCount,
     jeonseAreaShort: jeonseOut.length < targetCount,
-    jeonseExistsOtherArea: complexRentTotal > 0 && jeonseOut.length < targetCount,
-    usedTolerance,
-    complexSaleTotal,
-    complexRentTotal,
+    jeonseExistsOtherArea: jeonseP.step2_aptNm > 0 && jeonseOut.length < targetCount,
+    usedTolerance: usedTol,
+    complexSaleTotal: salePipe.step2_aptNm,
+    complexRentTotal: jeonseP.step2_aptNm,
+    // 단계별 건수 (UI 표시용)
+    pipeline: { sale: salePipe, jeonse: jeonseP },
   };
 
   return { sale: saleOut, jeonse: jeonseOut, allAreas, diagnosis };
@@ -2268,35 +2256,37 @@ async function fetchApartmentData(query) {
     sale   = molitResult.sale   || [];
     jeonse = molitResult.jeonse || [];
     const d = molitResult.diagnosis || {};
+    const pipeline = d.pipeline || {};
 
     // ── 5. 원인별 tradeStatus 생성 ──
     if (d.apiFailed) {
-      tradeStatus = { code: "API_FAIL", msg: "국토부 API 조회 실패 — 잠시 후 다시 시도하거나 KB시세를 직접 입력하세요." };
+      tradeStatus = { code: "API_FAIL", msg: "국토부 API 조회 실패 — 잠시 후 다시 시도하거나 KB시세를 직접 입력하세요.", pipeline };
     } else if (d.complexNoTrade) {
-      tradeStatus = { code: "COMPLEX_NO_TRADE", msg: `${qComplexName} 최근 6개월 거래 없음 — KB시세를 직접 입력하세요.` };
+      const sampleNames = [...new Set([...(pipeline.sale?.aptNmSamples||[]), ...(pipeline.jeonse?.aptNmSamples||[])])].slice(0,5).join(", ");
+      tradeStatus = { code: "COMPLEX_NO_TRADE", msg: `단지명 매칭 실패 — ${qComplexName}을(를) 찾을 수 없음${sampleNames ? ` (조회된 단지: ${sampleNames})` : ""}`, pipeline };
     } else {
-      // 단지 거래는 있지만 선택 면적 거래 부족
       const saleShort = d.saleAreaShort;
       const jeonseShort = d.jeonseAreaShort;
       const jeonseElsewhere = d.jeonseExistsOtherArea;
-      const tolLabel = d.usedTolerance <= 0.5 ? "정확히" : d.usedTolerance <= 1 ? "±1㎡" : "±3㎡";
+      const tol = d.usedTolerance;
+      const tolLabel = tol <= 0.5 ? "정확히" : tol <= 1 ? "±1㎡" : tol <= 3 ? "±3㎡" : "±5㎡";
 
       if (saleShort && jeonseShort) {
         if (jeonseElsewhere) {
-          tradeStatus = { code: "AREA_SHORT_JEONSE_ELSEWHERE", msg: `선택 면적(${qArea}㎡) 전세 실거래 부족 — 다른 평형에 전세 거래 있음`, saleShort: true, jeonseShort: true, canExpand: true };
+          tradeStatus = { code: "AREA_SHORT_JEONSE_ELSEWHERE", msg: `선택 면적(${qArea}㎡) 전세 실거래 부족 — 다른 평형에 전세 거래 있음`, saleShort: true, jeonseShort: true, canExpand: true, pipeline };
         } else {
-          tradeStatus = { code: "AREA_SHORT_BOTH", msg: `선택 면적(${qArea}㎡) 매매·전세 실거래 부족 (${tolLabel} 범위 사용)`, saleShort: true, jeonseShort: true, canExpand: true };
+          tradeStatus = { code: "AREA_SHORT_BOTH", msg: `선택 면적(${qArea}㎡) 매매·전세 실거래 부족 (${tolLabel} 범위 사용)`, saleShort: true, jeonseShort: true, canExpand: true, pipeline };
         }
       } else if (jeonseShort) {
         if (jeonseElsewhere) {
-          tradeStatus = { code: "JEONSE_AREA_SHORT", msg: `선택 면적 전세 실거래 부족 — 다른 평형에 전세 거래 있음`, jeonseShort: true, canExpand: true };
+          tradeStatus = { code: "JEONSE_AREA_SHORT", msg: `선택 면적 전세 실거래 부족 — 다른 평형에 전세 거래 있음`, jeonseShort: true, canExpand: true, pipeline };
         } else {
-          tradeStatus = { code: "JEONSE_SHORT", msg: `전세 실거래 부족 — KB전세시세를 직접 입력하세요.`, jeonseShort: true };
+          tradeStatus = { code: "JEONSE_SHORT", msg: `전세 실거래 부족 — KB전세시세를 직접 입력하세요.`, jeonseShort: true, pipeline };
         }
       } else if (saleShort) {
-        tradeStatus = { code: "SALE_SHORT", msg: `매매 실거래 부족 (${tolLabel} 범위 ${sale.length}건 사용)`, saleShort: true };
+        tradeStatus = { code: "SALE_SHORT", msg: `매매 실거래 부족 (${tolLabel} 범위 ${sale.length}건 사용)`, saleShort: true, pipeline };
       } else {
-        tradeStatus = { code: "OK", msg: null }; // 정상
+        tradeStatus = { code: "OK", msg: null, pipeline };
       }
     }
   } catch(e) {
@@ -3340,6 +3330,36 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
           </div>
           <span className="text-xs text-slate-400">{dealsOpen ? "접기 ▲" : "펼치기 ▼"}</span>
         </button>
+
+        {/* 파이프라인 진단 요약 — 항상 표시 */}
+        {(() => {
+          const pipe = edit._tradeStatus?.pipeline;
+          if (!pipe) return null;
+          const mkRow = (p, label) => {
+            if (!p) return null;
+            const tol = p.usedTolerance >= 0 ? `±${p.usedTolerance}㎡` : "전체";
+            const steps = `원본 ${p.step1_raw}건 → 단지명 ${p.step2_aptNm}건 → 면적(${tol}) ${p.step3_area}건 → 최종 ${p.step6_final}건`;
+            const ok = p.step6_final > 0;
+            return (
+              <div key={label} className={`flex items-start gap-2 ${ok ? "" : "text-amber-700"}`}>
+                <span className={`mt-0.5 shrink-0 text-[10px] font-bold ${ok ? "text-emerald-600" : "text-amber-500"}`}>{ok ? "✓" : "!"}</span>
+                <div>
+                  <span className="font-semibold">{label}</span>
+                  <span className="ml-1">{steps}</span>
+                  {!ok && p.failReason && <p className="mt-0.5 text-[10px] text-amber-600">↳ {p.failReason}</p>}
+                </div>
+              </div>
+            );
+          };
+          return (
+            <div className="border-t border-slate-100 px-5 py-3 text-[11px] text-slate-500 space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-400 mb-1">조회 파이프라인</p>
+              {mkRow(pipe.sale, "매매")}
+              {mkRow(pipe.jeonse, "전세")}
+            </div>
+          );
+        })()}
+
         {dealsOpen && (
           <div className="border-t border-slate-100 px-5 pb-5 pt-4">
             <DealsEditor title="전세 실거래" deals={edit.deals} setDeals={(d) => setE("deals", d)} kind="jeonse" />
