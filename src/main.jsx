@@ -3000,6 +3000,7 @@ function SellView({ onContext }) {
 - kbSalePrice(매매)·kbJeonse(전세)·jeonse·sale은 모두 같은 전용면적 기준. 59㎡ 가격을 84㎡처럼 쓰지 마라.
 - 면적별 가격이 확인 안 되면 그 가격은 0. 추측으로 면적 채우지 마라.
 - 입력 전용면적이 단지에 없으면 areaSqm=0 + areaOptions에 실제 면적들.
+- 전용면적 입력이 없으면 반드시 areaOptions에 단지의 모든 전용면적 목록을 넣어라. areaSqm=0 필수.
 아래 JSON만 출력 (설명·백틱 금지):
 {"region":"시군구","dong":"법정동","complexName":"단지명","areaSqm":전용㎡숫자,"pyeong":통상평형숫자,"buildYear":준공연도숫자,"topFloor":최고층숫자,"kbSalePrice":KB매매시세만원,"kbJeonse":KB전세시세만원,"jeonse":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"sale":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"areaOptions":[{"areaSqm":전용㎡,"pyeong":통상평형}]}
 규칙: 가격은 만원 정수(7억4000만→74000). 취소거래 제외. 각 최대 10건. 못 찾은 값만 0/빈배열 (지어내지 말 것).`;
