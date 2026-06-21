@@ -2660,33 +2660,24 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         </div>
         )}
 
-        {/* KB전세시세 — 항상 표시 (실거래 없을 때 필수) */}
-        <div className="mt-3">
-          <p className="mb-1 text-xs font-medium text-slate-500">
-            KB전세시세 (만원)
-            <span className="ml-1 text-[10px] text-slate-400">실거래 없을 때 필수 · 네이버 부동산 → 시세탭 확인</span>
-          </p>
-          <input type="number" value={f.kbJeonse} placeholder="예: 35000"
-            onChange={(e) => set("kbJeonse", e.target.value)}
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-        </div>
-
         {/* 준공연도 — 자동입력 안 될 때 수동 입력 */}
+        {f.complexName && (
         <div className="mt-2">
           <p className="mb-1 text-xs font-medium text-slate-500">
             준공연도
-            <span className="ml-1 text-[10px] text-slate-400">실거래에서 자동 추출 (없으면 직접 입력)</span>
+            <span className="ml-1 text-[10px] text-slate-400">실거래에서 자동 추출 · 없으면 직접 입력</span>
           </p>
           <input type="number" value={f.buildYear} placeholder="예: 1999"
             onChange={(e) => set("buildYear", e.target.value)}
             className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
         </div>
+        )}
 
-        {/* 6개월 내 거래 없을 때만 KB시세 입력 카드 표시 */}
+        {/* 6개월 내 전세 실거래 없을 때만 KB전세시세 입력 카드 */}
         {f._needKbInput && (
           <div className="mt-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
-            <p className="text-sm font-bold text-amber-800">⚠️ 최근 6개월 실거래가 없습니다</p>
-            <p className="mt-0.5 text-xs text-amber-600">네이버 부동산 또는 KB부동산원에서 KB시세를 확인 후 입력해 주세요.</p>
+            <p className="text-sm font-bold text-amber-800">⚠️ 최근 6개월 전세 실거래가 없습니다</p>
+            <p className="mt-0.5 text-xs text-amber-600">네이버 부동산 또는 KB부동산원에서 KB전세시세를 확인 후 입력해 주세요.</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <div>
                 <p className="mb-1 text-xs font-medium text-amber-700">KB매매시세 (만원)</p>
