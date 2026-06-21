@@ -2418,7 +2418,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     try {
       const lawdCd = getLawdCd(dong, region);
       if (!lawdCd) { setAiMsg("지역 코드를 찾지 못했습니다."); return; }
-      const result = await fetchMolitData(lawdCd, complexName, "", 6);
+      const result = await fetchMolitData(lawdCd, complexName, "", 12); // 면적 조회는 12개월
       const allAreas = [...(result.sale || []), ...(result.jeonse || [])].map(d => d.areaSqm).filter(a => a > 0);
       const unique = [...new Set(allAreas)].sort((a, b) => a - b);
       const opts = unique.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
