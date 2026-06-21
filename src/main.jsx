@@ -2060,15 +2060,19 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
     // 면적이 지정된 경우 단지명 필터 없이 면적만으로 필터 (단지명 표기 불일치 우회)
     const useAreaOnlyFilter = Number(areaExclusive) > 0;
 
-    // 면적 수집 (모든 달)
-    (saleData.items || []).forEach(item => {
-      const a = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
-      if (a > 0) { results.allAreas = results.allAreas || new Set(); results.allAreas.add(a); }
-    });
-    (rentData.items || []).forEach(item => {
-      const a = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
-      if (a > 0) { results.allAreas = results.allAreas || new Set(); results.allAreas.add(a); }
-    });
+    // 면적 옵션용: 단지명 필터 없이 동 전체 면적 수집 (첫 달만)
+    if (i === 0) {
+      (saleData.items || []).forEach(item => {
+        const a = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
+        if (a > 0) results.allAreas = results.allAreas || new Set();
+        if (a > 0) results.allAreas.add(a);
+      });
+      (rentData.items || []).forEach(item => {
+        const a = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
+        if (a > 0) results.allAreas = results.allAreas || new Set();
+        if (a > 0) results.allAreas.add(a);
+      });
+    }
 
     (saleData.items || []).forEach(item => {
       if (!useAreaOnlyFilter && !nameFilter(item.aptNm)) return;
@@ -2534,7 +2538,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     abortRef.current = controller;
     setAiLoading(true); setAiMsg(null); setPending(null);
     try {
-      // ── [1] 조회 모듈 ── API 전환 시 fetchApartmentData 함수만 교체하면 됨
+      console.log("분석시작 complexName:", ff.complexName, "area:", ff.areaExclusive);
+      // ── [1] 조회 모듈 ──
       const rawData = await fetchApartmentData({
         complexName: ff.complexName,
         exactAptNm: ff.exactAptNm,
@@ -2543,10 +2548,12 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         sido: ff.sido || "",
         areaExclusive: overrideArea ? String(overrideArea) : ff.areaExclusive,
       });
-      // ── [2] 변환 모듈 ── rawData → analyze() 입력 형태 조립
+      console.log("rawData:", rawData?.sale?.length, "매매", rawData?.jeonse?.length, "전세");
+      // ── [2] 변환 모듈 ──
       const { filled, ff: builtFf, jeonseCalc, saleCalc, blockReason } = buildAnalysisInput(
         rawData, ff, Number(ff.areaExclusive) || 0
       );
+      console.log("buildAnalysisInput 완료 blockReason:", blockReason);
       // KB시세/매물가/면적/준공연도를 캡처에서 가져온 값으로 보정
       if (ff.kbSalePrice) filled.kbSalePrice = ff.kbSalePrice;
       if (ff.kbJeonse) filled.kbJeonse = ff.kbJeonse;
@@ -2575,8 +2582,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         jeonseUsed: 0, saleUsed: 0,
         jeonseCalc: null, saleCalc: null, dataSource: "ai",
       };
+      console.log("setPending 호출 pendingFf.currentPrice:", pendingFf.currentPrice);
       setPending({ ff: pendingFf, jeonseCalc, saleCalc, blockReason });
-      // ── [3] 계산 엔진(analyze) ── ConfirmStep → doAnalyze 에서 실행 (절대 수정 금지)
+      console.log("분석완료 → ConfirmStep 이동");
     } catch (e) {
       console.error("fetchApartmentData 오류:", e);
       // 에러여도 ConfirmStep으로 이동 — 수기 입력 가능하게
