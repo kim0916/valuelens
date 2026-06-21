@@ -2195,7 +2195,7 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
   // 정합성 검증
   const warns = [];
   if (p.noTradeWarning) warns.push(`⚠️ ${p.noTradeWarning}`);
-  if (areaSqm <= 0) warns.push("전용면적 미확인 — 면적을 직접 확인/입력하세요.");
+  if (areaSqm <= 0 && !askedArea) warns.push("전용면적 미확인 — 면적을 직접 확인/입력하세요.");
   const mismatch = areaSqm > 0 && priceArea > 0 && Math.abs(priceArea - areaSqm) > Math.max(3, areaSqm * 0.06);
   if (mismatch) warns.push(`가격은 전용 ${priceArea}㎡ 기준인데 단지 기준면적은 ${areaSqm}㎡로 다릅니다.`);
   if (askedArea > 0 && areaSqm > 0 && Math.abs(askedArea - areaSqm) > Math.max(3, askedArea * 0.06)) warns.push(`입력한 전용 ${askedArea}㎡와 조회된 가격 기준 ${areaSqm}㎡가 다릅니다.`);
@@ -2224,7 +2224,7 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
   const saleCalc = sd.length ? computeTrimmedMean(sd, Number(filled.kbSalePrice) || 0, "sale") : null;
 
   // 자동 분석 차단 여부 — 차단 사유가 있으면 ff=null, UI는 직접수정 버튼 표시
-  const blockReason = areaSqm <= 0
+  const blockReason = (areaSqm <= 0 && !askedArea)
     ? `전용면적을 확인하지 못했습니다.${areaOptions.length ? ` (조회된 면적: ${areaOptions.map((o) => o.areaSqm + "㎡").join(", ")})` : " 직접 입력해 주세요."}`
     : mismatch ? "가격과 면적 기준이 달라 보입니다. 직접 확인 후 수정하세요."
     : (!filled.currentPrice || !baseJeonse) ? "일부 필수 값(현재가·전세 시세)을 채우지 못했습니다. 직접 수정하세요."
