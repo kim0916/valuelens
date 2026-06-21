@@ -2376,36 +2376,48 @@ async function fetchApartmentData(query) {
     throw new Error("국토부 API 호출 실패: " + e.message);
   }
 
-  // ── 6. 면적 목록 추출 — 매매 기준 평형 그룹으로 묶기 ──
-  // 매매 데이터만 사용 (전세는 다른 평형이 섞일 수 있음)
-  const saleAreaList = sale.map(d => d.areaSqm).filter(a => a > 0);
+  // ── 6. 면적 그룹핑 — 매매 우선, 없으면 전세 보완 ──
+  const saleAreaList  = sale.map(d => d.areaSqm).filter(a => a > 0);
   const jeonseAreaList = jeonse.map(d => d.areaSqm).filter(a => a > 0);
-  // 매매 없으면 전세도 포함
-  const areaSourceList = saleAreaList.length > 0 ? saleAreaList : [...saleAreaList, ...jeonseAreaList];
+  const areaSourceList = saleAreaList.length > 0
+    ? saleAreaList
+    : [...saleAreaList, ...jeonseAreaList];
+
+  // 평형 그룹 (±3㎡ 이내 = 같은 그룹)
   const areaGroups = groupAreasByPyeong(areaSourceList);
-  // areaOptions: { areaSqm(대표), exclusiveAreas[], pyeong, supplySqm }
+
+  // areaOptions: 면적 선택 버튼용 — exclusiveAreas 배열 포함
   const areaOptions = areaGroups.map(g => ({
-    areaSqm: g.rep,
+    areaSqm:        g.rep,
     exclusiveAreas: g.areas,
-    pyeong: g.pyeong,
-    supplySqm: null, // 국토부 API 미제공 → UI에서 ×1.35 추정
+    pyeong:         g.pyeong,
+    supplySqm:      null, // 국토부 미제공 → UI에서 ×1.35 추정
   }));
 
-  // 다른 평형 전세 거래 분리 (참고 표시용)
-  const selectedGroup = qArea > 0 ? areaGroups.find(g => g.areas.some(a => Math.abs(a - qArea) <= 5)) : null;
+  // ── 7. 대표 면적 결정 — areaGroups 기반 ──
+  let areaSqm = 0;
+  if (qArea > 0) {
+    // 선택 면적이 속한 그룹의 대표값 사용
+    const matchedGroup = areaGroups.find(g => g.areas.some(a => Math.abs(a - qArea) <= 5));
+    areaSqm = matchedGroup ? matchedGroup.rep : 0;
+  } else if (areaGroups.length === 1) {
+    // 면적 미지정이고 단일 평형만 있으면 자동 선택
+    areaSqm = areaGroups[0].rep;
+  }
+
+  // 다른 평형 거래 분리 (참고 표시용)
+  const selectedGroup = qArea > 0
+    ? areaGroups.find(g => g.areas.some(a => Math.abs(a - qArea) <= 5))
+    : null;
   const otherAreaJeonse = selectedGroup
     ? jeonse.filter(d => !selectedGroup.areas.some(a => Math.abs(d.areaSqm - a) <= 1))
     : [];
-  if (otherAreaJeonse.length > 0) {
-    const otherAreas = [...new Set(otherAreaJeonse.map(d => d.areaSqm))].slice(0, 5);
-    console.log("[area] 다른 평형 전세 거래(참고):", otherAreas.join(", ") + "㎡");
-  }
-
-  // ── 7. 대표 면적 결정 ──
-  let areaSqm = 0;
-  if (qArea > 0) {
-    const found = uniqueAreas.find(a => Math.abs(a - qArea) <= 3);
-    areaSqm = found || 0;
+  const otherAreaSale = selectedGroup
+    ? sale.filter(d => !selectedGroup.areas.some(a => Math.abs(d.areaSqm - a) <= 1))
+    : [];
+  if (otherAreaJeonse.length > 0 || otherAreaSale.length > 0) {
+    const otherAreas = [...new Set([...otherAreaJeonse, ...otherAreaSale].map(d => d.areaSqm))].sort((a,b)=>a-b).slice(0,5);
+    console.log("[area] 다른 평형 거래(참고):", otherAreas.join(", ") + "㎡");
   }
 
   // ── 8. buildYear 추출 — 단지명 필터된 아이템에서만, 최빈값 사용 ──
@@ -2466,8 +2478,9 @@ async function fetchApartmentData(query) {
     sale,
     areaOptions,
     tradeStatus,
-    otherAreaJeonse,          // 다른 평형 전세 거래 (참고용)
-    selectedAreaGroup: selectedGroup, // 선택된 평형 그룹 정보
+    otherAreaJeonse,
+    otherAreaSale,
+    selectedAreaGroup: selectedGroup,
   };
 }
 
@@ -2536,6 +2549,7 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
     _aiFilled: true, _aiSource: "국토부 실거래·KB·호갱노노 웹검색(AI)", _needKbInput: needKbInput,
     _tradeStatus: ts,
     _otherAreaJeonse: p.otherAreaJeonse || [],
+    _otherAreaSale:   p.otherAreaSale   || [],
     _aiWarns: warns, _aiAreaOptions: areaOptions,
   };
 
@@ -3454,10 +3468,13 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
               <p className="text-[10px] font-semibold text-slate-400 mb-1">조회 파이프라인</p>
               {mkRow(pipe.sale, "매매")}
               {mkRow(pipe.jeonse, "전세")}
-              {/* 다른 평형 전세 거래 참고 표시 */}
-              {edit._otherAreaJeonse && edit._otherAreaJeonse.length > 0 && (() => {
-                const areas = [...new Set(edit._otherAreaJeonse.map(d => d.areaSqm))].slice(0,5).join(", ");
-                return <p className="text-[10px] text-slate-400 mt-1">ℹ️ 다른 평형 전세 거래 있음 (전용 {areas}㎡) — 선택 평형과 달라 분석 제외</p>;
+              {/* 다른 평형 거래 참고 표시 */}
+              {(() => {
+                const otherJ = edit._otherAreaJeonse || [];
+                const otherS = edit._otherAreaSale   || [];
+                const allOther = [...new Set([...otherJ, ...otherS].map(d => d.areaSqm))].sort((a,b)=>a-b).slice(0,5);
+                if (!allOther.length) return null;
+                return <p className="text-[10px] text-slate-400 mt-1">ℹ️ 다른 평형 거래 있음 (전용 {allOther.join(", ")}㎡) — 선택 평형과 달라 분석 제외</p>;
               })()}
             </div>
           );
