@@ -2463,7 +2463,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
               ))}
             </div>
           </div>
-        )
+        )}
         {/* 메인 버튼 */}
         <button onClick={quickSearch} disabled={aiLoading} className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
           {aiLoading ? "AI 조회 중… (실거래 데이터 수집 중)" : mode === "fair" ? "현재 아파트 적정가격은? — AI 적정가 판단" : "이 집 사도 될까? — AI 매수판단"}
