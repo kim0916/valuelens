@@ -2010,14 +2010,17 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6) {
       if (!complexName) return true;
       const n = String(name || "").replace(/\s/g, "");
       const c = complexName.replace(/\s/g, "");
-      // 완전 일치 우선
+      // 1. 완전 일치
       if (n === c) return true;
-      // 자동완성에서 선택한 정확한 aptNm이면 완전일치만 허용
-      // (타이핑 검색 fallback: 앞 글자 4자 이상 일치)
+      // 2. n이 c로 시작 (예: aptNm="동부" complexName="동부아파트")
+      if (c.startsWith(n) && n.length >= 2) return true;
+      // 3. c가 n으로 시작 (예: aptNm="동부아파트" complexName="동부")
+      if (n.startsWith(c) && c.length >= 2) return true;
+      // 4. 앞 글자 3자 이상 연속 일치
       const minLen = Math.min(n.length, c.length);
       let common = 0;
       for (let i = 0; i < minLen; i++) { if (n[i] === c[i]) common++; else break; }
-      return common >= Math.min(4, minLen);
+      return common >= Math.min(3, minLen);
     };
 
     // 면적 필터 (±3㎡ 허용)
