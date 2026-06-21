@@ -2425,10 +2425,72 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
         <p className="mb-3 text-sm font-bold text-slate-800">단지 검색</p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <input type="text" value={f.region} placeholder="시/구 (예: 노원구, 해운대구)" onChange={(e) => set("region", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          <input type="text" value={f.region} placeholder="시/구 (예: 노원구)" onChange={(e) => set("region", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
           <input type="text" value={f.dong} placeholder="동 (예: 공릉동)" onChange={(e) => set("dong", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
           <input type="text" value={f.complexName} placeholder="단지명 (예: 동부)" onChange={(e) => set("complexName", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
         </div>
+
+        {/* 수기 입력 4개 */}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div>
+            <p className="mb-1 text-xs font-medium text-slate-500">전용면적 (㎡)</p>
+            <input type="number" value={f.areaExclusive} placeholder="예: 59.99" onChange={(e) => set("areaExclusive", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-medium text-slate-500">현재 매물가 (만원)</p>
+            <input type="number" value={f.currentPrice} placeholder="예: 50000" onChange={(e) => set("currentPrice", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-medium text-slate-500">KB매매시세 (만원)</p>
+            <input type="number" value={f.kbSalePrice} placeholder="예: 50250" onChange={(e) => set("kbSalePrice", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-medium text-slate-500">KB전세시세 (만원)</p>
+            <input type="number" value={f.kbJeonse} placeholder="예: 35000" onChange={(e) => set("kbJeonse", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          </div>
+        </div>
+
+        {/* 캡처 업로드 */}
+        <div className="mt-3 rounded-2xl bg-indigo-50 p-3 ring-1 ring-indigo-100">
+          <p className="text-xs font-bold text-indigo-800">📷 네이버 부동산 캡처로 자동 입력</p>
+          <p className="mt-0.5 text-[10px] text-indigo-500">매물·시세 화면 캡처 올리면 면적·매물가·KB시세 자동 인식</p>
+          <label className={`mt-2 block w-full cursor-pointer rounded-xl py-2 text-center text-xs font-bold text-white ${aiLoading ? "opacity-50" : ""}`} style={{ backgroundColor: NAVY }}>
+            {aiLoading ? "분석 중…" : "📷 캡처 업로드"}
+            <input type="file" accept="image/*" multiple disabled={aiLoading} className="hidden" onChange={async (e) => {
+              const files = Array.from(e.target.files || []);
+              if (!files.length) return;
+              setAiLoading(true); setAiMsg(null);
+              try {
+                const toBase64 = (file) => new Promise((res, rej) => { const rd = new FileReader(); rd.onload = () => res({data: String(rd.result).split(",")[1], type: file.type||"image/png"}); rd.onerror = rej; rd.readAsDataURL(file); });
+                const imgs = await Promise.all(files.map(toBase64));
+                const content = [
+                  ...imgs.map(img => ({ type: "image", source: { type: "base64", media_type: img.type, data: img.data } })),
+                  { type: "text", text: `이 이미지들은 한국 부동산 매물/시세 화면 캡처야. 보이는 정보만 추출해 아래 JSON만 출력 (설명·백틱 금지):\n{"region":"시군구","dong":"법정동","complexName":"단지명","areaExclusive":전용면적㎡숫자,"currentPrice":매물호가만원정수,"kbSalePrice":KB매매시세만원정수,"kbJeonse":KB전세시세만원정수,"buildYear":준공연도숫자}\n규칙: 가격은 만원 정수(5억→50000). 안 보이는 값은 0. 추정 금지.` }
+                ];
+                const res = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content }] }) });
+                const data = await res.json();
+                const text = (data.content||[]).map(i=>i.type==="text"?i.text:"").join("").replace(/```json|```/g,"").trim();
+                const m = text.match(/\{[\s\S]*\}/);
+                const p = JSON.parse(m ? m[0] : "{}");
+                setF(prev => ({
+                  ...prev,
+                  region: p.region || prev.region,
+                  dong: p.dong || prev.dong,
+                  complexName: p.complexName || prev.complexName,
+                  areaExclusive: p.areaExclusive || prev.areaExclusive,
+                  currentPrice: Number(p.currentPrice) || prev.currentPrice,
+                  kbSalePrice: Number(p.kbSalePrice) || prev.kbSalePrice,
+                  kbJeonse: Number(p.kbJeonse) || prev.kbJeonse,
+                  buildYear: p.buildYear || prev.buildYear,
+                }));
+                setAiMsg(`캡처 인식 완료 — ${p.complexName||"단지"} ${p.areaExclusive?p.areaExclusive+"㎡":""} ${p.currentPrice?"매물가 "+(p.currentPrice/10000).toFixed(1)+"억":""}`);
+              } catch(e) {
+                setAiMsg("캡처 인식 실패 — 직접 입력해주세요.");
+              } finally { setAiLoading(false); e.target.value=""; }
+            }} />
+          </label>
+        </div>
+
         {areaOptions.length > 0 && (
           <div className="mt-2">
             <p className="text-xs text-slate-400 mb-1.5">면적 선택:</p>
@@ -2446,7 +2508,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
         {/* 메인 버튼 */}
         <button onClick={quickSearch} disabled={aiLoading} className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
-          {aiLoading ? "AI 조회 중… (실거래·시세 데이터 수집 중, 1~2분 소요)" : "이 집 사도 될까? — AI 매수판단"}
+          {aiLoading ? "AI 조회 중… (실거래 데이터 수집 중)" : "이 집 사도 될까? — AI 매수판단"}
         </button>
         {aiLoading && <button onClick={() => { if (abortRef.current) abortRef.current.abort(); setAiLoading(false); setAiMsg("조회가 취소되었습니다."); }} className="mt-2 w-full rounded-2xl border border-red-200 py-2.5 text-sm font-medium text-red-500">⬛ 조회 취소</button>}
 
