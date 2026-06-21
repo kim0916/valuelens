@@ -2010,18 +2010,17 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6) {
       if (!complexName) return true;
       const n = String(name || "").replace(/\s/g, "");
       const c = complexName.replace(/\s/g, "");
-      if (n.includes(c) || c.includes(n)) return true;
-      // 앞 3글자 공통 매칭
+      // 1. 완전 일치
+      if (n === c) return true;
+      // 2. n이 c로 시작 (예: "동부아파트" ⊃ "동부")
+      if (n.startsWith(c)) return true;
+      // 3. c가 n을 포함 (예: "동부" ⊃ "동부아파트" 검색시)
+      if (c.includes(n) && n.length >= 2) return true;
+      // 4. 앞 글자 3자 이상 일치 (예: "래미안" vs "래미안블레스티지")
       const minLen = Math.min(n.length, c.length);
       let common = 0;
       for (let i = 0; i < minLen; i++) { if (n[i] === c[i]) common++; else break; }
       if (common >= 3) return true;
-      // 토큰 매칭: 2글자 이상 공통 부분문자열
-      for (let len = Math.min(c.length, 4); len >= 2; len--) {
-        for (let i = 0; i <= c.length - len; i++) {
-          if (n.includes(c.slice(i, i + len))) return true;
-        }
-      }
       return false;
     };
 
