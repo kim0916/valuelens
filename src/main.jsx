@@ -2159,17 +2159,23 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
     buildYear: Number(item.buildYear) || 0,
     region: item.siGunGu || item.sggNm || "",
   });
-  const toJeonse = (item) => ({
-    ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
-    price: Math.round(parsePrice(item.deposit)),
-    floor: Number(item.floor) || 5,
-    areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
-    complexName: item.aptNm || complexName,
-    buildYear: Number(item.buildYear) || 0,
-  });
+  const toJeonse = (item) => {
+    const ym = `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`;
+    const price = Math.round(parsePrice(item.deposit));
+    // ── [로그 RAW] 전세 변환 직전 원본 필드 전체
+    console.log("[MOLIT] toJeonse raw:", {
+      aptNm: item.aptNm, dealYear: item.dealYear, dealMonth: item.dealMonth,
+      excluUseAr: item.excluUseAr, deposit: item.deposit, monthlyRent: item.monthlyRent,
+      floor: item.floor, buildYear: item.buildYear,
+      "→ym": ym, "→price": price,
+    });
+    return { ym, price, floor: Number(item.floor) || 5,
+      areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
+      complexName: item.aptNm || complexName, buildYear: Number(item.buildYear) || 0 };
+  };
 
-  const saleOut = sale.map(toSale).filter(d => d.price > 0).sort((a, b) => b.ym.localeCompare(a.ym)).slice(0, 10);
-  const jeonseOut = jeonse.map(toJeonse).filter(d => d.price > 0).sort((a, b) => b.ym.localeCompare(a.ym)).slice(0, 10);
+  const saleOut = sale.map(toSale).filter(d => { if (d.price <= 0) { console.log("[MOLIT] 매매 price=0 탈락:", d); return false; } return true; }).sort((a, b) => b.ym.localeCompare(a.ym)).slice(0, 10);
+  const jeonseOut = jeonse.map(toJeonse).filter(d => { if (d.price <= 0) { console.log("[MOLIT] 전세 price=0 탈락:", d); return false; } return true; }).sort((a, b) => b.ym.localeCompare(a.ym)).slice(0, 10);
 
   // ── [로그 8] 최종 결과
   console.log("[MOLIT] 최종:", { sale: saleOut.length, jeonse: jeonseOut.length, usedTolerance });
