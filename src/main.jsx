@@ -2060,11 +2060,19 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
     // 면적이 지정된 경우 단지명 필터 없이 면적만으로 필터 (단지명 표기 불일치 우회)
     const useAreaOnlyFilter = Number(areaExclusive) > 0;
 
-    // 면적 수집 (모든 달)
-    [...(saleData.items || []), ...(rentData.items || [])].forEach(item => {
-      const a = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
-      if (a > 0) { results.allAreas = results.allAreas || new Set(); results.allAreas.add(a); }
-    });
+    // 면적 옵션용: 단지명 필터 없이 동 전체 면적 수집 (첫 달만)
+    if (i === 0) {
+      (saleData.items || []).forEach(item => {
+        const a = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
+        if (a > 0) results.allAreas = results.allAreas || new Set();
+        if (a > 0) results.allAreas.add(a);
+      });
+      (rentData.items || []).forEach(item => {
+        const a = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
+        if (a > 0) results.allAreas = results.allAreas || new Set();
+        if (a > 0) results.allAreas.add(a);
+      });
+    }
 
     (saleData.items || []).forEach(item => {
       if (!useAreaOnlyFilter && !nameFilter(item.aptNm)) return;
@@ -2261,11 +2269,18 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
   const saleCalc = sd.length ? computeTrimmedMean(sd, Number(filled.kbSalePrice) || 0, "sale") : null;
 
   // 자동 분석 차단 여부 — 차단 사유가 있으면 ff=null, UI는 직접수정 버튼 표시
+  // blockReason: 현재가만 있으면 통과 (전세시세 없어도 매매기반 분석 가능)
   const blockReason = (areaSqm <= 0 && !askedArea)
     ? `전용면적을 확인하지 못했습니다.${areaOptions.length ? ` (조회된 면적: ${areaOptions.map((o) => o.areaSqm + "㎡").join(", ")})` : " 직접 입력해 주세요."}`
     : mismatch ? "가격과 면적 기준이 달라 보입니다. 직접 확인 후 수정하세요."
-    : (!filled.currentPrice || !baseJeonse) ? "일부 필수 값(현재가·전세 시세)을 채우지 못했습니다. 직접 수정하세요."
+    : !filled.currentPrice ? "현재 매물가를 입력하세요."
     : null;
+
+  // 전세시세 없으면 경고만 (분석은 진행)
+  if (!baseJeonse && filled.currentPrice) {
+    console.log("필수값 부족: 전세 시세 없음. 매매 기반 임시 분석으로 진행합니다.");
+    warns.push("전세 실거래가 없습니다. KB전세시세를 입력하거나 전세 실거래를 직접 입력하세요.");
+  }
 
   const ff = blockReason ? null : {
     ...filled,
