@@ -1976,7 +1976,45 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   const [aiMsg, setAiMsg] = useState(null);
   const [pending, setPending] = useState(null);
   const [showManual, setShowManual] = useState(false);
+  const [areaOptions, setAreaOptions] = useState([]); // 국토부 면적 목록
+  const [areaStep, setAreaStep] = useState(false);    // 면적 선택 단계
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+
+  // ── 1단계: 면적 목록 조회 ──
+  async function fetchAreas() {
+    if (!f.complexName || !f.region) { setAiMsg("지역(구)과 단지명을 입력하세요."); return; }
+    setAiLoading(true); setAiMsg(null); setAreaOptions([]);
+    try {
+      // lawdCd 변환
+      const lawdRes = await fetch("/api/lawdCd", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ region: f.region, dong: f.dong }),
+      });
+      if (!lawdRes.ok) throw new Error("지역 코드 조회 실패");
+      const { lawdCd } = await lawdRes.json();
+      // 면적 목록 조회
+      const areasRes = await fetch("/api/molit", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "areas", lawdCd, complexName: f.complexName }),
+      });
+      const areasData = await areasRes.json();
+      const opts = (areasData.areaOptions || []).map((o) => ({
+        areaSqm: o.areaSqm,
+        pyeong: typicalPyeong(o.areaSqm),
+      }));
+      if (opts.length === 0) {
+        setAiMsg("해당 단지 실거래 면적을 찾지 못했습니다. 면적을 직접 입력하세요.");
+        setAreaStep(true);
+      } else {
+        setAreaOptions(opts);
+        setAreaStep(true);
+        setAiMsg(null);
+      }
+    } catch (e) {
+      setAiMsg("면적 조회 실패 — 지역명(구)을 확인하거나 면적을 직접 입력하세요.");
+      setAreaStep(true);
+    } finally { setAiLoading(false); }
+  }
 
   // ── UI 진입점: 버튼 1개 ──────────────────────────────────────
   // 화면은 버튼 하나지만 내부는 3단 파이프라인으로 분리:
@@ -1985,7 +2023,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   //   [3] analyze()           → 계산 엔진 (ConfirmStep → doAnalyze에서 실행, 절대 수정 금지)
   // ─────────────────────────────────────────────────────────────
   async function quickSearch() {
-    if (!f.complexName || !f.region || !f.areaExclusive || !f.currentPrice) { setAiMsg("지역·단지명·전용면적·매물가는 모두 필수입니다."); return; }
+    if (!f.complexName || !f.region || !f.areaExclusive) { setAiMsg("지역·단지명·전용면적은 필수입니다."); return; }
+    if (!f.currentPrice) { setAiMsg("현재 매물가를 입력하세요."); return; }
     setAiLoading(true); setAiMsg(null);
     try {
       // ── [1] 조회 모듈 ── API 전환 시 fetchApartmentData 함수만 교체하면 됨
@@ -2077,26 +2116,74 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       </header>
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
         <p className="mb-3 text-sm font-bold text-slate-800">단지 검색</p>
+
+        {/* ── 1단계: 지역 + 단지명 ── */}
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <input type="text" value={f.region} placeholder="지역 (예: 노원구) *필수" onChange={(e) => set("region", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          <input type="text" value={f.region} placeholder="지역 (예: 노원구)" onChange={(e) => { set("region", e.target.value); setAreaStep(false); setAreaOptions([]); }} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
           <ComplexAutocomplete
             dong={f.dong}
             value={f.complexName}
-            onChange={(v) => set("complexName", v)}
-            placeholder="단지명 (예: 동부) *필수"
+            onChange={(v) => { set("complexName", v); setAreaStep(false); setAreaOptions([]); }}
+            placeholder="단지명 (예: 동부)"
             className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400"
           />
-          <input type="number" value={f.areaExclusive} placeholder="전용면적 ㎡ (예: 59) *필수" onChange={(e) => set("areaExclusive", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          <input type="number" value={f.currentPrice} placeholder="현재 매물가 만원 (예: 50000) *필수" onChange={(e) => set("currentPrice", e.target.value)} className="rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
         </div>
-        {Number(f.areaExclusive) > 0 && (
-          <p className="mt-1.5 text-xs text-slate-500">전용 {f.areaExclusive}㎡ · 통상 약 {typicalPyeong(f.areaExclusive)}평형</p>
+
+        {/* 면적 조회 버튼 */}
+        {!areaStep && (
+          <button onClick={fetchAreas} disabled={aiLoading} className="mt-3 w-full rounded-2xl py-3 text-sm font-bold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
+            {aiLoading ? "면적 조회 중…" : "면적 조회 →"}
+          </button>
         )}
 
-        {/* 메인 버튼 */}
-        <button onClick={quickSearch} disabled={aiLoading} className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
-          {aiLoading ? "조회 중…" : "이 집 사도 될까? — AI 매수판단"}
-        </button>
+        {/* ── 2단계: 면적 선택 + 매물가 입력 ── */}
+        {areaStep && (
+          <div className="mt-4">
+            {areaOptions.length > 0 ? (
+              <div>
+                <p className="mb-2 text-xs font-semibold text-slate-600">전용면적 선택 <span className="font-normal text-slate-400">(국토부 실거래 기준)</span></p>
+                <div className="flex flex-wrap gap-2">
+                  {areaOptions.map((o, i) => (
+                    <button key={i}
+                      onClick={() => set("areaExclusive", String(o.areaSqm))}
+                      className={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${String(f.areaExclusive) === String(o.areaSqm) ? "bg-blue-600 text-white shadow" : "bg-amber-50 text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100"}`}>
+                      {o.areaSqm}㎡ · {o.pyeong}평형
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500">면적을 직접 입력하세요</p>
+            )}
+
+            {/* 면적 직접 입력 */}
+            <div className="mt-3">
+              <input type="number" value={f.areaExclusive} placeholder="전용면적 ㎡ 직접 입력 (예: 59.99)"
+                onChange={(e) => set("areaExclusive", e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+              {Number(f.areaExclusive) > 0 && (
+                <p className="mt-1 text-xs text-slate-400">전용 {f.areaExclusive}㎡ · 통상 약 {typicalPyeong(f.areaExclusive)}평형</p>
+              )}
+            </div>
+
+            {/* 매물가 입력 */}
+            <div className="mt-3">
+              <input type="number" value={f.currentPrice} placeholder="현재 매물가 만원 (예: 50000)"
+                onChange={(e) => set("currentPrice", e.target.value)}
+                className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
+            </div>
+
+            {/* 분석 버튼 */}
+            <button onClick={quickSearch} disabled={aiLoading} className="mt-3 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
+              {aiLoading ? "조회 중…" : "이 집 사도 될까? — AI 매수판단"}
+            </button>
+
+            {/* 다시 검색 */}
+            <button onClick={() => { setAreaStep(false); setAreaOptions([]); set("areaExclusive", ""); }} className="mt-2 w-full rounded-xl py-2 text-xs text-slate-400 hover:text-slate-600">
+              ← 단지 다시 검색
+            </button>
+          </div>
+        )}
 
         {/* 조회 실패 메시지 */}
         {aiMsg && (
