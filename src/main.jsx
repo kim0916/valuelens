@@ -2378,13 +2378,33 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
           <input type="text" value={f.complexName} placeholder="단지명 (예: 동부)" onChange={(e) => set("complexName", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
         </div>
 
+        {/* 수기 입력 */}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div>
+            <p className="mb-1 text-xs font-medium text-slate-500">전용면적 (㎡)</p>
+            <input type="number" value={f.areaExclusive} placeholder="예: 59.99" onChange={(e) => set("areaExclusive", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-medium text-slate-500">현재 매물가 (만원)</p>
+            <input type="number" value={f.currentPrice} placeholder="예: 50000" onChange={(e) => set("currentPrice", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-medium text-slate-500">KB매매시세 (만원)</p>
+            <input type="number" value={f.kbSalePrice} placeholder="예: 50250" onChange={(e) => set("kbSalePrice", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-medium text-slate-500">KB전세시세 (만원)</p>
+            <input type="number" value={f.kbJeonse} placeholder="예: 35000" onChange={(e) => set("kbJeonse", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          </div>
+        </div>
+
         {/* 캡처 업로드 */}
         <div className="mt-3 rounded-2xl bg-indigo-50 p-3 ring-1 ring-indigo-100">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-indigo-800">📷 네이버 부동산 캡처로 자동 입력</p>
-            {uploadedImages.length > 0 && <button onClick={() => setUploadedImages([])} className="text-[10px] text-indigo-400 underline">초기화</button>}
+            <p className="text-xs font-bold text-indigo-800">📷 네이버 부동산 캡처로 AI 자동 입력</p>
+            {uploadedImages.length > 0 && <button onClick={() => { setUploadedImages([]); setCaptureMsg(null); }} className="text-[10px] text-indigo-400 underline">초기화</button>}
           </div>
-          <p className="mt-0.5 text-[10px] text-indigo-500">매물·시세 화면 캡처 올리면 면적·매물가·KB시세 자동 인식</p>
+          <p className="mt-0.5 text-[10px] text-indigo-500">매물·시세 화면 캡처 올리면 위 항목 자동 인식</p>
           {uploadedImages.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {uploadedImages.map((url, i) => (
@@ -2393,7 +2413,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
             </div>
           )}
           <label className={`mt-2 block w-full cursor-pointer rounded-xl py-2 text-center text-xs font-bold text-white ${aiLoading ? "opacity-50" : ""}`} style={{ backgroundColor: NAVY }}>
-            {aiLoading ? "분석 중…" : uploadedImages.length > 0 ? "📷 추가 캡처 업로드" : "📷 캡처 업로드"}
+            {aiLoading ? "인식 중…" : uploadedImages.length > 0 ? "📷 추가 캡처" : "📷 캡처 업로드"}
             <input type="file" accept="image/*" multiple disabled={aiLoading} className="hidden" onChange={async (e) => {
               const files = Array.from(e.target.files || []);
               if (!files.length) return;
@@ -2404,57 +2424,31 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
                 setUploadedImages(prev => [...prev, ...imgs.map(i => i.url)]);
                 const content = [
                   ...imgs.map(img => ({ type: "image", source: { type: "base64", media_type: img.type, data: img.data } })),
-                  { type: "text", text: `이 이미지들은 네이버 부동산 화면 캡처야. 보이는 정보만 추출해 아래 JSON만 출력 (설명·백틱 금지):\n{"region":"시군구","dong":"법정동","complexName":"단지명","areaExclusive":전용면적㎡숫자,"currentPrice":매물호가또는최근실거래만원정수,"kbSalePrice":KB매매시세만원정수,"kbJeonse":KB전세시세만원정수,"buildYear":준공연도숫자}\n규칙:\n- 가격은 만원 정수(4억5100만→45100, 5억→50000)\n- 단지명은 화면 상단 굵은 글씨에서 추출\n- 면적은 현재 선택된/강조된 면적(㎡) 사용\n- currentPrice: 매물 호가 없으면 최근 실거래가 사용\n- KB시세 없으면 0\n- buildYear: 준공일(예: 2008.08.05)에서 연도만 추출
-- 안 보이는 값은 0. 절대 추정 금지.` }
+                  { type: "text", text: `이 이미지들은 네이버 부동산 화면 캡처야. 보이는 정보만 추출해 아래 JSON만 출력 (설명·백틱 금지):\n{"region":"시군구","dong":"법정동","complexName":"단지명","areaExclusive":전용면적㎡숫자,"currentPrice":매물호가또는최근실거래만원정수,"kbSalePrice":KB매매시세만원정수,"kbJeonse":KB전세시세만원정수,"buildYear":준공연도숫자}\n규칙:\n- 가격은 만원 정수(4억5100만→45100)\n- 단지명은 화면 상단 굵은 글씨\n- 면적은 현재 선택된 면적(㎡)\n- currentPrice: 호가 없으면 최근 실거래가\n- buildYear: 준공일에서 연도만\n- 없는 값은 0` }
                 ];
                 const res = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content }] }) });
                 const data = await res.json();
                 const text = (data.content||[]).map(i=>i.type==="text"?i.text:"").join("").replace(/```json|```/g,"").trim();
                 const m = text.match(/\{[\s\S]*\}/);
                 const p = JSON.parse(m ? m[0] : "{}");
-                const merged = {
-                  region: p.region || f.region,
-                  dong: p.dong || f.dong,
-                  complexName: p.complexName || f.complexName,
-                  areaExclusive: p.areaExclusive || f.areaExclusive,
-                  currentPrice: Number(p.currentPrice) || f.currentPrice,
-                  kbSalePrice: Number(p.kbSalePrice) || f.kbSalePrice,
-                  kbJeonse: Number(p.kbJeonse) || f.kbJeonse,
-                  buildYear: p.buildYear || f.buildYear,
-                };
-                setF(prev => ({ ...prev, ...merged }));
-                setCaptureMsg(`✅ 캡처 인식 완료 — ${merged.complexName||"단지"} ${merged.areaExclusive?merged.areaExclusive+"㎡":""} ${merged.currentPrice?"매물가 "+(merged.currentPrice/10000).toFixed(1)+"억":""}. 추가 캡처 올리거나 버튼을 눌러 분석하세요.`);
+                setF(prev => ({
+                  ...prev,
+                  region: p.region || prev.region,
+                  dong: p.dong || prev.dong,
+                  complexName: p.complexName || prev.complexName,
+                  areaExclusive: p.areaExclusive || prev.areaExclusive,
+                  currentPrice: Number(p.currentPrice) || prev.currentPrice,
+                  kbSalePrice: Number(p.kbSalePrice) || prev.kbSalePrice,
+                  kbJeonse: Number(p.kbJeonse) || prev.kbJeonse,
+                  buildYear: p.buildYear || prev.buildYear,
+                }));
+                setCaptureMsg(`✅ 인식 완료 — ${p.complexName||"단지"} ${p.areaExclusive?p.areaExclusive+"㎡":""}`);
               } catch(e) {
                 setAiMsg("캡처 인식 실패 — 직접 입력해주세요.");
               } finally { setAiLoading(false); e.target.value=""; }
             }} />
           </label>
-          {captureMsg && (
-            <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">{captureMsg}</p>
-          )}
-        </div>
-
-        {/* 수기 입력 섹션 */}
-        <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
-          <p className="mb-2 text-xs font-bold text-slate-700">✏️ 수기 직접 입력</p>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <p className="mb-1 text-[10px] font-medium text-slate-500">전용면적 (㎡)</p>
-              <input type="number" value={f.areaExclusive} placeholder="예: 59.99" onChange={(e) => set("areaExclusive", e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400" />
-            </div>
-            <div>
-              <p className="mb-1 text-[10px] font-medium text-slate-500">현재 매물가 (만원)</p>
-              <input type="number" value={f.currentPrice} placeholder="예: 50000" onChange={(e) => set("currentPrice", e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400" />
-            </div>
-            <div>
-              <p className="mb-1 text-[10px] font-medium text-slate-500">KB매매시세 (만원)</p>
-              <input type="number" value={f.kbSalePrice} placeholder="예: 50250" onChange={(e) => set("kbSalePrice", e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400" />
-            </div>
-            <div>
-              <p className="mb-1 text-[10px] font-medium text-slate-500">KB전세시세 (만원)</p>
-              <input type="number" value={f.kbJeonse} placeholder="예: 35000" onChange={(e) => set("kbJeonse", e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400" />
-            </div>
-          </div>
+          {captureMsg && <p className="mt-2 text-xs font-medium text-emerald-700">{captureMsg}</p>}
         </div>
 
         {areaOptions.length > 0 && (
@@ -2462,16 +2456,14 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
             <p className="text-xs text-slate-400 mb-1.5">면적 선택:</p>
             <div className="flex flex-wrap gap-1.5">
               {areaOptions.map((o, i) => (
-                <button key={i} type="button"
-                  onClick={() => { set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm); }}
-                  className={`rounded-xl px-3 py-1.5 text-sm font-semibold border ${Number(f.areaExclusive) === o.areaSqm ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"}`}>
+                <button key={i} onClick={() => { set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm); }}
+                  className={`rounded-xl px-3 py-1.5 text-sm font-semibold border ${Number(f.areaExclusive) === o.areaSqm ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-700 border-slate-200"}`}>
                   {o.areaSqm}㎡ · {o.pyeong}평
                 </button>
               ))}
             </div>
           </div>
-        )}
-
+        )
         {/* 메인 버튼 */}
         <button onClick={quickSearch} disabled={aiLoading} className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
           {aiLoading ? "AI 조회 중… (실거래 데이터 수집 중)" : "이 집 사도 될까? — AI 매수판단"}
