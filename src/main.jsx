@@ -2263,7 +2263,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   //   [3] analyze()           → 계산 엔진 (ConfirmStep → doAnalyze에서 실행, 절대 수정 금지)
   // ─────────────────────────────────────────────────────────────
   async function quickSearch(overrideArea) {
-    if (!f.complexName) { setAiMsg("최소한 단지명을 입력하세요. (예: 동부)"); return; }
+    if (!f.complexName && !(f.currentPrice && f.kbJeonse)) { setAiMsg("최소한 단지명을 입력하세요. (예: 동부)"); return; }
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
