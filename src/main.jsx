@@ -2110,6 +2110,8 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
   let apiFailed = 0;
   const allAreas = new Set();
   let rentSkipAptNm = 0, rentSkipMonthly = 0, rentPass = 0;
+  let saleSkipAptNm = 0, salePass = 0;
+  const rawAptNmSamples = new Set(); // 원본 aptNm 샘플 수집
 
   for (const s of settled) {
     if (s.status !== "fulfilled") { apiFailed++; continue; }
@@ -2117,7 +2119,9 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
     if (failed) apiFailed++;
 
     for (const item of saleItems) {
-      if (!matchAptName(item.aptNm, complexName, exactAptNm)) continue;
+      if (item.aptNm) rawAptNmSamples.add(item.aptNm);
+      if (!matchAptName(item.aptNm, complexName, exactAptNm)) { saleSkipAptNm++; continue; }
+      salePass++;
       const area = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
       if (area > 0) allAreas.add(area);
       allSaleRaw.push(item);
@@ -2135,16 +2139,14 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
     }
   }
 
-  // ── [로그 6] aptNm/월세 필터 결과
-  console.log("[MOLIT] 전세 필터 결과:", {
-    "aptNm불일치_제외": rentSkipAptNm,
-    "월세_제외": rentSkipMonthly,
-    "통과(allRentRaw)": rentPass,
-    "allRentRaw전용면적목록(raw)": allRentRaw.map(i => i.excluUseAr),
-    "allRentRaw전용면적목록(Number)": allRentRaw.map(i => Number(i.excluUseAr)),
-    "선택면적(areaExclusive)": areaExclusive,
-    "선택면적_Number": Number(areaExclusive),
-  });
+  // ── [로그 6] 단지명 필터 결과 상세
+  const aptNmList = Array.from(rawAptNmSamples).slice(0, 15);
+  console.log("[MOLIT] 원본 aptNm 목록(최대15):", aptNmList);
+  console.log("[MOLIT] 매칭 파라미터:", { complexName, exactAptNm });
+  console.log("[MOLIT] 매매 단지명필터:", { 총원본: saleSkipAptNm + salePass, 제외: saleSkipAptNm, 통과: salePass });
+  console.log("[MOLIT] 전세 단지명필터:", { aptNm제외: rentSkipAptNm, 월세제외: rentSkipMonthly, 통과: rentPass });
+  console.log("[MOLIT] 전용면적 목록(allRentRaw):", allRentRaw.map(i => i.excluUseAr));
+  console.log("[MOLIT] 전용면적 목록(allSaleRaw):", allSaleRaw.map(i => i.excluUseAr));
 
   const complexSaleTotal = allSaleRaw.length;
   const complexRentTotal = allRentRaw.length;
