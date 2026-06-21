@@ -2334,25 +2334,10 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
         <p className="mb-3 text-sm font-bold text-slate-800">단지 검색</p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <DongAutocomplete
-            value={f.dong}
-            onChange={(v) => set("dong", v)}
-            onSelect={(dong) => set("dong", dong)}
-            placeholder="동 (예: 공릉동, ㄱ)"
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400"
-          />
-          <ComplexAutocomplete
-            dong={f.dong}
-            value={f.complexName}
-            onChange={(v) => set("complexName", v)}
-            placeholder="단지명 (예: 동신)"
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400"
-          />
-          <input type="number" value={f.areaExclusive} placeholder="전용면적 ㎡ (선택)" onChange={(e) => set("areaExclusive", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          <input type="text" value={f.region} placeholder="시/구 (예: 노원구, 해운대구)" onChange={(e) => set("region", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          <input type="text" value={f.dong} placeholder="동 (예: 공릉동)" onChange={(e) => set("dong", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          <input type="text" value={f.complexName} placeholder="단지명 (예: 동부)" onChange={(e) => set("complexName", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
         </div>
-        {Number(f.areaExclusive) > 0 && (
-          <p className="mt-1.5 text-xs text-slate-500">전용 {f.areaExclusive}㎡ · 통상 약 {typicalPyeong(f.areaExclusive)}평형</p>
-        )}
         {areaOptions.length > 0 && (
           <div className="mt-2">
             <p className="text-xs text-slate-400 mb-1.5">면적 선택:</p>
