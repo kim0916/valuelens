@@ -2384,12 +2384,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
           <input type="text" value={f.complexName} placeholder="단지명 (예: 동부)" onChange={(e) => set("complexName", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
         </div>
 
-        {/* 수기 입력 */}
+        {/* 수기 입력 - 면적 제외 */}
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <div>
-            <p className="mb-1 text-xs font-medium text-slate-500">전용면적 (㎡)</p>
-            <input type="number" value={f.areaExclusive} placeholder="예: 59.99" onChange={(e) => set("areaExclusive", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          </div>
           <div>
             <p className="mb-1 text-xs font-medium text-slate-500">현재 매물가 (만원)</p>
             <input type="number" value={f.currentPrice} placeholder="예: 50000" onChange={(e) => set("currentPrice", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
@@ -2398,7 +2394,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
             <p className="mb-1 text-xs font-medium text-slate-500">KB매매시세 (만원)</p>
             <input type="number" value={f.kbSalePrice} placeholder="예: 50250" onChange={(e) => set("kbSalePrice", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
           </div>
-          <div>
+          <div className="col-span-2">
             <p className="mb-1 text-xs font-medium text-slate-500">KB전세시세 (만원)</p>
             <input type="number" value={f.kbJeonse} placeholder="예: 35000" onChange={(e) => set("kbJeonse", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
           </div>
@@ -2458,12 +2454,12 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         </div>
 
         {areaOptions.length > 0 && (
-          <div className="mt-2">
-            <p className="text-xs text-slate-400 mb-1.5">면적 선택:</p>
+          <div className="mt-3 rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200">
+            <p className="mb-2 text-xs font-bold text-amber-800">📐 전용면적 선택 (국토부 실제 면적)</p>
             <div className="flex flex-wrap gap-1.5">
               {areaOptions.map((o, i) => (
                 <button key={i} onClick={() => { set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm); }}
-                  className={`rounded-xl px-3 py-1.5 text-sm font-semibold border ${Number(f.areaExclusive) === o.areaSqm ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-700 border-slate-200"}`}>
+                  className={`rounded-xl px-3 py-1.5 text-sm font-semibold border ${Number(f.areaExclusive) === o.areaSqm ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400"}`}>
                   {o.areaSqm}㎡ · {o.pyeong}평
                 </button>
               ))}
