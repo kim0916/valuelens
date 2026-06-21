@@ -1,5 +1,5 @@
 const SALE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
-const RENT_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptRentDev/getRTMSDataSvcAptRentDev";
+const RENT_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent";
 const COMPLEX_URL = "https://apis.data.go.kr/1613000/AptBasisInfoService1/getAptBasisInfo";
 
 function getTag(xml, tag) {
