@@ -2400,6 +2400,14 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         {aiMsg && (
           <div className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800 ring-1 ring-amber-100">
             {aiMsg}
+            <button
+              onClick={() => {
+                const ff = { ...f, currentPrice: Number(f.currentPrice)||0, baseJeonse: Number(f.kbJeonse)||0, kbSalePrice: Number(f.kbSalePrice)||0, jeonseUsed:0, saleUsed:0, jeonseCalc:null, saleCalc:null, dataSource:"manual" };
+                setPending({ ff, jeonseCalc:null, saleCalc:null, blockReason: null });
+              }}
+              className="mt-2 block w-full rounded-lg bg-amber-700 py-2 text-center text-xs font-bold text-white">
+              ✏️ 수기로 직접 입력하기
+            </button>
           </div>
         )}
 
