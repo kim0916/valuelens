@@ -9,7 +9,7 @@ function getTag(xml, tag) {
 
 function parseXmlItems(xml) {
   const items = [];
-  const itemMatches = xml.match(/<item>([\s\S]*?)<\/item>/g) || [];
+  const itemMatches = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
   for (const item of itemMatches) {
     items.push({
       aptNm: getTag(item, "aptNm"),
@@ -97,7 +97,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.MOLIT_API_KEY;
   if (!apiKey) { res.status(500).json({ error: "MOLIT_API_KEY 없음" }); return; }
 
-  const { type, lawdCd, dealYmd, complexName, targetArea } = req.body || {};
+  const { type, lawdCd, dealYmd, complexName, targetArea, targetDong } = req.body || {};
 
   // ── 단지 정보 조회 (면적 목록) ──
   if (type === "complex") {
@@ -233,6 +233,17 @@ export default async function handler(req, res) {
     // 단지명 필터
     if (complexName) items = items.filter(i => matchComplex(i.aptNm, complexName));
 
+    // 법정동 필터 — 같은 이름 다른 단지 구분 (targetDong 있을 때만)
+    if (targetDong) {
+      const tDong = String(targetDong).replace(/\s/g, "");
+      const filtered = items.filter(i => {
+        const iDong = String(i.umdNm || "").replace(/\s/g, "");
+        return iDong === tDong || iDong.includes(tDong) || tDong.includes(iDong);
+      });
+      // 필터 결과가 있을 때만 적용 (없으면 단지명 필터 결과 유지)
+      if (filtered.length > 0) items = filtered;
+    }
+
     // 면적 필터 (±2㎡ 허용) — targetArea 있을 때만
     if (targetArea && Number(targetArea) > 0) {
       items = items.filter(i => matchArea(i.excluUseAr, targetArea));
@@ -244,3 +255,4 @@ export default async function handler(req, res) {
     res.status(502).json({ error: "API 호출 실패: " + (e?.message || String(e)) });
   }
 }
+
