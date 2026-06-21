@@ -1825,6 +1825,7 @@ async function fetchApartmentData(query) {
 - 출처에서 "이 면적의 이 가격"이 함께 확인되지 않으면 해당 가격은 0/빈배열로 둔다.
 - 절대 추측으로 면적을 채우지 마라. 확실히 못 찾은 값만 0/빈배열.
 - 입력에 전용면적이 주어졌으면 그 면적 기준 가격만 채운다. 그 면적이 단지에 없으면 areaSqm=0으로 두고 areaOptions에 실제 존재하는 면적들을 넣는다.
+- 전용면적이 입력되지 않았으면 반드시 areaOptions에 그 단지의 모든 전용면적을 넣어라. areaSqm=0으로 두고 areaOptions 필수 입력.
 - priceArea: currentPrice가 어느 전용면적 기준인지 ㎡로 명시(모르면 0).
 
 아래 JSON만 출력 (설명·마크다운·백틱 금지):
