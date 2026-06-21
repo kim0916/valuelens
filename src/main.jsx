@@ -2006,21 +2006,21 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6) {
     const rentData = await rentRes.json();
 
     // 단지명 필터링 (부분 일치)
+    // exactMatch: 자동완성에서 선택한 정확한 aptNm → 완전일치만
+    // 직접 타이핑: 부분일치 허용
+    const exactMatch = !!query.exactAptNm;
     const nameFilter = (name) => {
       if (!complexName) return true;
       const n = String(name || "").replace(/\s/g, "");
-      const c = complexName.replace(/\s/g, "");
-      // 1. 완전 일치
+      const c = (query.exactAptNm || complexName).replace(/\s/g, "");
+      // 완전 일치
       if (n === c) return true;
-      // 2. n이 c로 시작 (예: aptNm="동부" complexName="동부아파트")
-      if (c.startsWith(n) && n.length >= 2) return true;
-      // 3. c가 n으로 시작 (예: aptNm="동부아파트" complexName="동부")
-      if (n.startsWith(c) && c.length >= 2) return true;
-      // 4. 앞 글자 3자 이상 연속 일치
+      if (exactMatch) return false; // 자동완성 선택시 완전일치만
+      // 직접 타이핑: 앞 글자 2자 이상 일치
       const minLen = Math.min(n.length, c.length);
       let common = 0;
       for (let i = 0; i < minLen; i++) { if (n[i] === c[i]) common++; else break; }
-      return common >= Math.min(3, minLen);
+      return common >= Math.min(2, minLen);
     };
 
     // 면적 필터 (±3㎡ 허용)
@@ -2104,7 +2104,7 @@ async function fetchApartmentData(query) {
   // ── 실거래 조회: 최근 6개월 ──
   let sale = [], jeonse = [], noTradeWarning = null;
 
-  const molitResult = await fetchMolitData(lawdCd, query.complexName, query.areaExclusive, 6);
+  const molitResult = await fetchMolitData(lawdCd, query.exactAptNm || query.complexName, query.areaExclusive, 6);
   ({ sale, jeonse } = molitResult);
 
   // 면적 옵션 추출 - 동 전체 면적 기준 (단지명 필터 없음)
@@ -2316,7 +2316,7 @@ function LocationPicker({ onComplete }) {
   }
 
   function selectComplex(name) {
-    onComplete({ sido, sigungu, dong, complexName: name });
+    onComplete({ sido, sigungu, dong, complexName: name, exactAptNm: name });
   }
 
   const stepCls = "mb-4";
@@ -2412,13 +2412,13 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
   // 면적만 먼저 조회하는 함수
   // 외부에서 파라미터 받는 버전 (단지 선택 즉시 호출용)
-  async function fetchAreasFor(region, dong, complexName) {
+  async function fetchAreasFor(region, dong, complexName, exactAptNm) {
     if (!complexName || !region) return;
     setFetchingAreas(true); setAiMsg(null); setAreaOptions([]);
     try {
       const lawdCd = getLawdCd(dong, region);
       if (!lawdCd) { setAiMsg("지역 코드를 찾지 못했습니다."); return; }
-      const result = await fetchMolitData(lawdCd, complexName, "", 12); // 면적 조회는 12개월
+      const result = await fetchMolitData(lawdCd, exactAptNm || complexName, "", 12);
       const allAreas = [...(result.sale || []), ...(result.jeonse || [])].map(d => d.areaSqm).filter(a => a > 0);
       const unique = [...new Set(allAreas)].sort((a, b) => a - b);
       const opts = unique.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
@@ -2472,6 +2472,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       // ── [1] 조회 모듈 ── API 전환 시 fetchApartmentData 함수만 교체하면 됨
       const rawData = await fetchApartmentData({
         complexName: ff.complexName,
+        exactAptNm: ff.exactAptNm,
         dong: ff.dong,
         region: ff.region,
         areaExclusive: overrideArea ? String(overrideArea) : ff.areaExclusive,
@@ -2584,11 +2585,10 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
             </button>
           </div>
         ) : (
-          <LocationPicker onComplete={({ sido, sigungu, dong, complexName }) => {
-            setF(p => ({ ...p, region: sigungu, dong, complexName, areaExclusive: "" }));
+          <LocationPicker onComplete={({ sido, sigungu, dong, complexName, exactAptNm }) => {
+            setF(p => ({ ...p, region: sigungu, dong, complexName, exactAptNm, areaExclusive: "" }));
             setAreaOptions([]);
-            // 단지 선택 즉시 면적 자동 조회
-            setTimeout(() => fetchAreasFor(sigungu, dong, complexName), 100);
+            setTimeout(() => fetchAreasFor(sigungu, dong, complexName, exactAptNm), 100);
           }} />
         )}
 
