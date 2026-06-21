@@ -232,24 +232,19 @@ export default async function handler(req, res) {
     const text = await r.text();
     let items = parseXmlItems(text);
 
-    // 단지명 필터
-    if (complexName) items = items.filter(i => matchComplex(i.aptNm, complexName));
-
-    // 법정동 필터 — 같은 이름 다른 단지 구분 (targetDong 있을 때만)
+    // 법정동 필터만 서버에서 적용 — 단지명/면적 필터는 클라이언트 전담
+    // (서버 단지명 exact match가 너무 엄격해 다른 단지 데이터를 모두 차단하는 문제 방지)
     if (targetDong) {
       const tDong = String(targetDong).replace(/\s/g, "");
       const filtered = items.filter(i => {
         const iDong = String(i.umdNm || "").replace(/\s/g, "");
         return iDong === tDong || iDong.includes(tDong) || tDong.includes(iDong);
       });
-      // 필터 결과가 있을 때만 적용 (없으면 단지명 필터 결과 유지)
       if (filtered.length > 0) items = filtered;
     }
 
-    // 면적 필터 (±2㎡ 허용) — targetArea 있을 때만
-    if (targetArea && Number(targetArea) > 0) {
-      items = items.filter(i => matchArea(i.excluUseAr, targetArea));
-    }
+    // 총 건수 로그 (디버그용)
+    // console.log(`[molit] ${type} ${dealYmd} 총${items.length}건 (법정동필터 후)`);
 
     res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
     res.status(200).json({ items, totalCount: items.length });
