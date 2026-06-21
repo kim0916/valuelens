@@ -30,7 +30,7 @@ export default async function handler(req, res) {
   }
 
   const baseUrl = type === "rent" ? RENT_URL : SALE_URL;
-  const url = `${baseUrl}?serviceKey=${encodeURIComponent(apiKey)}&pageNo=1&numOfRows=100&LAWD_CD=${lawdCd}&DEAL_YMD=${dealYmd}&_type=json`;
+  const url = `${baseUrl}?serviceKey=${apiKey}&pageNo=1&numOfRows=100&LAWD_CD=${lawdCd}&DEAL_YMD=${dealYmd}&_type=json`;
 
   try {
     const r = await fetch(url);
