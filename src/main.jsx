@@ -2550,8 +2550,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     const controller = new AbortController();
     abortRef.current = controller;
     setAiLoading(true); setAiMsg(null); setPending(null);
+    console.log("1. 분석 시작 currentPrice:", ff.currentPrice, "area:", ff.areaExclusive);
     try {
-      console.log("분석시작 complexName:", ff.complexName, "area:", ff.areaExclusive);
+      console.log("2. fetchApartmentData 호출");
       // ── [1] 조회 모듈 ──
       const rawData = await fetchApartmentData({
         complexName: ff.complexName,
@@ -2561,7 +2562,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         sido: ff.sido || "",
         areaExclusive: overrideArea ? String(overrideArea) : ff.areaExclusive,
       });
-      console.log("rawData:", rawData?.sale?.length, "매매", rawData?.jeonse?.length, "전세");
+      console.log("3. rawData:", rawData?.sale?.length, "매매", rawData?.jeonse?.length, "전세");
       // ── [2] 변환 모듈 ── rawData에 사용자 입력값 미리 주입
       const rawDataWithUserInput = {
         ...rawData,
@@ -2579,7 +2580,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       if (ff.kbJeonse) filled.kbJeonse = ff.kbJeonse;
       if (ff.areaExclusive) filled.areaExclusive = ff.areaExclusive;
       if (ff.buildYear && !filled.buildYear) filled.buildYear = ff.buildYear;
-      console.log("보정 후 currentPrice:", filled.currentPrice, "blockReason:", blockReason);
+      console.log("4. 보정 후 currentPrice:", filled.currentPrice, "blockReason:", blockReason);
       setF(filled);
       // 면적 옵션 저장
       const opts = (filled._aiAreaOptions && filled._aiAreaOptions.length > 0)
@@ -2589,7 +2590,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
       // 면적 미지정 + 옵션 있으면 → 면적 선택 먼저, ConfirmStep 안 감
       const askedArea = Number(overrideArea || ff.areaExclusive) || 0;
+      console.log("5. askedArea:", askedArea, "opts:", opts.length);
       if (askedArea <= 0 && opts.length > 0) {
+        console.log("5-STOP: 면적 미선택으로 early return");
         setAiMsg(null);
         return;
       }
@@ -2608,9 +2611,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
             jeonseUsed: 0, saleUsed: 0,
             jeonseCalc: null, saleCalc: null, dataSource: "ai",
           };
-      console.log("setPending 호출 pendingFf.currentPrice:", pendingFf.currentPrice);
+      console.log("6. setPending 호출 currentPrice:", pendingFf.currentPrice, "finalBlockReason:", finalBlockReason);
       setPending({ ff: pendingFf, jeonseCalc, saleCalc, blockReason: finalBlockReason });
-      console.log("분석완료 → ConfirmStep 이동");
+      console.log("7. setPending 완료 → ConfirmStep 렌더링 대기");
     } catch (e) {
       console.error("fetchApartmentData 오류:", e);
       // 에러여도 ConfirmStep으로 이동 — 수기 입력 가능하게
