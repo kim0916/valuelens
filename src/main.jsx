@@ -740,13 +740,13 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse") {
     .map((d) => ({ ym: d.ym, price: Number(d.price) || 0, floor: Number(d.floor) || 0, topFloor: Number(d.topFloor) || 0, banjiha: !!d.banjiha, urgent: !!d.urgent, related: !!d.related }))
     .filter((d) => d.price > 0 && d.ym);
   const now = new Date();
-  const cutoff = new Date(now.getFullYear(), now.getMonth() - 11, 1); // 최근 12개월
+  const cutoff = new Date(now.getFullYear(), now.getMonth() - 5, 1); // 최근 6개월
   const within = norm.filter((d) => {
     const [y, m] = String(d.ym).split("-").map(Number);
     return new Date(y, (m || 1) - 1, 1) >= cutoff;
   });
   const total = within.length;
-  if (!total) return kbPrice ? { value: Math.round(kbPrice), used: 0, excluded: 0, total: 0, confidence: 30, confLabel: "낮음", kbWeight: 1, reasonText: "12개월 내 실거래 없음 · KB시세 100% 반영" } : null;
+  if (!total) return kbPrice ? { value: Math.round(kbPrice), used: 0, excluded: 0, total: 0, confidence: 30, confLabel: "낮음", kbWeight: 1, reasonText: "6개월 내 실거래 없음 · KB시세 100% 반영" } : null;
 
   const med = (arr) => { const s = [...arr].sort((a, b) => a - b); const n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0; };
   const reasons = { floor1: 0, banjiha: 0, top: 0, urgent: 0, related: 0, dev20: 0 };
@@ -794,7 +794,7 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse") {
   if (reasons.dev20) rs.push(`±20%초과 ${reasons.dev20}`);
   const reasonBody = rs.length ? rs.join(", ") + " 제외" : "제외 거래 없음";
   const kbNote = kbWeight > 0 ? ` · 표본 부족으로 KB시세 ${Math.round(kbWeight * 100)}% 가중` : " · KB 보정 없음";
-  const reasonText = `최근 12개월 ${total}건 중 ${reasonBody}${kbNote}`;
+  const reasonText = `최근 6개월 ${total}건 중 ${reasonBody}${kbNote}`;
 
   return { value, used, excluded: total - used, total, confidence: conf, confLabel, kbWeight, reasonText };
 }
@@ -1987,7 +1987,7 @@ function getLawdCd(dong, region) {
 // 국토부 실거래가 공공 API 사용 (무료)
 // KB시세는 수기 입력 (API 없음)
 // ───────────────────────────────────────────────────────────────
-async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
+async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6) {
   const now = new Date();
   const results = { sale: [], jeonse: [] };
 
@@ -2100,21 +2100,10 @@ async function fetchApartmentData(query) {
     throw new Error(`법정동 코드를 찾지 못했습니다 (동: ${query.dong}, 지역: ${query.region}). 지역(구)명을 함께 입력해주세요.`);
   }
 
-  // ── 단계적 조회: 12개월 → 36개월 → 단지정보 API ──
-  let sale = [], jeonse = [], dataMonths = 12, noTradeWarning = null;
+  // ── 실거래 조회: 최근 6개월 ──
+  let sale = [], jeonse = [], noTradeWarning = null;
 
-  // [1단계] 12개월
-  ({ sale, jeonse } = await fetchMolitData(lawdCd, query.complexName, query.areaExclusive, 12));
-
-  // [2단계] 0건이면 36개월 확장
-  if (sale.length === 0 && jeonse.length === 0) {
-    ({ sale, jeonse } = await fetchMolitData(lawdCd, query.complexName, query.areaExclusive, 36));
-    if (sale.length > 0 || jeonse.length > 0) {
-      dataMonths = 36;
-      const oldest = [...sale, ...jeonse].map(d => d.ym).sort()[0];
-      noTradeWarning = `최근 12개월 거래 없음 — ${oldest} 거래 기준 (최대 36개월 확장)`;
-    }
-  }
+  ({ sale, jeonse } = await fetchMolitData(lawdCd, query.complexName, query.areaExclusive, 6));
 
   // 면적 옵션 추출 - 동 전체 면적 기준 (단지명 필터 없음)
   const allAreasSet = results.allAreas || new Set();
@@ -2123,26 +2112,9 @@ async function fetchApartmentData(query) {
   const uniqueAreas = [...new Set([...allAreas, ...allAreasList])].sort((a, b) => a - b);
   let areaOptions = uniqueAreas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
 
-  // [3단계] 36개월도 0건 → 단지정보 API로 면적만
+  // 6개월 내 거래 없으면 → KB시세 수기 입력 유도
   if (sale.length === 0 && jeonse.length === 0) {
-    try {
-      const complexRes = await fetch("/api/molit", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "complex", lawdCd, complexName: query.complexName }),
-      });
-      const complexData = await complexRes.json();
-      const complexAreas = (complexData.items || [])
-        .map(i => Number(i.excluUseAr)).filter(a => a > 0);
-      const uniqueComplexAreas = [...new Set(complexAreas)].sort((a, b) => a - b);
-      if (uniqueComplexAreas.length > 0) {
-        areaOptions = uniqueComplexAreas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
-        noTradeWarning = "최근 3년간 거래 없음 — KB시세를 직접 입력하세요";
-      } else {
-        noTradeWarning = "최근 3년간 거래 없음 — 면적·KB시세를 직접 입력하세요";
-      }
-    } catch(e) {
-      noTradeWarning = "최근 3년간 거래 없음 — 면적·KB시세를 직접 입력하세요";
-    }
+    noTradeWarning = "KB_INPUT_NEEDED";
   }
 
   // 대표 면적 결정
@@ -2216,7 +2188,8 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
 
   // 정합성 검증
   const warns = [];
-  if (p.noTradeWarning) warns.push(`⚠️ ${p.noTradeWarning}`);
+  if (p.noTradeWarning && p.noTradeWarning !== "KB_INPUT_NEEDED") warns.push(`⚠️ ${p.noTradeWarning}`);
+  const needKbInput = p.noTradeWarning === "KB_INPUT_NEEDED";
   if (areaSqm <= 0 && !askedArea) warns.push("전용면적 미확인 — 면적을 직접 확인/입력하세요.");
   const mismatch = areaSqm > 0 && priceArea > 0 && Math.abs(priceArea - areaSqm) > Math.max(3, areaSqm * 0.06);
   if (mismatch) warns.push(`가격은 전용 ${priceArea}㎡ 기준인데 단지 기준면적은 ${areaSqm}㎡로 다릅니다.`);
@@ -2236,7 +2209,7 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
     kbSalePrice: Number(p.kbSalePrice) || "",
     kbJeonse: Number(p.kbJeonse) || "",
     deals: jd, saleDeals: sd, shockLevel: "보통",
-    _aiFilled: true, _aiSource: "국토부 실거래·KB·호갱노노 웹검색(AI)",
+    _aiFilled: true, _aiSource: "국토부 실거래·KB·호갱노노 웹검색(AI)", _needKbInput: needKbInput,
     _aiWarns: warns, _aiAreaOptions: areaOptions,
   };
 
@@ -2400,21 +2373,30 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
           <input type="text" value={f.complexName} placeholder="단지명 (예: 동부)" onChange={(e) => set("complexName", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
         </div>
 
-        {/* 수기 입력 - 면적 제외 */}
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div>
-            <p className="mb-1 text-xs font-medium text-slate-500">현재 매물가 (만원)</p>
-            <input type="number" value={f.currentPrice} placeholder="예: 50000" onChange={(e) => set("currentPrice", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          </div>
-          <div>
-            <p className="mb-1 text-xs font-medium text-slate-500">KB매매시세 (만원)</p>
-            <input type="number" value={f.kbSalePrice} placeholder="예: 50250" onChange={(e) => set("kbSalePrice", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          </div>
-          <div className="col-span-2">
-            <p className="mb-1 text-xs font-medium text-slate-500">KB전세시세 (만원)</p>
-            <input type="number" value={f.kbJeonse} placeholder="예: 35000" onChange={(e) => set("kbJeonse", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          </div>
+        {/* 매물가 입력 */}
+        <div className="mt-3">
+          <p className="mb-1 text-xs font-medium text-slate-500">현재 매물가 (만원) <span className="text-red-500">*필수</span></p>
+          <input type="number" value={f.currentPrice} placeholder="예: 50000" onChange={(e) => set("currentPrice", e.target.value)} className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
         </div>
+
+        {/* 6개월 내 거래 없을 때만 KB시세 입력 카드 표시 */}
+        {f._needKbInput && (
+          <div className="mt-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
+            <p className="text-sm font-bold text-amber-800">⚠️ 최근 6개월 실거래가 없습니다</p>
+            <p className="mt-0.5 text-xs text-amber-600">KB시세를 직접 입력하면 적정가를 계산할 수 있습니다.</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div>
+                <p className="mb-1 text-xs font-medium text-amber-700">KB매매시세 (만원)</p>
+                <input type="number" value={f.kbSalePrice} placeholder="예: 50250" onChange={(e) => set("kbSalePrice", e.target.value)} className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium text-amber-700">KB전세시세 (만원)</p>
+                <input type="number" value={f.kbJeonse} placeholder="예: 35000" onChange={(e) => set("kbJeonse", e.target.value)} className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500" />
+              </div>
+            </div>
+            <p className="mt-2 text-[10px] text-amber-500">네이버 부동산 → 시세/실거래가 탭 → KB시세 중간값 확인 후 입력</p>
+          </div>
+        )}
 
         {/* 캡처 업로드 */}
         <div className="mt-3 rounded-2xl bg-indigo-50 p-3 ring-1 ring-indigo-100">
@@ -2666,39 +2648,32 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
             )}
           </label>
 
-          {/* KB 매매시세 */}
-          <label className="block">
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600">KB 매매시세 (만원)</span>
-              <div className="flex items-center gap-1">
-                <button type="button"
-                  onClick={() => { const q = ((edit.dong||"")+" "+(edit.complexName||"")).trim(); navigator.clipboard.writeText(q); window.open("https://land.naver.com/search/complexSearch.nhn?keyword="+encodeURIComponent(q), "_blank", "noopener,noreferrer"); }}
-                  className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">
-                  📋 네이버 KB시세 확인
-                </button>
+          {/* KB시세 — 실거래 없을 때만 표시 */}
+          {edit._needKbInput && (<>
+          <label className="block col-span-2">
+            <div className="mb-2 rounded-xl bg-amber-50 px-3 py-2 ring-1 ring-amber-200">
+              <p className="text-xs font-bold text-amber-800">⚠️ 최근 6개월 실거래 없음 — KB시세 입력 필요</p>
+              <p className="mt-0.5 text-[10px] text-amber-600">네이버 부동산 → 시세/실거래가 탭 → KB시세 중간값 확인 후 입력하세요.</p>
+              <button type="button"
+                onClick={() => { const q = ((edit.dong||"")+" "+(edit.complexName||"")).trim(); navigator.clipboard.writeText(q); window.open("https://land.naver.com/search/complexSearch.nhn?keyword="+encodeURIComponent(q), "_blank", "noopener,noreferrer"); }}
+                className="mt-1.5 rounded px-2 py-1 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">
+                📋 네이버 KB시세 확인 →
+              </button>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div>
+                <p className="mb-1 text-xs font-semibold text-slate-600">KB 매매시세 (만원)</p>
+                <input type="number" className={inp2} value={edit.kbSalePrice} placeholder="예: 50250"
+                  onChange={(e) => setE("kbSalePrice", e.target.value)} />
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-semibold text-slate-600">KB 전세시세 (만원)</p>
+                <input type="number" className={inp2} value={edit.kbJeonse} placeholder="예: 35000"
+                  onChange={(e) => setE("kbJeonse", e.target.value)} />
               </div>
             </div>
-            <input type="number" className={inp2} value={edit.kbSalePrice} placeholder="네이버 시세탭 → KB시세 중간값 입력"
-              onChange={(e) => setE("kbSalePrice", e.target.value)} />
-            <p className="mt-1 text-[10px] text-slate-400">버튼 클릭 → 새 창에서 단지 검색 → 시세 탭 → KB 중간값 확인 후 입력</p>
           </label>
-
-          {/* KB 전세시세 */}
-          <label className="block">
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600">KB 전세시세 (만원)</span>
-              <div className="flex items-center gap-1">
-                <button type="button"
-                  onClick={() => { const q = ((edit.dong||"")+" "+(edit.complexName||"")).trim(); navigator.clipboard.writeText(q); window.open("https://land.naver.com/search/complexSearch.nhn?keyword="+encodeURIComponent(q), "_blank", "noopener,noreferrer"); }}
-                  className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">
-                  📋 네이버 KB시세 확인
-                </button>
-              </div>
-            </div>
-            <input type="number" className={inp2} value={edit.kbJeonse} placeholder="네이버 시세탭 → KB시세 중간값 입력"
-              onChange={(e) => setE("kbJeonse", e.target.value)} />
-            <p className="mt-1 text-[10px] text-slate-400">버튼 클릭 → 새 창에서 단지 검색 → 시세 탭 → KB 중간값 확인 후 입력</p>
-          </label>
+          </>)}
 
           {/* 기준 전세가 */}
           <label className="block">
@@ -3992,7 +3967,7 @@ function DealsEditor({ title = "전세 실거래", deals, setDeals, kind = "jeon
   return (
     <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
       <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left">
-        <span className="text-sm font-semibold text-slate-700">{title} 입력 <span className="font-normal text-slate-400">(정제평균 자동산정 · 최근 12개월)</span></span>
+        <span className="text-sm font-semibold text-slate-700">{title} 입력 <span className="font-normal text-slate-400">(정제평균 자동산정 · 최근 6개월)</span></span>
         <span className="text-xs text-slate-400">{open ? "접기 ▲" : `${list.length}건 ▼`}</span>
       </button>
       {open && (
