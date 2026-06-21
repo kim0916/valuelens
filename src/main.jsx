@@ -2100,86 +2100,90 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
 }
 
 async function fetchApartmentData(query) {
-  // query: { complexName, dong, region, areaExclusive }
-  // 반환: ApartmentRawData (JSON 객체) — 실패 시 throw
+  // query: { complexName, exactAptNm, dong, region, sido, areaExclusive }
 
-  // lawdCd 변환: /api/lawdCd 우선, fallback 내장 getLawdCd
+  // ── 1. 변수 명확히 선언 ──
+  const qComplexName  = String(query.complexName  || "");
+  const qExactAptNm   = String(query.exactAptNm   || "");
+  const qDong         = String(query.dong         || "");
+  const qRegion       = String(query.region       || "");
+  const qSido         = String(query.sido         || "");
+  const qArea         = Number(query.areaExclusive) || 0; // 전용면적(㎡)
+
+  // ── 2. 필수 검증 ──
+  if (!qComplexName && !qExactAptNm) throw new Error("단지명을 다시 선택해주세요.");
+  if (!qRegion) throw new Error("지역(구)명을 확인하세요.");
+
+  // ── 3. lawdCd 변환 ──
   let lawdCd = null;
   try {
     const lr = await fetch("/api/lawdCd", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "lawdCd", sigungu: query.region || "", sido: query.sido || "" }),
+      body: JSON.stringify({ type: "lawdCd", sigungu: qRegion, sido: qSido }),
     });
-    lawdCd = (await lr.json()).lawdCd || null;
-  } catch(e) {}
-  if (!lawdCd) lawdCd = getLawdCd(query.dong || "", query.region || "");
-  if (!lawdCd) {
-    throw new Error(`지역코드를 찾을 수 없습니다 (${query.region || "미입력"}). 지역(구)명을 확인하세요.`);
+    const ld = await lr.json();
+    lawdCd = ld.lawdCd || null;
+  } catch(e) { console.warn("lawdCd API 실패, 내장 테이블 사용:", e.message); }
+  if (!lawdCd) lawdCd = getLawdCd(qDong, qRegion);
+  if (!lawdCd) throw new Error(`지역코드를 찾을 수 없습니다 (${qRegion}). 지역(구)명을 확인하세요.`);
+
+  // ── 4. 실거래 조회 (6개월, exactAptNm 완전일치) ──
+  let sale = [], jeonse = [], noTradeWarning = null;
+  let molitResult;
+  try {
+    molitResult = await fetchMolitData(lawdCd, qExactAptNm || qComplexName, String(qArea), 6, qExactAptNm);
+    sale   = molitResult.sale   || [];
+    jeonse = molitResult.jeonse || [];
+  } catch(e) {
+    console.error("국토부 API 조회 실패:", e);
+    throw new Error("국토부 API 호출 실패: " + e.message);
   }
 
-  // ── 실거래 조회: 최근 6개월 ──
-  let sale = [], jeonse = [], noTradeWarning = null;
-
-  // 실거래 조회: exactAptNm(완전일치) 우선, 6개월
-  const _exactAptNm = query.exactAptNm || "";
-  const _complexName = query.complexName || "";
-  const _areaExclusive = query.areaExclusive || "";
-  const molitResult = await fetchMolitData(lawdCd, _exactAptNm || _complexName, _areaExclusive, 6, _exactAptNm);
-  ({ sale, jeonse } = molitResult);
-
-  // 면적 옵션 추출 - 동 전체 면적 기준 (단지명 필터 없음)
-  // 단지명 필터된 실거래에서만 면적 추출 (동 전체 allAreas 사용 안 함)
-  const allAreas = [...sale, ...jeonse].map(d => d.areaSqm).filter(a => a > 0);
-  const uniqueAreas = [...new Set(allAreas)].sort((a, b) => a - b);
-  let areaOptions = uniqueAreas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
-
-  // 6개월 내 거래 없으면 → KB시세 수기 입력 유도
+  // ── 5. 거래 없으면 KB시세 입력 유도 ──
   if (sale.length === 0 && jeonse.length === 0) {
     noTradeWarning = "KB_INPUT_NEEDED";
   }
 
-  // 대표 면적 결정
-  const askedArea = Number(_areaExclusive) || 0;
+  // ── 6. 면적 목록 추출 ──
+  const allAreas = [...sale, ...jeonse].map(d => d.areaSqm).filter(a => a > 0);
+  const uniqueAreas = [...new Set(allAreas)].sort((a, b) => a - b);
+  const areaOptions = uniqueAreas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
+
+  // ── 7. 대표 면적 결정 ──
   let areaSqm = 0;
-  if (askedArea > 0) {
-    const found = uniqueAreas.find(a => Math.abs(a - askedArea) <= 3);
+  if (qArea > 0) {
+    const found = uniqueAreas.find(a => Math.abs(a - qArea) <= 3);
     areaSqm = found || 0;
-  } else if (uniqueAreas.length > 0) {
-    areaSqm = 0; // 면적 미지정이면 0으로 두고 areaOptions 제공
   }
 
-  // buildYear: 매매 우선, 없으면 전세에서 추출
+  // ── 8. buildYear 추출 ──
   const recentSale = sale[0];
   const recentJeonseForYear = jeonse[0];
-  const currentPrice = 0;
   const buildYear = (recentSale && Number(recentSale.buildYear))
     ? Number(recentSale.buildYear)
     : (recentJeonseForYear && Number(recentJeonseForYear.buildYear))
     ? Number(recentJeonseForYear.buildYear)
     : 0;
 
-  // 법정동 코드 → 지역명 역변환
+  // ── 9. 지역명 역변환 ──
   const LAWD_CD_REVERSE = Object.fromEntries(Object.entries(LAWD_CD_MAP).map(([k, v]) => [String(v), k]));
-  const lawdCdFromQuery = getLawdCd(query.dong || "", query.region || "");
-  const regionFromCode = lawdCdFromQuery ? (LAWD_CD_REVERSE[lawdCdFromQuery] || "") : "";
+  const regionFromCode = LAWD_CD_REVERSE[lawdCd] || "";
+  const regionName = qRegion || regionFromCode || (recentSale ? recentSale.region || "" : "");
 
-  // 지역(시군구) 추출 — 쿼리에 없으면 코드 역변환
-  const regionName = (query.region || "") || regionFromCode || (recentSale ? recentSale.region || "" : "");
-
-  // 전세 실거래 기준 baseJeonse 추정
+  // ── 10. 기준 전세가 추정 ──
   const recentJeonse = jeonse[0];
   const baseJeonseEstimate = recentJeonse ? recentJeonse.price : 0;
 
   return {
     region: regionName,
-    dong: (query.dong || ""),
-    complexName: (_complexName || ""),
+    dong: qDong,
+    complexName: qComplexName,
     areaSqm,
     pyeong: areaSqm > 0 ? typicalPyeong(areaSqm) : 0,
     priceArea: areaSqm,
     buildYear,
     topFloor: 0,
-    currentPrice,
+    currentPrice: 0,
     kbSalePrice: 0,
     kbJeonse: 0,
     baseJeonseEstimate,
