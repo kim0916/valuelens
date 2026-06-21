@@ -2185,23 +2185,37 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
   jeonseP.areaSamples = [...new Set(rentRaw.map(i => Number(i.excluUseAr)).filter(Boolean))].sort((a,b)=>a-b);
   for (const i of [...saleAptFiltered, ...rentRaw]) { const a = Math.round((Number(i.excluUseAr)||0)*100)/100; if (a>0) allAreas.add(a); }
 
-  // ── Step3: 면적 필터 (단계적 확장) ──
-  let saleArea = [], rentArea = [], usedTol = -1;
-  if (areaTarget) {
-    for (const tol of AREA_STEPS) {
-      const s = saleAptFiltered.filter(i => matchArea(i.excluUseAr, areaTarget, tol));
-      const j = rentRaw.filter(i => matchArea(i.excluUseAr, areaTarget, tol));
-      saleArea = s; rentArea = j; usedTol = tol;
-      if (s.length >= 3 && j.length >= 3) break;
+  // ── Step3: 면적 필터 — 매매/전세 완전 동일 기준 ──
+  // filterByAreaGroup: exclusiveAreas 배열 있으면 ±1㎡ 엄격 적용, 없으면 단계적 확장
+  const filterByAreaGroup = (items, target, steps) => {
+    if (!target) return { filtered: items, tol: -1 };
+    if (Array.isArray(target)) {
+      // 평형 그룹 배열 기반 — ±1㎡ 고정 (절대 확장 안 함)
+      const filtered = items.filter(i => target.some(a => Math.abs(Number(i.excluUseAr) - a) <= 1));
+      return { filtered, tol: 1 };
     }
-    // 파이프라인 로그: 어떤 면적들이 통과했나
-    const rentAreas = rentArea.map(i => Number(i.excluUseAr));
-    const saleAreas = saleArea.map(i => Number(i.excluUseAr));
-    console.log(`[pipe] 면적필터(±${usedTol}㎡): 매매통과면적`, [...new Set(saleAreas)], "전세통과면적", [...new Set(rentAreas)], "기준", areaTarget);
+    // 단일값 — 단계적 확장 (매매/전세 둘 다 적용)
+    let result = [], tol = steps[0];
+    for (const t of steps) {
+      result = items.filter(i => Math.abs(Number(i.excluUseAr) - Number(target)) <= t);
+      tol = t;
+      if (result.length >= 3) break;
+    }
+    return { filtered: result, tol };
+  };
+
+  let saleArea, rentArea, usedTol;
+  if (areaTarget) {
+    const { filtered: sf, tol: st } = filterByAreaGroup(saleAptFiltered, areaTarget, AREA_STEPS);
+    const { filtered: jf, tol: jt } = filterByAreaGroup(rentRaw,         areaTarget, AREA_STEPS);
+    saleArea = sf; rentArea = jf;
+    usedTol = Math.max(st, jt); // 로그용 — 실제 각각 다를 수 있음
+
+    // 파이프라인 로그
+    console.log(`[pipe] 면적필터: 매매통과(${sf.length}건)`, [...new Set(sf.map(i => Number(i.excluUseAr)))],
+                `전세통과(${jf.length}건)`, [...new Set(jf.map(i => Number(i.excluUseAr)))], "기준", areaTarget);
   } else {
-    saleArea = saleAptFiltered;
-    rentArea = rentRaw;
-    usedTol = -1;
+    saleArea = saleAptFiltered; rentArea = rentRaw; usedTol = -1;
   }
   salePipe.step3_area = saleArea.length;
   jeonseP.step3_area = rentArea.length;
