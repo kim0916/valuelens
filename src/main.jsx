@@ -2264,9 +2264,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       const lawdCd = getLawdCd(f.dong, f.region);
       if (!lawdCd) { setAiMsg("지역 코드를 찾지 못했습니다. 지역(구)명을 확인하세요."); return; }
       const result = await fetchMolitData(lawdCd, f.complexName, "", 6);
+      // 단지명 필터 적용된 실거래에서만 면적 추출
       const allAreas = [...(result.sale || []), ...(result.jeonse || [])].map(d => d.areaSqm).filter(a => a > 0);
-      const allAreasSet = result.allAreas || new Set();
-      const unique = [...new Set([...allAreas, ...allAreasSet])].sort((a, b) => a - b);
+      const unique = [...new Set(allAreas)].sort((a, b) => a - b);
       const opts = unique.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
       if (opts.length === 0) {
         setAiMsg("해당 단지 최근 6개월 실거래가 없습니다. 면적을 직접 입력하거나 KB시세를 입력하세요.");
@@ -3487,9 +3487,9 @@ function SellView({ onContext }) {
       const lawdCd = getLawdCd(f.dong, f.region);
       if (!lawdCd) { setAiMsg("지역 코드를 찾지 못했습니다. 지역(구)명을 확인하세요."); return; }
       const result = await fetchMolitData(lawdCd, f.complexName, "", 6);
+      // 단지명 필터 적용된 실거래에서만 면적 추출
       const allAreas = [...(result.sale || []), ...(result.jeonse || [])].map(d => d.areaSqm).filter(a => a > 0);
-      const allAreasSet = result.allAreas || new Set();
-      const unique = [...new Set([...allAreas, ...allAreasSet])].sort((a, b) => a - b);
+      const unique = [...new Set(allAreas)].sort((a, b) => a - b);
       const opts = unique.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
       if (opts.length === 0) {
         setAiMsg("해당 단지 최근 6개월 실거래가 없습니다. 면적을 직접 입력하거나 KB시세를 입력하세요.");
