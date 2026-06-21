@@ -162,7 +162,7 @@ const GS = {
 const won = (m) => (m >= 10000 ? (Math.round((m / 10000) * 100) / 100).toLocaleString() + "억" : Number(m).toLocaleString() + "만원");
 const pct = (r) => (r > 0 ? "+" : "") + (r * 100).toFixed(1) + "%";
 // 전용면적(㎡) → 통상 분양평형 추정 (한국 분양 관행 매핑). 못 구하면 0.
-const typicalPyeong = (sqm) => { sqm = Number(sqm) || 0; if (sqm <= 0) return 0; const t = [[36, 15], [43, 18], [50, 20], [55, 23], [62, 25], [70, 27], [78, 30], [88, 34], [100, 38], [110, 43], [120, 45], [140, 51]]; for (const [th, p] of t) if (sqm <= th) return p; return Math.round(sqm / 3.3058 / 0.74); };
+const typicalPyeong = (sqm) => { sqm = Number(sqm) || 0; if (sqm <= 0) return 0; return Math.round(sqm / 3.3058); };
 const exclusivePyeong = (sqm) => { sqm = Number(sqm) || 0; return sqm > 0 ? Math.round((sqm / 3.3058) * 10) / 10 : 0; };
 const areaLabel = (sqm) => { sqm = Number(sqm) || 0; return sqm > 0 ? `전용 ${sqm}㎡ · 통상 약 ${typicalPyeong(sqm)}평형` : "면적 미확인"; };
 const shift = (g, s) => GRADES[Math.max(0, Math.min(4, GRADES.indexOf(g) - s))];
