@@ -2106,7 +2106,10 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
     "aptNm불일치_제외": rentSkipAptNm,
     "월세_제외": rentSkipMonthly,
     "통과(allRentRaw)": rentPass,
-    "allRentRaw전용면적목록": allRentRaw.map(i => i.excluUseAr),
+    "allRentRaw전용면적목록(raw)": allRentRaw.map(i => i.excluUseAr),
+    "allRentRaw전용면적목록(Number)": allRentRaw.map(i => Number(i.excluUseAr)),
+    "선택면적(areaExclusive)": areaExclusive,
+    "선택면적_Number": Number(areaExclusive),
   });
 
   const complexSaleTotal = allSaleRaw.length;
@@ -2117,21 +2120,29 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
   let sale = [], jeonse = [];
 
   if (Number(areaExclusive) > 0) {
+    // 단계별 확장: 매매·전세 둘 다 충족해야 break, 한쪽만 충족해도 계속 진행
     for (const tol of AREA_STEPS) {
       const s = allSaleRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, tol));
       const j = allRentRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, tol));
-      // ── [로그 7] 단계별 면적 필터 결과
-      console.log(`[MOLIT] 면적필터 tol=${tol}㎡: 매매${s.length}건, 전세${j.length}건 (목표면적=${areaExclusive})`);
-      console.log(`[MOLIT] 전세 면적값들:`, allRentRaw.map(i => Number(i.excluUseAr)));
+      console.log(`[MOLIT] 면적필터 tol=±${tol}㎡: 매매${s.length}건, 전세${j.length}건`, {
+        목표면적: areaExclusive,
+        전세면적값들: allRentRaw.map(i => Number(i.excluUseAr)),
+        매매면적값들: allSaleRaw.map(i => Number(i.excluUseAr)),
+      });
       sale = s; jeonse = j;
       usedTolerance = tol;
+      // 둘 다 충족해야 종료 (한쪽만 충족은 계속 확장)
       if (s.length >= targetCount && j.length >= targetCount) break;
-      if (s.length >= targetCount || j.length >= targetCount) break;
     }
-    if (sale.length < targetCount || jeonse.length < targetCount) {
-      sale = allSaleRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, 3));
-      jeonse = allRentRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, 3));
-      usedTolerance = 3;
+    // 루프 후에도 전세 0건이면: 평형그룹 ±5㎡까지 확장
+    if (jeonse.length === 0 && allRentRaw.length > 0) {
+      const j5 = allRentRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, 5));
+      console.log(`[MOLIT] 면적필터 tol=±5㎡(평형그룹): 전세${j5.length}건`, allRentRaw.map(i => Number(i.excluUseAr)));
+      if (j5.length > 0) { jeonse = j5; usedTolerance = 5; }
+    }
+    if (sale.length === 0 && allSaleRaw.length > 0) {
+      const s5 = allSaleRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, 5));
+      if (s5.length > 0) { sale = s5; usedTolerance = Math.max(usedTolerance, 5); }
     }
   } else {
     sale = allSaleRaw;
