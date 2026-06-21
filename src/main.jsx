@@ -2034,6 +2034,20 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
     // 면적이 지정된 경우 단지명 필터 없이 면적만으로 필터 (단지명 표기 불일치 우회)
     const useAreaOnlyFilter = Number(areaExclusive) > 0;
 
+    // 면적 옵션용: 단지명 필터 없이 동 전체 면적 수집 (첫 달만)
+    if (i === 0) {
+      (saleData.items || []).forEach(item => {
+        const a = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
+        if (a > 0) results.allAreas = results.allAreas || new Set();
+        if (a > 0) results.allAreas.add(a);
+      });
+      (rentData.items || []).forEach(item => {
+        const a = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
+        if (a > 0) results.allAreas = results.allAreas || new Set();
+        if (a > 0) results.allAreas.add(a);
+      });
+    }
+
     (saleData.items || []).forEach(item => {
       if (!useAreaOnlyFilter && !nameFilter(item.aptNm)) return;
       if (!areaFilter(item.excluUseAr)) return;
@@ -2102,9 +2116,11 @@ async function fetchApartmentData(query) {
     }
   }
 
-  // 면적 옵션 추출 (실거래 기준)
+  // 면적 옵션 추출 - 동 전체 면적 기준 (단지명 필터 없음)
+  const allAreasSet = results.allAreas || new Set();
+  const allAreasList = [...allAreasSet].sort((a, b) => a - b);
   const allAreas = [...sale, ...jeonse].map(d => d.areaSqm).filter(a => a > 0);
-  const uniqueAreas = [...new Set(allAreas)].sort((a, b) => a - b);
+  const uniqueAreas = [...new Set([...allAreas, ...allAreasList])].sort((a, b) => a - b);
   let areaOptions = uniqueAreas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
 
   // [3단계] 36개월도 0건 → 단지정보 API로 면적만
