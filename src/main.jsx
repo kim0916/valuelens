@@ -2054,6 +2054,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         <button onClick={quickSearch} disabled={aiLoading} className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
           {aiLoading ? "AI 조회 중… (실거래·시세 데이터 수집 중, 1~2분 소요)" : "이 집 사도 될까? — AI 매수판단"}
         </button>
+        {aiLoading && <button onClick={() => { if (abortRef.current) abortRef.current.abort(); setAiLoading(false); setAiMsg("조회가 취소되었습니다."); }} className="mt-2 w-full rounded-2xl border border-red-200 py-2.5 text-sm font-medium text-red-500">⬛ 조회 취소</button>}
 
         {/* 조회 실패 메시지 */}
         {aiMsg && (
