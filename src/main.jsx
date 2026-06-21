@@ -1987,134 +1987,140 @@ function getLawdCd(dong, region) {
 // 국토부 실거래가 공공 API 사용 (무료)
 // KB시세는 수기 입력 (API 없음)
 // ───────────────────────────────────────────────────────────────
-// fetch with timeout
+// ── 공통 유틸 ──
 function fetchWithTimeout(url, options, ms = 8000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
-  return fetch(url, { ...options, signal: ctrl.signal })
-    .finally(() => clearTimeout(timer));
+  return fetch(url, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(timer));
 }
 
+// 단지명 normalize (공백·특수문자 제거, 소문자)
+function normalizeAptName(name) {
+  return String(name || "").replace(/\s/g, "").toLowerCase();
+}
+
+// 단지명 매칭 — exactAptNm 완전일치 우선, 없으면 앞글자 2자 이상
+function matchAptName(itemName, complexName, exactAptNm) {
+  if (!complexName) return true;
+  const n = normalizeAptName(itemName);
+  const base = normalizeAptName(exactAptNm || complexName);
+  if (!n) return false;
+  if (n === base) return true;
+  if (n === base + "아파트" || base === n + "아파트") return true;
+  if (n === base + "apt" || base === n + "apt") return true;
+  if (exactAptNm) return false; // exactAptNm 있을 땐 완전일치만
+  // 직접 타이핑 fallback: 앞글자 2자 이상 일치
+  const minLen = Math.min(n.length, base.length);
+  let common = 0;
+  for (let ci = 0; ci < minLen; ci++) { if (n[ci] === base[ci]) common++; else break; }
+  return common >= Math.min(2, minLen);
+}
+
+// 면적 매칭 — ±1㎡ → ±3㎡ → ±5% 순서로 확장
+function matchArea(itemArea, targetArea) {
+  if (!targetArea || Number(targetArea) <= 0) return true;
+  const diff = Math.abs(Number(itemArea) - Number(targetArea));
+  return diff <= 3; // ±3㎡ 허용
+}
+
+// 거래금액 파싱 (콤마 제거)
+function parsePrice(val) {
+  return Number(String(val || "").replace(/,/g, "")) || 0;
+}
+
+// ── 공통 실거래 조회 함수 ──
 async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, exactAptNm = "") {
   const now = new Date();
-  const results = { sale: [], jeonse: [] };
+  const results = { sale: [], jeonse: [], allAreas: new Set() };
 
-  // 전체 월 병렬 조회 (Promise.allSettled — 실패해도 계속)
-  const monthList = Array.from({ length: months }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+  // 월 목록 생성
+  const monthList = Array.from({ length: months }, (_, mi) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - mi, 1);
     return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
 
+  // 월별 조회 함수
   const fetchMonth = async (ym) => {
     try {
-      const [sr, rr] = await Promise.all([
+      const [saleResp, rentResp] = await Promise.all([
         fetchWithTimeout("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ type: "sale", lawdCd, dealYmd: ym }) }, 8000),
         fetchWithTimeout("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ type: "rent", lawdCd, dealYmd: ym }) }, 8000),
       ]);
-      return { saleData: await sr.json(), rentData: await rr.json() };
-    } catch(e) {
-      console.warn(`molit ${ym} 조회 실패 (skip):`, e.message);
-      return { saleData: { items: [] }, rentData: { items: [] } };
+      const saleData = await saleResp.json();
+      const rentData = await rentResp.json();
+      return { saleItems: saleData.items || [], rentItems: rentData.items || [] };
+    } catch(fetchErr) {
+      console.warn(`molit ${ym} 조회 실패 (skip):`, fetchErr.message);
+      return { saleItems: [], rentItems: [] };
     }
   };
 
+  // 전체 병렬 조회
   const settled = await Promise.allSettled(monthList.map(fetchMonth));
 
-  for (const result of settled) {
-    if (result.status !== "fulfilled") continue;
-    const { saleData, rentData } = result.value;
+  // 결과 처리
+  for (const settledResult of settled) {
+    if (settledResult.status !== "fulfilled") continue;
+    const { saleItems, rentItems } = settledResult.value;
 
-    // 단지명 필터링 (부분 일치)
-    // nameFilter: exactAptNm 있으면 유연한 완전일치, 없으면 앞글자 2자 이상
-    // exactAptNm은 fetchMolitData 파라미터로 받음
-    const nameFilter = (name) => {
-      if (!complexName) return true;
-      const n = String(name || "").replace(/\s/g, "");
-      const base = (exactAptNm || complexName).replace(/\s/g, "");
-      // 완전 일치
-      if (n === base) return true;
-      // "동신" 선택시 "동신아파트"도 매칭 (접미사 허용)
-      if (n === base + "아파트") return true;
-      if (n === base + "APT") return true;
-      // "동신아파트" 선택시 "동신"도 매칭 (접두사 포함)
-      if (base === n + "아파트") return true;
-      if (base.startsWith(n) && n.length >= 2 && base.length - n.length <= 3) return true;
-      // 직접 타이핑 fallback: 앞글자 2자 이상 일치
-      if (!exactAptNm) {
-        const minLen = Math.min(n.length, base.length);
-        let common = 0;
-        for (let i = 0; i < minLen; i++) { if (n[i] === base[i]) common++; else break; }
-        return common >= Math.min(2, minLen);
-      }
-      return false;
-    };
-
-    // 면적 필터 (±3㎡ 허용)
-    const areaFilter = (area) => {
-      if (!areaExclusive || Number(areaExclusive) <= 0) return true;
-      return Math.abs(Number(area) - Number(areaExclusive)) <= 3;
-    };
-
-    // 면적이 지정된 경우 단지명 필터 없이 면적만으로 필터 (단지명 표기 불일치 우회)
-    const useAreaOnlyFilter = Number(areaExclusive) > 0;
-
-    // 면적 옵션용: 단지명 필터 없이 동 전체 면적 수집 (첫 달만)
-    if (i === 0) {
-      (saleData.items || []).forEach(item => {
-        const a = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
-        if (a > 0) results.allAreas = results.allAreas || new Set();
-        if (a > 0) results.allAreas.add(a);
-      });
-      (rentData.items || []).forEach(item => {
-        const a = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
-        if (a > 0) results.allAreas = results.allAreas || new Set();
-        if (a > 0) results.allAreas.add(a);
-      });
+    // 면적 수집 (모든 달, 모든 아이템)
+    for (const item of [...saleItems, ...rentItems]) {
+      const area = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
+      if (area > 0) results.allAreas.add(area);
     }
 
-    (saleData.items || []).forEach(item => {
-      if (!useAreaOnlyFilter && !nameFilter(item.aptNm)) return;
-      if (!areaFilter(item.excluUseAr)) return;
-      const price = Number(String(item.dealAmount || "").replace(/,/g, ""));
-      if (!price) return;
-      results.sale.push({
-        ym: `${item.dealYear}-${String(item.dealMonth).padStart(2, "0")}`,
-        price: Math.round(price),
-        floor: Number(item.floor) || 5,
-        areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
-        complexName: item.aptNm,
-        buildYear: Number(item.buildYear) || 0,
-        region: item.siGunGu || item.sggNm || "",
-      });
-    });
+    const useAreaOnly = Number(areaExclusive) > 0;
 
-    (rentData.items || []).forEach(item => {
-      if (!useAreaOnlyFilter && !nameFilter(item.aptNm)) return;
-      if (!areaFilter(item.excluUseAr)) return;
-      if (item.monthlyRent && Number(item.monthlyRent) > 0) return; // 월세 제외
-      const price = Number(String(item.deposit || "").replace(/,/g, ""));
-      if (!price) return;
-      results.jeonse.push({
-        ym: `${item.dealYear}-${String(item.dealMonth).padStart(2, "0")}`,
-        price: Math.round(price),
-        floor: Number(item.floor) || 5,
-        areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
-        complexName: item.aptNm,
-      });
-    });
+    // 매매 실거래 처리
+    for (const item of saleItems) {
+      try {
+        if (!useAreaOnly && !matchAptName(item.aptNm, complexName, exactAptNm)) continue;
+        if (!matchArea(item.excluUseAr, areaExclusive)) continue;
+        const price = parsePrice(item.dealAmount);
+        if (!price) continue;
+        results.sale.push({
+          ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
+          price: Math.round(price),
+          floor: Number(item.floor) || 5,
+          areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
+          complexName: item.aptNm || complexName,
+          buildYear: Number(item.buildYear) || 0,
+          region: item.siGunGu || item.sggNm || "",
+        });
+      } catch(itemErr) {
+        console.warn("매매 항목 처리 오류:", itemErr.message);
+      }
+    }
 
+    // 전세 실거래 처리
+    for (const item of rentItems) {
+      try {
+        if (!useAreaOnly && !matchAptName(item.aptNm, complexName, exactAptNm)) continue;
+        if (!matchArea(item.excluUseAr, areaExclusive)) continue;
+        if (item.monthlyRent && Number(item.monthlyRent) > 0) continue; // 월세 제외
+        const price = parsePrice(item.deposit);
+        if (!price) continue;
+        results.jeonse.push({
+          ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
+          price: Math.round(price),
+          floor: Number(item.floor) || 5,
+          areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
+          complexName: item.aptNm || complexName,
+          buildYear: Number(item.buildYear) || 0,
+        });
+      } catch(itemErr) {
+        console.warn("전세 항목 처리 오류:", itemErr.message);
+      }
+    }
   }
 
-  // 최신순 정렬 후 각 최대 10건
+  // 최신순 정렬, 각 최대 10건
   results.sale.sort((a, b) => b.ym.localeCompare(a.ym));
   results.jeonse.sort((a, b) => b.ym.localeCompare(a.ym));
   results.sale = results.sale.slice(0, 10);
   results.jeonse = results.jeonse.slice(0, 10);
-
-  // allAreas: 단지 전체 면적 목록 (단지명 필터 없이 수집)
-  results.allAreas = results.allAreas || new Set();
 
   return results;
 }
