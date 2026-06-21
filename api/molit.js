@@ -99,6 +99,36 @@ export default async function handler(req, res) {
     return;
   }
 
+  // ── 단지명 자동완성 (최근 3개월 실거래에서 단지 목록 추출) ──
+  if (type === "complexList") {
+    if (!lawdCd) { res.status(400).json({ error: "lawdCd 필수" }); return; }
+    const now = new Date();
+    const months = Array.from({ length: 3 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}`;
+    });
+    try {
+      const fetches = months.map(ym =>
+        fetch(`${SALE_URL}?serviceKey=${apiKey}&pageNo=1&numOfRows=100&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}`, {
+          headers: { "User-Agent":"Mozilla/5.0", "Referer":"https://www.data.go.kr/", "Accept":"application/xml,*/*" }
+        })
+      );
+      const texts = await Promise.all((await Promise.all(fetches)).map(r => r.text()));
+      const allItems = texts.flatMap(t => parseXmlItems(t));
+      // 단지명 목록 (중복 제거, 키워드 필터)
+      const keyword = String(complexName||"").replace(/\s/g,"").toLowerCase();
+      const nameSet = new Set();
+      allItems.forEach(i => { if (i.aptNm) nameSet.add(i.aptNm.trim()); });
+      let list = Array.from(nameSet).sort();
+      if (keyword) list = list.filter(n => n.replace(/\s/g,"").toLowerCase().includes(keyword));
+      res.setHeader("Cache-Control","s-maxage=3600");
+      res.status(200).json({ list });
+    } catch(e) {
+      res.status(502).json({ error:"단지 목록 조회 실패: "+(e?.message||String(e)) });
+    }
+    return;
+  }
+
   // ── 면적 목록 조회 (실거래에서 추출) ──
   // type === "areas" : 최근 6개월 매매+전세 실거래에서 단지 면적 목록 추출
   if (type === "areas") {
