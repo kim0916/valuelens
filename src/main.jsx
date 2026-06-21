@@ -1985,6 +1985,8 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
         floor: Number(item.floor) || 5,
         areaSqm: Number(item.excluUseAr) || 0,
         complexName: item.aptNm,
+        buildYear: Number(item.buildYear) || 0,
+        region: item.siGunGu || item.sggNm || "",
       });
     });
 
@@ -2046,22 +2048,31 @@ async function fetchApartmentData(query) {
     areaSqm = 0; // 면적 미지정이면 0으로 두고 areaOptions 제공
   }
 
-  // 최근 매매 실거래 기준 currentPrice
+  // 최근 매매 실거래 기준 currentPrice + buildYear
   const recentSale = sale[0];
   const currentPrice = recentSale ? recentSale.price : 0;
+  const buildYear = recentSale ? (Number(recentSale.buildYear) || 0) : 0;
+
+  // 지역(시군구) 추출 — 쿼리에 없으면 실거래 데이터에서
+  const region = query.region || (recentSale ? recentSale.region || "" : "");
+
+  // 전세 실거래 기준 baseJeonse 추정
+  const recentJeonse = jeonse[0];
+  const baseJeonseEstimate = recentJeonse ? recentJeonse.price : 0;
 
   return {
-    region: query.region || "",
+    region,
     dong: query.dong || "",
     complexName: query.complexName || "",
     areaSqm,
     pyeong: areaSqm > 0 ? typicalPyeong(areaSqm) : 0,
     priceArea: areaSqm,
-    buildYear: 0,
+    buildYear,
     topFloor: 0,
     currentPrice,
     kbSalePrice: 0, // 수기 입력
     kbJeonse: 0,    // 수기 입력
+    baseJeonseEstimate, // 전세 실거래 참고값
     jeonse,
     sale,
     areaOptions,

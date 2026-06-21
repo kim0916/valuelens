@@ -19,6 +19,8 @@ function parseXmlItems(xml) {
       floor: getTag(item, "floor"),
       buildYear: getTag(item, "buildYear"),
       umdNm: getTag(item, "umdNm"),
+      sggCd: getTag(item, "sggCd"),
+      siGunGu: getTag(item, "siGunGu") || getTag(item, "sggNm"),
       deposit: getTag(item, "deposit"),
       monthlyRent: getTag(item, "monthlyRent"),
     });
