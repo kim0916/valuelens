@@ -193,19 +193,19 @@ function analyze(f) {
   const B = CONFIG.ratioBand;
   let engineMode, mainPrice = null, holdReason = null;
   if (!jeonseReliable && !saleReliable) {
-    engineMode = "hold"; holdReason = "전세·매매 실거래 표본이 모두 부족합니다";
+    engineMode = "hold"; holdReason = "전세·매매 실거래 표본이 모두 부족합니다. 하단 실거래 직접 입력을 활용하세요";
   } else if (actualRatio == null) {
     if (jeonseReliable) { engineMode = "jeonse"; mainPrice = jeonseFair; }
-    else { engineMode = "hold"; holdReason = "전세 표본 부족 · 매매 시세 없음"; }
+    else { engineMode = "hold"; holdReason = "전세 실거래 표본 부족 — 하단에서 실거래 직접 입력하거나 KB전세시세를 확인하세요"; }
   } else if (actualRatio >= B.jeonseMin) {              // ≥0.50 → 전세 엔진
     if (jeonseReliable) { engineMode = "jeonse"; mainPrice = jeonseFair; }
     else if (saleReliable) { engineMode = "sale"; mainPrice = saleFair; }
-    else { engineMode = "hold"; holdReason = "전세 표본 부족"; }
+    else { engineMode = "hold"; holdReason = "전세 실거래 표본 부족 — 하단에서 직접 입력해 주세요"; }
   } else if (actualRatio >= B.blendMin) {              // 0.45~0.50 → 혼합
     if (jeonseReliable && saleReliable) { engineMode = "blend"; mainPrice = Math.round((jeonseFair + saleFair) / 2); }
     else if (saleReliable) { engineMode = "sale"; mainPrice = saleFair; }
     else if (jeonseReliable) { engineMode = "jeonse"; mainPrice = jeonseFair; }
-    else { engineMode = "hold"; holdReason = "표본 부족"; }
+    else { engineMode = "hold"; holdReason = "실거래 표본 부족 — 하단에서 직접 입력해 주세요"; }
   } else {                                              // <0.45 → 매매 엔진 (전세 부적합)
     if (saleReliable) { engineMode = "sale"; mainPrice = saleFair; }
     else { engineMode = "hold"; holdReason = "전세가율이 낮아 전세 기반 적정가가 부적합하고, 매매 표본도 부족합니다"; }
@@ -3993,7 +3993,6 @@ function DealsEditor({ title = "전세 실거래", deals, setDeals, kind = "jeon
               <input value={d.ym} onChange={(e) => upd(i, "ym", e.target.value)} placeholder="2026-03" className={`w-20 ${ip}`} />
               <input type="number" value={d.price} onChange={(e) => upd(i, "price", e.target.value)} placeholder="가격" className={`w-20 ${ip}`} />
               <input type="number" value={d.floor} onChange={(e) => upd(i, "floor", e.target.value)} placeholder="층" className={`w-14 ${ip}`} />
-              <input type="number" value={d.topFloor} onChange={(e) => upd(i, "topFloor", e.target.value)} placeholder="최고층" className={`w-16 ${ip}`} />
               {flags.map(([k, l]) => (
                 <button key={k} onClick={() => upd(i, k, !d[k])} className={`rounded-md px-2 py-1 text-xs font-medium ${d[k] ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-400"}`}>{l}</button>
               ))}
