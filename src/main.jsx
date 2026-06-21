@@ -740,7 +740,7 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse") {
     .map((d) => ({ ym: d.ym, price: Number(d.price) || 0, floor: Number(d.floor) || 0, topFloor: Number(d.topFloor) || 0, banjiha: !!d.banjiha, urgent: !!d.urgent, related: !!d.related }))
     .filter((d) => d.price > 0 && d.ym);
   const now = new Date();
-  const cutoff = new Date(now.getFullYear(), now.getMonth() - 5, 1); // 최근 6개월
+  const cutoff = new Date(now.getFullYear(), now.getMonth() - 11, 1); // 최근 12개월
   const within = norm.filter((d) => {
     const [y, m] = String(d.ym).split("-").map(Number);
     return new Date(y, (m || 1) - 1, 1) >= cutoff;
@@ -1987,7 +1987,7 @@ function getLawdCd(dong, region) {
 // 국토부 실거래가 공공 API 사용 (무료)
 // KB시세는 수기 입력 (API 없음)
 // ───────────────────────────────────────────────────────────────
-async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6) {
+async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
   const now = new Date();
   const results = { sale: [], jeonse: [] };
 
