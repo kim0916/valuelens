@@ -2566,13 +2566,13 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       const { filled, ff: builtFf, jeonseCalc, saleCalc, blockReason } = buildAnalysisInput(
         rawData, ff, Number(ff.areaExclusive) || 0
       );
-      console.log("buildAnalysisInput 완료 blockReason:", blockReason);
-      // KB시세/매물가/면적/준공연도를 캡처에서 가져온 값으로 보정
+      // 사용자 입력값 강제 보정 (rawData가 0으로 덮어쓰는 것 방지)
+      if (ff.currentPrice) filled.currentPrice = ff.currentPrice;
       if (ff.kbSalePrice) filled.kbSalePrice = ff.kbSalePrice;
       if (ff.kbJeonse) filled.kbJeonse = ff.kbJeonse;
-      if (ff.currentPrice) filled.currentPrice = ff.currentPrice;
       if (ff.areaExclusive) filled.areaExclusive = ff.areaExclusive;
       if (ff.buildYear && !filled.buildYear) filled.buildYear = ff.buildYear;
+      console.log("보정 후 currentPrice:", filled.currentPrice, "blockReason:", blockReason);
       setF(filled);
       // 면적 옵션 저장
       const opts = (filled._aiAreaOptions && filled._aiAreaOptions.length > 0)
@@ -2587,16 +2587,22 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         return;
       }
 
-      const pendingFf = builtFf || {
-        ...filled,
-        currentPrice: Number(filled.currentPrice) || 0,
-        baseJeonse: Number(filled.kbJeonse) || 0,
-        kbSalePrice: Number(filled.kbSalePrice) || 0,
-        jeonseUsed: 0, saleUsed: 0,
-        jeonseCalc: null, saleCalc: null, dataSource: "ai",
-      };
+      // currentPrice 최종 확정 (사용자 입력 우선)
+      const finalCurrentPrice = Number(ff.currentPrice) || Number(filled.currentPrice) || 0;
+      const finalBlockReason = !finalCurrentPrice ? "현재 매물가를 입력하세요." : blockReason;
+
+      const pendingFf = builtFf
+        ? { ...builtFf, currentPrice: finalCurrentPrice }
+        : {
+            ...filled,
+            currentPrice: finalCurrentPrice,
+            baseJeonse: Number(filled.kbJeonse) || 0,
+            kbSalePrice: Number(filled.kbSalePrice) || 0,
+            jeonseUsed: 0, saleUsed: 0,
+            jeonseCalc: null, saleCalc: null, dataSource: "ai",
+          };
       console.log("setPending 호출 pendingFf.currentPrice:", pendingFf.currentPrice);
-      setPending({ ff: pendingFf, jeonseCalc, saleCalc, blockReason });
+      setPending({ ff: pendingFf, jeonseCalc, saleCalc, blockReason: finalBlockReason });
       console.log("분석완료 → ConfirmStep 이동");
     } catch (e) {
       console.error("fetchApartmentData 오류:", e);
