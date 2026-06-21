@@ -2215,7 +2215,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch }) {
                   className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-700 hover:bg-yellow-200">
                   KB부동산
                 </a>
-                <a href={`https://land.naver.com/search?query=${encodeURIComponent((edit.dong || "") + " " + (edit.complexName || ""))}`}
+                <a href={`https://land.naver.com/search/complexSearch.nhn?keyword=${encodeURIComponent((edit.dong || "") + " " + (edit.complexName || ""))}`}
                   target="_blank" rel="noopener noreferrer"
                   className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">
                   네이버
@@ -2237,7 +2237,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch }) {
                   className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-700 hover:bg-yellow-200">
                   KB부동산
                 </a>
-                <a href={`https://land.naver.com/search?query=${encodeURIComponent((edit.dong || "") + " " + (edit.complexName || ""))}`}
+                <a href={`https://land.naver.com/search/complexSearch.nhn?keyword=${encodeURIComponent((edit.dong || "") + " " + (edit.complexName || ""))}`}
                   target="_blank" rel="noopener noreferrer"
                   className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">
                   네이버
@@ -3136,7 +3136,7 @@ function SellView({ onContext }) {
                         <span className="text-xs font-medium text-slate-500">{l}</span>
                         <div className="flex gap-1">
                           <a href={`https://kbland.kr/map?searchText=${encodeURIComponent((f.dong||"")+" "+(f.complexName||""))}`} target="_blank" rel="noopener noreferrer" className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-700 hover:bg-yellow-200">KB부동산</a>
-                          <a href={`https://land.naver.com/search?query=${encodeURIComponent((f.dong||"")+" "+(f.complexName||""))}`} target="_blank" rel="noopener noreferrer" className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">네이버</a>
+                          <a href={`https://land.naver.com/search/complexSearch.nhn?keyword=${encodeURIComponent((f.dong||"")+" "+(f.complexName||""))}`} target="_blank" rel="noopener noreferrer" className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">네이버</a>
                         </div>
                       </div>
                       <input type={t} className={inp} value={f[k]} placeholder="중간값 직접 확인 후 입력" onChange={(e) => set(k, e.target.value)} />
