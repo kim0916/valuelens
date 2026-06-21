@@ -2025,10 +2025,10 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
       return false;
     };
 
-    // 면적 필터 (±5㎡ 허용 — 국토부/네이버 면적 표기 차이 감안)
+    // 면적 필터 (±3㎡ 허용)
     const areaFilter = (area) => {
       if (!areaExclusive || Number(areaExclusive) <= 0) return true;
-      return Math.abs(Number(area) - Number(areaExclusive)) <= 5;
+      return Math.abs(Number(area) - Number(areaExclusive)) <= 3;
     };
 
     // 면적이 지정된 경우 단지명 필터 없이 면적만으로 필터 (단지명 표기 불일치 우회)
