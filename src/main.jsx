@@ -2080,13 +2080,15 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
         if (!matchArea(item.excluUseAr, areaExclusive)) continue;
         const price = parsePrice(item.dealAmount);
         if (!price) continue;
+        // buildYear는 단지명 일치하는 아이템에서만 신뢰
+        const nameMatched = matchAptName(item.aptNm, complexName, exactAptNm);
         results.sale.push({
           ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
           price: Math.round(price),
           floor: Number(item.floor) || 5,
           areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
           complexName: item.aptNm || complexName,
-          buildYear: Number(item.buildYear) || 0,
+          buildYear: nameMatched ? (Number(item.buildYear) || 0) : 0,
           region: item.siGunGu || item.sggNm || "",
         });
       } catch(itemErr) {
@@ -2102,13 +2104,14 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
         if (item.monthlyRent && Number(item.monthlyRent) > 0) continue; // 월세 제외
         const price = parsePrice(item.deposit);
         if (!price) continue;
+        const nameMatchedJ = matchAptName(item.aptNm, complexName, exactAptNm);
         results.jeonse.push({
           ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
           price: Math.round(price),
           floor: Number(item.floor) || 5,
           areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
           complexName: item.aptNm || complexName,
-          buildYear: Number(item.buildYear) || 0,
+          buildYear: nameMatchedJ ? (Number(item.buildYear) || 0) : 0,
         });
       } catch(itemErr) {
         console.warn("전세 항목 처리 오류:", itemErr.message);
@@ -2182,14 +2185,13 @@ async function fetchApartmentData(query) {
     areaSqm = found || 0;
   }
 
-  // ── 8. buildYear 추출 ──
+  // ── 8. buildYear 추출 — 단지명 일치 아이템(buildYear>0)에서만
   const recentSale = sale[0];
   const recentJeonseForYear = jeonse[0];
-  const buildYear = (recentSale && Number(recentSale.buildYear))
-    ? Number(recentSale.buildYear)
-    : (recentJeonseForYear && Number(recentJeonseForYear.buildYear))
-    ? Number(recentJeonseForYear.buildYear)
-    : 0;
+  const buildYearFromSale = sale.find(d => d.buildYear > 0)?.buildYear || 0;
+  const buildYearFromJeonse = jeonse.find(d => d.buildYear > 0)?.buildYear || 0;
+  const buildYear = buildYearFromSale || buildYearFromJeonse || 0;
+  console.log("buildYear 추출:", buildYear, "from", buildYearFromSale ? "매매" : buildYearFromJeonse ? "전세" : "없음");
 
   // ── 9. 지역명 역변환 ──
   const LAWD_CD_REVERSE = Object.fromEntries(Object.entries(LAWD_CD_MAP).map(([k, v]) => [String(v), k]));
@@ -2709,10 +2711,10 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
           <div className="mt-3 rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200">
             <p className="mb-2 text-xs font-bold text-amber-800">📐 전용면적 선택 (국토부 실제 면적)</p>
             <div className="flex flex-wrap gap-1.5">
-              {areaOptions.map((o, idx) => (
-                <button key={idx} onClick={() => set("areaExclusive", String(o.areaSqm))}
+              {areaOptions.map((o, i) => (
+                <button key={i} onClick={() => set("areaExclusive", String(o.areaSqm))}
                   className={`rounded-xl px-3 py-1.5 text-sm font-semibold border transition-all ${String(f.areaExclusive) === String(o.areaSqm) ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400"}`}>
-                  약 {o.areaSqm}㎡ · {typicalPyeong(o.areaSqm)}평형
+                  {o.areaSqm}㎡ · {o.pyeong}평형
                 </button>
               ))}
             </div>
