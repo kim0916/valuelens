@@ -2108,20 +2108,23 @@ async function fetchApartmentData(query) {
   try {
     const lr = await fetch("/api/lawdCd", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "lawdCd", sigungu: query.region, sido: query.sido || "" }),
+      body: JSON.stringify({ type: "lawdCd", sigungu: query.region || "", sido: query.sido || "" }),
     });
     lawdCd = (await lr.json()).lawdCd || null;
   } catch(e) {}
-  if (!lawdCd) lawdCd = getLawdCd(query.dong, query.region);
+  if (!lawdCd) lawdCd = getLawdCd(query.dong || "", query.region || "");
   if (!lawdCd) {
-    throw new Error(`지역 코드를 찾지 못했습니다 (${query.region}). 지역(구)명을 확인하세요.`);
+    throw new Error(`지역코드를 찾을 수 없습니다 (${query.region || "미입력"}). 지역(구)명을 확인하세요.`);
   }
 
   // ── 실거래 조회: 최근 6개월 ──
   let sale = [], jeonse = [], noTradeWarning = null;
 
   // 실거래 조회: exactAptNm(완전일치) 우선, 6개월
-  const molitResult = await fetchMolitData(lawdCd, query.exactAptNm || query.complexName, query.areaExclusive, 6, query.exactAptNm || "");
+  const _exactAptNm = query.exactAptNm || "";
+  const _complexName = query.complexName || "";
+  const _areaExclusive = query.areaExclusive || "";
+  const molitResult = await fetchMolitData(lawdCd, _exactAptNm || _complexName, _areaExclusive, 6, _exactAptNm);
   ({ sale, jeonse } = molitResult);
 
   // 면적 옵션 추출 - 동 전체 면적 기준 (단지명 필터 없음)
@@ -2136,7 +2139,7 @@ async function fetchApartmentData(query) {
   }
 
   // 대표 면적 결정
-  const askedArea = Number(query.areaExclusive) || 0;
+  const askedArea = Number(areaExclusive) || 0;
   let areaSqm = 0;
   if (askedArea > 0) {
     const found = uniqueAreas.find(a => Math.abs(a - askedArea) <= 3);
@@ -2161,14 +2164,14 @@ async function fetchApartmentData(query) {
   const regionFromCode = lawdCdFromQuery ? (LAWD_CD_REVERSE[lawdCdFromQuery] || "") : "";
 
   // 지역(시군구) 추출 — 쿼리에 없으면 코드 역변환
-  const region = query.region || regionFromCode || (recentSale ? recentSale.region || "" : "");
+  const regionName = (query.region || "") || regionFromCode || (recentSale ? recentSale.region || "" : "");
 
   // 전세 실거래 기준 baseJeonse 추정
   const recentJeonse = jeonse[0];
   const baseJeonseEstimate = recentJeonse ? recentJeonse.price : 0;
 
   return {
-    region,
+    region: regionName,
     dong: query.dong || "",
     complexName: query.complexName || "",
     areaSqm,
