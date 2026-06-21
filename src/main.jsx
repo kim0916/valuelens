@@ -2006,20 +2006,22 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6) {
     const rentData = await rentRes.json();
 
     // 단지명 필터링 (부분 일치)
-    // exactMatch: 자동완성에서 선택한 정확한 aptNm → 완전일치만
-    // 직접 타이핑: 부분일치 허용
-    const exactMatch = !!query.exactAptNm;
+    // nameFilter: exactAptNm 있으면 완전일치, 없으면 앞글자 2자 이상
+    const exactAptNm = query.exactAptNm || "";
     const nameFilter = (name) => {
       if (!complexName) return true;
       const n = String(name || "").replace(/\s/g, "");
-      const c = (query.exactAptNm || complexName).replace(/\s/g, "");
-      // 완전 일치
-      if (n === c) return true;
-      if (exactMatch) return false; // 자동완성 선택시 완전일치만
-      // 직접 타이핑: 앞 글자 2자 이상 일치
-      const minLen = Math.min(n.length, c.length);
+      // exactAptNm: 완전일치만
+      if (exactAptNm) {
+        const e = exactAptNm.replace(/\s/g, "");
+        return n === e;
+      }
+      // 직접 타이핑 fallback: 앞글자 2자 이상 일치
+      const c2 = complexName.replace(/\s/g, "");
+      if (n === c2) return true;
+      const minLen = Math.min(n.length, c2.length);
       let common = 0;
-      for (let i = 0; i < minLen; i++) { if (n[i] === c[i]) common++; else break; }
+      for (let i = 0; i < minLen; i++) { if (n[i] === c2[i]) common++; else break; }
       return common >= Math.min(2, minLen);
     };
 
@@ -2096,14 +2098,24 @@ async function fetchApartmentData(query) {
   // query: { complexName, dong, region, areaExclusive }
   // 반환: ApartmentRawData (JSON 객체) — 실패 시 throw
 
-  const lawdCd = getLawdCd(query.dong, query.region);
+  // lawdCd 변환: /api/lawdCd 우선, fallback 내장 getLawdCd
+  let lawdCd = null;
+  try {
+    const lr = await fetch("/api/lawdCd", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "lawdCd", sigungu: query.region }),
+    });
+    lawdCd = (await lr.json()).lawdCd || null;
+  } catch(e) {}
+  if (!lawdCd) lawdCd = getLawdCd(query.dong, query.region);
   if (!lawdCd) {
-    throw new Error(`법정동 코드를 찾지 못했습니다 (동: ${query.dong}, 지역: ${query.region}). 지역(구)명을 함께 입력해주세요.`);
+    throw new Error(`지역 코드를 찾지 못했습니다 (${query.region}). 지역(구)명을 확인하세요.`);
   }
 
   // ── 실거래 조회: 최근 6개월 ──
   let sale = [], jeonse = [], noTradeWarning = null;
 
+  // 실거래 조회: exactAptNm(완전일치) 우선, 6개월
   const molitResult = await fetchMolitData(lawdCd, query.exactAptNm || query.complexName, query.areaExclusive, 6);
   ({ sale, jeonse } = molitResult);
 
@@ -2416,13 +2428,19 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     if (!complexName || !region) return;
     setFetchingAreas(true); setAiMsg(null); setAreaOptions([]);
     try {
-      const lawdRes = await fetch("/api/lawdCd", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "lawdCd", sigungu: region, sido: "" }),
-      });
-      const lawdData = await lawdRes.json();
-      const lawdCd = lawdData.lawdCd || getLawdCd(dong, region);
-      if (!lawdCd) { setAiMsg("지역 코드를 찾지 못했습니다. 지역(구)명을 확인하세요."); return; }
+      // /api/lawdCd로 lawdCd 변환 (fallback: 내장 getLawdCd)
+      let lawdCd = null;
+      try {
+        const lawdRes = await fetch("/api/lawdCd", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "lawdCd", sigungu: region }),
+        });
+        const lawdData = await lawdRes.json();
+        lawdCd = lawdData.lawdCd || null;
+      } catch(e) {}
+      if (!lawdCd) lawdCd = getLawdCd(dong, region);
+      if (!lawdCd) { setAiMsg("지역 코드를 찾지 못했습니다. 지역(구)명을 확인하세요."); setFetchingAreas(false); return; }
+      // 면적 조회는 12개월 (거래 드문 단지 커버)
       const result = await fetchMolitData(lawdCd, exactAptNm || complexName, "", 12);
       const allAreas = [...(result.sale || []), ...(result.jeonse || [])].map(d => d.areaSqm).filter(a => a > 0);
       const unique = [...new Set(allAreas)].sort((a, b) => a - b);
@@ -2441,14 +2459,17 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     if (!f.complexName || !f.region) { setAiMsg("지역(구)과 단지명을 입력하세요."); return; }
     setFetchingAreas(true); setAiMsg(null); setAreaOptions([]);
     try {
-      const lawdRes2 = await fetch("/api/lawdCd", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "lawdCd", sigungu: f.region, sido: "" }),
-      });
-      const lawdData2 = await lawdRes2.json();
-      const lawdCd = lawdData2.lawdCd || getLawdCd(f.dong, f.region);
-      if (!lawdCd) { setAiMsg("지역 코드를 찾지 못했습니다. 지역(구)명을 확인하세요."); return; }
-      const result = await fetchMolitData(lawdCd, f.complexName, "", 12);
+      let lawdCd2 = null;
+      try {
+        const lr = await fetch("/api/lawdCd", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "lawdCd", sigungu: f.region }),
+        });
+        lawdCd2 = (await lr.json()).lawdCd || null;
+      } catch(e) {}
+      if (!lawdCd2) lawdCd2 = getLawdCd(f.dong, f.region);
+      if (!lawdCd2) { setAiMsg("지역 코드를 찾지 못했습니다."); setFetchingAreas(false); return; }
+      const result = await fetchMolitData(lawdCd2, f.exactAptNm || f.complexName, "", 12);
       // 단지명 필터 적용된 실거래에서만 면적 추출
       const allAreas = [...(result.sale || []), ...(result.jeonse || [])].map(d => d.areaSqm).filter(a => a > 0);
       const unique = [...new Set(allAreas)].sort((a, b) => a - b);
@@ -3682,14 +3703,17 @@ function SellView({ onContext }) {
     if (!f.complexName || !f.region) { setAiMsg("지역(구)과 단지명을 입력하세요."); return; }
     setFetchingAreas(true); setAiMsg(null); setAreaOptions([]);
     try {
-      const lawdRes2 = await fetch("/api/lawdCd", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "lawdCd", sigungu: f.region, sido: "" }),
-      });
-      const lawdData2 = await lawdRes2.json();
-      const lawdCd = lawdData2.lawdCd || getLawdCd(f.dong, f.region);
-      if (!lawdCd) { setAiMsg("지역 코드를 찾지 못했습니다. 지역(구)명을 확인하세요."); return; }
-      const result = await fetchMolitData(lawdCd, f.complexName, "", 12);
+      let lawdCd2 = null;
+      try {
+        const lr = await fetch("/api/lawdCd", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "lawdCd", sigungu: f.region }),
+        });
+        lawdCd2 = (await lr.json()).lawdCd || null;
+      } catch(e) {}
+      if (!lawdCd2) lawdCd2 = getLawdCd(f.dong, f.region);
+      if (!lawdCd2) { setAiMsg("지역 코드를 찾지 못했습니다."); setFetchingAreas(false); return; }
+      const result = await fetchMolitData(lawdCd2, f.exactAptNm || f.complexName, "", 12);
       // 단지명 필터 적용된 실거래에서만 면적 추출
       const allAreas = [...(result.sale || []), ...(result.jeonse || [])].map(d => d.areaSqm).filter(a => a > 0);
       const unique = [...new Set(allAreas)].sort((a, b) => a - b);
