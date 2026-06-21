@@ -2426,7 +2426,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
                 setUploadedImages(prev => [...prev, ...imgs.map(i => i.url)]);
                 const content = [
                   ...imgs.map(img => ({ type: "image", source: { type: "base64", media_type: img.type, data: img.data } })),
-                  { type: "text", text: `이 이미지들은 네이버 부동산 화면 캡처야. 보이는 정보만 추출해 아래 JSON만 출력 (설명·백틱 금지):\n{"region":"시군구","dong":"법정동","complexName":"단지명","areaExclusive":전용면적㎡숫자,"currentPrice":매물호가또는최근실거래만원정수,"kbSalePrice":KB매매시세만원정수,"kbJeonse":KB전세시세만원정수,"buildYear":준공연도숫자}\n규칙:\n- 가격은 만원 정수(4억5100만→45100)\n- 단지명은 화면 상단 굵은 글씨\n- 면적은 현재 선택된 면적(㎡)\n- currentPrice: 호가 없으면 최근 실거래가\n- buildYear: 준공일에서 연도만\n- 없는 값은 0` }
+                  { type: "text", text: `이 이미지들은 네이버 부동산 화면 캡처야. 보이는 정보만 추출해 아래 JSON만 출력 (설명·백틱 금지):\n{"region":"시군구","dong":"법정동","complexName":"단지명","currentPrice":매물호가또는최근실거래만원정수,"kbSalePrice":KB매매시세만원정수,"kbJeonse":KB전세시세만원정수}\n규칙:\n- 가격은 만원 정수(4억5100만→45100, 5억→50000)\n- 단지명은 화면 상단 굵은 글씨\n- currentPrice: 매물 호가 없으면 최근 실거래가\n- KB시세 없으면 0\n- 안 보이는 값은 0. 절대 추정 금지.` }
                 ];
                 const res = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content }] }) });
                 const data = await res.json();
@@ -2438,13 +2438,11 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
                   region: p.region || prev.region,
                   dong: p.dong || prev.dong,
                   complexName: p.complexName || prev.complexName,
-                  areaExclusive: p.areaExclusive || prev.areaExclusive,
                   currentPrice: Number(p.currentPrice) || prev.currentPrice,
                   kbSalePrice: Number(p.kbSalePrice) || prev.kbSalePrice,
                   kbJeonse: Number(p.kbJeonse) || prev.kbJeonse,
-                  buildYear: p.buildYear || prev.buildYear,
                 }));
-                setCaptureMsg(`✅ 인식 완료 — ${p.complexName||"단지"} ${p.areaExclusive?p.areaExclusive+"㎡":""}`);
+                setCaptureMsg(`✅ 인식 완료 — ${p.complexName||"단지"} ${p.currentPrice?"매물가 "+(p.currentPrice/10000).toFixed(1)+"억":""}`);
               } catch(e) {
                 setAiMsg("캡처 인식 실패 — 직접 입력해주세요.");
               } finally { setAiLoading(false); e.target.value=""; }
