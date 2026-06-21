@@ -1798,45 +1798,100 @@ export default function App() {
 
 // ═══════════════════════════════════════════════════════════════
 // ── 조회 모듈 (Data Fetch Layer) ──────────────────────────────
-// UI와 완전히 분리된 독립 async 함수.
-// 현재: AI 웹검색으로 실거래·시세 수집 (MVP 데모)
-//
-// TODO(API 전환 시 이 함수만 교체):
-//   - 국토부 실거래가 공개시스템 API
-//   - KB시세 API
-//   - 한국부동산원 거래량/시세 API
-//   입력(query 객체)과 반환(ApartmentRawData JSON) 형태는 그대로 유지
+// 국토부 실거래가 API 기반 (lawdCd 내장 매핑 → /api/molit)
 // ───────────────────────────────────────────────────────────────
 async function fetchApartmentData(query) {
-  // query: { complexName, dong, areaExclusive }
-  // 반환: ApartmentRawData (JSON 객체) — 실패 시 throw
-  const q = [query.dong, query.complexName, Number(query.areaExclusive) > 0 ? `전용 ${query.areaExclusive}㎡` : ""].filter(Boolean).join(" ");
-  const prompt = `너는 한국 부동산 실거래가 조사원이야. 국토교통부 실거래가 공개시스템(rt.molit.go.kr)·집품·아실·호갱노노·KB부동산을 웹 검색해서 아래 단지의 실제 데이터를 찾아.
-입력: "${q}"
-- 서울·수도권뿐 아니라 대구·부산 등 지방 단지, 구축 단지도 끝까지 검색할 것.
-- 지역명(시/도/구)을 함께 검색해 동명이인 단지를 구분할 것.
+  const { complexName, dong, region, areaExclusive } = query;
 
-[면적·가격 정합성 — 매우 중요]
-- 전용면적(areaSqm)은 반드시 그 단지에 실제로 존재하는 전용면적만 사용한다.
-- 국민평형 84㎡를 기본값으로 절대 넣지 마라. 못 찾으면 areaSqm=0, pyeong=0.
-- currentPrice·kbSalePrice(매매)·kbJeonse(전세)·jeonse·sale 거래는 모두 같은 전용면적(areaSqm) 기준이어야 한다.
-- 예: 59㎡ 가격을 84㎡ 가격처럼 쓰지 마라. 가격과 면적 기준이 다르면 그 가격은 0으로 둔다.
-- 출처에서 "이 면적의 이 가격"이 함께 확인되지 않으면 해당 가격은 0/빈배열로 둔다.
-- 절대 추측으로 면적을 채우지 마라. 확실히 못 찾은 값만 0/빈배열.
-- 입력에 전용면적이 주어졌으면 그 면적 기준 가격만 채운다. 그 면적이 단지에 없으면 areaSqm=0으로 두고 areaOptions에 실제 존재하는 면적들을 넣는다.
-- priceArea: currentPrice가 어느 전용면적 기준인지 ㎡로 명시(모르면 0).
-
-아래 JSON만 출력 (설명·마크다운·백틱 금지):
-{"region":"시군구","dong":"법정동","complexName":"단지명","areaSqm":전용면적㎡숫자,"pyeong":통상분양평형숫자,"priceArea":currentPrice기준전용면적㎡숫자,"buildYear":준공연도숫자,"topFloor":단지최고층숫자,"currentPrice":최근매매실거래만원,"kbSalePrice":KB매매시세만원,"kbJeonse":KB전세시세만원,"jeonse":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"sale":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"areaOptions":[{"areaSqm":전용㎡,"pyeong":통상평형}]}
-규칙: 모든 가격은 만원 단위 정수(7억4000만→74000). 취소거래 제외. jeonse/sale 각 최대 10건.`;
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500, messages: [{ role: "user", content: prompt }], tools: [{ type: "web_search_20250305", name: "web_search" }] }),
+  // [1] region → lawdCd 변환
+  const lawdRes = await fetch("/api/lawdCd", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ region: region || dong, dong }),
   });
-  const data = await response.json();
-  const text = (data.content || []).map((i) => (i.type === "text" ? i.text : "")).filter(Boolean).join("\n");
-  const mt = text.replace(/```json|```/g, "").trim().match(/\{[\s\S]*\}/);
-  return JSON.parse(mt ? mt[0] : "{}");
+  if (!lawdRes.ok) throw new Error("지역 코드 조회 실패 — 지역명(구)을 확인하세요.");
+  const { lawdCd } = await lawdRes.json();
+
+  // [2] 면적 목록 조회 (최근 3개월 실거래에서 추출)
+  const areasRes = await fetch("/api/molit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "areas", lawdCd, complexName }),
+  });
+  const areasData = await areasRes.json();
+  const areaOptions = (areasData.areaOptions || []).map((o) => ({
+    areaSqm: o.areaSqm,
+    pyeong: typicalPyeong(o.areaSqm),
+  }));
+
+  // [3] 매매 + 전세 실거래 조회 (최근 6개월)
+  const now = new Date();
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  const dealFetches = months.flatMap((ym) => [
+    fetch("/api/molit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "sale", lawdCd, dealYmd: ym, complexName, targetArea: areaExclusive }),
+    }),
+    fetch("/api/molit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "rent", lawdCd, dealYmd: ym, complexName, targetArea: areaExclusive }),
+    }),
+  ]);
+
+  const dealResponses = await Promise.all(dealFetches);
+  const dealDataArr = await Promise.all(dealResponses.map((r) => r.json()));
+
+  const saleItems = dealDataArr.filter((_, i) => i % 2 === 0).flatMap((d) => d.items || []);
+  const rentItems = dealDataArr.filter((_, i) => i % 2 === 1).flatMap((d) => d.items || []);
+
+  // [4] 실거래 → rawData 형태 변환
+  const toDeals = (items, priceField) =>
+    items
+      .slice(0, 10)
+      .map((item) => ({
+        ym: `${item.dealYear}-${String(item.dealMonth).padStart(2, "0")}`,
+        price: Number(String(item[priceField] || "0").replace(/,/g, "")),
+        floor: Number(item.floor) || 5,
+      }))
+      .filter((d) => d.price > 0);
+
+  const sale = toDeals(saleItems, "dealAmount");
+  const jeonse = toDeals(
+    rentItems.filter((i) => !i.monthlyRent || i.monthlyRent === "0"),
+    "deposit"
+  );
+
+  // [5] 대표 면적 결정 (사용자 입력 우선, 없으면 첫 번째 실거래)
+  const firstItem = saleItems[0] || rentItems[0];
+  const areaSqm =
+    Number(areaExclusive) > 0
+      ? Number(areaExclusive)
+      : firstItem
+      ? parseFloat(firstItem.excluUseAr) || 0
+      : 0;
+
+  return {
+    region: firstItem?.siGunGu || region || "",
+    dong: firstItem?.umdNm || dong || "",
+    complexName: complexName || "",
+    areaSqm,
+    pyeong: typicalPyeong(areaSqm),
+    priceArea: areaSqm,
+    buildYear: Number(firstItem?.buildYear) || 0,
+    topFloor: 15,
+    currentPrice: sale[0]?.price || 0,
+    kbSalePrice: 0,
+    kbJeonse: 0,
+    jeonse,
+    sale,
+    areaOptions,
+  };
 }
 
 // ── 분석 입력 조립 모듈 (Transform Layer) ──────────────────────
@@ -1937,6 +1992,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       const rawData = await fetchApartmentData({
         complexName: f.complexName,
         dong: f.dong,
+        region: f.region,
         areaExclusive: f.areaExclusive,
       });
       // ── [2] 변환 모듈 ── rawData → analyze() 입력 형태 조립
