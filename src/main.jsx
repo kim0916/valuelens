@@ -2151,6 +2151,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   const [pending, setPending] = useState(null);
   const [showManual, setShowManual] = useState(false);
   const abortRef = useRef(null);
+  const [areaOptions, setAreaOptions] = useState([]);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
   // ── UI 진입점: 버튼 1개 ──────────────────────────────────────
@@ -2178,6 +2179,12 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         rawData, f, Number(f.areaExclusive) || 0
       );
       setF(filled);
+      // 면적 옵션 저장 (조회 결과에서 뽑힌 면적 목록)
+      if (filled._aiAreaOptions && filled._aiAreaOptions.length > 0) {
+        setAreaOptions(filled._aiAreaOptions);
+      } else if (rawData.areaOptions && rawData.areaOptions.length > 0) {
+        setAreaOptions(rawData.areaOptions);
+      }
       // blockReason 있어도 ConfirmStep으로 진입 — 사용자가 직접 수정 가능
       // ff가 null이면 filled 기반으로 임시 pending 생성 (수정 후 분석 유도)
       const pendingFf = ff || {
@@ -2274,6 +2281,20 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         </div>
         {Number(f.areaExclusive) > 0 && (
           <p className="mt-1.5 text-xs text-slate-500">전용 {f.areaExclusive}㎡ · 통상 약 {typicalPyeong(f.areaExclusive)}평형</p>
+        )}
+        {areaOptions.length > 0 && (
+          <div className="mt-2">
+            <p className="text-xs text-slate-400 mb-1.5">면적 선택:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {areaOptions.map((o, i) => (
+                <button key={i} type="button"
+                  onClick={() => { set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm); }}
+                  className={`rounded-xl px-3 py-1.5 text-sm font-semibold border ${Number(f.areaExclusive) === o.areaSqm ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"}`}>
+                  {o.areaSqm}㎡ · {o.pyeong}평
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* 메인 버튼 */}
@@ -3227,6 +3248,7 @@ function SellView({ onContext }) {
   const [aiMsg, setAiMsg] = useState(null);
   const [showManual, setShowManual] = useState(false);
   const abortRef = useRef(null);
+  const [areaOptions, setAreaOptions] = useState([]);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
   // 단일 검색 → AI가 시세·실거래·연식 채움 (희망 매도가는 사용자 입력) · 데모용
