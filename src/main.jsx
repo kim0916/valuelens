@@ -2103,7 +2103,7 @@ async function fetchApartmentData(query) {
   try {
     const lr = await fetch("/api/lawdCd", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "lawdCd", sigungu: query.region }),
+      body: JSON.stringify({ type: "lawdCd", sigungu: query.region, sido: query.sido || "" }),
     });
     lawdCd = (await lr.json()).lawdCd || null;
   } catch(e) {}
@@ -2424,23 +2424,21 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
   // 면적만 먼저 조회하는 함수
   // 외부에서 파라미터 받는 버전 (단지 선택 즉시 호출용)
-  async function fetchAreasFor(region, dong, complexName, exactAptNm) {
+  async function fetchAreasFor(region, dong, complexName, exactAptNm, sido) {
     if (!complexName || !region) return;
     setFetchingAreas(true); setAiMsg(null); setAreaOptions([]);
     try {
-      // /api/lawdCd로 lawdCd 변환 (fallback: 내장 getLawdCd)
       let lawdCd = null;
       try {
         const lawdRes = await fetch("/api/lawdCd", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "lawdCd", sigungu: region }),
+          body: JSON.stringify({ type: "lawdCd", sigungu: region, sido: sido || "" }),
         });
-        const lawdData = await lawdRes.json();
-        lawdCd = lawdData.lawdCd || null;
+        const ld = await lawdRes.json();
+        lawdCd = ld.lawdCd || null;
       } catch(e) {}
       if (!lawdCd) lawdCd = getLawdCd(dong, region);
-      if (!lawdCd) { setAiMsg("지역 코드를 찾지 못했습니다. 지역(구)명을 확인하세요."); setFetchingAreas(false); return; }
-      // 면적 조회는 12개월 (거래 드문 단지 커버)
+      if (!lawdCd) { setAiMsg(`"${region}" 지역 코드를 찾지 못했습니다.`); setFetchingAreas(false); return; }
       const result = await fetchMolitData(lawdCd, exactAptNm || complexName, "", 12);
       const allAreas = [...(result.sale || []), ...(result.jeonse || [])].map(d => d.areaSqm).filter(a => a > 0);
       const unique = [...new Set(allAreas)].sort((a, b) => a - b);
@@ -2506,6 +2504,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         exactAptNm: ff.exactAptNm,
         dong: ff.dong,
         region: ff.region,
+        sido: ff.sido || "",
         areaExclusive: overrideArea ? String(overrideArea) : ff.areaExclusive,
       });
       // ── [2] 변환 모듈 ── rawData → analyze() 입력 형태 조립
@@ -2617,9 +2616,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
           </div>
         ) : (
           <LocationPicker onComplete={({ sido, sigungu, dong, complexName, exactAptNm }) => {
-            setF(p => ({ ...p, region: sigungu, dong, complexName, exactAptNm, areaExclusive: "" }));
+            setF(p => ({ ...p, region: sigungu, sido, dong, complexName, exactAptNm, areaExclusive: "" }));
             setAreaOptions([]);
-            setTimeout(() => fetchAreasFor(sigungu, dong, complexName, exactAptNm), 100);
+            setTimeout(() => fetchAreasFor(sigungu, dong, complexName, exactAptNm, sido), 100);
           }} />
         )}
 
