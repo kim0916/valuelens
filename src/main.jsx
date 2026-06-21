@@ -749,9 +749,10 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse") {
   if (!total) return kbPrice ? { value: Math.round(kbPrice), used: 0, excluded: 0, total: 0, confidence: 30, confLabel: "낮음", kbWeight: 1, reasonText: "6개월 내 실거래 없음 · KB시세 100% 반영" } : null;
 
   const med = (arr) => { const s = [...arr].sort((a, b) => a - b); const n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0; };
-  const reasons = { floor1: 0, banjiha: 0, top: 0, urgent: 0, related: 0, dev20: 0 };
+  const reasons = { floor1: 0, lowFloor: 0, banjiha: 0, top: 0, urgent: 0, related: 0, dev20: 0 };
 
   // 1차: 구조적·특수 거래 제외
+  // 1층은 무조건 제외, 2~3층은 일단 통과시켜 2차에서 가격으로 판단
   const pass1 = within.filter((d) => {
     if (d.banjiha || d.floor < 0) { reasons.banjiha++; return false; }
     if (d.floor === 1) { reasons.floor1++; return false; }
@@ -760,10 +761,17 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse") {
     if (d.related) { reasons.related++; return false; }
     return true;
   });
-  // 2차: 단지 중앙값 대비 ±20% 초과 제외
+
+  // 2차: 중앙값 대비 가격 이상치 제외
+  // 2~3층이 중앙값 -15% 이상 낮으면 저층할인 의심으로 제외
+  // 전체적으로 ±20% 초과도 제외
   const ref = pass1.length ? med(pass1.map((d) => d.price)) : 0;
   const pass2 = pass1.filter((d) => {
-    if (ref && Math.abs(d.price - ref) / ref > 0.2) { reasons.dev20++; return false; }
+    if (ref) {
+      const gap = (d.price - ref) / ref; // 음수면 중앙값보다 낮음
+      if (d.floor <= 3 && gap < -0.15) { reasons.lowFloor++; return false; } // 저층 할인 의심
+      if (Math.abs(gap) > 0.2) { reasons.dev20++; return false; } // 비정상 가격
+    }
     return true;
   });
 
@@ -786,7 +794,8 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse") {
   const confLabel = conf >= 75 ? "높음" : conf >= 55 ? "보통" : "낮음";
 
   const rs = [];
-  if (reasons.floor1) rs.push(`저층(1층) ${reasons.floor1}건`);
+  if (reasons.floor1) rs.push(`1층 ${reasons.floor1}건`);
+  if (reasons.lowFloor) rs.push(`저층할인 의심(2~3층) ${reasons.lowFloor}건`);
   if (reasons.banjiha) rs.push(`반지하 ${reasons.banjiha}건`);
   if (reasons.top) rs.push(`최고층 ${reasons.top}건`);
   if (reasons.urgent) rs.push(`${urgentLabel} ${reasons.urgent}건`);
