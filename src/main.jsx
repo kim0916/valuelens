@@ -2139,7 +2139,7 @@ async function fetchApartmentData(query) {
   }
 
   // 대표 면적 결정
-  const askedArea = Number(areaExclusive) || 0;
+  const askedArea = Number(_areaExclusive) || 0;
   let areaSqm = 0;
   if (askedArea > 0) {
     const found = uniqueAreas.find(a => Math.abs(a - askedArea) <= 3);
@@ -2160,7 +2160,7 @@ async function fetchApartmentData(query) {
 
   // 법정동 코드 → 지역명 역변환
   const LAWD_CD_REVERSE = Object.fromEntries(Object.entries(LAWD_CD_MAP).map(([k, v]) => [String(v), k]));
-  const lawdCdFromQuery = getLawdCd(query.dong, query.region);
+  const lawdCdFromQuery = getLawdCd(query.dong || "", query.region || "");
   const regionFromCode = lawdCdFromQuery ? (LAWD_CD_REVERSE[lawdCdFromQuery] || "") : "";
 
   // 지역(시군구) 추출 — 쿼리에 없으면 코드 역변환
@@ -2172,8 +2172,8 @@ async function fetchApartmentData(query) {
 
   return {
     region: regionName,
-    dong: query.dong || "",
-    complexName: query.complexName || "",
+    dong: (query.dong || ""),
+    complexName: (_complexName || ""),
     areaSqm,
     pyeong: areaSqm > 0 ? typicalPyeong(areaSqm) : 0,
     priceArea: areaSqm,
