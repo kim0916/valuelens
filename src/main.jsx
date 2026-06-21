@@ -2016,7 +2016,7 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
       let common = 0;
       for (let i = 0; i < minLen; i++) { if (n[i] === c[i]) common++; else break; }
       if (common >= 3) return true;
-      // 토큰 매칭: 2글자 이상 공통 부분문자열 (파크비뉴 ↔ 파르크비뉴)
+      // 토큰 매칭: 2글자 이상 공통 부분문자열
       for (let len = Math.min(c.length, 4); len >= 2; len--) {
         for (let i = 0; i <= c.length - len; i++) {
           if (n.includes(c.slice(i, i + len))) return true;
@@ -2025,14 +2025,17 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
       return false;
     };
 
-    // 면적 필터 (±3㎡ 허용)
+    // 면적 필터 (±5㎡ 허용 — 국토부/네이버 면적 표기 차이 감안)
     const areaFilter = (area) => {
       if (!areaExclusive || Number(areaExclusive) <= 0) return true;
-      return Math.abs(Number(area) - Number(areaExclusive)) <= 3;
+      return Math.abs(Number(area) - Number(areaExclusive)) <= 5;
     };
 
+    // 면적이 지정된 경우 단지명 필터 없이 면적만으로 필터 (단지명 표기 불일치 우회)
+    const useAreaOnlyFilter = Number(areaExclusive) > 0;
+
     (saleData.items || []).forEach(item => {
-      if (!nameFilter(item.aptNm)) return;
+      if (!useAreaOnlyFilter && !nameFilter(item.aptNm)) return;
       if (!areaFilter(item.excluUseAr)) return;
       const price = Number(String(item.dealAmount || "").replace(/,/g, ""));
       if (!price) return;
@@ -2048,7 +2051,7 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
     });
 
     (rentData.items || []).forEach(item => {
-      if (!nameFilter(item.aptNm)) return;
+      if (!useAreaOnlyFilter && !nameFilter(item.aptNm)) return;
       if (!areaFilter(item.excluUseAr)) return;
       if (item.monthlyRent && Number(item.monthlyRent) > 0) return; // 월세 제외
       const price = Number(String(item.deposit || "").replace(/,/g, ""));
