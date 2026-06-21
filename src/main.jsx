@@ -2258,10 +2258,63 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   if (pending) return <ConfirmStep p={pending} f={f} onBack={() => setPending(null)} onConfirm={doAnalyze} mode={mode} onRefetch={(area) => { setF(prev => ({...prev, areaExclusive: String(area)})); quickSearch(area); }} />;
   return (
     <>
-      <header className="mb-6 text-center">
-        <h1 className="text-2xl font-bold leading-tight text-slate-900">이 집 사도 될까?</h1>
-        <p className="mt-2 text-sm text-slate-500">동·단지를 입력하면 AI가 실거래·시세를 조회하고 매수 적정성을 판단합니다.</p>
+      {/* ── 히어로 헤더 ── */}
+      <header className="mb-5 text-center">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 mb-3">
+          📊 국토교통부 실거래가 공식 데이터 기반
+        </div>
+        <h1 className="text-2xl font-bold leading-tight text-slate-900">이 집, 지금 사도 될까요?</h1>
+        <p className="mt-2 text-sm text-slate-500">동·단지만 입력하면 실거래 데이터로 매수 적정성을 판단합니다.</p>
       </header>
+
+      {/* ── 신뢰도 지표 카드 ── */}
+      <div className="mb-5 grid grid-cols-3 gap-2">
+        <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
+          <p className="text-lg font-extrabold text-slate-900">100%</p>
+          <p className="mt-0.5 text-[10px] font-medium text-slate-500">공식 데이터</p>
+          <p className="text-[9px] text-slate-400">국토부 실거래가</p>
+        </div>
+        <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
+          <p className="text-lg font-extrabold text-slate-900">전세가율</p>
+          <p className="mt-0.5 text-[10px] font-medium text-slate-500">핵심 지표</p>
+          <p className="text-[9px] text-slate-400">시장 검증 방법론</p>
+        </div>
+        <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
+          <p className="text-lg font-extrabold text-slate-900">실시간</p>
+          <p className="mt-0.5 text-[10px] font-medium text-slate-500">최신 반영</p>
+          <p className="text-[9px] text-slate-400">최근 12개월 거래</p>
+        </div>
+      </div>
+
+      {/* ── 근거 설명 ── */}
+      <div className="mb-5 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+        <p className="mb-2.5 text-xs font-bold text-slate-700">어떻게 판단하나요?</p>
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 text-sm">🏠</span>
+            <div>
+              <p className="text-xs font-semibold text-slate-700">전세가율 기반 적정가 산출</p>
+              <p className="text-[10px] text-slate-400">실거래 전세가 ÷ 목표 전세가율 = 적정 매매가. 전세가는 실수요 가격의 하방을 나타냅니다.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 text-sm">📈</span>
+            <div>
+              <p className="text-xs font-semibold text-slate-700">시장충격 시나리오 반영</p>
+              <p className="text-[10px] text-slate-400">금리 상승·경기 침체 등 위기 상황에서도 버틸 수 있는 가격인지 스트레스 테스트를 적용합니다.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 text-sm">⚖️</span>
+            <div>
+              <p className="text-xs font-semibold text-slate-700">KB시세 교차 검증</p>
+              <p className="text-[10px] text-slate-400">국토부 실거래가와 KB부동산 시세를 교차 검증해 단순 등락에 흔들리지 않는 판단을 제공합니다.</p>
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-[9px] text-slate-400">⚠ 본 서비스는 참고용이며 투자 판단의 최종 책임은 본인에게 있습니다. 감정평가서가 아닙니다.</p>
+      </div>
+
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
         <p className="mb-3 text-sm font-bold text-slate-800">단지 검색</p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
