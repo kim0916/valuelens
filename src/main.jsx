@@ -1798,51 +1798,205 @@ export default function App() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ── 조회 모듈 (Data Fetch Layer) ──────────────────────────────
-// UI와 완전히 분리된 독립 async 함수.
-// 현재: AI 웹검색으로 실거래·시세 수집 (MVP 데모)
-//
-// TODO(API 전환 시 이 함수만 교체):
-//   - 국토부 실거래가 공개시스템 API
-//   - KB시세 API
-//   - 한국부동산원 거래량/시세 API
-//   입력(query 객체)과 반환(ApartmentRawData JSON) 형태는 그대로 유지
+// ── 법정동 코드 매핑 (국토부 API용) ──────────────────────────
+// 법정동 앞 5자리 코드 (시군구 단위)
 // ───────────────────────────────────────────────────────────────
+const LAWD_CD_MAP = {
+  // 서울
+  "종로구":11110,"중구":11140,"용산구":11170,"성동구":11200,"광진구":11215,
+  "동대문구":11230,"중랑구":11260,"성북구":11290,"강북구":11305,"도봉구":11320,
+  "노원구":11350,"은평구":11380,"서대문구":11410,"마포구":11440,"양천구":11470,
+  "강서구":11500,"구로구":11530,"금천구":11545,"영등포구":11560,"동작구":11590,
+  "관악구":11620,"서초구":11650,"강남구":11680,"송파구":11710,"강동구":11740,
+  // 경기
+  "수원시":41110,"성남시":41130,"의정부시":41150,"안양시":41170,"부천시":41190,
+  "광명시":41210,"평택시":41220,"동두천시":41250,"안산시":41270,"고양시":41280,
+  "과천시":41290,"구리시":41310,"남양주시":41360,"오산시":41370,"시흥시":41390,
+  "군포시":41410,"의왕시":41430,"하남시":41450,"용인시":41460,"파주시":41480,
+  "이천시":41500,"안성시":41550,"김포시":41570,"화성시":41590,"광주시":41610,
+  "양주시":41630,"포천시":41650,"여주시":41670,
+  // 인천
+  "중구":28110,"동구":28140,"미추홀구":28177,"연수구":28185,"남동구":28200,
+  "부평구":28237,"계양구":28245,"서구":28260,
+  // 부산
+  "중구":26110,"서구":26140,"동구":26170,"영도구":26200,"부산진구":26230,
+  "동래구":26260,"남구":26290,"북구":26320,"해운대구":26350,"사하구":26380,
+  "금정구":26410,"강서구":26440,"연제구":26470,"수영구":26500,"사상구":26530,
+  // 대구
+  "중구":27110,"동구":27140,"서구":27170,"남구":27200,"북구":27230,
+  "수성구":27260,"달서구":27290,
+  // 대전
+  "동구":30110,"중구":30140,"서구":30170,"유성구":30200,"대덕구":30230,
+  // 광주
+  "동구":29110,"서구":29140,"남구":29155,"북구":29170,"광산구":29200,
+  // 울산
+  "중구":31110,"남구":31140,"동구":31170,"북구":31200,"울주군":31710,
+  // 세종
+  "세종시":36110,
+  // 강원
+  "춘천시":42110,"원주시":42130,"강릉시":42150,
+  // 충북
+  "청주시":43110,"충주시":43130,
+  // 충남
+  "천안시":44130,"아산시":44200,
+  // 전북
+  "전주시":45110,"익산시":45140,"군산시":45130,
+  // 전남
+  "여수시":46110,"순천시":46150,"목포시":46110,
+  // 경북
+  "포항시":47110,"경주시":47130,"구미시":47190,"안동시":47150,
+  // 경남
+  "창원시":48121,"진주시":48170,"김해시":48250,"양산시":48330,
+  // 제주
+  "제주시":50110,"서귀포시":50130,
+};
+
+// 동 이름으로 법정동 코드 추론 (구 이름 포함된 경우 처리)
+function getLawdCd(dong, region) {
+  if (!dong && !region) return null;
+  // region이 있으면 region에서 먼저 찾기
+  const searchStr = region || dong || "";
+  for (const [key, code] of Object.entries(LAWD_CD_MAP)) {
+    if (searchStr.includes(key)) return String(code);
+  }
+  // dong에서 구 이름 찾기
+  if (dong) {
+    for (const [key, code] of Object.entries(LAWD_CD_MAP)) {
+      if (dong.includes(key)) return String(code);
+    }
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ── 조회 모듈 (Data Fetch Layer) ──────────────────────────────
+// 국토부 실거래가 공공 API 사용 (무료)
+// KB시세는 수기 입력 (API 없음)
+// ───────────────────────────────────────────────────────────────
+async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
+  const now = new Date();
+  const results = { sale: [], jeonse: [] };
+
+  for (let i = 0; i < months; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const ym = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+    const [saleRes, rentRes] = await Promise.all([
+      fetch("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "sale", lawdCd, dealYmd: ym }) }),
+      fetch("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "rent", lawdCd, dealYmd: ym }) }),
+    ]);
+
+    const saleData = await saleRes.json();
+    const rentData = await rentRes.json();
+
+    // 단지명 필터링 (부분 일치)
+    const nameFilter = (name) => {
+      if (!complexName) return true;
+      const n = String(name || "").replace(/\s/g, "");
+      const c = complexName.replace(/\s/g, "");
+      return n.includes(c) || c.includes(n);
+    };
+
+    // 면적 필터 (±3㎡ 허용)
+    const areaFilter = (area) => {
+      if (!areaExclusive || Number(areaExclusive) <= 0) return true;
+      return Math.abs(Number(area) - Number(areaExclusive)) <= 3;
+    };
+
+    (saleData.items || []).forEach(item => {
+      if (!nameFilter(item.aptNm)) return;
+      if (!areaFilter(item.excluUseAr)) return;
+      const price = Number(String(item.dealAmount || "").replace(/,/g, ""));
+      if (!price) return;
+      results.sale.push({
+        ym: `${item.dealYear}-${String(item.dealMonth).padStart(2, "0")}`,
+        price: Math.round(price),
+        floor: Number(item.floor) || 5,
+        areaSqm: Number(item.excluUseAr) || 0,
+        complexName: item.aptNm,
+      });
+    });
+
+    (rentData.items || []).forEach(item => {
+      if (!nameFilter(item.aptNm)) return;
+      if (!areaFilter(item.excluUseAr)) return;
+      if (item.monthlyRent && Number(item.monthlyRent) > 0) return; // 월세 제외
+      const price = Number(String(item.deposit || "").replace(/,/g, ""));
+      if (!price) return;
+      results.jeonse.push({
+        ym: `${item.dealYear}-${String(item.dealMonth).padStart(2, "0")}`,
+        price: Math.round(price),
+        floor: Number(item.floor) || 5,
+        areaSqm: Number(item.excluUseAr) || 0,
+        complexName: item.aptNm,
+      });
+    });
+
+    if (results.sale.length >= 10 && results.jeonse.length >= 10) break;
+  }
+
+  // 최신순 정렬 후 각 최대 10건
+  results.sale.sort((a, b) => b.ym.localeCompare(a.ym));
+  results.jeonse.sort((a, b) => b.ym.localeCompare(a.ym));
+  results.sale = results.sale.slice(0, 10);
+  results.jeonse = results.jeonse.slice(0, 10);
+
+  return results;
+}
+
 async function fetchApartmentData(query) {
-  // query: { complexName, dong, areaExclusive }
+  // query: { complexName, dong, region, areaExclusive }
   // 반환: ApartmentRawData (JSON 객체) — 실패 시 throw
-  const q = [query.dong, query.complexName, Number(query.areaExclusive) > 0 ? `전용 ${query.areaExclusive}㎡` : ""].filter(Boolean).join(" ");
-  const prompt = `너는 한국 부동산 실거래가 조사원이야. 국토교통부 실거래가 공개시스템(rt.molit.go.kr)·집품·아실·호갱노노·KB부동산을 웹 검색해서 아래 단지의 실제 데이터를 찾아.
-입력: "${q}"
-- 서울·수도권뿐 아니라 대구·부산 등 지방 단지, 구축 단지도 끝까지 검색할 것.
-- 지역명(시/도/구)을 함께 검색해 동명이인 단지를 구분할 것.
 
-[면적·가격 정합성 — 매우 중요]
-- 전용면적(areaSqm)은 반드시 그 단지에 실제로 존재하는 전용면적만 사용한다.
-- 국민평형 84㎡를 기본값으로 절대 넣지 마라. 못 찾으면 areaSqm=0, pyeong=0.
-- currentPrice·kbSalePrice(매매)·kbJeonse(전세)·jeonse·sale 거래는 모두 같은 전용면적(areaSqm) 기준이어야 한다.
-- 예: 59㎡ 가격을 84㎡ 가격처럼 쓰지 마라. 가격과 면적 기준이 다르면 그 가격은 0으로 둔다.
-- 출처에서 "이 면적의 이 가격"이 함께 확인되지 않으면 해당 가격은 0/빈배열로 둔다.
-- 절대 추측으로 면적을 채우지 마라. 확실히 못 찾은 값만 0/빈배열.
-- 입력에 전용면적이 주어졌으면 그 면적 기준 가격만 채운다. 그 면적이 단지에 없으면 areaSqm=0으로 두고 areaOptions에 실제 존재하는 면적들을 넣는다.
-- 전용면적이 입력되지 않았으면 반드시 areaOptions에 그 단지의 모든 전용면적을 넣어라. areaSqm=0으로 두고 areaOptions 필수 입력.
-- priceArea: currentPrice가 어느 전용면적 기준인지 ㎡로 명시(모르면 0).
+  const lawdCd = getLawdCd(query.dong, query.region);
+  if (!lawdCd) {
+    throw new Error(`법정동 코드를 찾지 못했습니다 (동: ${query.dong}, 지역: ${query.region}). 지역(구)명을 함께 입력해주세요.`);
+  }
 
-아래 JSON만 출력 (설명·마크다운·백틱 금지):
-{"region":"시군구","dong":"법정동","complexName":"단지명","areaSqm":전용면적㎡숫자,"pyeong":통상분양평형숫자,"priceArea":currentPrice기준전용면적㎡숫자,"buildYear":준공연도숫자,"topFloor":단지최고층숫자,"currentPrice":최근매매실거래만원,"kbSalePrice":KB매매시세만원,"kbJeonse":KB전세시세만원,"jeonse":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"sale":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"areaOptions":[{"areaSqm":전용㎡,"pyeong":통상평형}]}
-규칙: 모든 가격은 만원 단위 정수(7억4000만→74000, 25억→250000, 15억5000만→155000). 취소거래 제외. jeonse/sale 각 최대 10건.
-- currentPrice: 현재 네이버부동산·호갱노노 매물 호가(만원). 반드시 채울 것.
-- kbSalePrice: KB부동산 매매 시세(만원). 반드시 채울 것.
-- kbJeonse: KB부동산 전세 시세(만원). 반드시 채울 것.
-- 못 찾으면 0 대신 최근 실거래가로 대체.`;
-  const response = await fetch("/api/ai", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500, messages: [{ role: "user", content: prompt }], tools: [{ type: "web_search_20250305", name: "web_search" }] }),
-  });
-  const data = await response.json();
-  const text = (data.content || []).map((i) => (i.type === "text" ? i.text : "")).filter(Boolean).join("\n");
-  const mt = text.replace(/```json|```/g, "").trim().match(/\{[\s\S]*\}/);
-  return JSON.parse(mt ? mt[0] : "{}");
+  const { sale, jeonse } = await fetchMolitData(
+    lawdCd,
+    query.complexName,
+    query.areaExclusive,
+    12
+  );
+
+  // 면적 옵션 추출 (조회된 실거래 기준)
+  const allAreas = [...sale, ...jeonse].map(d => d.areaSqm).filter(a => a > 0);
+  const uniqueAreas = [...new Set(allAreas)].sort((a, b) => a - b);
+  const areaOptions = uniqueAreas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
+
+  // 대표 면적 결정
+  const askedArea = Number(query.areaExclusive) || 0;
+  let areaSqm = 0;
+  if (askedArea > 0) {
+    const found = uniqueAreas.find(a => Math.abs(a - askedArea) <= 3);
+    areaSqm = found || 0;
+  } else if (uniqueAreas.length > 0) {
+    areaSqm = 0; // 면적 미지정이면 0으로 두고 areaOptions 제공
+  }
+
+  // 최근 매매 실거래 기준 currentPrice
+  const recentSale = sale[0];
+  const currentPrice = recentSale ? recentSale.price : 0;
+
+  return {
+    region: query.region || "",
+    dong: query.dong || "",
+    complexName: query.complexName || "",
+    areaSqm,
+    pyeong: areaSqm > 0 ? typicalPyeong(areaSqm) : 0,
+    priceArea: areaSqm,
+    buildYear: 0,
+    topFloor: 0,
+    currentPrice,
+    kbSalePrice: 0, // 수기 입력
+    kbJeonse: 0,    // 수기 입력
+    jeonse,
+    sale,
+    areaOptions,
+  };
 }
 
 // ── 분석 입력 조립 모듈 (Transform Layer) ──────────────────────
