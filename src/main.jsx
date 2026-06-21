@@ -2037,7 +2037,7 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
         ym: `${item.dealYear}-${String(item.dealMonth).padStart(2, "0")}`,
         price: Math.round(price),
         floor: Number(item.floor) || 5,
-        areaSqm: Number(item.excluUseAr) || 0,
+        areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
         complexName: item.aptNm,
         buildYear: Number(item.buildYear) || 0,
         region: item.siGunGu || item.sggNm || "",
@@ -2054,7 +2054,7 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
         ym: `${item.dealYear}-${String(item.dealMonth).padStart(2, "0")}`,
         price: Math.round(price),
         floor: Number(item.floor) || 5,
-        areaSqm: Number(item.excluUseAr) || 0,
+        areaSqm: Math.round((Number(item.excluUseAr) || 0) * 100) / 100,
         complexName: item.aptNm,
       });
     });
@@ -2133,9 +2133,9 @@ async function fetchApartmentData(query) {
     areaSqm = 0; // 면적 미지정이면 0으로 두고 areaOptions 제공
   }
 
-  // 최근 매매 실거래 기준 currentPrice + buildYear
+  // 최근 매매 실거래 기준 buildYear만 (currentPrice는 사용자 입력)
   const recentSale = sale[0];
-  const currentPrice = recentSale ? recentSale.price : 0;
+  const currentPrice = 0; // 사용자가 직접 입력
   const buildYear = recentSale ? (Number(recentSale.buildYear) || 0) : 0;
 
   // 법정동 코드 → 지역명 역변환
