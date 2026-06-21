@@ -2185,12 +2185,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         : (rawData.areaOptions && rawData.areaOptions.length > 0 ? rawData.areaOptions : []);
       setAreaOptions(opts);
 
-      // 면적 미지정 + 면적 옵션 있으면 → ConfirmStep 안 가고 면적 선택 먼저
+      // 면적 미지정이면 면적 버튼 보여주되 ConfirmStep도 진입 허용
       const askedArea = Number(overrideArea || f.areaExclusive) || 0;
-      if (askedArea <= 0 && opts.length > 0) {
-        setAiMsg(`면적을 선택하세요 — ${opts.map(o => o.areaSqm + "㎡").join(", ")}`);
-        return;
-      }
 
       // blockReason 있어도 ConfirmStep으로 진입 — 사용자가 직접 수정 가능
       const pendingFf = ff || {
