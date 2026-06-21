@@ -2255,9 +2255,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   const [showManual, setShowManual] = useState(false);
   const abortRef = useRef(null);
   const [areaOptions, setAreaOptions] = useState([]);
-  const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
-
-  // ── UI 진입점: 버튼 1개 ──────────────────────────────────────
+  const [uploadedImages, setUploadedImages] = useState([]); // 캡처 썸네일
   // 화면은 버튼 하나지만 내부는 3단 파이프라인으로 분리:
   //   [1] fetchApartmentData  → 조회 모듈 (API 전환 시 이 함수만 교체)
   //   [2] buildAnalysisInput  → 변환 모듈 (rawData → analyze() 입력 형태)
@@ -2395,17 +2393,28 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
         {/* 캡처 업로드 */}
         <div className="mt-3 rounded-2xl bg-indigo-50 p-3 ring-1 ring-indigo-100">
-          <p className="text-xs font-bold text-indigo-800">📷 네이버 부동산 캡처로 자동 입력</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-indigo-800">📷 네이버 부동산 캡처로 자동 입력</p>
+            {uploadedImages.length > 0 && <button onClick={() => setUploadedImages([])} className="text-[10px] text-indigo-400 underline">초기화</button>}
+          </div>
           <p className="mt-0.5 text-[10px] text-indigo-500">매물·시세 화면 캡처 올리면 면적·매물가·KB시세 자동 인식</p>
+          {uploadedImages.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {uploadedImages.map((url, i) => (
+                <img key={i} src={url} alt={`캡처${i+1}`} className="h-16 w-16 rounded-lg object-cover ring-1 ring-indigo-200" />
+              ))}
+            </div>
+          )}
           <label className={`mt-2 block w-full cursor-pointer rounded-xl py-2 text-center text-xs font-bold text-white ${aiLoading ? "opacity-50" : ""}`} style={{ backgroundColor: NAVY }}>
-            {aiLoading ? "분석 중…" : "📷 캡처 업로드"}
+            {aiLoading ? "분석 중…" : uploadedImages.length > 0 ? "📷 추가 캡처 업로드" : "📷 캡처 업로드"}
             <input type="file" accept="image/*" multiple disabled={aiLoading} className="hidden" onChange={async (e) => {
               const files = Array.from(e.target.files || []);
               if (!files.length) return;
               setAiLoading(true); setAiMsg(null);
               try {
-                const toBase64 = (file) => new Promise((res, rej) => { const rd = new FileReader(); rd.onload = () => res({data: String(rd.result).split(",")[1], type: file.type||"image/png"}); rd.onerror = rej; rd.readAsDataURL(file); });
+                const toBase64 = (file) => new Promise((res, rej) => { const rd = new FileReader(); rd.onload = () => res({data: String(rd.result).split(",")[1], type: file.type||"image/png", url: rd.result}); rd.onerror = rej; rd.readAsDataURL(file); });
                 const imgs = await Promise.all(files.map(toBase64));
+                setUploadedImages(prev => [...prev, ...imgs.map(i => i.url)]);
                 const content = [
                   ...imgs.map(img => ({ type: "image", source: { type: "base64", media_type: img.type, data: img.data } })),
                   { type: "text", text: `이 이미지들은 한국 부동산 매물/시세 화면 캡처야. 보이는 정보만 추출해 아래 JSON만 출력 (설명·백틱 금지):\n{"region":"시군구","dong":"법정동","complexName":"단지명","areaExclusive":전용면적㎡숫자,"currentPrice":매물호가만원정수,"kbSalePrice":KB매매시세만원정수,"kbJeonse":KB전세시세만원정수,"buildYear":준공연도숫자}\n규칙: 가격은 만원 정수(5억→50000). 안 보이는 값은 0. 추정 금지.` }
