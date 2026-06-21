@@ -1,18 +1,29 @@
-// 서버리스 함수: 국토교통부 실거래가 공공 API 호출
 const SALE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
 const RENT_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptRentDev/getRTMSDataSvcAptRentDev";
+
+function getTag(xml, tag) {
+  const m = xml.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`));
+  return m ? m[1].trim() : "";
+}
 
 function parseXmlItems(xml) {
   const items = [];
   const itemMatches = xml.match(/<item>([\s\S]*?)<\/item>/g) || [];
   for (const item of itemMatches) {
-    const obj = {};
-    const fields = item.match(/<(\w+)>([^<]*)<\/\1>/g) || [];
-    for (const field of fields) {
-      const m = field.match(/<(\w+)>([^<]*)<\/\1>/);
-      if (m) obj[m[1]] = m[2].trim();
-    }
-    items.push(obj);
+    items.push({
+      aptNm: getTag(item, "aptNm"),
+      dealAmount: getTag(item, "dealAmount"),
+      dealYear: getTag(item, "dealYear"),
+      dealMonth: getTag(item, "dealMonth"),
+      dealDay: getTag(item, "dealDay"),
+      excluUseAr: getTag(item, "excluUseAr"),
+      floor: getTag(item, "floor"),
+      buildYear: getTag(item, "buildYear"),
+      umdNm: getTag(item, "umdNm"),
+      // 전월세
+      deposit: getTag(item, "deposit"),
+      monthlyRent: getTag(item, "monthlyRent"),
+    });
   }
   return items;
 }
@@ -30,18 +41,17 @@ export default async function handler(req, res) {
   const url = `${baseUrl}?serviceKey=${apiKey}&pageNo=1&numOfRows=100&LAWD_CD=${lawdCd}&DEAL_YMD=${dealYmd}`;
 
   try {
-    const r = await fetch(url, { headers: { "Accept": "application/xml" } });
+    const r = await fetch(url);
     const text = await r.text();
 
-    // 에러 체크
-    if (text.includes("<errMsg>") || text.includes("SERVICE_KEY_IS_NOT_REGISTERED_ERROR")) {
-      res.status(502).json({ error: "국토부 API 키 오류: " + text.substring(0, 200) });
+    if (text.includes("SERVICE_KEY_IS_NOT_REGISTERED_ERROR") || text.includes("INVALID_REQUEST_PARAMETER_ERROR")) {
+      res.status(502).json({ error: "국토부 API 키 오류", raw: text.substring(0, 300) });
       return;
     }
 
     const items = parseXmlItems(text);
     res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
-    res.status(200).json({ items, totalCount: items.length });
+    res.status(200).json({ items, totalCount: items.length, raw: text.substring(0, 500) });
   } catch (e) {
     res.status(502).json({ error: "API 호출 실패: " + (e?.message || String(e)) });
   }
