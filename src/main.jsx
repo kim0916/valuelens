@@ -2060,7 +2060,7 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
     // 면적이 지정된 경우 단지명 필터 없이 면적만으로 필터 (단지명 표기 불일치 우회)
     const useAreaOnlyFilter = Number(areaExclusive) > 0;
 
-    // 면적 수집 (단지명 필터 없이 모든 달)
+    // 면적 수집 (모든 달)
     (saleData.items || []).forEach(item => {
       const a = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
       if (a > 0) { results.allAreas = results.allAreas || new Set(); results.allAreas.add(a); }
