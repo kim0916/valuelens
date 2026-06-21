@@ -2081,6 +2081,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   const [aiMsg, setAiMsg] = useState(null);
   const [pending, setPending] = useState(null);
   const [showManual, setShowManual] = useState(false);
+  const abortRef = useRef(null);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
   // ── UI 진입점: 버튼 1개 ──────────────────────────────────────
