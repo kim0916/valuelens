@@ -755,62 +755,77 @@ function recommendByBudget({ budget, region = "전체", pyeong = 0, prefs = [] }
 // 최근 12개월 실거래 → 구조적/이상 거래 제외 → 평균 → 표본 적으면 KB 가중
 // 전세·매매 공용 정제평균(Trimmed Mean) 산정
 // 최근 12개월 실거래 → 구조적/이상 거래 제외 → 평균 → 표본 적으면 KB시세 가중
-function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse") {
+function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse", periodMonths = 24) {
   const urgentLabel = kind === "sale" ? "급매" : "급전세";
-  const norm = (rawDeals || [])
-    .map((d) => ({ ym: d.ym, price: Number(d.price) || 0, floor: Number(d.floor) || 0, topFloor: Number(d.topFloor) || 0, banjiha: !!d.banjiha, urgent: !!d.urgent, related: !!d.related }))
-    .filter((d) => d.price > 0 && d.ym);
-  const now = new Date();
-  const cutoff = new Date(now.getFullYear(), now.getMonth() - 5, 1); // 최근 6개월
-  const within = norm.filter((d) => {
-    const [y, m] = String(d.ym).split("-").map(Number);
-    return new Date(y, (m || 1) - 1, 1) >= cutoff;
-  });
-  const total = within.length;
-  if (!total) return kbPrice ? { value: Math.round(kbPrice), used: 0, excluded: 0, total: 0, confidence: 30, confLabel: "낮음", kbWeight: 1, reasonText: "6개월 내 실거래 없음 · KB시세 100% 반영" } : null;
+  const med = (arr) => { const s = [...arr].sort((a,b)=>a-b); const n=s.length; return n?(n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2):0; };
 
-  const med = (arr) => { const s = [...arr].sort((a, b) => a - b); const n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0; };
+  const norm = (rawDeals || [])
+    .map((d) => ({ ym: d.ym, price: Number(d.price)||0, floor: Number(d.floor)||0, topFloor: Number(d.topFloor)||0, banjiha: !!d.banjiha, urgent: !!d.urgent, related: !!d.related }))
+    .filter((d) => d.price > 0 && d.ym);
+
+  // ── 기간 필터: 6개월 우선, 부족하면 전체 사용 ──
+  const now = new Date();
+  const tryPeriods = [6, 12, 24].filter(p => p <= periodMonths);
+  let within = [], usedPeriod = 6;
+  for (const mo of tryPeriods) {
+    const cutoff = new Date(now.getFullYear(), now.getMonth() - (mo - 1), 1);
+    const w = norm.filter((d) => { const [y,m]=String(d.ym).split("-").map(Number); return new Date(y,(m||1)-1,1)>=cutoff; });
+    within = w; usedPeriod = mo;
+    if (w.length >= 5) break; // 5건 이상이면 이 기간으로 확정
+  }
+  const total = within.length;
+  if (!total) return kbPrice
+    ? { value: Math.round(kbPrice), used: 0, excluded: 0, total: 0, confidence: 30, confLabel: "낮음", kbWeight: 1, reasonText: `${periodMonths}개월 내 실거래 없음 · KB시세 100% 반영`, usedPeriod, isFallback: false }
+    : null;
+
   const reasons = { floor1: 0, lowFloor: 0, banjiha: 0, top: 0, urgent: 0, related: 0, dev20: 0 };
 
-  // 1차: 구조적·특수 거래 제외
-  // 1층은 무조건 제외, 2~3층은 일단 통과시켜 2차에서 가격으로 판단
+  // ── 1차 필터: 표본 5건 이상일 때만 구조적 제외, 미만이면 완화 ──
+  const strictMode = total >= 5;
   const pass1 = within.filter((d) => {
     if (d.banjiha || d.floor < 0) { reasons.banjiha++; return false; }
-    if (d.floor === 1) { reasons.floor1++; return false; }
+    if (strictMode && d.floor === 1) { reasons.floor1++; return false; } // 표본 충분할 때만 1층 제외
     if (d.topFloor && d.floor >= d.topFloor) { reasons.top++; return false; }
-    if (d.urgent) { reasons.urgent++; return false; }
-    if (d.related) { reasons.related++; return false; }
+    if (strictMode && d.urgent) { reasons.urgent++; return false; }   // 표본 충분할 때만 급매 제외
+    if (strictMode && d.related) { reasons.related++; return false; } // 표본 충분할 때만 특수관계 제외
     return true;
   });
 
-  // 2차: 중앙값 대비 가격 이상치 제외
-  // 2~3층이 중앙값 -15% 이상 낮으면 저층할인 의심으로 제외
-  // 전체적으로 ±20% 초과도 제외
+  // ── 2차 필터: 이상치 제외 (표본 5건 이상 시에만) ──
   const ref = pass1.length ? med(pass1.map((d) => d.price)) : 0;
   const pass2 = pass1.filter((d) => {
-    if (ref) {
-      const gap = (d.price - ref) / ref; // 음수면 중앙값보다 낮음
-      if (d.floor <= 3 && gap < -0.15) { reasons.lowFloor++; return false; } // 저층 할인 의심
-      if (Math.abs(gap) > 0.2) { reasons.dev20++; return false; } // 비정상 가격
+    if (ref && strictMode) {
+      const gap = (d.price - ref) / ref;
+      if (total >= 5 && d.floor <= 3 && gap < -0.15) { reasons.lowFloor++; return false; }
+      if (Math.abs(gap) > 0.2) { reasons.dev20++; return false; }
     }
     return true;
   });
 
-  const kept = pass2.map((d) => d.price);
-  const used = kept.length;
-  const dealAvg = used ? Math.round(kept.reduce((s, x) => s + x, 0) / used) : null;
+  // ── Fallback: 정제 후 0건이면 정제 전 값 사용 (참고값 표시) ──
+  let isFallback = false;
+  let finalDeals = pass2;
+  if (finalDeals.length === 0 && within.length > 0) {
+    finalDeals = within; // 원본 전체 fallback
+    isFallback = true;
+  }
 
-  // 표본 적으면 KB시세 가중
+  const kept = finalDeals.map((d) => d.price);
+  const used = kept.length;
+  const dealAvg = used ? Math.round(kept.reduce((s,x)=>s+x,0)/used) : null;
+
+  // KB시세 가중
   let kbWeight = used >= 5 ? 0 : used >= 3 ? 0.3 : used >= 1 ? 0.6 : 1;
   if (!kbPrice) kbWeight = 0;
   let value;
   if (dealAvg == null) value = Math.round(kbPrice || ref);
-  else if (kbWeight > 0 && kbPrice) value = Math.round(dealAvg * (1 - kbWeight) + kbPrice * kbWeight);
+  else if (kbWeight > 0 && kbPrice) value = Math.round(dealAvg*(1-kbWeight) + kbPrice*kbWeight);
   else value = dealAvg;
 
-  // 신뢰도: 표본수 ↑ · KB의존 ↓ · 분산 ↓
-  const cv = dealAvg ? Math.sqrt(kept.reduce((s, x) => s + (x - dealAvg) ** 2, 0) / used) / dealAvg : 1;
-  let conf = 50 + Math.min(used, 8) * 5 - kbWeight * 25 - Math.min(cv, 0.15) * 100;
+  const cv = dealAvg ? Math.sqrt(kept.reduce((s,x)=>s+(x-dealAvg)**2,0)/used)/dealAvg : 1;
+  let conf = 50 + Math.min(used,8)*5 - kbWeight*25 - Math.min(cv,0.15)*100;
+  if (!strictMode) conf -= 10; // 완화 모드면 신뢰도 차감
+  if (isFallback) conf -= 15;
   conf = Math.max(20, Math.min(95, Math.round(conf)));
   const confLabel = conf >= 75 ? "높음" : conf >= 55 ? "보통" : "낮음";
 
@@ -823,14 +838,20 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse") {
   if (reasons.related) rs.push(`특수관계거래 의심 ${reasons.related}건`);
   if (reasons.dev20) rs.push(`비정상가격(중앙값 ±20% 초과) ${reasons.dev20}건`);
   const excludeText = rs.length ? rs.join(", ") + " 제외" : "";
-  const kbNote = kbWeight > 0 ? `표본 부족으로 KB시세 ${Math.round(kbWeight * 100)}% 가중` : "";
-  const parts = [`${total}건 조회`];
+  const kbNote = kbWeight > 0 ? `KB시세 ${Math.round(kbWeight*100)}% 가중` : "";
+  const fallbackNote = isFallback ? "정제 후 0건 → 원본 참고값 사용" : "";
+  const strictNote = !strictMode && total > 0 ? `표본 부족(${total}건)으로 저층·급매 포함` : "";
+  const periodNote = usedPeriod > 6 ? `${usedPeriod}개월 확장 사용` : "";
+  const parts = [`${total}건(${usedPeriod}개월)`];
   if (excludeText) parts.push(excludeText);
   parts.push(`→ ${used}건 사용`);
+  if (fallbackNote) parts.push(fallbackNote);
+  if (strictNote) parts.push(strictNote);
+  if (periodNote) parts.push(periodNote);
   if (kbNote) parts.push(kbNote);
   const reasonText = parts.join(" · ");
 
-  return { value, used, excluded: total - used, total, confidence: conf, confLabel, kbWeight, reasonText };
+  return { value, used, excluded: total-used, total, confidence: conf, confLabel, kbWeight, reasonText, usedPeriod, isFallback, strictMode };
 }
 
 const SAMPLE_DEALS = [
@@ -2064,9 +2085,10 @@ function parsePrice(val) {
 }
 
 // ── 공통 실거래 조회 함수 ──
-async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, exactAptNm = "", dong = "") {
+async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, exactAptNm = "", dong = "") {
   const now = new Date();
   const AREA_STEPS = [0.5, 1, 3, 5]; // 단계별 면적 tolerance
+  const MIN_DEALS = 5; // 충분한 표본 기준
 
   const monthList = Array.from({ length: months }, (_, mi) => {
     const d = new Date(now.getFullYear(), now.getMonth() - mi, 1);
@@ -2252,7 +2274,7 @@ async function fetchApartmentData(query) {
   let sale = [], jeonse = [], tradeStatus = null;
   let molitResult;
   try {
-    molitResult = await fetchMolitData(lawdCd, qExactAptNm || qComplexName, String(qArea), 6, qExactAptNm, qDong);
+    molitResult = await fetchMolitData(lawdCd, qExactAptNm || qComplexName, String(qArea), 24, qExactAptNm, qDong);
     sale   = molitResult.sale   || [];
     jeonse = molitResult.jeonse || [];
     const d = molitResult.diagnosis || {};
@@ -2434,10 +2456,10 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
     _aiWarns: warns, _aiAreaOptions: areaOptions,
   };
 
-  // computeTrimmedMean 호출 — 계산 엔진은 수정하지 않음
-  const jeonseCalc = jd.length ? computeTrimmedMean(jd, Number(filled.kbJeonse) || 0, "jeonse") : null;
+  // computeTrimmedMean 호출 — 24개월 기간, 표본 부족 시 자동 완화
+  const jeonseCalc = jd.length ? computeTrimmedMean(jd, Number(filled.kbJeonse) || 0, "jeonse", 24) : null;
   const baseJeonse = jeonseCalc && jeonseCalc.value ? jeonseCalc.value : Number(filled.kbJeonse) || 0;
-  const saleCalc = sd.length ? computeTrimmedMean(sd, Number(filled.kbSalePrice) || 0, "sale") : null;
+  const saleCalc = sd.length ? computeTrimmedMean(sd, Number(filled.kbSalePrice) || 0, "sale", 24) : null;
 
   // 자동 분석 차단 여부 — 차단 사유가 있으면 ff=null, UI는 직접수정 버튼 표시
   // blockReason: 현재가만 있으면 통과 (전세시세 없어도 매매기반 분석 가능)
@@ -3292,30 +3314,23 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
         {(p.jeonseCalc || p.saleCalc) && (
           <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
             <p className="font-semibold text-slate-600 mb-1.5">AI 조회 정제평균 (참고)</p>
-            {p.jeonseCalc && (
-              <div className="mb-1.5">
-                <p className="text-slate-600">
-                  전세 정제평균 <span className="font-semibold text-slate-800">{won(p.jeonseCalc.value)}</span>
-                  {" "}({p.jeonseCalc.total}건 조회 → <span className="text-emerald-700 font-medium">{p.jeonseCalc.used}건 사용</span>
-                  {p.jeonseCalc.excluded > 0 && <span className="text-amber-600"> · {p.jeonseCalc.excluded}건 제외</span>})
-                </p>
-                {p.jeonseCalc.reasonText && (
-                  <p className="mt-0.5 text-[10px] text-slate-400 leading-relaxed">↳ {p.jeonseCalc.reasonText}</p>
+            {[["전세", p.jeonseCalc], ["매매", p.saleCalc]].map(([label, calc]) => calc ? (
+              <div key={label} className="mb-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-slate-600">
+                    {label} 정제평균 <span className="font-semibold text-slate-800">{won(calc.value)}</span>
+                    {" "}({calc.total}건 → <span className="text-emerald-700 font-medium">{calc.used}건 사용</span>
+                    {calc.excluded > 0 && <span className="text-amber-600"> · {calc.excluded}건 제외</span>})
+                  </p>
+                  {calc.isFallback && <span className="rounded px-1 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-700">참고값</span>}
+                  {!calc.strictMode && !calc.isFallback && <span className="rounded px-1 py-0.5 text-[9px] font-bold bg-blue-100 text-blue-700">저층포함</span>}
+                  {calc.usedPeriod > 6 && <span className="rounded px-1 py-0.5 text-[9px] font-bold bg-slate-200 text-slate-600">{calc.usedPeriod}개월</span>}
+                </div>
+                {calc.reasonText && (
+                  <p className="mt-0.5 text-[10px] text-slate-400 leading-relaxed">↳ {calc.reasonText}</p>
                 )}
               </div>
-            )}
-            {p.saleCalc && (
-              <div>
-                <p className="text-slate-600">
-                  매매 정제평균 <span className="font-semibold text-slate-800">{won(p.saleCalc.value)}</span>
-                  {" "}({p.saleCalc.total}건 조회 → <span className="text-emerald-700 font-medium">{p.saleCalc.used}건 사용</span>
-                  {p.saleCalc.excluded > 0 && <span className="text-amber-600"> · {p.saleCalc.excluded}건 제외</span>})
-                </p>
-                {p.saleCalc.reasonText && (
-                  <p className="mt-0.5 text-[10px] text-slate-400 leading-relaxed">↳ {p.saleCalc.reasonText}</p>
-                )}
-              </div>
-            )}
+            ) : null)}
           </div>
         )}
       </div>
@@ -4651,5 +4666,6 @@ function Empty({ title, desc }) {
 }
 import ReactDOM from 'react-dom/client';
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
 
 
