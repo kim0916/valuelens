@@ -2555,7 +2555,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       setPending({ ff: pendingFf, jeonseCalc, saleCalc, blockReason });
       // ── [3] 계산 엔진(analyze) ── ConfirmStep → doAnalyze 에서 실행 (절대 수정 금지)
     } catch (e) {
-      setAiMsg("조회 실패 — 직접 수정하기를 눌러 값을 입력하세요.");
+      console.error("fetchApartmentData 오류:", e);
+      setAiMsg(`조회 실패 — ${e.message || "알 수 없는 오류"} · 직접 수정하기를 눌러 값을 입력하세요.`);
     } finally { setAiLoading(false); }
   }
 
