@@ -2256,6 +2256,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   const abortRef = useRef(null);
   const [areaOptions, setAreaOptions] = useState([]);
   const [uploadedImages, setUploadedImages] = useState([]); // 캡처 썸네일
+  const [captureMsg, setCaptureMsg] = useState(null); // 캡처 성공 메시지 (별도)
   // 화면은 버튼 하나지만 내부는 3단 파이프라인으로 분리:
   //   [1] fetchApartmentData  → 조회 모듈 (API 전환 시 이 함수만 교체)
   //   [2] buildAnalysisInput  → 변환 모듈 (rawData → analyze() 입력 형태)
@@ -2435,12 +2436,15 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
                   kbJeonse: Number(p.kbJeonse) || prev.kbJeonse,
                   buildYear: p.buildYear || prev.buildYear,
                 }));
-                setAiMsg(`캡처 인식 완료 — ${p.complexName||"단지"} ${p.areaExclusive?p.areaExclusive+"㎡":""} ${p.currentPrice?"매물가 "+(p.currentPrice/10000).toFixed(1)+"억":""}`);
+                setCaptureMsg(`✅ 캡처 인식 완료 — ${p.complexName||"단지"} ${p.areaExclusive?p.areaExclusive+"㎡":""} ${p.currentPrice?"매물가 "+(p.currentPrice/10000).toFixed(1)+"억":""}`);
               } catch(e) {
                 setAiMsg("캡처 인식 실패 — 직접 입력해주세요.");
               } finally { setAiLoading(false); e.target.value=""; }
             }} />
           </label>
+          {captureMsg && (
+            <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">{captureMsg}</p>
+          )}
         </div>
 
         {areaOptions.length > 0 && (
