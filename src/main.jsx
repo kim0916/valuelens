@@ -2367,8 +2367,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   if (r) return mode === "fair"
     ? <FairValueResult r={r} f={f} onBack={() => setR(null)} />
     : <BuyResult r={r} f={f} onBack={() => setR(null)} saved={saved} onSave={() => { onAddWatch({ key: `${f.complexName}-${f.dong}`, complex: f.complexName, dong: f.dong, fairPrice: r.fairPrice, currentPrice: Number(f.currentPrice), target: "" }); setSaved(true); }} />;
-  // ConfirmStep: onConfirm은 수정된 { ff, jeonseCalc, saleCalc } 객체를 받아 분석 실행
-  if (pending) return <ConfirmStep p={pending} f={f} onBack={() => setPending(null)} onConfirm={doAnalyze} mode={mode} onRefetch={(area) => { setF(prev => ({...prev, areaExclusive: String(area)})); quickSearch(area); }} />;
+  if (pending) return <ConfirmStep p={pending} f={f} onBack={() => setPending(null)} onConfirm={doAnalyze} mode={mode} onRefetch={(area) => { setF(prev => ({...prev, areaExclusive: String(area)})); quickSearch(area); }} onBackToTop={() => { setPending(null); setR(null); setF({...EMPTY}); setUploadedImages([]); setCaptureMsg(null); setAiMsg(null); }} />;
   return (
     <>
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
@@ -2510,7 +2509,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 // - 읽기전용 테이블 → 수정 가능 입력 카드로 전환
 // - 고급설정/직접입력 기능 흡수 (별도 메뉴 최소화)
 // - 사용자가 값을 검증하고 수정한 뒤 분석 실행
-function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch }) {
+function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackToTop }) {
   // ConfirmStep 내부에서 직접 수정 가능한 상태 관리
   const [edit, setEdit] = useState({ ...p.ff });
   const [dealsOpen, setDealsOpen] = useState(false);
@@ -2554,8 +2553,9 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch }) {
     <>
       {/* 헤더 */}
       <div className="mb-5 flex items-center gap-3">
-        <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 검색</button>
+        <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 수정</button>
         <h1 className="text-lg font-bold text-slate-900">AI 조회값 확인</h1>
+        {onBackToTop && <button onClick={onBackToTop} className="ml-auto text-xs text-slate-400 hover:text-slate-600">🏠 처음으로</button>}
       </div>
 
       {/* 안내문 */}
