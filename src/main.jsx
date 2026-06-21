@@ -2201,8 +2201,12 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         : (rawData.areaOptions && rawData.areaOptions.length > 0 ? rawData.areaOptions : []);
       setAreaOptions(opts);
 
-      // 면적 미지정이면 면적 버튼 보여주되 ConfirmStep도 진입 허용
+      // 면적 미지정 + 옵션 있으면 → 면적 선택 먼저, ConfirmStep 안 감
       const askedArea = Number(overrideArea || f.areaExclusive) || 0;
+      if (askedArea <= 0 && opts.length > 0) {
+        setAiMsg(null);
+        return; // 면적 버튼만 노출, ConfirmStep 진입 안 함
+      }
 
       // blockReason 있어도 ConfirmStep으로 진입 — 사용자가 직접 수정 가능
       const pendingFf = ff || {
