@@ -1968,6 +1968,106 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
 }
 // ═══════════════════════════════════════════════════════════════
 
+// ── 시/도 → 구/군 → 단지명 순차 선택 컴포넌트 ──
+function LocationSelector({ onSelect }) {
+  const SIDO_LIST = ["서울","경기","인천","부산","대구","광주","대전","울산","세종","충북","충남","전북","전남","경북","경남","제주"];
+  const [sido, setSido] = React.useState("");
+  const [sigunguList, setSigunguList] = React.useState([]);
+  const [sigungu, setSigungu] = React.useState("");
+  const [keyword, setKeyword] = React.useState("");
+  const [complexList, setComplexList] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+
+  async function loadSigungu(s) {
+    setSido(s); setSigungu(""); setKeyword(""); setComplexList([]);
+    const res = await fetch("/api/lawdCd", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ type:"sigungu", sido: s }),
+    });
+    const d = await res.json();
+    setSigunguList(d.list || []);
+  }
+
+  async function loadComplex(sg, kw) {
+    if (!sg) return;
+    setSigungu(sg); setKeyword(kw||""); setComplexList([]); setLoading(true);
+    try {
+      const lawdRes = await fetch("/api/lawdCd", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ region: sg, sido }),
+      });
+      const { lawdCd } = await lawdRes.json();
+      if (!lawdCd) { setLoading(false); return; }
+      const cRes = await fetch("/api/molit", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ type:"complexList", lawdCd, complexName: kw||"" }),
+      });
+      const cd = await cRes.json();
+      setComplexList(cd.list || []);
+    } catch(e) { setComplexList([]); }
+    finally { setLoading(false); }
+  }
+
+  async function searchComplex(kw) {
+    setKeyword(kw);
+    if (sigungu && kw.length >= 1) await loadComplex(sigungu, kw);
+    else setComplexList([]);
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* 시/도 선택 */}
+      <div>
+        <p className="mb-1.5 text-xs font-semibold text-slate-500">시/도</p>
+        <div className="flex flex-wrap gap-1.5">
+          {SIDO_LIST.map(s => (
+            <button key={s} onClick={() => loadSigungu(s)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${sido===s ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 구/군 선택 */}
+      {sigunguList.length > 0 && (
+        <div>
+          <p className="mb-1.5 text-xs font-semibold text-slate-500">구/군</p>
+          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+            {sigunguList.map(sg => (
+              <button key={sg} onClick={() => loadComplex(sg, keyword)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${sigungu===sg ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+                {sg}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 단지명 검색 */}
+      {sigungu && (
+        <div>
+          <p className="mb-1.5 text-xs font-semibold text-slate-500">단지명 검색</p>
+          <input type="text" value={keyword} placeholder="단지명 입력 (예: 동부, 래미안)"
+            onChange={(e) => searchComplex(e.target.value)}
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          {loading && <p className="mt-1 text-xs text-slate-400">조회 중…</p>}
+          {complexList.length > 0 && (
+            <div className="mt-1.5 max-h-48 overflow-y-auto rounded-2xl border border-slate-100 bg-white shadow-md">
+              {complexList.map((name, i) => (
+                <button key={i} onClick={() => onSelect({ sido, sigungu, complexName: name })}
+                  className="block w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 border-b border-slate-50 last:border-0">
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   const [f, setF] = useState(EMPTY);
   const [r, setR] = useState(null);
@@ -1981,21 +2081,21 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
   // ── 1단계: 면적 목록 조회 ──
-  async function fetchAreas() {
-    if (!f.complexName || !f.region) { setAiMsg("지역(구)과 단지명을 입력하세요."); return; }
+  async function fetchAreas(regionOverride, complexOverride) {
+    const region = regionOverride || f.region;
+    const complexName = complexOverride || f.complexName;
+    if (!complexName || !region) { setAiMsg("지역(구)과 단지명을 입력하세요."); return; }
     setAiLoading(true); setAiMsg(null); setAreaOptions([]);
     try {
-      // lawdCd 변환
       const lawdRes = await fetch("/api/lawdCd", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ region: f.region, dong: f.dong }),
+        body: JSON.stringify({ region, dong: f.dong }),
       });
       if (!lawdRes.ok) throw new Error("지역 코드 조회 실패");
       const { lawdCd } = await lawdRes.json();
-      // 면적 목록 조회
       const areasRes = await fetch("/api/molit", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "areas", lawdCd, complexName: f.complexName }),
+        body: JSON.stringify({ type: "areas", lawdCd, complexName }),
       });
       const areasData = await areasRes.json();
       const opts = (areasData.areaOptions || []).map((o) => ({
@@ -2117,21 +2217,26 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
         <p className="mb-3 text-sm font-bold text-slate-800">단지 검색</p>
 
-        {/* ── 1단계: 지역 + 단지명 ── */}
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <input type="text" value={f.region} placeholder="지역 (예: 노원구)" onChange={(e) => { set("region", e.target.value); setAreaStep(false); setAreaOptions([]); }} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          <ComplexAutocomplete
-            dong={f.dong}
-            value={f.complexName}
-            onChange={(v) => { set("complexName", v); setAreaStep(false); setAreaOptions([]); }}
-            placeholder="단지명 (예: 동부)"
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400"
-          />
-        </div>
-
-        {/* 면적 조회 버튼 */}
+        {/* ── 1단계: 시/도→구→단지명 선택 ── */}
         {!areaStep && (
-          <button onClick={fetchAreas} disabled={aiLoading} className="mt-3 w-full rounded-2xl py-3 text-sm font-bold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
+          <LocationSelector onSelect={({ sido, sigungu, complexName }) => {
+            setF(p => ({ ...p, region: sigungu, complexName, dong: "" }));
+            setAreaStep(false); setAreaOptions([]);
+            // 선택 즉시 면적 조회 트리거
+            setTimeout(() => fetchAreas(sigungu, complexName), 100);
+          }} />
+        )}
+
+        {/* 선택된 단지 표시 */}
+        {f.complexName && !areaStep && (
+          <div className="mt-3 rounded-xl bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700">
+            {f.region} · {f.complexName} 선택됨 — 면적 조회 중…
+          </div>
+        )}
+
+        {/* 면적 조회 버튼 (직접 입력 fallback) */}
+        {!areaStep && !f.complexName && (
+          <button onClick={() => fetchAreas(f.region, f.complexName)} disabled={aiLoading} className="mt-3 w-full rounded-2xl py-3 text-sm font-bold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
             {aiLoading ? "면적 조회 중…" : "면적 조회 →"}
           </button>
         )}
