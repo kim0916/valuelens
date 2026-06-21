@@ -2110,10 +2110,9 @@ async function fetchApartmentData(query) {
   ({ sale, jeonse } = molitResult);
 
   // 면적 옵션 추출 - 동 전체 면적 기준 (단지명 필터 없음)
-  const allAreasSet = molitResult.allAreas || new Set();
-  const allAreasList = [...allAreasSet].sort((a, b) => a - b);
+  // 단지명 필터된 실거래에서만 면적 추출 (동 전체 allAreas 사용 안 함)
   const allAreas = [...sale, ...jeonse].map(d => d.areaSqm).filter(a => a > 0);
-  const uniqueAreas = [...new Set([...allAreas, ...allAreasList])].sort((a, b) => a - b);
+  const uniqueAreas = [...new Set(allAreas)].sort((a, b) => a - b);
   let areaOptions = uniqueAreas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
 
   // 6개월 내 거래 없으면 → KB시세 수기 입력 유도
