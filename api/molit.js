@@ -15,12 +15,10 @@ function parseXmlItems(xml) {
       dealAmount: getTag(item, "dealAmount"),
       dealYear: getTag(item, "dealYear"),
       dealMonth: getTag(item, "dealMonth"),
-      dealDay: getTag(item, "dealDay"),
       excluUseAr: getTag(item, "excluUseAr"),
       floor: getTag(item, "floor"),
       buildYear: getTag(item, "buildYear"),
       umdNm: getTag(item, "umdNm"),
-      // 전월세
       deposit: getTag(item, "deposit"),
       monthlyRent: getTag(item, "monthlyRent"),
     });
@@ -41,17 +39,18 @@ export default async function handler(req, res) {
   const url = `${baseUrl}?serviceKey=${apiKey}&pageNo=1&numOfRows=100&LAWD_CD=${lawdCd}&DEAL_YMD=${dealYmd}`;
 
   try {
-    const r = await fetch(url);
+    const r = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://www.data.go.kr/",
+        "Accept": "application/xml, text/xml, */*",
+      }
+    });
     const text = await r.text();
-
-    if (text.includes("SERVICE_KEY_IS_NOT_REGISTERED_ERROR") || text.includes("INVALID_REQUEST_PARAMETER_ERROR")) {
-      res.status(502).json({ error: "국토부 API 키 오류", raw: text.substring(0, 300) });
-      return;
-    }
 
     const items = parseXmlItems(text);
     res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
-    res.status(200).json({ items, totalCount: items.length, raw: text.substring(0, 500) });
+    res.status(200).json({ items, totalCount: items.length, raw: text.substring(0, 800) });
   } catch (e) {
     res.status(502).json({ error: "API 호출 실패: " + (e?.message || String(e)) });
   }
