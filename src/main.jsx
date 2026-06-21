@@ -2011,15 +2011,18 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
       const n = String(name || "").replace(/\s/g, "");
       const c = complexName.replace(/\s/g, "");
       if (n.includes(c) || c.includes(n)) return true;
-      // 유사 매칭: 앞 글자부터 4글자 이상 공통이면 같은 단지로 간주
+      // 앞 3글자 공통 매칭
       const minLen = Math.min(n.length, c.length);
       let common = 0;
       for (let i = 0; i < minLen; i++) { if (n[i] === c[i]) common++; else break; }
       if (common >= 3) return true;
-      // 단지명에서 숫자/특수문자 제거 후 비교 (푸르지오 vs 푸로지오 등)
-      const normalize = (s) => s.replace(/[0-9]/g, "").replace(/[가-힣]/g, (ch) => ch);
-      const n2 = normalize(n), c2 = normalize(c);
-      return n2.includes(c2.slice(0,4)) || c2.includes(n2.slice(0,4));
+      // 토큰 매칭: 2글자 이상 공통 부분문자열 (파크비뉴 ↔ 파르크비뉴)
+      for (let len = Math.min(c.length, 4); len >= 2; len--) {
+        for (let i = 0; i <= c.length - len; i++) {
+          if (n.includes(c.slice(i, i + len))) return true;
+        }
+      }
+      return false;
     };
 
     // 면적 필터 (±3㎡ 허용)
