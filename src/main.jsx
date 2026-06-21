@@ -2448,7 +2448,22 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch }) {
         <div className="mb-4 rounded-2xl bg-red-50 px-4 py-3 ring-1 ring-red-100">
           <p className="text-sm font-semibold text-red-700">⚠️ 조회 불완전</p>
           <p className="mt-0.5 text-xs text-red-600">{p.blockReason}</p>
-          <p className="mt-1 text-xs text-red-500">아래에서 값을 직접 수정한 뒤 분석을 실행하세요.</p>
+          {Array.isArray(edit._aiAreaOptions) && edit._aiAreaOptions.length > 0 ? (
+            <div className="mt-2">
+              <p className="mb-1.5 text-xs font-medium text-red-700">면적을 선택하면 재조회합니다:</p>
+              <div className="flex flex-wrap gap-2">
+                {edit._aiAreaOptions.map((o, i) => (
+                  <button key={i}
+                    onClick={() => { onRefetch && onRefetch(o.areaSqm); }}
+                    className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-red-700 ring-1 ring-red-300 active:bg-red-100">
+                    전용 {o.areaSqm}㎡ (약 {o.pyeong}평)
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-red-500">아래에서 값을 직접 수정한 뒤 분석을 실행하세요.</p>
+          )}
         </div>
       )}
       {Array.isArray(edit._aiWarns) && edit._aiWarns.length > 0 && (
@@ -3360,7 +3375,16 @@ function SellView({ onContext }) {
       const jeonseCalc = jd.length ? computeTrimmedMean(jd, Number(filled.kbJeonse) || 0, "jeonse") : null;
       const baseJeonse = jeonseCalc && jeonseCalc.value ? jeonseCalc.value : Number(filled.kbJeonse) || 0;
       const saleCalc = sd.length ? computeTrimmedMean(sd, Number(filled.kbSalePrice) || 0, "sale") : null;
-      if (areaSqm <= 0 || !baseJeonse) { setAiMsg(`${areaSqm <= 0 ? "전용면적을 확인하지 못했습니다." : "전세 시세를 못 찾았어요."} 자동 평가를 멈췄어요 — 아래에서 면적·전세시세를 확인/입력한 뒤 평가하세요.${areaOptions.length ? ` (조회된 면적: ${areaOptions.map((o) => o.areaSqm + "㎡").join(", ")})` : ""}`); setShowManual(true); return; }
+      if (areaSqm <= 0 || !baseJeonse) {
+        if (areaSqm <= 0 && areaOptions.length > 0) {
+          setAreaOptions(areaOptions);
+          setAiMsg("전용면적을 확인하지 못했습니다. 아래에서 면적을 선택하면 재조회합니다.");
+        } else {
+          setAiMsg(areaSqm <= 0 ? "전용면적을 확인하지 못했습니다. 직접 입력하세요." : "전세 시세를 못 찾았어요. 아래에서 직접 입력하세요.");
+          setShowManual(true);
+        }
+        return;
+      }
       const ff = { ...filled, currentPrice: Number(filled.currentPrice), baseJeonse, kbSalePrice: Number(filled.kbSalePrice), saleRef: saleCalc && saleCalc.value ? saleCalc.value : null, jeonseUsed: jeonseCalc ? jeonseCalc.used : 0, saleUsed: saleCalc ? saleCalc.used : 0, jeonseCalc, saleCalc, dataSource: "ai" };
       setPending({ ff, jeonseCalc, saleCalc });
     } catch (e) { setAiMsg("불러오기 실패 — 아래 ‘직접 입력·수정’에서 입력하세요."); setShowManual(true); } finally { setAiLoading(false); }
@@ -3422,6 +3446,20 @@ function SellView({ onContext }) {
         <button onClick={quickSearch} disabled={aiLoading} className="mt-3 w-full rounded-2xl py-3.5 text-base font-bold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>{aiLoading ? "AI 분석 중… (실거래·시세 데이터 수집 중, 1~2분 소요)" : "AI 분석 — 시세 채우고 평가하기"}</button>
         {aiLoading && <button onClick={() => { if (abortRef.current) abortRef.current.abort(); setAiLoading(false); setAiMsg("조회가 취소되었습니다."); }} className="mt-2 w-full rounded-2xl border border-red-200 py-2.5 text-sm font-medium text-red-500">⬛ 조회 취소</button>}
         {aiMsg && <p className="mt-2 text-xs leading-relaxed text-indigo-700">{aiMsg}</p>}
+        {areaOptions.length > 0 && !aiLoading && (
+          <div className="mt-2 rounded-xl bg-amber-50 px-3 py-2.5 ring-1 ring-amber-200">
+            <p className="mb-1.5 text-xs font-medium text-amber-800">면적 선택 후 재조회:</p>
+            <div className="flex flex-wrap gap-2">
+              {areaOptions.map((o, i) => (
+                <button key={i}
+                  onClick={() => { setAreaOptions([]); set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm); }}
+                  className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-amber-800 ring-1 ring-amber-300 active:bg-amber-100">
+                  전용 {o.areaSqm}㎡ (약 {o.pyeong}평)
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="mt-3 flex flex-wrap items-center gap-1.5"><span className="text-xs text-slate-400">샘플:</span><button onClick={() => { setF({ ...SAMPLE, acqPrice: 35000, holdingYears: 8, loanBalance: 10000, sellPurpose: "갈아타기" }); setShowManual(true); }} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">동부</button><button onClick={() => { setF({ ...PRESET_EUNMA, acqPrice: 120000, holdingYears: 15, sellPurpose: "투자금 회수" }); setShowManual(true); }} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">은마</button></div>
         <button onClick={() => setShowManual((v) => !v)} className="mt-4 w-full rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-500">{showManual ? "직접 입력·수정 닫기 ▴" : "시세 직접 입력 · 캡처 업로드 · 취득가 입력 ▾"}</button>
 
