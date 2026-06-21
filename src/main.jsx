@@ -2550,9 +2550,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     const controller = new AbortController();
     abortRef.current = controller;
     setAiLoading(true); setAiMsg(null); setPending(null);
-    console.log("1. 분석 시작 currentPrice:", ff.currentPrice, "area:", ff.areaExclusive);
     try {
-      console.log("2. fetchApartmentData 호출");
+      console.log("분석시작 complexName:", ff.complexName, "area:", ff.areaExclusive);
       // ── [1] 조회 모듈 ──
       const rawData = await fetchApartmentData({
         complexName: ff.complexName,
@@ -2562,7 +2561,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         sido: ff.sido || "",
         areaExclusive: overrideArea ? String(overrideArea) : ff.areaExclusive,
       });
-      console.log("3. rawData:", rawData?.sale?.length, "매매", rawData?.jeonse?.length, "전세");
+      console.log("rawData:", rawData?.sale?.length, "매매", rawData?.jeonse?.length, "전세");
       // ── [2] 변환 모듈 ── rawData에 사용자 입력값 미리 주입
       const rawDataWithUserInput = {
         ...rawData,
@@ -2580,7 +2579,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       if (ff.kbJeonse) filled.kbJeonse = ff.kbJeonse;
       if (ff.areaExclusive) filled.areaExclusive = ff.areaExclusive;
       if (ff.buildYear && !filled.buildYear) filled.buildYear = ff.buildYear;
-      console.log("4. 보정 후 currentPrice:", filled.currentPrice, "blockReason:", blockReason);
+      console.log("보정 후 currentPrice:", filled.currentPrice, "blockReason:", blockReason);
       setF(filled);
       // 면적 옵션 저장
       const opts = (filled._aiAreaOptions && filled._aiAreaOptions.length > 0)
@@ -2589,10 +2588,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       setAreaOptions(opts);
 
       // 면적 미지정 + 옵션 있으면 → 면적 선택 먼저, ConfirmStep 안 감
-      const askedArea = Number(overrideArea || ff.areaExclusive) || 0;
-      console.log("5. askedArea:", askedArea, "opts:", opts.length);
+      const askedArea = Number(overrideArea) || Number(ff.areaExclusive) || Number(f.areaExclusive) || 0;
+      console.log("5. askedArea:", askedArea, "overrideArea:", overrideArea, "ff.area:", ff.areaExclusive, "f.area:", f.areaExclusive);
       if (askedArea <= 0 && opts.length > 0) {
-        console.log("5-STOP: 면적 미선택으로 early return");
         setAiMsg(null);
         return;
       }
@@ -2611,9 +2609,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
             jeonseUsed: 0, saleUsed: 0,
             jeonseCalc: null, saleCalc: null, dataSource: "ai",
           };
-      console.log("6. setPending 호출 currentPrice:", pendingFf.currentPrice, "finalBlockReason:", finalBlockReason);
+      console.log("setPending 호출 pendingFf.currentPrice:", pendingFf.currentPrice);
       setPending({ ff: pendingFf, jeonseCalc, saleCalc, blockReason: finalBlockReason });
-      console.log("7. setPending 완료 → ConfirmStep 렌더링 대기");
+      console.log("분석완료 → ConfirmStep 이동");
     } catch (e) {
       console.error("fetchApartmentData 오류:", e);
       // 에러여도 ConfirmStep으로 이동 — 수기 입력 가능하게
@@ -2803,7 +2801,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
 
         {/* 메인 버튼 */}
-        <button onClick={quickSearch} disabled={aiLoading} className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
+        <button onClick={() => quickSearch(f.areaExclusive || undefined)} disabled={aiLoading} className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
           {aiLoading ? "AI 조회 중… (실거래 데이터 수집 중)" : mode === "fair" ? "현재 아파트 적정가격은? — AI 적정가 판단" : "이 집 사도 될까? — AI 매수판단"}
         </button>
         {aiLoading && <button onClick={() => { if (abortRef.current) abortRef.current.abort(); setAiLoading(false); setAiMsg("조회가 취소되었습니다."); }} className="mt-2 w-full rounded-2xl border border-red-200 py-2.5 text-sm font-medium text-red-500">⬛ 조회 취소</button>}
