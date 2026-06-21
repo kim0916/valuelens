@@ -2029,7 +2029,7 @@ function parsePrice(val) {
 }
 
 // ── 공통 실거래 조회 함수 ──
-async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, exactAptNm = "") {
+async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, exactAptNm = "", dong = "") {
   const now = new Date();
   const results = { sale: [], jeonse: [], allAreas: new Set() };
 
@@ -2044,9 +2044,9 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
     try {
       const [saleResp, rentResp] = await Promise.all([
         fetchWithTimeout("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "sale", lawdCd, dealYmd: ym }) }, 8000),
+          body: JSON.stringify({ type: "sale", lawdCd, dealYmd: ym, complexName: exactAptNm || complexName, targetDong: dong }) }, 8000),
         fetchWithTimeout("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "rent", lawdCd, dealYmd: ym }) }, 8000),
+          body: JSON.stringify({ type: "rent", lawdCd, dealYmd: ym, complexName: exactAptNm || complexName, targetDong: dong }) }, 8000),
       ]);
       const saleData = await saleResp.json();
       const rentData = await rentResp.json();
@@ -2156,7 +2156,7 @@ async function fetchApartmentData(query) {
   let sale = [], jeonse = [], noTradeWarning = null;
   let molitResult;
   try {
-    molitResult = await fetchMolitData(lawdCd, qExactAptNm || qComplexName, String(qArea), 6, qExactAptNm);
+    molitResult = await fetchMolitData(lawdCd, qExactAptNm || qComplexName, String(qArea), 6, qExactAptNm, qDong);
     sale   = molitResult.sale   || [];
     jeonse = molitResult.jeonse || [];
   } catch(e) {
@@ -2182,35 +2182,36 @@ async function fetchApartmentData(query) {
   }
 
   // ── 8. buildYear 추출 — 단지명 필터된 아이템에서만, 최빈값 사용 ──
-  const allBuildYears = [...sale, ...jeonse]
+  // ── 8. buildYear 추출 — 매매 데이터에서만 (전세 API는 buildYear 미제공)
+  // 서버에서 이미 단지명+법정동 필터 적용된 데이터에서 최빈값 사용
+  const saleYears = sale
     .map(d => d.buildYear)
     .filter(y => y > 1900 && y <= new Date().getFullYear());
 
   let buildYear = 0;
   let buildYearWarning = null;
 
-  if (allBuildYears.length === 0) {
+  if (saleYears.length === 0) {
     buildYearWarning = "준공연도 확인 필요";
   } else {
     // 최빈값 계산
     const freq = {};
-    for (const y of allBuildYears) freq[y] = (freq[y] || 0) + 1;
+    for (const y of saleYears) freq[y] = (freq[y] || 0) + 1;
     const modeYear = Number(Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0]);
 
-    // 이상값 판단: 같은 법정동에서 다른 단지가 섞였을 가능성
     // 후보 연도가 2개 이상이고 최빈값이 전체 50% 미만이면 경고
     const uniqueYears = Object.keys(freq).length;
-    const modeRatio = freq[modeYear] / allBuildYears.length;
+    const modeRatio = freq[modeYear] / saleYears.length;
 
     if (uniqueYears > 1 && modeRatio < 0.5) {
       buildYearWarning = "준공연도 확인 필요";
-      buildYear = modeYear; // 최빈값은 일단 넣되 경고
+      buildYear = modeYear;
     } else {
       buildYear = modeYear;
     }
   }
 
-  console.log("buildYear 추출(최빈값):", buildYear, buildYearWarning ? `[경고: ${buildYearWarning}]` : "");
+  console.log("buildYear 추출(매매 최빈값):", buildYear, buildYearWarning ? `[경고: ${buildYearWarning}]` : "");
 
   // ── 9. 지역명 역변환 ──
   const LAWD_CD_REVERSE = Object.fromEntries(Object.entries(LAWD_CD_MAP).map(([k, v]) => [String(v), k]));
@@ -4393,4 +4394,5 @@ function Empty({ title, desc }) {
 }
 import ReactDOM from 'react-dom/client';
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
 
