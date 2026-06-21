@@ -8,8 +8,8 @@
 //   body: { type: "sale"|"rent", lawdCd: "11350", dealYmd: "202506" }
 // 응답: { items: [...] }
 
-const SALE_URL = "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
-const RENT_URL = "http://apis.data.go.kr/1613000/RTMSDataSvcAptRentDev/getRTMSDataSvcAptRentDev";
+const SALE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
+const RENT_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptRentDev/getRTMSDataSvcAptRentDev";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
