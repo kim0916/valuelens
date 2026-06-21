@@ -2026,17 +2026,48 @@ async function fetchApartmentData(query) {
     throw new Error(`법정동 코드를 찾지 못했습니다 (동: ${query.dong}, 지역: ${query.region}). 지역(구)명을 함께 입력해주세요.`);
   }
 
-  const { sale, jeonse } = await fetchMolitData(
-    lawdCd,
-    query.complexName,
-    query.areaExclusive,
-    12
-  );
+  // ── 단계적 조회: 12개월 → 36개월 → 단지정보 API ──
+  let sale = [], jeonse = [], dataMonths = 12, noTradeWarning = null;
 
-  // 면적 옵션 추출 (조회된 실거래 기준)
+  // [1단계] 12개월
+  ({ sale, jeonse } = await fetchMolitData(lawdCd, query.complexName, query.areaExclusive, 12));
+
+  // [2단계] 0건이면 36개월 확장
+  if (sale.length === 0 && jeonse.length === 0) {
+    ({ sale, jeonse } = await fetchMolitData(lawdCd, query.complexName, query.areaExclusive, 36));
+    if (sale.length > 0 || jeonse.length > 0) {
+      dataMonths = 36;
+      const oldest = [...sale, ...jeonse].map(d => d.ym).sort()[0];
+      noTradeWarning = `최근 12개월 거래 없음 — ${oldest} 거래 기준 (최대 36개월 확장)`;
+    }
+  }
+
+  // 면적 옵션 추출 (실거래 기준)
   const allAreas = [...sale, ...jeonse].map(d => d.areaSqm).filter(a => a > 0);
   const uniqueAreas = [...new Set(allAreas)].sort((a, b) => a - b);
-  const areaOptions = uniqueAreas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
+  let areaOptions = uniqueAreas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
+
+  // [3단계] 36개월도 0건 → 단지정보 API로 면적만
+  if (sale.length === 0 && jeonse.length === 0) {
+    try {
+      const complexRes = await fetch("/api/molit", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "complex", lawdCd, complexName: query.complexName }),
+      });
+      const complexData = await complexRes.json();
+      const complexAreas = (complexData.items || [])
+        .map(i => Number(i.excluUseAr)).filter(a => a > 0);
+      const uniqueComplexAreas = [...new Set(complexAreas)].sort((a, b) => a - b);
+      if (uniqueComplexAreas.length > 0) {
+        areaOptions = uniqueComplexAreas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
+        noTradeWarning = "최근 3년간 거래 없음 — KB시세를 직접 입력하세요";
+      } else {
+        noTradeWarning = "최근 3년간 거래 없음 — 면적·KB시세를 직접 입력하세요";
+      }
+    } catch(e) {
+      noTradeWarning = "최근 3년간 거래 없음 — 면적·KB시세를 직접 입력하세요";
+    }
+  }
 
   // 대표 면적 결정
   const askedArea = Number(query.areaExclusive) || 0;
@@ -2075,12 +2106,13 @@ async function fetchApartmentData(query) {
     buildYear,
     topFloor: 0,
     currentPrice,
-    kbSalePrice: 0, // 수기 입력
-    kbJeonse: 0,    // 수기 입력
-    baseJeonseEstimate, // 전세 실거래 참고값
+    kbSalePrice: 0,
+    kbJeonse: 0,
+    baseJeonseEstimate,
     jeonse,
     sale,
     areaOptions,
+    noTradeWarning,
   };
 }
 
@@ -2108,6 +2140,7 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
 
   // 정합성 검증
   const warns = [];
+  if (p.noTradeWarning) warns.push(`⚠️ ${p.noTradeWarning}`);
   if (areaSqm <= 0) warns.push("전용면적 미확인 — 면적을 직접 확인/입력하세요.");
   const mismatch = areaSqm > 0 && priceArea > 0 && Math.abs(priceArea - areaSqm) > Math.max(3, areaSqm * 0.06);
   if (mismatch) warns.push(`가격은 전용 ${priceArea}㎡ 기준인데 단지 기준면적은 ${areaSqm}㎡로 다릅니다.`);
