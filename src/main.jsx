@@ -163,6 +163,27 @@ const won = (m) => (m >= 10000 ? (Math.round((m / 10000) * 100) / 100).toLocaleS
 const pct = (r) => (r > 0 ? "+" : "") + (r * 100).toFixed(1) + "%";
 // 전용면적(㎡) → 통상 분양평형 추정 (한국 분양 관행 매핑). 못 구하면 0.
 const typicalPyeong = (sqm) => { sqm = Number(sqm) || 0; if (sqm <= 0) return 0; return Math.round(sqm / 3.3058); };
+
+// 공급면적(㎡)과 평수 계산 — supplySqm이 없으면 전용 × 1.35 추정
+function supplyAreaInfo(exclusiveSqm, supplySqm) {
+  const excl = Number(exclusiveSqm) || 0;
+  if (supplySqm && Number(supplySqm) > 0) {
+    const supply = Math.round(Number(supplySqm));
+    return { supply, pyeong: Math.round(supply / 3.3058), estimated: false };
+  }
+  // 공급면적 모르면 전용 × 1.35 추정
+  const supply = excl > 0 ? Math.round(excl * 1.35) : 0;
+  return { supply, pyeong: supply > 0 ? Math.round(supply / 3.3058) : 0, estimated: true };
+}
+
+// 면적 버튼 라벨: "81㎡ (25평)" + 하단 "전용 59.34㎡ 기준 분석"
+function areaButtonLabel(exclusiveSqm, supplySqm) {
+  const excl = Number(exclusiveSqm) || 0;
+  const { supply, pyeong, estimated } = supplyAreaInfo(excl, supplySqm);
+  const mainLabel = supply > 0 ? `${supply}㎡ (${pyeong}평${estimated ? ", 추정" : ""})` : `전용 ${excl}㎡`;
+  const subLabel = excl > 0 ? `전용 ${excl}㎡ 기준 분석` : "";
+  return { mainLabel, subLabel };
+}
 const exclusivePyeong = (sqm) => { sqm = Number(sqm) || 0; return sqm > 0 ? Math.round((sqm / 3.3058) * 10) / 10 : 0; };
 const areaLabel = (sqm) => { sqm = Number(sqm) || 0; return sqm > 0 ? `전용 ${sqm}㎡ · 통상 약 ${typicalPyeong(sqm)}평형` : "면적 미확인"; };
 const shift = (g, s) => GRADES[Math.max(0, Math.min(4, GRADES.indexOf(g) - s))];
@@ -2864,16 +2885,25 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         {/* 면적 버튼 */}
         {areaOptions.length > 0 && (
           <div className="mt-3 rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200">
-            <p className="mb-2 text-xs font-bold text-amber-800">📐 전용면적 선택 (국토부 실제 면적)</p>
-            <div className="flex flex-wrap gap-1.5">
-              {areaOptions.map((o, i) => (
-                <button key={i} onClick={() => { set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm); }}
-                  className={`rounded-xl px-3 py-1.5 text-sm font-semibold border transition-all ${String(f.areaExclusive) === String(o.areaSqm) ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400"}`}>
-                  {o.areaSqm}㎡ · {o.pyeong}평형
-                </button>
-              ))}
+            <p className="mb-2 text-xs font-bold text-amber-800">📐 면적 선택</p>
+            <div className="flex flex-wrap gap-2">
+              {areaOptions.map((o, i) => {
+                const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
+                const selected = String(f.areaExclusive) === String(o.areaSqm);
+                return (
+                  <button key={i} onClick={() => { set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm); }}
+                    className={`rounded-xl px-3 py-2 text-left border transition-all ${selected ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400"}`}>
+                    <p className="text-sm font-semibold leading-tight">{mainLabel}</p>
+                    {subLabel && <p className={`text-[10px] mt-0.5 ${selected ? "text-amber-100" : "text-slate-400"}`}>{subLabel}</p>}
+                  </button>
+                );
+              })}
             </div>
-            {f.areaExclusive && <p className="mt-1.5 text-xs text-amber-700">선택: 전용 {f.areaExclusive}㎡ · 약 {typicalPyeong(f.areaExclusive)}평형</p>}
+            {f.areaExclusive && (() => {
+              const sel = areaOptions.find(o => String(o.areaSqm) === String(f.areaExclusive));
+              const { mainLabel } = sel ? areaButtonLabel(sel.areaSqm, sel.supplySqm) : { mainLabel: `전용 ${f.areaExclusive}㎡` };
+              return <p className="mt-1.5 text-xs text-amber-700">선택: {mainLabel}</p>;
+            })()}
           </div>
         )}
         {fetchingAreas && <p className="mt-2 text-xs text-slate-400 text-center">면적 조회 중…</p>}
@@ -3075,13 +3105,17 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
             <div className="mt-2">
               <p className="mb-1.5 text-xs font-medium text-red-700">면적을 선택하면 재조회합니다:</p>
               <div className="flex flex-wrap gap-2">
-                {edit._aiAreaOptions.map((o, i) => (
-                  <button key={i}
-                    onClick={() => { onRefetch && onRefetch(o.areaSqm); }}
-                    className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-red-700 ring-1 ring-red-300 active:bg-red-100">
-                    전용 {o.areaSqm}㎡ (약 {o.pyeong}평)
-                  </button>
-                ))}
+                {edit._aiAreaOptions.map((o, i) => {
+                  const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
+                  return (
+                    <button key={i}
+                      onClick={() => { onRefetch && onRefetch(o.areaSqm); }}
+                      className="rounded-lg bg-white px-3 py-1.5 text-left ring-1 ring-red-300 active:bg-red-100">
+                      <p className="text-xs font-bold text-red-700">{mainLabel}</p>
+                      {subLabel && <p className="text-[10px] text-red-400 mt-0.5">{subLabel}</p>}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ) : (
@@ -3103,22 +3137,27 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
         <p className="mt-1 text-lg font-bold">
           {edit.complexName || "단지명 미확인"}
           {edit.dong ? ` · ${edit.dong}` : ""}
-          {Number(edit.areaExclusive) > 0 ? ` 전용 ${edit.areaExclusive}㎡` : ""}
+          {Number(edit.areaExclusive) > 0 ? ` ${areaButtonLabel(edit.areaExclusive).mainLabel}` : ""}
         </p>
         {Number(edit.areaExclusive) > 0 && (
-          <p className="mt-0.5 text-xs text-slate-400">통상 약 {typicalPyeong(edit.areaExclusive)}평형 · 전용 {exclusivePyeong(edit.areaExclusive)}평</p>
+          <p className="mt-0.5 text-xs text-slate-400">{areaButtonLabel(edit.areaExclusive).subLabel}</p>
         )}
         {/* 면적 옵션 버튼 */}
         {Array.isArray(edit._aiAreaOptions) && edit._aiAreaOptions.length > 0 && (
           <div className="mt-2">
             <p className="text-[11px] text-slate-400">다른 면적 선택:</p>
             <div className="mt-1 flex flex-wrap gap-1.5">
-              {edit._aiAreaOptions.map((o, i) => (
-                <button key={i} onClick={() => { setE("areaExclusive", String(o.areaSqm)); if (onRefetch) onRefetch(o.areaSqm); }}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${Number(edit.areaExclusive) === o.areaSqm ? "bg-white text-slate-900" : "bg-slate-700 text-slate-300"}`}>
-                  {o.areaSqm}㎡ / {o.pyeong}평형
-                </button>
-              ))}
+              {edit._aiAreaOptions.map((o, i) => {
+                const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
+                const selected = Number(edit.areaExclusive) === o.areaSqm;
+                return (
+                  <button key={i} onClick={() => { setE("areaExclusive", String(o.areaSqm)); if (onRefetch) onRefetch(o.areaSqm); }}
+                    className={`rounded-lg px-2.5 py-1.5 text-left ${selected ? "bg-white text-slate-900" : "bg-slate-700 text-slate-300"}`}>
+                    <p className="text-xs font-semibold">{mainLabel}</p>
+                    {subLabel && <p className={`text-[10px] mt-0.5 ${selected ? "text-slate-500" : "text-slate-500"}`}>{subLabel}</p>}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
