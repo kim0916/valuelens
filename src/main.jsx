@@ -2137,14 +2137,14 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
   let apiFailed = 0;
   const allAreas = new Set();
 
-  // ── Step1: 국토부 원본 수집 ──
+  // ── Step1: 국토부 원본 수집 — 서버는 lawdCd+dealYmd만, 필터 없음 ──
   const fetchMonth = async (ym) => {
     try {
       const [sR, rR] = await Promise.all([
         fetchWithTimeout("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "sale", lawdCd, dealYmd: ym, targetDong: dong }) }, 8000),
+          body: JSON.stringify({ type: "sale", lawdCd, dealYmd: ym }) }, 10000),
         fetchWithTimeout("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "rent", lawdCd, dealYmd: ym, targetDong: dong }) }, 8000),
+          body: JSON.stringify({ type: "rent", lawdCd, dealYmd: ym }) }, 10000),
       ]);
       const sd = await sR.json(), rd = await rR.json();
       return { saleItems: sd.items || [], rentItems: rd.items || [] };
@@ -2170,10 +2170,22 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
     allRentRaw.push(...rentItems);
   }
 
-  // ── Step2: 단지명 필터 ──
-  const saleAptFiltered = allSaleRaw.filter(i => matchAptName(i.aptNm, complexName, exactAptNm));
+  // ── Step2: 단지명 + 법정동 필터 (모두 클라이언트 처리) ──
+  // 법정동 필터: dong 있으면 umdNm 일치 확인 — 같은 이름 다른 단지 구분
+  const matchDong = (item) => {
+    if (!dong) return true;
+    const iDong = String(item.umdNm || "").replace(/\s/g, "");
+    const tDong = String(dong).replace(/\s/g, "");
+    if (!iDong) return true; // umdNm 없으면 통과 (API 미제공)
+    return iDong === tDong || iDong.includes(tDong) || tDong.includes(iDong);
+  };
+
+  const saleAptFiltered = allSaleRaw.filter(i =>
+    matchAptName(i.aptNm, complexName, exactAptNm) && matchDong(i)
+  );
   const rentRaw = allRentRaw.filter(i => {
     if (!matchAptName(i.aptNm, complexName, exactAptNm)) return false;
+    if (!matchDong(i)) return false;
     if (i.monthlyRent && Number(i.monthlyRent) > 0) return false; // 월세 제외
     return true;
   });
