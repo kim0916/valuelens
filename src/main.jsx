@@ -3215,7 +3215,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
                   <p className="mt-0.5 text-[10px] text-amber-600">{ts.msg}</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <button type="button"
-                      onClick={() => { const q = ((edit.dong||"")+" "+(edit.complexName||"")).trim(); window.open("https://land.naver.com/search/complexSearch.nhn?keyword="+encodeURIComponent(q), "_blank", "noopener,noreferrer"); }}
+                      onClick={() => { const q = ((edit.dong||"")+" "+(edit.complexName||"")).trim(); window.open("https://new.land.naver.com/search?keyword="+encodeURIComponent(q), "_blank", "noopener,noreferrer"); }}
                       className="rounded px-2 py-1 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">
                       📋 네이버 KB시세 확인 →
                     </button>
@@ -4218,7 +4218,7 @@ function SellView({ onContext }) {
                       <div className="mb-1.5 flex items-center justify-between">
                         <span className="text-xs font-medium text-slate-500">{l}</span>
                         <div className="flex gap-1">
-                          <button type="button" onClick={() => { const q=((f.dong||"")+" "+(f.complexName||"")).trim(); navigator.clipboard.writeText(q); window.open("https://land.naver.com/search/complexSearch.nhn?keyword="+encodeURIComponent(q),"_blank","noopener,noreferrer"); }} className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">📋 네이버 KB시세 확인</button>
+                          <button type="button" onClick={() => { const q=((f.dong||"")+" "+(f.complexName||"")).trim(); window.open("https://new.land.naver.com/search?keyword="+encodeURIComponent(q),"_blank","noopener,noreferrer"); }} className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">📋 네이버 KB시세 확인</button>
                         </div>
                       </div>
                       <input type={t} className={inp} value={f[k]} placeholder="중간값 직접 확인 후 입력" onChange={(e) => set(k, e.target.value)} />
