@@ -2179,14 +2179,20 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         rawData, f, Number(f.areaExclusive) || 0
       );
       setF(filled);
-      // 면적 옵션 저장 (조회 결과에서 뽑힌 면적 목록)
-      if (filled._aiAreaOptions && filled._aiAreaOptions.length > 0) {
-        setAreaOptions(filled._aiAreaOptions);
-      } else if (rawData.areaOptions && rawData.areaOptions.length > 0) {
-        setAreaOptions(rawData.areaOptions);
+      // 면적 옵션 저장
+      const opts = (filled._aiAreaOptions && filled._aiAreaOptions.length > 0)
+        ? filled._aiAreaOptions
+        : (rawData.areaOptions && rawData.areaOptions.length > 0 ? rawData.areaOptions : []);
+      setAreaOptions(opts);
+
+      // 면적 미지정 + 면적 옵션 있으면 → ConfirmStep 안 가고 면적 선택 먼저
+      const askedArea = Number(overrideArea || f.areaExclusive) || 0;
+      if (askedArea <= 0 && opts.length > 0) {
+        setAiMsg(`면적을 선택하세요 — ${opts.map(o => o.areaSqm + "㎡").join(", ")}`);
+        return;
       }
+
       // blockReason 있어도 ConfirmStep으로 진입 — 사용자가 직접 수정 가능
-      // ff가 null이면 filled 기반으로 임시 pending 생성 (수정 후 분석 유도)
       const pendingFf = ff || {
         ...filled,
         currentPrice: Number(filled.currentPrice) || 0,
