@@ -238,6 +238,23 @@ export default function handler(req, res) {
     return;
   }
 
+  // ── type:"lawdCd" — sigungu → lawdCd 변환 (LocationPicker용) ──
+  if (type === "lawdCd") {
+    const sg = sigungu || region || "";
+    if (sido && REGION_DATA[sido] && REGION_DATA[sido][sg]) {
+      res.status(200).json({ lawdCd: REGION_DATA[sido][sg].code, matched: sg });
+      return;
+    }
+    for (const sidoKey of Object.keys(REGION_DATA)) {
+      if (REGION_DATA[sidoKey][sg]) {
+        res.status(200).json({ lawdCd: REGION_DATA[sidoKey][sg].code, matched: sg });
+        return;
+      }
+    }
+    res.status(404).json({ error: `"${sg}" 코드를 찾을 수 없습니다.` });
+    return;
+  }
+
   // ── 구/군 → lawdCd 변환 ──
   const target = sigungu || region || "";
   if (!target) { res.status(400).json({ error: "sigungu 또는 region 필수" }); return; }
