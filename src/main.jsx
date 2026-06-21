@@ -2699,16 +2699,20 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         buildYear: ff.buildYear || rawData.buildYear || 0,
         buildYearWarning: rawData.buildYearWarning || null,
       };
+      const effectiveArea = Number(overrideArea) || Number(ff.areaExclusive) || Number(f.areaExclusive) || 0;
+      console.log("[quickSearch] effectiveArea:", effectiveArea, "overrideArea:", overrideArea, "ff.area:", ff.areaExclusive, "f.area:", f.areaExclusive);
       const { filled, ff: builtFf, jeonseCalc, saleCalc, blockReason } = buildAnalysisInput(
-        rawDataWithUserInput, ff, Number(ff.areaExclusive) || 0
+        rawDataWithUserInput, ff, effectiveArea
       );
       // 사용자 입력값 강제 보정 (rawData가 0으로 덮어쓰는 것 방지)
       if (ff.currentPrice) filled.currentPrice = ff.currentPrice;
       if (ff.kbSalePrice) filled.kbSalePrice = ff.kbSalePrice;
       if (ff.kbJeonse) filled.kbJeonse = ff.kbJeonse;
-      if (ff.areaExclusive) filled.areaExclusive = ff.areaExclusive;
+      // 면적: overrideArea > ff.areaExclusive 우선
+      if (overrideArea) filled.areaExclusive = String(overrideArea);
+      else if (ff.areaExclusive) filled.areaExclusive = ff.areaExclusive;
       if (ff.buildYear && !filled.buildYear) filled.buildYear = ff.buildYear;
-      console.log("보정 후 currentPrice:", filled.currentPrice, "blockReason:", blockReason);
+      console.log("[quickSearch] 보정 후 area:", filled.areaExclusive, "effectiveArea:", effectiveArea, "blockReason:", blockReason);
       setF(filled);
       // 면적 옵션 저장
       const opts = (filled._aiAreaOptions && filled._aiAreaOptions.length > 0)
@@ -2839,7 +2843,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
             <p className="mb-2 text-xs font-bold text-amber-800">📐 전용면적 선택 (국토부 실제 면적)</p>
             <div className="flex flex-wrap gap-1.5">
               {areaOptions.map((o, i) => (
-                <button key={i} onClick={() => set("areaExclusive", String(o.areaSqm))}
+                <button key={i} onClick={() => { set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm); }}
                   className={`rounded-xl px-3 py-1.5 text-sm font-semibold border transition-all ${String(f.areaExclusive) === String(o.areaSqm) ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400"}`}>
                   {o.areaSqm}㎡ · {o.pyeong}평형
                 </button>
