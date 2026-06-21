@@ -2262,8 +2262,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   //   [2] buildAnalysisInput  → 변환 모듈 (rawData → analyze() 입력 형태)
   //   [3] analyze()           → 계산 엔진 (ConfirmStep → doAnalyze에서 실행, 절대 수정 금지)
   // ─────────────────────────────────────────────────────────────
-  async function quickSearch(overrideArea) {
-    if (!f.complexName && !(f.currentPrice && f.kbJeonse)) { setAiMsg("최소한 단지명을 입력하세요. (예: 동부)"); return; }
+  async function quickSearch(overrideArea, overrideForm) {
+    const ff = overrideForm ? { ...f, ...overrideForm } : f;
+    if (!ff.complexName && !(ff.currentPrice && ff.kbJeonse)) { setAiMsg("최소한 단지명을 입력하세요. (예: 동부)"); return; }
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -2271,15 +2272,19 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     try {
       // ── [1] 조회 모듈 ── API 전환 시 fetchApartmentData 함수만 교체하면 됨
       const rawData = await fetchApartmentData({
-        complexName: f.complexName,
-        dong: f.dong,
-        region: f.region,
-        areaExclusive: overrideArea ? String(overrideArea) : f.areaExclusive,
+        complexName: ff.complexName,
+        dong: ff.dong,
+        region: ff.region,
+        areaExclusive: overrideArea ? String(overrideArea) : ff.areaExclusive,
       });
       // ── [2] 변환 모듈 ── rawData → analyze() 입력 형태 조립
-      const { filled, ff, jeonseCalc, saleCalc, blockReason } = buildAnalysisInput(
-        rawData, f, Number(f.areaExclusive) || 0
+      const { filled, ff: builtFf, jeonseCalc, saleCalc, blockReason } = buildAnalysisInput(
+        rawData, ff, Number(ff.areaExclusive) || 0
       );
+      // KB시세/매물가를 캡처에서 가져온 값으로 보정
+      if (ff.kbSalePrice) filled.kbSalePrice = ff.kbSalePrice;
+      if (ff.kbJeonse) filled.kbJeonse = ff.kbJeonse;
+      if (ff.currentPrice) filled.currentPrice = ff.currentPrice;
       setF(filled);
       // 면적 옵션 저장
       const opts = (filled._aiAreaOptions && filled._aiAreaOptions.length > 0)
@@ -2288,14 +2293,13 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       setAreaOptions(opts);
 
       // 면적 미지정 + 옵션 있으면 → 면적 선택 먼저, ConfirmStep 안 감
-      const askedArea = Number(overrideArea || f.areaExclusive) || 0;
+      const askedArea = Number(overrideArea || ff.areaExclusive) || 0;
       if (askedArea <= 0 && opts.length > 0) {
         setAiMsg(null);
-        return; // 면적 버튼만 노출, ConfirmStep 진입 안 함
+        return;
       }
 
-      // blockReason 있어도 ConfirmStep으로 진입 — 사용자가 직접 수정 가능
-      const pendingFf = ff || {
+      const pendingFf = builtFf || {
         ...filled,
         currentPrice: Number(filled.currentPrice) || 0,
         baseJeonse: Number(filled.kbJeonse) || 0,
@@ -2425,18 +2429,22 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
                 const text = (data.content||[]).map(i=>i.type==="text"?i.text:"").join("").replace(/```json|```/g,"").trim();
                 const m = text.match(/\{[\s\S]*\}/);
                 const p = JSON.parse(m ? m[0] : "{}");
-                setF(prev => ({
-                  ...prev,
-                  region: p.region || prev.region,
-                  dong: p.dong || prev.dong,
-                  complexName: p.complexName || prev.complexName,
-                  areaExclusive: p.areaExclusive || prev.areaExclusive,
-                  currentPrice: Number(p.currentPrice) || prev.currentPrice,
-                  kbSalePrice: Number(p.kbSalePrice) || prev.kbSalePrice,
-                  kbJeonse: Number(p.kbJeonse) || prev.kbJeonse,
-                  buildYear: p.buildYear || prev.buildYear,
-                }));
-                setCaptureMsg(`✅ 캡처 인식 완료 — ${p.complexName||"단지"} ${p.areaExclusive?p.areaExclusive+"㎡":""} ${p.currentPrice?"매물가 "+(p.currentPrice/10000).toFixed(1)+"억":""}`);
+                const merged = {
+                  region: p.region || f.region,
+                  dong: p.dong || f.dong,
+                  complexName: p.complexName || f.complexName,
+                  areaExclusive: p.areaExclusive || f.areaExclusive,
+                  currentPrice: Number(p.currentPrice) || f.currentPrice,
+                  kbSalePrice: Number(p.kbSalePrice) || f.kbSalePrice,
+                  kbJeonse: Number(p.kbJeonse) || f.kbJeonse,
+                  buildYear: p.buildYear || f.buildYear,
+                };
+                setF(prev => ({ ...prev, ...merged }));
+                setCaptureMsg(`✅ 캡처 인식 완료 — ${merged.complexName||"단지"} ${merged.areaExclusive?merged.areaExclusive+"㎡":""} ${merged.currentPrice?"매물가 "+(merged.currentPrice/10000).toFixed(1)+"억":""}`);
+                // 캡처 완료 후 자동 조회
+                if (merged.complexName || (merged.currentPrice && merged.kbJeonse)) {
+                  setTimeout(() => quickSearch(merged.areaExclusive || undefined, merged), 100);
+                }
               } catch(e) {
                 setAiMsg("캡처 인식 실패 — 직접 입력해주세요.");
               } finally { setAiLoading(false); e.target.value=""; }
