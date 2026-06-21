@@ -2355,9 +2355,20 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
   // askedArea : 사용자가 입력한 전용면적 (면적 불일치 검증용)
   // 반환      : { filled, ff, jeonseCalc, saleCalc, blockReason, warns, areaOptions }
   const p = rawData;
-  const tf = Number(p.topFloor) || 0; // 0이면 최고층 필터 미적용
-  const norm = (arr) => (Array.isArray(arr) ? arr.filter((d) => d && d.price && d.ym).map((d) => ({ ym: d.ym, price: Number(d.price), floor: Number(d.floor) || 5, topFloor: tf })) : []);
+  const tf = Number(p.topFloor) || 0;
+  const norm = (arr) => {
+    if (!Array.isArray(arr)) return [];
+    const result = [];
+    for (const d of arr) {
+      if (!d) { console.log("[norm] null item 탈락"); continue; }
+      if (!d.price) { console.log("[norm] price falsy 탈락:", { price: d.price, ym: d.ym, areaSqm: d.areaSqm }); continue; }
+      if (!d.ym) { console.log("[norm] ym falsy 탈락:", { price: d.price, ym: d.ym, areaSqm: d.areaSqm }); continue; }
+      result.push({ ym: d.ym, price: Number(d.price), floor: Number(d.floor) || 5, topFloor: tf });
+    }
+    return result;
+  };
   const jd = norm(p.jeonse), sd = norm(p.sale);
+  console.log("[buildAnalysis] p.jeonse:", JSON.stringify(p.jeonse), "→jd:", jd.length);
   const areaSqm = Number(p.areaSqm) || 0;
   const priceArea = Number(p.priceArea) || 0;
   const pyeong = areaSqm > 0 ? typicalPyeong(areaSqm) : 0;
