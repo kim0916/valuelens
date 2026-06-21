@@ -2286,7 +2286,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       if (ff.kbSalePrice) filled.kbSalePrice = ff.kbSalePrice;
       if (ff.kbJeonse) filled.kbJeonse = ff.kbJeonse;
       if (ff.currentPrice) filled.currentPrice = ff.currentPrice;
-      if (ff.areaExclusive && !filled.areaExclusive) filled.areaExclusive = ff.areaExclusive;
+      if (ff.areaExclusive) filled.areaExclusive = ff.areaExclusive;
       if (ff.buildYear && !filled.buildYear) filled.buildYear = ff.buildYear;
       setF(filled);
       // 면적 옵션 저장
