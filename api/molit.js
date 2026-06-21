@@ -135,18 +135,18 @@ export default async function handler(req, res) {
   if (type === "areas") {
     if (!lawdCd) { res.status(400).json({ error: "lawdCd 필수" }); return; }
 
-    // 최근 6개월 YYYYMM 생성
+    // 최근 12개월 YYYYMM 생성
     const now = new Date();
     const months = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 12; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const ym = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
       months.push(ym);
     }
 
     try {
-      // 매매 + 전세 병렬 조회 (가장 최근 3개월만으로 충분)
-      const recentMonths = months.slice(0, 3);
+      // 매매 + 전세 병렬 조회 — 전체 12개월
+      const recentMonths = months;
       const fetches = recentMonths.flatMap(ym => [
         fetch(`${SALE_URL}?serviceKey=${apiKey}&pageNo=1&numOfRows=100&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}`, {
           headers: { "User-Agent": "Mozilla/5.0", "Referer": "https://www.data.go.kr/", "Accept": "application/xml, text/xml, */*" }
