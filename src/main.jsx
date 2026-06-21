@@ -2015,7 +2015,7 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
       const minLen = Math.min(n.length, c.length);
       let common = 0;
       for (let i = 0; i < minLen; i++) { if (n[i] === c[i]) common++; else break; }
-      if (common >= 4) return true;
+      if (common >= 3) return true;
       // 단지명에서 숫자/특수문자 제거 후 비교 (푸르지오 vs 푸로지오 등)
       const normalize = (s) => s.replace(/[0-9]/g, "").replace(/[가-힣]/g, (ch) => ch);
       const n2 = normalize(n), c2 = normalize(c);
