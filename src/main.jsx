@@ -2257,6 +2257,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   const [areaOptions, setAreaOptions] = useState([]);
   const [uploadedImages, setUploadedImages] = useState([]); // 캡처 썸네일
   const [captureMsg, setCaptureMsg] = useState(null); // 캡처 성공 메시지 (별도)
+  const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
   // 화면은 버튼 하나지만 내부는 3단 파이프라인으로 분리:
   //   [1] fetchApartmentData  → 조회 모듈 (API 전환 시 이 함수만 교체)
   //   [2] buildAnalysisInput  → 변환 모듈 (rawData → analyze() 입력 형태)
