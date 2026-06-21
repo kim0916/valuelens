@@ -2006,23 +2006,28 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6) {
     const rentData = await rentRes.json();
 
     // 단지명 필터링 (부분 일치)
-    // nameFilter: exactAptNm 있으면 완전일치, 없으면 앞글자 2자 이상
+    // nameFilter: exactAptNm 있으면 유연한 완전일치, 없으면 앞글자 2자 이상
     const exactAptNm = query.exactAptNm || "";
     const nameFilter = (name) => {
       if (!complexName) return true;
       const n = String(name || "").replace(/\s/g, "");
-      // exactAptNm: 완전일치만
-      if (exactAptNm) {
-        const e = exactAptNm.replace(/\s/g, "");
-        return n === e;
-      }
+      const base = (exactAptNm || complexName).replace(/\s/g, "");
+      // 완전 일치
+      if (n === base) return true;
+      // "동신" 선택시 "동신아파트"도 매칭 (접미사 허용)
+      if (n === base + "아파트") return true;
+      if (n === base + "APT") return true;
+      // "동신아파트" 선택시 "동신"도 매칭 (접두사 포함)
+      if (base === n + "아파트") return true;
+      if (base.startsWith(n) && n.length >= 2 && base.length - n.length <= 3) return true;
       // 직접 타이핑 fallback: 앞글자 2자 이상 일치
-      const c2 = complexName.replace(/\s/g, "");
-      if (n === c2) return true;
-      const minLen = Math.min(n.length, c2.length);
-      let common = 0;
-      for (let i = 0; i < minLen; i++) { if (n[i] === c2[i]) common++; else break; }
-      return common >= Math.min(2, minLen);
+      if (!exactAptNm) {
+        const minLen = Math.min(n.length, base.length);
+        let common = 0;
+        for (let i = 0; i < minLen; i++) { if (n[i] === base[i]) common++; else break; }
+        return common >= Math.min(2, minLen);
+      }
+      return false;
     };
 
     // 면적 필터 (±3㎡ 허용)
