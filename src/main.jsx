@@ -2053,8 +2053,13 @@ async function fetchApartmentData(query) {
   const currentPrice = recentSale ? recentSale.price : 0;
   const buildYear = recentSale ? (Number(recentSale.buildYear) || 0) : 0;
 
-  // 지역(시군구) 추출 — 쿼리에 없으면 실거래 데이터에서
-  const region = query.region || (recentSale ? recentSale.region || "" : "");
+  // 법정동 코드 → 지역명 역변환
+  const LAWD_CD_REVERSE = Object.fromEntries(Object.entries(LAWD_CD_MAP).map(([k, v]) => [String(v), k]));
+  const lawdCdFromQuery = getLawdCd(query.dong, query.region);
+  const regionFromCode = lawdCdFromQuery ? (LAWD_CD_REVERSE[lawdCdFromQuery] || "") : "";
+
+  // 지역(시군구) 추출 — 쿼리에 없으면 코드 역변환
+  const region = query.region || regionFromCode || (recentSale ? recentSale.region || "" : "");
 
   // 전세 실거래 기준 baseJeonse 추정
   const recentJeonse = jeonse[0];
