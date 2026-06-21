@@ -34,7 +34,22 @@ function matchComplex(aptNm, complexName) {
   if (!complexName) return true;
   const a = String(aptNm || "").replace(/\s/g, "");
   const c = String(complexName).replace(/\s/g, "");
-  return a.includes(c) || c.includes(a);
+  // 완전 일치
+  if (a === c) return true;
+  // c가 "동신"이고 a가 "동신아파트" → OK (접미사 허용)
+  if (a === c + "아파트" || a === c + "APT") return true;
+  // c가 "동신아파트"이고 a가 "동신" → OK
+  if (c === a + "아파트" || c === a + "APT") return true;
+  // 앞 글자 완전 일치 (최소 3자, 길이 차이 3자 이내)
+  if (Math.abs(a.length - c.length) <= 3) {
+    const minLen = Math.min(a.length, c.length);
+    if (minLen >= 3) {
+      let common = 0;
+      for (let i = 0; i < minLen; i++) { if (a[i] === c[i]) common++; else break; }
+      if (common >= minLen) return true; // 짧은 쪽 전체가 긴 쪽 앞부분과 일치
+    }
+  }
+  return false;
 }
 
 // 면적 유사도 매칭 (±2㎡ 허용)
