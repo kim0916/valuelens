@@ -1985,7 +1985,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   //   [3] analyze()           → 계산 엔진 (ConfirmStep → doAnalyze에서 실행, 절대 수정 금지)
   // ─────────────────────────────────────────────────────────────
   async function quickSearch() {
-    if (!f.complexName) { setAiMsg("최소한 단지명을 입력하세요. (예: 동부)"); return; }
+    if (!f.complexName || !f.region || !f.areaExclusive || !f.currentPrice) { setAiMsg("지역·단지명·전용면적·매물가는 모두 필수입니다."); return; }
     setAiLoading(true); setAiMsg(null);
     try {
       // ── [1] 조회 모듈 ── API 전환 시 fetchApartmentData 함수만 교체하면 됨
@@ -2077,22 +2077,17 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       </header>
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
         <p className="mb-3 text-sm font-bold text-slate-800">단지 검색</p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <DongAutocomplete
-            value={f.dong}
-            onChange={(v) => set("dong", v)}
-            onSelect={(dong) => set("dong", dong)}
-            placeholder="동 (예: 공릉동, ㄱ)"
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400"
-          />
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <input type="text" value={f.region} placeholder="지역 (예: 노원구) *필수" onChange={(e) => set("region", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
           <ComplexAutocomplete
             dong={f.dong}
             value={f.complexName}
             onChange={(v) => set("complexName", v)}
-            placeholder="단지명 (예: 동신)"
+            placeholder="단지명 (예: 동부) *필수"
             className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400"
           />
-          <input type="number" value={f.areaExclusive} placeholder="전용면적 ㎡ (선택)" onChange={(e) => set("areaExclusive", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          <input type="number" value={f.areaExclusive} placeholder="전용면적 ㎡ (예: 59) *필수" onChange={(e) => set("areaExclusive", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+          <input type="number" value={f.currentPrice} placeholder="현재 매물가 만원 (예: 50000) *필수" onChange={(e) => set("currentPrice", e.target.value)} className="rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
         </div>
         {Number(f.areaExclusive) > 0 && (
           <p className="mt-1.5 text-xs text-slate-500">전용 {f.areaExclusive}㎡ · 통상 약 {typicalPyeong(f.areaExclusive)}평형</p>
@@ -2100,7 +2095,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
         {/* 메인 버튼 */}
         <button onClick={quickSearch} disabled={aiLoading} className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
-          {aiLoading ? "AI 조회 중…" : "이 집 사도 될까? — AI 매수판단"}
+          {aiLoading ? "조회 중…" : "이 집 사도 될까? — AI 매수판단"}
         </button>
 
         {/* 조회 실패 메시지 */}
@@ -2249,20 +2244,6 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy" }) {
             {Number(edit.areaExclusive) > 0 && (
               <p className="mt-1 text-[11px] text-slate-400">통상 약 {typicalPyeong(edit.areaExclusive)}평형</p>
             )}
-          </label>
-
-          {/* KB 매매시세 */}
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold text-slate-600">KB 매매시세 (만원)</span>
-            <input type="number" className={inp2} value={edit.kbSalePrice} placeholder="예: 56500"
-              onChange={(e) => setE("kbSalePrice", e.target.value)} />
-          </label>
-
-          {/* KB 전세시세 */}
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold text-slate-600">KB 전세시세 (만원)</span>
-            <input type="number" className={inp2} value={edit.kbJeonse} placeholder="예: 34000"
-              onChange={(e) => setE("kbJeonse", e.target.value)} />
           </label>
 
           {/* 기준 전세가 */}
