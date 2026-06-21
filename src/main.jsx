@@ -2088,6 +2088,9 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6) {
   results.sale = results.sale.slice(0, 10);
   results.jeonse = results.jeonse.slice(0, 10);
 
+  // allAreas: 단지 전체 면적 목록 (단지명 필터 없이 수집)
+  results.allAreas = results.allAreas || new Set();
+
   return results;
 }
 
@@ -2103,10 +2106,11 @@ async function fetchApartmentData(query) {
   // ── 실거래 조회: 최근 6개월 ──
   let sale = [], jeonse = [], noTradeWarning = null;
 
-  ({ sale, jeonse } = await fetchMolitData(lawdCd, query.complexName, query.areaExclusive, 6));
+  const molitResult = await fetchMolitData(lawdCd, query.complexName, query.areaExclusive, 6);
+  ({ sale, jeonse } = molitResult);
 
   // 면적 옵션 추출 - 동 전체 면적 기준 (단지명 필터 없음)
-  const allAreasSet = results.allAreas || new Set();
+  const allAreasSet = molitResult.allAreas || new Set();
   const allAreasList = [...allAreasSet].sort((a, b) => a - b);
   const allAreas = [...sale, ...jeonse].map(d => d.areaSqm).filter(a => a > 0);
   const uniqueAreas = [...new Set([...allAreas, ...allAreasList])].sort((a, b) => a - b);
@@ -2383,7 +2387,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         {f._needKbInput && (
           <div className="mt-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
             <p className="text-sm font-bold text-amber-800">⚠️ 최근 6개월 실거래가 없습니다</p>
-            <p className="mt-0.5 text-xs text-amber-600">KB시세를 직접 입력하면 적정가를 계산할 수 있습니다.</p>
+            <p className="mt-0.5 text-xs text-amber-600">네이버 부동산 또는 KB부동산원에서 KB시세를 확인 후 입력해 주세요.</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <div>
                 <p className="mb-1 text-xs font-medium text-amber-700">KB매매시세 (만원)</p>
