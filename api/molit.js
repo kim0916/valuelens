@@ -11,19 +11,21 @@ function parseXmlItems(xml) {
   const items = [];
   const itemMatches = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
   for (const item of itemMatches) {
+    // 매매 API: 영문 태그 (dealAmount, dealYear, dealMonth, excluUseAr, floor, buildYear, aptNm, umdNm, sggCd)
+    // 전세 API: 한글 태그 (보증금액, 년, 월, 전용면적, 층, 건축년도, 아파트, 법정동, 지역코드, 월세금액)
     items.push({
-      aptNm: getTag(item, "aptNm"),
-      dealAmount: getTag(item, "dealAmount"),
-      dealYear: getTag(item, "dealYear"),
-      dealMonth: getTag(item, "dealMonth"),
-      excluUseAr: getTag(item, "excluUseAr"),
-      floor: getTag(item, "floor"),
-      buildYear: getTag(item, "buildYear"),
-      umdNm: getTag(item, "umdNm"),
-      sggCd: getTag(item, "sggCd"),
-      siGunGu: getTag(item, "siGunGu") || getTag(item, "sggNm"),
-      deposit: getTag(item, "deposit"),
-      monthlyRent: getTag(item, "monthlyRent"),
+      aptNm:       getTag(item, "aptNm")      || getTag(item, "아파트"),
+      dealAmount:  getTag(item, "dealAmount"),
+      dealYear:    getTag(item, "dealYear")   || getTag(item, "년"),
+      dealMonth:   getTag(item, "dealMonth")  || getTag(item, "월"),
+      excluUseAr:  getTag(item, "excluUseAr") || getTag(item, "전용면적"),
+      floor:       getTag(item, "floor")      || getTag(item, "층"),
+      buildYear:   getTag(item, "buildYear")  || getTag(item, "건축년도"),
+      umdNm:       getTag(item, "umdNm")      || getTag(item, "법정동"),
+      sggCd:       getTag(item, "sggCd")      || getTag(item, "지역코드"),
+      siGunGu:     getTag(item, "siGunGu")    || getTag(item, "sggNm"),
+      deposit:     getTag(item, "deposit")    || getTag(item, "보증금액"),
+      monthlyRent: getTag(item, "monthlyRent")|| getTag(item, "월세금액"),
     });
   }
   return items;
@@ -255,4 +257,5 @@ export default async function handler(req, res) {
     res.status(502).json({ error: "API 호출 실패: " + (e?.message || String(e)) });
   }
 }
+
 
