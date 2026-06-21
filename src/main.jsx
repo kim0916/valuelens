@@ -2032,16 +2032,16 @@ function parsePrice(val) {
 // ── 공통 실거래 조회 함수 ──
 async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, exactAptNm = "", dong = "") {
   const now = new Date();
-  // 단계별 면적 tolerance: 0=exact(±0.5), 1=±1㎡, 3=±3㎡(같은평형그룹)
   const AREA_STEPS = [0.5, 1, 3];
 
-  // 월 목록 생성
   const monthList = Array.from({ length: months }, (_, mi) => {
     const d = new Date(now.getFullYear(), now.getMonth() - mi, 1);
     return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  // 월별 전체 raw 데이터 수집 (면적 필터 없이)
+  // ── [로그 1] 요청 파라미터
+  console.log("[MOLIT] 요청:", { lawdCd, complexName, exactAptNm, areaExclusive, dong, months });
+
   const fetchMonth = async (ym) => {
     try {
       const [saleResp, rentResp] = await Promise.all([
@@ -2052,44 +2052,66 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
       ]);
       const saleData = await saleResp.json();
       const rentData = await rentResp.json();
+
+      // ── [로그 2] 월별 API 응답 건수
+      console.log(`[MOLIT] ${ym} 서버응답: 매매${(saleData.items||[]).length}건, 전월세${(rentData.items||[]).length}건`);
+
+      // ── [로그 3] 전월세 rawData 샘플 (첫 3건 aptNm, excluUseAr, monthlyRent, deposit)
+      if ((rentData.items||[]).length > 0) {
+        console.log(`[MOLIT] ${ym} 전월세 샘플:`, (rentData.items||[]).slice(0, 5).map(i => ({
+          aptNm: i.aptNm, area: i.excluUseAr, deposit: i.deposit, monthlyRent: i.monthlyRent
+        })));
+      }
+
       return { saleItems: saleData.items || [], rentItems: rentData.items || [] };
     } catch(fetchErr) {
-      console.warn(`molit ${ym} 조회 실패 (skip):`, fetchErr.message);
+      console.warn(`[MOLIT] ${ym} 조회 실패:`, fetchErr.message);
       return { saleItems: [], rentItems: [], failed: true };
     }
   };
 
   const settled = await Promise.allSettled(monthList.map(fetchMonth));
 
-  // 전체 raw 아이템 수집 (면적 필터 전)
   const allSaleRaw = [], allRentRaw = [];
   let apiFailed = 0;
   const allAreas = new Set();
+  let rentSkipAptNm = 0, rentSkipMonthly = 0, rentPass = 0;
 
   for (const s of settled) {
     if (s.status !== "fulfilled") { apiFailed++; continue; }
     const { saleItems, rentItems, failed } = s.value;
     if (failed) apiFailed++;
+
     for (const item of saleItems) {
       if (!matchAptName(item.aptNm, complexName, exactAptNm)) continue;
       const area = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
       if (area > 0) allAreas.add(area);
       allSaleRaw.push(item);
     }
+
     for (const item of rentItems) {
-      if (!matchAptName(item.aptNm, complexName, exactAptNm)) continue;
-      if (item.monthlyRent && Number(item.monthlyRent) > 0) continue; // 월세 제외
+      // ── [로그 4] aptNm 필터 단계
+      if (!matchAptName(item.aptNm, complexName, exactAptNm)) { rentSkipAptNm++; continue; }
+      // ── [로그 5] 월세 제외 단계
+      if (item.monthlyRent && Number(item.monthlyRent) > 0) { rentSkipMonthly++; continue; }
       const area = Math.round((Number(item.excluUseAr) || 0) * 100) / 100;
       if (area > 0) allAreas.add(area);
       allRentRaw.push(item);
+      rentPass++;
     }
   }
 
-  // 단지 전체 거래 건수 (면적 무관)
+  // ── [로그 6] aptNm/월세 필터 결과
+  console.log("[MOLIT] 전세 필터 결과:", {
+    "aptNm불일치_제외": rentSkipAptNm,
+    "월세_제외": rentSkipMonthly,
+    "통과(allRentRaw)": rentPass,
+    "allRentRaw전용면적목록": allRentRaw.map(i => i.excluUseAr),
+  });
+
   const complexSaleTotal = allSaleRaw.length;
   const complexRentTotal = allRentRaw.length;
 
-  // 면적 3단계 확장: 목표 3건 이상 또는 마지막 단계
   const targetCount = 3;
   let usedTolerance = AREA_STEPS[0];
   let sale = [], jeonse = [];
@@ -2098,26 +2120,25 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
     for (const tol of AREA_STEPS) {
       const s = allSaleRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, tol));
       const j = allRentRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, tol));
+      // ── [로그 7] 단계별 면적 필터 결과
+      console.log(`[MOLIT] 면적필터 tol=${tol}㎡: 매매${s.length}건, 전세${j.length}건 (목표면적=${areaExclusive})`);
+      console.log(`[MOLIT] 전세 면적값들:`, allRentRaw.map(i => Number(i.excluUseAr)));
       sale = s; jeonse = j;
       usedTolerance = tol;
       if (s.length >= targetCount && j.length >= targetCount) break;
-      if (s.length >= targetCount || j.length >= targetCount) break; // 한쪽만 충족해도 다음 단계 계속
-      // 둘다 부족하면 다음 단계
+      if (s.length >= targetCount || j.length >= targetCount) break;
     }
-    // 둘 중 하나가 여전히 부족하면 마지막 단계(±3㎡) 적용
     if (sale.length < targetCount || jeonse.length < targetCount) {
       sale = allSaleRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, 3));
       jeonse = allRentRaw.filter(item => matchArea(item.excluUseAr, areaExclusive, 3));
       usedTolerance = 3;
     }
   } else {
-    // 면적 미지정: 전체 사용
     sale = allSaleRaw;
     jeonse = allRentRaw;
     usedTolerance = -1;
   }
 
-  // 거래 데이터 변환
   const toSale = (item) => ({
     ym: `${item.dealYear}-${String(item.dealMonth || "").padStart(2, "0")}`,
     price: Math.round(parsePrice(item.dealAmount)),
@@ -2139,8 +2160,10 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
   const saleOut = sale.map(toSale).filter(d => d.price > 0).sort((a, b) => b.ym.localeCompare(a.ym)).slice(0, 10);
   const jeonseOut = jeonse.map(toJeonse).filter(d => d.price > 0).sort((a, b) => b.ym.localeCompare(a.ym)).slice(0, 10);
 
-  // 원인 진단
-  // apiFail: 절반 이상 실패면 API 오류
+  // ── [로그 8] 최종 결과
+  console.log("[MOLIT] 최종:", { sale: saleOut.length, jeonse: jeonseOut.length, usedTolerance });
+  console.log("[MOLIT] 최종 전세 배열:", jeonseOut);
+
   const apiFailRatio = apiFailed / monthList.length;
   const diagnosis = {
     apiFailed: apiFailRatio > 0.5,
@@ -2148,12 +2171,10 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
     saleAreaShort: saleOut.length < targetCount,
     jeonseAreaShort: jeonseOut.length < targetCount,
     jeonseExistsOtherArea: complexRentTotal > 0 && jeonseOut.length < targetCount,
-    usedTolerance,        // 실제 사용된 면적 tolerance
+    usedTolerance,
     complexSaleTotal,
     complexRentTotal,
   };
-
-  console.log("fetchMolitData 진단:", diagnosis, "sale:", saleOut.length, "jeonse:", jeonseOut.length);
 
   return { sale: saleOut, jeonse: jeonseOut, allAreas, diagnosis };
 }
