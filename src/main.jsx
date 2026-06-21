@@ -1987,7 +1987,7 @@ function getLawdCd(dong, region) {
 // 국토부 실거래가 공공 API 사용 (무료)
 // KB시세는 수기 입력 (API 없음)
 // ───────────────────────────────────────────────────────────────
-async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6) {
+async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, exactAptNm = "") {
   const now = new Date();
   const results = { sale: [], jeonse: [] };
 
@@ -2007,7 +2007,7 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6) {
 
     // 단지명 필터링 (부분 일치)
     // nameFilter: exactAptNm 있으면 유연한 완전일치, 없으면 앞글자 2자 이상
-    const exactAptNm = query.exactAptNm || "";
+    // exactAptNm은 fetchMolitData 파라미터로 받음
     const nameFilter = (name) => {
       if (!complexName) return true;
       const n = String(name || "").replace(/\s/g, "");
@@ -2121,7 +2121,7 @@ async function fetchApartmentData(query) {
   let sale = [], jeonse = [], noTradeWarning = null;
 
   // 실거래 조회: exactAptNm(완전일치) 우선, 6개월
-  const molitResult = await fetchMolitData(lawdCd, query.exactAptNm || query.complexName, query.areaExclusive, 6);
+  const molitResult = await fetchMolitData(lawdCd, query.exactAptNm || query.complexName, query.areaExclusive, 6, query.exactAptNm || "");
   ({ sale, jeonse } = molitResult);
 
   // 면적 옵션 추출 - 동 전체 면적 기준 (단지명 필터 없음)
