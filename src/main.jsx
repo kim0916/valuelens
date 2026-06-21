@@ -740,7 +740,7 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse") {
     .map((d) => ({ ym: d.ym, price: Number(d.price) || 0, floor: Number(d.floor) || 0, topFloor: Number(d.topFloor) || 0, banjiha: !!d.banjiha, urgent: !!d.urgent, related: !!d.related }))
     .filter((d) => d.price > 0 && d.ym);
   const now = new Date();
-  const cutoff = new Date(now.getFullYear(), now.getMonth() - 11, 1); // 최근 12개월
+  const cutoff = new Date(now.getFullYear(), now.getMonth() - 5, 1); // 최근 6개월
   const within = norm.filter((d) => {
     const [y, m] = String(d.ym).split("-").map(Number);
     return new Date(y, (m || 1) - 1, 1) >= cutoff;
@@ -1987,7 +1987,7 @@ function getLawdCd(dong, region) {
 // 국토부 실거래가 공공 API 사용 (무료)
 // KB시세는 수기 입력 (API 없음)
 // ───────────────────────────────────────────────────────────────
-async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 12) {
+async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6) {
   const now = new Date();
   const results = { sale: [], jeonse: [] };
 
@@ -2145,10 +2145,15 @@ async function fetchApartmentData(query) {
     areaSqm = 0; // 면적 미지정이면 0으로 두고 areaOptions 제공
   }
 
-  // 최근 매매 실거래 기준 buildYear만 (currentPrice는 사용자 입력)
+  // buildYear: 매매 우선, 없으면 전세에서 추출
   const recentSale = sale[0];
-  const currentPrice = 0; // 사용자가 직접 입력
-  const buildYear = recentSale ? (Number(recentSale.buildYear) || 0) : 0;
+  const recentJeonseForYear = jeonse[0];
+  const currentPrice = 0;
+  const buildYear = (recentSale && Number(recentSale.buildYear))
+    ? Number(recentSale.buildYear)
+    : (recentJeonseForYear && Number(recentJeonseForYear.buildYear))
+    ? Number(recentJeonseForYear.buildYear)
+    : 0;
 
   // 법정동 코드 → 지역명 역변환
   const LAWD_CD_REVERSE = Object.fromEntries(Object.entries(LAWD_CD_MAP).map(([k, v]) => [String(v), k]));
@@ -2654,6 +2659,28 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
           <input type="number" value={f.currentPrice} placeholder="예: 50000" onChange={(e) => set("currentPrice", e.target.value)} className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
         </div>
         )}
+
+        {/* KB전세시세 — 항상 표시 (실거래 없을 때 필수) */}
+        <div className="mt-3">
+          <p className="mb-1 text-xs font-medium text-slate-500">
+            KB전세시세 (만원)
+            <span className="ml-1 text-[10px] text-slate-400">실거래 없을 때 필수 · 네이버 부동산 → 시세탭 확인</span>
+          </p>
+          <input type="number" value={f.kbJeonse} placeholder="예: 35000"
+            onChange={(e) => set("kbJeonse", e.target.value)}
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+        </div>
+
+        {/* 준공연도 — 자동입력 안 될 때 수동 입력 */}
+        <div className="mt-2">
+          <p className="mb-1 text-xs font-medium text-slate-500">
+            준공연도
+            <span className="ml-1 text-[10px] text-slate-400">실거래에서 자동 추출 (없으면 직접 입력)</span>
+          </p>
+          <input type="number" value={f.buildYear} placeholder="예: 1999"
+            onChange={(e) => set("buildYear", e.target.value)}
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
+        </div>
 
         {/* 6개월 내 거래 없을 때만 KB시세 입력 카드 표시 */}
         {f._needKbInput && (
