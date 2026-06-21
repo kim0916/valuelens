@@ -2562,9 +2562,16 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         areaExclusive: overrideArea ? String(overrideArea) : ff.areaExclusive,
       });
       console.log("rawData:", rawData?.sale?.length, "매매", rawData?.jeonse?.length, "전세");
-      // ── [2] 변환 모듈 ──
+      // ── [2] 변환 모듈 ── rawData에 사용자 입력값 미리 주입
+      const rawDataWithUserInput = {
+        ...rawData,
+        currentPrice: Number(ff.currentPrice) || rawData.currentPrice || 0,
+        kbSalePrice: Number(ff.kbSalePrice) || rawData.kbSalePrice || 0,
+        kbJeonse: Number(ff.kbJeonse) || rawData.kbJeonse || 0,
+        buildYear: ff.buildYear || rawData.buildYear || 0,
+      };
       const { filled, ff: builtFf, jeonseCalc, saleCalc, blockReason } = buildAnalysisInput(
-        rawData, ff, Number(ff.areaExclusive) || 0
+        rawDataWithUserInput, ff, Number(ff.areaExclusive) || 0
       );
       // 사용자 입력값 강제 보정 (rawData가 0으로 덮어쓰는 것 방지)
       if (ff.currentPrice) filled.currentPrice = ff.currentPrice;
