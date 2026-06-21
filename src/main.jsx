@@ -2378,26 +2378,6 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
           <input type="text" value={f.complexName} placeholder="단지명 (예: 동부)" onChange={(e) => set("complexName", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
         </div>
 
-        {/* 수기 입력 4개 */}
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div>
-            <p className="mb-1 text-xs font-medium text-slate-500">전용면적 (㎡)</p>
-            <input type="number" value={f.areaExclusive} placeholder="예: 59.99" onChange={(e) => set("areaExclusive", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          </div>
-          <div>
-            <p className="mb-1 text-xs font-medium text-slate-500">현재 매물가 (만원)</p>
-            <input type="number" value={f.currentPrice} placeholder="예: 50000" onChange={(e) => set("currentPrice", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          </div>
-          <div>
-            <p className="mb-1 text-xs font-medium text-slate-500">KB매매시세 (만원)</p>
-            <input type="number" value={f.kbSalePrice} placeholder="예: 50250" onChange={(e) => set("kbSalePrice", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          </div>
-          <div>
-            <p className="mb-1 text-xs font-medium text-slate-500">KB전세시세 (만원)</p>
-            <input type="number" value={f.kbJeonse} placeholder="예: 35000" onChange={(e) => set("kbJeonse", e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          </div>
-        </div>
-
         {/* 캡처 업로드 */}
         <div className="mt-3 rounded-2xl bg-indigo-50 p-3 ring-1 ring-indigo-100">
           <div className="flex items-center justify-between">
@@ -2452,6 +2432,29 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
           {captureMsg && (
             <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">{captureMsg}</p>
           )}
+        </div>
+
+        {/* 수기 입력 섹션 */}
+        <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+          <p className="mb-2 text-xs font-bold text-slate-700">✏️ 수기 직접 입력</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="mb-1 text-[10px] font-medium text-slate-500">전용면적 (㎡)</p>
+              <input type="number" value={f.areaExclusive} placeholder="예: 59.99" onChange={(e) => set("areaExclusive", e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400" />
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-medium text-slate-500">현재 매물가 (만원)</p>
+              <input type="number" value={f.currentPrice} placeholder="예: 50000" onChange={(e) => set("currentPrice", e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400" />
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-medium text-slate-500">KB매매시세 (만원)</p>
+              <input type="number" value={f.kbSalePrice} placeholder="예: 50250" onChange={(e) => set("kbSalePrice", e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400" />
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-medium text-slate-500">KB전세시세 (만원)</p>
+              <input type="number" value={f.kbJeonse} placeholder="예: 35000" onChange={(e) => set("kbJeonse", e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400" />
+            </div>
+          </div>
         </div>
 
         {areaOptions.length > 0 && (
