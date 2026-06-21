@@ -2282,11 +2282,12 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       const { filled, ff: builtFf, jeonseCalc, saleCalc, blockReason } = buildAnalysisInput(
         rawData, ff, Number(ff.areaExclusive) || 0
       );
-      // KB시세/매물가/면적을 캡처에서 가져온 값으로 보정
+      // KB시세/매물가/면적/준공연도를 캡처에서 가져온 값으로 보정
       if (ff.kbSalePrice) filled.kbSalePrice = ff.kbSalePrice;
       if (ff.kbJeonse) filled.kbJeonse = ff.kbJeonse;
       if (ff.currentPrice) filled.currentPrice = ff.currentPrice;
       if (ff.areaExclusive && !filled.areaExclusive) filled.areaExclusive = ff.areaExclusive;
+      if (ff.buildYear && !filled.buildYear) filled.buildYear = ff.buildYear;
       setF(filled);
       // 면적 옵션 저장
       const opts = (filled._aiAreaOptions && filled._aiAreaOptions.length > 0)
@@ -2424,7 +2425,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
                 setUploadedImages(prev => [...prev, ...imgs.map(i => i.url)]);
                 const content = [
                   ...imgs.map(img => ({ type: "image", source: { type: "base64", media_type: img.type, data: img.data } })),
-                  { type: "text", text: `이 이미지들은 네이버 부동산 화면 캡처야. 보이는 정보만 추출해 아래 JSON만 출력 (설명·백틱 금지):\n{"region":"시군구","dong":"법정동","complexName":"단지명","areaExclusive":전용면적㎡숫자,"currentPrice":매물호가또는최근실거래만원정수,"kbSalePrice":KB매매시세만원정수,"kbJeonse":KB전세시세만원정수,"buildYear":준공연도숫자}\n규칙:\n- 가격은 만원 정수(4억5100만→45100, 5억→50000)\n- 단지명은 화면 상단 굵은 글씨에서 추출\n- 면적은 현재 선택된/강조된 면적(㎡) 사용\n- currentPrice: 매물 호가 없으면 최근 실거래가 사용\n- KB시세 없으면 0\n- 안 보이는 값은 0. 절대 추정 금지.` }
+                  { type: "text", text: `이 이미지들은 네이버 부동산 화면 캡처야. 보이는 정보만 추출해 아래 JSON만 출력 (설명·백틱 금지):\n{"region":"시군구","dong":"법정동","complexName":"단지명","areaExclusive":전용면적㎡숫자,"currentPrice":매물호가또는최근실거래만원정수,"kbSalePrice":KB매매시세만원정수,"kbJeonse":KB전세시세만원정수,"buildYear":준공연도숫자}\n규칙:\n- 가격은 만원 정수(4억5100만→45100, 5억→50000)\n- 단지명은 화면 상단 굵은 글씨에서 추출\n- 면적은 현재 선택된/강조된 면적(㎡) 사용\n- currentPrice: 매물 호가 없으면 최근 실거래가 사용\n- KB시세 없으면 0\n- buildYear: 준공일(예: 2008.08.05)에서 연도만 추출
+- 안 보이는 값은 0. 절대 추정 금지.` }
                 ];
                 const res = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content }] }) });
                 const data = await res.json();
