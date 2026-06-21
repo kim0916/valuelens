@@ -46,22 +46,49 @@ function matchArea(excluUseAr, targetArea) {
   return Math.abs(a - t) <= 2.0;
 }
 
-// 실거래 데이터에서 단지별 면적 목록 추출
+// 실거래 데이터에서 대표 면적 목록 추출 (±2㎡ 그룹핑)
 function extractAreaOptions(items, complexName) {
-  const areaSet = new Map(); // areaSqm(반올림) → 실제 소수점 값
+  // 1. 단지명 필터 후 면적별 거래건수 집계
+  const areaCount = new Map(); // 면적값 → 건수
   for (const item of items) {
     if (!matchComplex(item.aptNm, complexName)) continue;
     const ar = parseFloat(item.excluUseAr);
     if (!ar || ar <= 0) continue;
-    const key = Math.round(ar); // 84.9827 → 85 키로 그룹핑
-    if (!areaSet.has(key) || Math.abs(areaSet.get(key) - ar) > Math.abs(key - ar)) {
-      areaSet.set(key, ar);
+    const key = Math.round(ar * 100) / 100;
+    areaCount.set(key, (areaCount.get(key) || 0) + 1);
+  }
+  if (areaCount.size === 0) return [];
+
+  // 2. ±2㎡ 이내 그룹핑 — 거래 많은 면적이 대표
+  const areas = Array.from(areaCount.keys()).sort((a, b) => a - b);
+  const groups = []; // [{ rep, min, max, count }]
+
+  for (const ar of areas) {
+    const cnt = areaCount.get(ar);
+    // 기존 그룹에 속하는지 확인 (대표값 기준 ±2㎡)
+    const existingGroup = groups.find(g => Math.abs(ar - g.rep) <= 2);
+    if (existingGroup) {
+      existingGroup.min = Math.min(existingGroup.min, ar);
+      existingGroup.max = Math.max(existingGroup.max, ar);
+      existingGroup.total += cnt;
+      // 더 많이 거래된 면적을 대표로
+      if (cnt > existingGroup.repCount) {
+        existingGroup.rep = ar;
+        existingGroup.repCount = cnt;
+      }
+    } else {
+      groups.push({ rep: ar, min: ar, max: ar, total: cnt, repCount: cnt });
     }
   }
-  // 오름차순 정렬
-  return Array.from(areaSet.values())
-    .sort((a, b) => a - b)
-    .map(ar => ({ areaSqm: Math.round(ar * 100) / 100 })); // 소수점 2자리
+
+  // 3. 오름차순 정렬 후 반환
+  return groups
+    .sort((a, b) => a.rep - b.rep)
+    .map(g => ({
+      areaSqm: Math.round(g.rep * 100) / 100,
+      minSqm: g.min,
+      maxSqm: g.max,
+    }));
 }
 
 export default async function handler(req, res) {
