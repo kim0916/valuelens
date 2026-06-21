@@ -1987,23 +1987,44 @@ function getLawdCd(dong, region) {
 // 국토부 실거래가 공공 API 사용 (무료)
 // KB시세는 수기 입력 (API 없음)
 // ───────────────────────────────────────────────────────────────
+// fetch with timeout
+function fetchWithTimeout(url, options, ms = 8000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { ...options, signal: ctrl.signal })
+    .finally(() => clearTimeout(timer));
+}
+
 async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, exactAptNm = "") {
   const now = new Date();
   const results = { sale: [], jeonse: [] };
 
-  for (let i = 0; i < months; i++) {
+  // 전체 월 병렬 조회 (Promise.allSettled — 실패해도 계속)
+  const monthList = Array.from({ length: months }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const ym = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
 
-    const [saleRes, rentRes] = await Promise.all([
-      fetch("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "sale", lawdCd, dealYmd: ym }) }),
-      fetch("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "rent", lawdCd, dealYmd: ym }) }),
-    ]);
+  const fetchMonth = async (ym) => {
+    try {
+      const [sr, rr] = await Promise.all([
+        fetchWithTimeout("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "sale", lawdCd, dealYmd: ym }) }, 8000),
+        fetchWithTimeout("/api/molit", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "rent", lawdCd, dealYmd: ym }) }, 8000),
+      ]);
+      return { saleData: await sr.json(), rentData: await rr.json() };
+    } catch(e) {
+      console.warn(`molit ${ym} 조회 실패 (skip):`, e.message);
+      return { saleData: { items: [] }, rentData: { items: [] } };
+    }
+  };
 
-    const saleData = await saleRes.json();
-    const rentData = await rentRes.json();
+  const settled = await Promise.allSettled(monthList.map(fetchMonth));
+
+  for (const result of settled) {
+    if (result.status !== "fulfilled") continue;
+    const { saleData, rentData } = result.value;
 
     // 단지명 필터링 (부분 일치)
     // nameFilter: exactAptNm 있으면 유연한 완전일치, 없으면 앞글자 2자 이상
@@ -2084,7 +2105,6 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 6, ex
       });
     });
 
-    if (results.sale.length >= 10 && results.jeonse.length >= 10) break;
   }
 
   // 최신순 정렬 후 각 최대 10건
@@ -2563,7 +2583,17 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       // ── [3] 계산 엔진(analyze) ── ConfirmStep → doAnalyze 에서 실행 (절대 수정 금지)
     } catch (e) {
       console.error("fetchApartmentData 오류:", e);
-      setAiMsg(`조회 실패 — ${e.message || "알 수 없는 오류"} · 직접 수정하기를 눌러 값을 입력하세요.`);
+      // 에러여도 ConfirmStep으로 이동 — 수기 입력 가능하게
+      const fallbackFf = {
+        ...ff,
+        currentPrice: Number(ff.currentPrice) || 0,
+        baseJeonse: Number(ff.kbJeonse) || 0,
+        kbSalePrice: Number(ff.kbSalePrice) || 0,
+        jeonseUsed: 0, saleUsed: 0,
+        jeonseCalc: null, saleCalc: null, dataSource: "manual",
+      };
+      setPending({ ff: fallbackFf, jeonseCalc: null, saleCalc: null,
+        blockReason: e.message || "조회 실패 — 아래에서 값을 직접 입력하세요." });
     } finally { setAiLoading(false); }
   }
 
