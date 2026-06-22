@@ -142,37 +142,92 @@ export default async function handler(req, res) {
     return;
   }
 
-  // ── 4. 실거래 원본 ──
+  // ── 4. 실거래 원본 조회 (면적 자동 선택 포함) ──
   if (type === 'deals') {
     const { complex_id, complex_name, sigungu, area_excl, months = 24 } = req.body;
+    const requestedArea = area_excl ? Number(area_excl) : null;
+
     try {
       const now = new Date();
       const cutoff = new Date(now.getFullYear(), now.getMonth() - months, 1);
       const cutoffYm = `${cutoff.getFullYear()}${String(cutoff.getMonth()+1).padStart(2,'0')}`;
 
-      const baseFilter = (table) => {
+      // 기본 쿼리 빌더 (면적 필터 없음)
+      const baseQ = (table) => {
         let q = supabase.from(table).select('*')
           .gte('contract_ym', cutoffYm)
           .order('contract_ym', { ascending: false });
         if (complex_id) q = q.eq('complex_id', complex_id);
         else q = q.eq('complex_name', complex_name).eq('sigungu', sigungu);
-        if (area_excl) {
-          q = q.gte('area_excl', Number(area_excl) - 3).lte('area_excl', Number(area_excl) + 3);
-        }
-        return q.limit(200);
+        return q;
       };
 
-      const [saleRes, rentRes] = await Promise.all([
-        baseFilter('realestate_sales_raw'),
-        baseFilter('realestate_rent_raw').eq('monthly_man', 0),
-      ]);
+      let saleData = [], rentData = [];
 
-      if (saleRes.error) throw saleRes.error;
-      if (rentRes.error) throw rentRes.error;
+      // STEP 1: ±3㎡ 필터로 먼저 조회
+      if (requestedArea) {
+        const [s1, r1] = await Promise.all([
+          baseQ('realestate_sales_raw').gte('area_excl', requestedArea - 3).lte('area_excl', requestedArea + 3).limit(200),
+          baseQ('realestate_rent_raw').eq('monthly_man', 0).gte('area_excl', requestedArea - 3).lte('area_excl', requestedArea + 3).limit(200),
+        ]);
+        if (s1.error) throw s1.error;
+        if (r1.error) throw r1.error;
+        saleData = s1.data || [];
+        rentData = r1.data || [];
+        console.log(`[deals] STEP1 ±3 — 매매:${saleData.length} 전세:${rentData.length} requestedArea:${requestedArea}`);
+      }
 
-      console.log('[deals] 매매:', saleRes.data?.length, '전세:', rentRes.data?.length);
+      // STEP 2: 0건이면 전체 조회 후 가장 가까운 면적 자동 선택
+      if (saleData.length === 0 && rentData.length === 0) {
+        console.log('[deals] STEP2 전체 조회 시작');
+        const [sAll, rAll] = await Promise.all([
+          baseQ('realestate_sales_raw').limit(500),
+          baseQ('realestate_rent_raw').eq('monthly_man', 0).limit(500),
+        ]);
+        if (sAll.error) throw sAll.error;
+        if (rAll.error) throw rAll.error;
+
+        const allRows = [...(sAll.data || []), ...(rAll.data || [])];
+        const availableAreas = [...new Set(
+          allRows.map(r => Number(r.area_excl)).filter(a => a > 0)
+        )].sort((a, b) => a - b);
+
+        console.log(`[deals] requestedArea:${requestedArea} availableAreas:${JSON.stringify(availableAreas)}`);
+
+        if (availableAreas.length === 0) {
+          res.status(200).json({ saleDeals: [], rentDeals: [], availableAreas: [] });
+          return;
+        }
+
+        if (requestedArea) {
+          // 가장 가까운 면적 선택
+          const closest = availableAreas.reduce((prev, cur) =>
+            Math.abs(cur - requestedArea) < Math.abs(prev - requestedArea) ? cur : prev
+          );
+          const areaDiff = Math.abs(closest - requestedArea);
+          console.log(`[deals] selectedArea:${closest} areaDiff:${areaDiff}`);
+
+          if (areaDiff > 5) {
+            // 5㎡ 초과 → 판단보류 신호
+            console.log('[deals] areaDiff > 5 → noMatch');
+            res.status(200).json({ saleDeals: [], rentDeals: [], availableAreas, areaDiff, noMatch: true });
+            return;
+          }
+
+          saleData = (sAll.data || []).filter(r => Math.abs(Number(r.area_excl) - closest) <= 3);
+          rentData = (rAll.data || []).filter(r => Math.abs(Number(r.area_excl) - closest) <= 3);
+          console.log(`[deals] selectedArea:${closest} 필터 후 — 매매:${saleData.length} 전세:${rentData.length}`);
+        } else {
+          saleData = sAll.data || [];
+          rentData = rAll.data || [];
+        }
+      }
+
+      const finalArea = saleData[0]?.area_excl || rentData[0]?.area_excl || null;
+      console.log(`[deals] final — requestedArea:${requestedArea} selectedArea:${finalArea} salesCount:${saleData.length} rentCount:${rentData.length}`);
+
       res.setHeader('Cache-Control', 's-maxage=600');
-      res.status(200).json({ saleDeals: saleRes.data || [], rentDeals: rentRes.data || [] });
+      res.status(200).json({ saleDeals: saleData, rentDeals: rentData });
     } catch (e) {
       errRes(res, e, 'deals');
     }
