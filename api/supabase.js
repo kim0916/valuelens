@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       // alias 테이블 먼저 확인
       const aliasKey = name.replace(/\s/g, '');
       const { data: aliasData } = await supabase
-        .from('apartment_complex_aliases')
+        .from('realestate_complex_aliases')
         .select('real_name, sigungu_hint, complex_id')
         .ilike('search_key', aliasKey)
         .limit(3);
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
 
       // complexes 검색 (trigram 유사도 기반)
       let query = supabase
-        .from('apartment_complexes')
+        .from('realestate_complexes')
         .select(`
           id, complex_name, sigungu, sido, sigungu_short,
           legal_dong, road_addr, build_year,
@@ -82,7 +82,7 @@ export default async function handler(req, res) {
 
     try {
       let query = supabase
-        .from('apartment_price_summary')
+        .from('realestate_price_summary')
         .select('*')
         .order('period_ym_end', { ascending: false })
         .limit(1);
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
 
     try {
       let query = supabase
-        .from('apartment_complexes')
+        .from('realestate_complexes')
         .select('area_list, complex_name, build_year');
 
       if (complex_id) {
@@ -168,10 +168,10 @@ export default async function handler(req, res) {
       };
 
       const [{ data: saleData }, { data: rentData }] = await Promise.all([
-        baseFilter('apartment_sales_raw').neq('cancel_date', '-').execute
-          ? baseFilter('apartment_sales_raw')
-          : baseFilter('apartment_sales_raw'),
-        baseFilter('apartment_rent_raw').eq('monthly_man', 0),
+        baseFilter('realestate_sales_raw').neq('cancel_date', '-').execute
+          ? baseFilter('realestate_sales_raw')
+          : baseFilter('realestate_sales_raw'),
+        baseFilter('realestate_rent_raw').eq('monthly_man', 0),
       ]);
 
       res.setHeader('Cache-Control', 's-maxage=600');
