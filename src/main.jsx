@@ -409,9 +409,9 @@ function analyze(f) {
   }
 
   // ── 적정가 산출 근거 ──
-  const basis = { jeonse: jc ? { value: jc.value, used: jc.used, excluded: jc.excluded, total: jc.total } : null, sale: sc ? { value: sc.value, used: sc.used, excluded: sc.excluded, total: sc.total } : null, ratioUsed: dynamicRatio ?? (engineMode === "jeonse" || engineMode === "blend" ? regionRatio : null), ratioKind: dynamicRatio ? "실측 동적" : (engineMode === "jeonse" || engineMode === "blend" ? "지역 기본" : null), steps: [] };
+  const basis = { jeonse: jc ? { value: jc.value, used: jc.used, excluded: jc.excluded, total: jc.total } : null, sale: sc ? { value: sc.value, used: sc.used, excluded: sc.excluded, total: sc.total } : null, ratioUsed: dynamicRatio ?? (engineMode === "jeonse" || engineMode === "blend" ? usedRatio : null), ratioKind: dynamicRatio ? "실측 동적" : (engineMode === "jeonse" || engineMode === "blend" ? "fallback" : null), steps: [] };
   if (!isHold) {
-    if (engineMode === "jeonse") basis.steps = [`전세 정제평균 ${won(baseJeonse)} (사용 ${jeonseUsed}건)`, `÷ 전세가율 ${dynamicRatio ?? regionRatio} (${dynamicRatio ? "실측 동적" : "지역 기본"})`, `= 전세 기반 적정가 ${won(fairPrice)}`];
+    if (engineMode === "jeonse") basis.steps = [`전세 정제평균 ${won(baseJeonse)} (사용 ${jeonseUsed}건)`, `÷ 전세가율 ${dynamicRatio ?? usedRatio} (${dynamicRatio ? "실측 동적" : "보수 fallback"})`, `= 전세 기반 적정가 ${won(fairPrice)}`];
     else if (engineMode === "sale") basis.steps = [`매매 정제평균 ${won(saleFair)} (사용 ${saleUsed}건)`, `전세 기반 참고가 ${won(jeonseFair)} — 전세가율 낮아 메인 미사용`, `= 매매 기준 적정가 ${won(fairPrice)}`];
     else basis.steps = [`전세 기반 ${won(jeonseFair)} · 매매 정제 ${won(saleFair)}`, `경계 전세가율 ${actualRatio} → 두 값 평균`, `= 혼합 적정가 ${won(fairPrice)}`];
   }
