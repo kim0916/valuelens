@@ -3164,6 +3164,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   const [aiMsg, setAiMsg] = useState(null);
   const [pending, setPending] = useState(null);
   const [showManual, setShowManual] = useState(false);
+  // listingPriceInput: 현재 매물가 독립 state — 어디서도 초기화 금지
+  const [listingPriceInput, setListingPriceInput] = useState("");
   const abortRef = useRef(null);
   const [areaOptions, setAreaOptions] = useState([]);
   const [fetchingAreas, setFetchingAreas] = useState(false);
@@ -3642,7 +3644,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         {f.complexName && (
         <div className="mt-3">
           <p className="mb-1 text-xs font-medium text-slate-500">현재 매물가 (만원) <span className="text-red-500">*필수</span></p>
-          <input type="number" value={f.currentPrice} placeholder="예: 50000" onChange={(e) => set("currentPrice", e.target.value)} className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
+          <input type="number" value={listingPriceInput} placeholder="예: 50000" onChange={(e) => { console.log("[PRICE_INPUT] onChange:", e.target.value); setListingPriceInput(e.target.value); }} className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
         </div>
         )}
 
