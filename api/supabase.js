@@ -157,7 +157,7 @@ export default async function handler(req, res) {
         if (complex_id) q = q.eq('complex_id', complex_id);
         else q = q.eq('complex_name', complex_name).eq('sigungu', sigungu);
         if (area_excl) {
-          q = q.gte('area_excl', Number(area_excl) - 1).lte('area_excl', Number(area_excl) + 1);
+          q = q.gte('area_excl', Number(area_excl) - 3).lte('area_excl', Number(area_excl) + 3);
         }
         return q.limit(200);
       };
