@@ -3332,6 +3332,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
   // ── Supabase 우선 데이터 조회 (테스트 버전: 콘솔 로그 포함) ──
   async function _fetchRawDataSupabase(ff, overrideArea, exclusiveAreas) {
+    setAiMsg("⚡ [DEBUG] Supabase 경로 진입: " + (ff.complexId||"null") + " / " + (ff.exactAptNm||ff.complexName));
     const complexId = ff.complexId || null;
     const complexName = ff.exactAptNm || ff.complexName || "";
     const sigungu = ff.region || "";
