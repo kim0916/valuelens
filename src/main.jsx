@@ -457,11 +457,11 @@ function sellVerdict(r) {
   }
   if (g > 0.03) {
     if (rising) return {
-      key: "ABIT_RISING", label: "다소 고평가 — 보유 가능", tone: "slate",
+      key: "ABIT_RISING", label: "고평가 — 보유 가능", tone: "slate",
       advice: `지역 시장 상승 중(${trendStr})으로 보유 유지 가능합니다. 상승 추세 둔화 시 매도 검토를 권합니다.`
     };
     return {
-      key: "ABIT", label: "다소 고평가", tone: "amber",
+      key: "ABIT", label: "고평가 주의", tone: "amber",
       advice: "적정가보다 다소 높습니다. 시장 강세 시 보유 가능하나, 거래량 감소 시 조정을 고려하세요."
     };
   }
@@ -1246,6 +1246,12 @@ ${"=".repeat(40)}
 실제 세액과 다를 수 있습니다.
 반드시 세무사 확인 후 의사결정 하세요.
 
+[엔진 주의사항]
+본 리포트는 국토부 실거래 및 입력 데이터를 바탕으로 한 참고용 분석입니다.
+ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
+특히 데이터 부족, 전세가율 이상치, 재건축·신축 프리미엄 단지는
+분석 신뢰도가 낮을 수 있습니다.
+
 ━━━━━━━━━━━━━━━━━━
 ValueLens 이용 전 확인사항
 
@@ -1261,7 +1267,14 @@ AI 분석을 기반으로 생성된
 공인중개사, 세무사, 금융기관 등
 전문가와 확인하시기 바랍니다.
 ━━━━━━━━━━━━━━━━━━
-Powered by ValueLens`;
+Powered by ValueLens
+
+[분석 주의사항 — ValueLens 엔진 v3]
+본 리포트는 국토부 실거래 및 입력 데이터를 바탕으로 한 참고용 분석입니다.
+ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
+매수·매도 결정은 사용자의 최종 판단과 전문가 상담을 통해 진행해야 합니다.
+특히 데이터 부족, 전세가율 이상치, 재건축·신축 프리미엄 단지는
+분석 신뢰도가 낮을 수 있습니다.`;
             const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -3862,7 +3875,7 @@ function FairValueResult({ r, f, onBack }) {
           onClick={() => {
             const date = new Date().toLocaleDateString("ko-KR");
             const gp = r.gapRatio != null ? `${Math.abs(r.gapRatio * 100).toFixed(1)}%` : "—";
-            const gradeLabel = { A:"매우 저평가", B:"저평가", C:"적정 가격", D:"다소 고평가", E:"고평가", 보류:"판단 보류" }[r.buyGrade] || r.buyGrade;
+            const gradeLabel = { A:"매우 저평가", B:"저평가", C:"적정 가격", D:"고평가 주의", E:"고평가", 보류:"판단 보류" }[r.buyGrade] || r.buyGrade;
             const text = `ValueLens 적정가 평가 리포트
 ${"=".repeat(40)}
 발행일: ${date}
@@ -3915,7 +3928,14 @@ AI 분석을 기반으로 생성된
 공인중개사, 세무사, 금융기관 등
 전문가와 확인하시기 바랍니다.
 ━━━━━━━━━━━━━━━━━━
-Powered by ValueLens`;
+Powered by ValueLens
+
+[분석 주의사항 — ValueLens 엔진 v3]
+본 리포트는 국토부 실거래 및 입력 데이터를 바탕으로 한 참고용 분석입니다.
+ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
+매수·매도 결정은 사용자의 최종 판단과 전문가 상담을 통해 진행해야 합니다.
+특히 데이터 부족, 전세가율 이상치, 재건축·신축 프리미엄 단지는
+분석 신뢰도가 낮을 수 있습니다.`;
             const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -4024,7 +4044,7 @@ function BuyResult({ r, f, onBack, onSave, saved }) {
     const cur = Number(f.currentPrice) || 0;
     const fair = r.fairPrice;
     const gradeOf = (gap) => gap <= -0.15 ? "A" : gap <= -0.05 ? "B" : gap <= 0.05 ? "C" : gap <= 0.15 ? "D" : "E";
-    const labelOf = (g) => ({ A:"매우 저평가", B:"저평가", C:"적정 가격", D:"다소 고평가", E:"고평가" }[g] || g);
+    const labelOf = (g) => ({ A:"매우 저평가", B:"저평가", C:"적정 가격", D:"고평가 주의", E:"고평가" }[g] || g);
     const colorOf = (g) => ({ A:"text-emerald-600", B:"text-emerald-500", C:"text-amber-600", D:"text-orange-500", E:"text-red-500" }[g] || "text-slate-600");
     const scenarios = [];
     // 현재가
@@ -4083,6 +4103,16 @@ function BuyResult({ r, f, onBack, onSave, saved }) {
       </div>
 
       <InputWarnings r={r} f={f} />
+
+      {r.dataWarnings && r.dataWarnings.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-bold text-amber-800">⚠️ 데이터 부족 — 분석 신뢰 낮음</p>
+          {r.dataWarnings.map((w, i) => (
+            <p key={i} className="mt-1 text-xs text-amber-700">· {w}</p>
+          ))}
+          <p className="mt-1.5 text-[11px] text-amber-600">실거래를 보강하거나 KB시세를 입력하면 정확도가 높아집니다.</p>
+        </div>
+      )}
 
       {/* ── Hero: 가격 평가 등급 + 핵심 4개 ── */}
       <div className="mb-4 overflow-hidden rounded-3xl shadow-lg">
@@ -4327,7 +4357,7 @@ function BuyResult({ r, f, onBack, onSave, saved }) {
           onClick={() => {
             const date = new Date().toLocaleDateString("ko-KR");
             const gp = Math.abs(r.gapRatio * 100).toFixed(1);
-            const gradeLabel = { A:"매우 저평가", B:"저평가", C:"적정 가격", D:"다소 고평가", E:"고평가", 보류:"판단 보류" }[r.buyGrade] || r.buyGrade;
+            const gradeLabel = { A:"매우 저평가", B:"저평가", C:"적정 가격", D:"고평가 주의", E:"고평가", 보류:"판단 보류" }[r.buyGrade] || r.buyGrade;
             const riskLines = (() => {
               const risks = [];
               if (r.jeonseUsed < 3) risks.push("거래 표본 부족");
@@ -4340,7 +4370,7 @@ function BuyResult({ r, f, onBack, onSave, saved }) {
               const cur = Number(f.currentPrice) || 0;
               const fair = r.fairPrice;
               if (!fair) return "";
-              const gradeOf = (gap) => gap <= -0.15 ? "A(매우 저평가)" : gap <= -0.05 ? "B(저평가)" : gap <= 0.05 ? "C(적정 가격)" : gap <= 0.15 ? "D(다소 고평가)" : "E(고평가)";
+              const gradeOf = (gap) => gap <= -0.15 ? "A(매우 저평가)" : gap <= -0.05 ? "B(저평가)" : gap <= 0.05 ? "C(적정 가격)" : gap <= 0.15 ? "D(고평가 주의)" : "E(고평가)";
               return [
                 `    현재가 ${won(cur)} → ${gradeOf((cur-fair)/fair)}`,
                 `    협상 -2% ${won(Math.round(cur*0.98/100)*100)} → ${gradeOf((Math.round(cur*0.98/100)*100-fair)/fair)}`,
@@ -4397,7 +4427,14 @@ AI 분석을 기반으로 생성된
 공인중개사, 세무사, 금융기관 등
 전문가와 확인하시기 바랍니다.
 ━━━━━━━━━━━━━━━━━━
-Powered by ValueLens`;
+Powered by ValueLens
+
+[분석 주의사항 — ValueLens 엔진 v3]
+본 리포트는 국토부 실거래 및 입력 데이터를 바탕으로 한 참고용 분석입니다.
+ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
+매수·매도 결정은 사용자의 최종 판단과 전문가 상담을 통해 진행해야 합니다.
+특히 데이터 부족, 전세가율 이상치, 재건축·신축 프리미엄 단지는
+분석 신뢰도가 낮을 수 있습니다.`;
             const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -4658,6 +4695,16 @@ function SellResult({ r, f, onBack }) {
       <InputWarnings r={r} f={f} />
       <div className="mb-4"><MarketTypeBadge mc={mc} /></div>
 
+      {r.dataWarnings && r.dataWarnings.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-bold text-amber-800">⚠️ 데이터 부족 — 분석 신뢰 낮음</p>
+          {r.dataWarnings.map((w, i) => (
+            <p key={i} className="mt-1 text-xs text-amber-700">· {w}</p>
+          ))}
+          <p className="mt-1.5 text-[11px] text-amber-600">실거래를 보강하거나 KB시세를 입력하면 정확도가 높아집니다.</p>
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-3xl shadow-lg ring-1 ring-slate-200">
         <div className="px-6 py-5 text-white" style={{ backgroundColor: NAVY }}>
           <div className="flex items-center justify-between"><p className="text-xs text-slate-300">최종 매도 판단{sd.isSpecial ? ` · ${mc.premiumLevel || "특수시장"}` : ""}</p>{!sd.provisional && <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] text-slate-300">매도점수 {sd.sellScore}</span>}</div>
@@ -4797,7 +4844,14 @@ AI 분석을 기반으로 생성된
 공인중개사, 세무사, 금융기관 등
 전문가와 확인하시기 바랍니다.
 ━━━━━━━━━━━━━━━━━━
-Powered by ValueLens`;
+Powered by ValueLens
+
+[분석 주의사항 — ValueLens 엔진 v3]
+본 리포트는 국토부 실거래 및 입력 데이터를 바탕으로 한 참고용 분석입니다.
+ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
+매수·매도 결정은 사용자의 최종 판단과 전문가 상담을 통해 진행해야 합니다.
+특히 데이터 부족, 전세가율 이상치, 재건축·신축 프리미엄 단지는
+분석 신뢰도가 낮을 수 있습니다.`;
             const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
