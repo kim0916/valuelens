@@ -2194,6 +2194,50 @@ function fetchWithTimeout(url, options, ms = 8000) {
   return fetch(url, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(timer));
 }
 
+
+// ── Supabase 단지 검색 (국토부 API fallback 포함) ──
+async function searchComplexFromSupabase(name, sigungu, dong) {
+  try {
+    const res = await fetch('/api/supabase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'search', name, sigungu, dong, limit: 20 }),
+    });
+    if (!res.ok) throw new Error('Supabase 응답 오류');
+    const data = await res.json();
+    return {
+      complexes: data.complexes || [],
+      aliasMatch: data.aliasMatch || null,
+      fromSupabase: true,
+    };
+  } catch (e) {
+    console.warn('[Supabase] 검색 실패, molit fallback 사용:', e.message);
+    return { complexes: [], aliasMatch: null, fromSupabase: false };
+  }
+}
+
+// Supabase에서 가격 요약 조회
+async function getPriceSummaryFromSupabase(complexId, complexName, sigungu, areaExcl) {
+  try {
+    const res = await fetch('/api/supabase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'summary',
+        complex_id: complexId,
+        complex_name: complexName,
+        sigungu,
+        area_excl: areaExcl,
+      }),
+    });
+    const data = await res.json();
+    return data.summary || null;
+  } catch (e) {
+    console.warn('[Supabase] 가격 조회 실패:', e.message);
+    return null;
+  }
+}
+
 // ── 브랜드 단독 매칭 금지 키워드 (복합키 필수) ──
 const BRAND_ONLY_KEYWORDS = [
   '롯데캐슬','힐스테이트','더샵','래미안','자이','푸르지오',
@@ -2882,40 +2926,90 @@ function LocationPicker({ onComplete }) {
   async function searchComplex(kw) {
     setComplexQ(kw);
     setCandidateMode(false); setCandidates([]);
-    if (!sigungu || kw.length < 1) { setComplexList([]); return; }
+    if (kw.length < 1) { setComplexList([]); return; }
     setLoading(true);
     try {
-      const lawdRes = await fetch("/api/lawdCd", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"lawdCd", sido, sigungu }) });
-      const { lawdCd } = await lawdRes.json();
-      if (!lawdCd) return;
-      const cRes = await fetch("/api/molit", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"complexList", lawdCd, complexName: kw }) });
-      const cd = await cRes.json();
-      const list = cd.list || [];
+      // ── 1차: Supabase 검색 (복합키 기반) ──
+      const sbResult = await searchComplexFromSupabase(kw, sigungu, dong);
+      let list = [];
+      let richCandidates = [];
+
+      if (sbResult.fromSupabase && sbResult.complexes.length > 0) {
+        // Supabase 결과: 상세 정보 포함
+        richCandidates = sbResult.complexes.map(c => ({
+          name:       c.complex_name,
+          complexId:  c.id,
+          sigungu:    c.sigungu,
+          dong:       c.legal_dong,
+          sido:       c.sido,
+          buildYear:  c.build_year,
+          roadAddr:   c.road_addr,
+          saleCnt:    c.sale_cnt,
+          rentCnt:    c.rent_cnt,
+          areaList:   c.area_list ? JSON.parse(c.area_list) : [],
+          lastSaleYm: c.last_sale_ym,
+          fromSB:     true,
+        }));
+        list = richCandidates.map(c => c.name);
+
+        // alias 매칭이면 자동 선택 안내
+        if (sbResult.aliasMatch && richCandidates.length === 1) {
+          console.log('[alias] 자동 매칭:', richCandidates[0].name);
+        }
+      } else {
+        // ── 2차: 국토부 API fallback ──
+        if (sigungu) {
+          const lawdRes = await fetch("/api/lawdCd", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"lawdCd", sido, sigungu }) });
+          const { lawdCd } = await lawdRes.json();
+          if (lawdCd) {
+            const cRes = await fetch("/api/molit", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"complexList", lawdCd, complexName: kw }) });
+            const cd = await cRes.json();
+            list = cd.list || [];
+            richCandidates = list.map(name => ({
+              name, sigungu, dong, sido, fromSB: false,
+            }));
+          }
+        }
+      }
+
       setComplexList(list);
 
-      // 브랜드 단독 or 후보 2개 이상 → 후보 선택 모드
+      // 후보 선택 모드 진입 조건:
+      // - 브랜드 단독 검색
+      // - 후보 2개 이상
       const isBrand = isBrandOnlySearch(kw);
-      if (list.length >= 2 || (isBrand && list.length >= 1)) {
-        // 후보 카드용 정보 구성 (단지명 + 현재 지역 정보)
-        const cands = list.slice(0, 20).map(name => ({
-          name,
-          sigungu,
-          dong,
-          sido,
-          lawdCd,
-          isBrandMatch: normalizeAptName(name).includes(normalizeAptName(kw)),
-        }));
-        setCandidates(cands);
+      const needSelect = richCandidates.length >= 2 || (isBrand && richCandidates.length >= 1);
+
+      if (needSelect) {
+        setCandidates(richCandidates.slice(0, 20));
         setCandidateMode(true);
+      } else if (richCandidates.length === 1) {
+        // 후보 1개이면 바로 선택 (alias 자동 해결 케이스)
+        const c = richCandidates[0];
+        selectComplex(c.name, c.dong, c.complexId, c);
       }
-    } catch(e) { setComplexList([]); }
+    } catch(e) {
+      console.error('[searchComplex]', e);
+      setComplexList([]);
+    }
     finally { setLoading(false); }
   }
 
-  function selectComplex(name, candidateDong) {
+  function selectComplex(name, candidateDong, complexId, meta) {
     const useDong = candidateDong || dong;
+    const useSigungu = (meta && meta.sigungu) || sigungu;
+    const useSido    = (meta && meta.sido) || sido;
     setCandidateMode(false); setCandidates([]); setComplexList([]);
-    onComplete({ sido, sigungu, dong: useDong, complexName: name, exactAptNm: name });
+    onComplete({
+      sido: useSido,
+      sigungu: useSigungu,
+      dong: useDong,
+      complexName: name,
+      exactAptNm: name,
+      complexId: complexId || null,        // Supabase complex_id
+      buildYear: meta && meta.buildYear || null,
+      areaList: meta && meta.areaList || [],
+    });
   }
 
   const stepCls = "mb-4";
@@ -2994,12 +3088,38 @@ function LocationPicker({ onComplete }) {
                 후보 {candidates.length}개 — 분석할 단지를 선택하세요
                 {candidates.length >= 20 && <span className="ml-1 text-amber-600">(상위 20개 표시 · 단지명을 더 구체적으로 입력하면 좁혀집니다)</span>}
               </p>
-              <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+              <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
                 {candidates.map((c, i) => (
-                  <button key={i} onClick={() => selectComplex(c.name, c.dong)}
-                    className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left hover:border-amber-400 hover:bg-amber-50 transition-all">
-                    <p className="text-sm font-semibold text-slate-800">{c.name}</p>
-                    <p className="mt-0.5 text-[11px] text-slate-400">{c.sigungu} {c.dong && `· ${c.dong}`}</p>
+                  <button key={i} onClick={() => selectComplex(c.name, c.dong, c.complexId, c)}
+                    className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left hover:border-amber-400 hover:bg-amber-50 transition-all text-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-800 truncate">{c.name}</p>
+                        <p className="mt-0.5 text-[11px] text-slate-400">
+                          {c.sigungu}{c.dong ? ` · ${c.dong}` : ""}
+                          {c.buildYear ? ` · ${c.buildYear}년` : ""}
+                          {c.roadAddr ? ` · ${c.roadAddr}` : ""}
+                        </p>
+                        {c.areaList && c.areaList.length > 0 && (
+                          <p className="mt-0.5 text-[11px] text-blue-500">
+                            면적: {c.areaList.slice(0,4).map(a => `${a}㎡`).join(" / ")}
+                            {c.areaList.length > 4 && ` 외 ${c.areaList.length-4}개`}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        {c.saleCnt > 0 && (
+                          <p className="text-[11px] text-slate-400">매매 {c.saleCnt}건</p>
+                        )}
+                        {c.lastSaleYm && (
+                          <p className="text-[11px] text-slate-300">최근 {c.lastSaleYm.slice(0,4)}.{c.lastSaleYm.slice(4)}</p>
+                        )}
+                        {c.fromSB
+                          ? <span className="text-[10px] text-emerald-500">DB✓</span>
+                          : <span className="text-[10px] text-slate-300">API</span>
+                        }
+                      </div>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -3074,6 +3194,26 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   async function fetchAreasFor(region, dong, complexName, exactAptNm, sido) {
     if (!complexName || !region) return;
     setFetchingAreas(true); setAiMsg(null); setAreaOptions([]);
+
+    // Supabase에서 면적 목록 우선 조회
+    try {
+      const sbRes = await fetch('/api/supabase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'areas', complex_name: exactAptNm || complexName, sigungu: region }),
+      });
+      if (sbRes.ok) {
+        const sbData = await sbRes.json();
+        if (sbData.areas && sbData.areas.length > 0) {
+          const opts = sbData.areas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
+          setAreaOptions(opts);
+          setFetchingAreas(false);
+          return; // Supabase 성공 → 국토부 API 스킵
+        }
+      }
+    } catch (e) {
+      console.warn('[fetchAreasFor] Supabase 실패, molit fallback:', e.message);
+    }
     try {
       let lawdCd = null;
       try {
@@ -3317,11 +3457,20 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
             </button>
           </div>
         ) : (
-          <LocationPicker onComplete={({ sido, sigungu, dong, complexName, exactAptNm }) => {
-            setF(p => ({ ...p, region: sigungu, sido, dong, complexName, exactAptNm, areaExclusive: "" }));
-            rawMolitRef.current = null; // 새 단지 선택 시 원본 데이터 초기화
+          <LocationPicker onComplete={({ sido, sigungu, dong, complexName, exactAptNm, complexId, buildYear, areaList }) => {
+            setF(p => ({ ...p, region: sigungu, sido, dong, complexName, exactAptNm,
+              complexId: complexId || null,
+              buildYear: buildYear || p.buildYear,
+              areaExclusive: "" }));
+            rawMolitRef.current = null;
             setAreaOptions([]);
-            setTimeout(() => fetchAreasFor(sigungu, dong, complexName, exactAptNm, sido), 100);
+            // areaList가 있으면 바로 면적 버튼 생성 (Supabase 경로)
+            if (areaList && areaList.length > 0) {
+              const opts = areaList.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
+              setAreaOptions(opts);
+            } else {
+              setTimeout(() => fetchAreasFor(sigungu, dong, complexName, exactAptNm, sido), 100);
+            }
           }} />
         )}
 
