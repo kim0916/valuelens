@@ -3503,8 +3503,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     }
 
     // currentPrice는 사용자 입력값 절대 보존 — rawData/filled로 덮어쓰기 금지
-    const preservedPrice = userCurrentPrice || Number(ff.currentPrice) || Number(f.currentPrice) || 0;
-    console.log("[PRICE] setF 직전 — preservedPrice:", preservedPrice, "filled.currentPrice:", filled.currentPrice);
+    const preservedPrice = Number(ff.currentPrice) || Number(f.currentPrice) || Number(rawDataWithUserInput.currentPrice) || 0;
+    console.log("[PRICE] setF 직전 — preservedPrice:", preservedPrice, "ff.currentPrice:", ff.currentPrice, "f.currentPrice:", f.currentPrice);
     setF({ ...filled, currentPrice: preservedPrice });
     const opts = filled._aiAreaOptions?.length > 0 ? filled._aiAreaOptions : (rawData.areaOptions || []);
     setAreaOptions(opts);
