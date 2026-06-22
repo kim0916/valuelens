@@ -2854,6 +2854,8 @@ function LocationPicker({ onComplete }) {
   const [complexQ, setComplexQ] = React.useState("");
   const [complexList, setComplexList] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
+  const [candidateMode, setCandidateMode] = React.useState(false); // 후보 선택 모드
+  const [candidates, setCandidates] = React.useState([]);           // 후보 단지 목록
 
   const filteredSido = SIDO_LIST.filter(s => fuzzyMatch(s, sidoQ));
   const filteredSigungu = sigunguList.filter(s => fuzzyMatch(s, sigunguQ));
@@ -2879,6 +2881,7 @@ function LocationPicker({ onComplete }) {
 
   async function searchComplex(kw) {
     setComplexQ(kw);
+    setCandidateMode(false); setCandidates([]);
     if (!sigungu || kw.length < 1) { setComplexList([]); return; }
     setLoading(true);
     try {
@@ -2887,13 +2890,32 @@ function LocationPicker({ onComplete }) {
       if (!lawdCd) return;
       const cRes = await fetch("/api/molit", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"complexList", lawdCd, complexName: kw }) });
       const cd = await cRes.json();
-      setComplexList(cd.list || []);
+      const list = cd.list || [];
+      setComplexList(list);
+
+      // 브랜드 단독 or 후보 2개 이상 → 후보 선택 모드
+      const isBrand = isBrandOnlySearch(kw);
+      if (list.length >= 2 || (isBrand && list.length >= 1)) {
+        // 후보 카드용 정보 구성 (단지명 + 현재 지역 정보)
+        const cands = list.slice(0, 20).map(name => ({
+          name,
+          sigungu,
+          dong,
+          sido,
+          lawdCd,
+          isBrandMatch: normalizeAptName(name).includes(normalizeAptName(kw)),
+        }));
+        setCandidates(cands);
+        setCandidateMode(true);
+      }
     } catch(e) { setComplexList([]); }
     finally { setLoading(false); }
   }
 
-  function selectComplex(name) {
-    onComplete({ sido, sigungu, dong, complexName: name, exactAptNm: name });
+  function selectComplex(name, candidateDong) {
+    const useDong = candidateDong || dong;
+    setCandidateMode(false); setCandidates([]); setComplexList([]);
+    onComplete({ sido, sigungu, dong: useDong, complexName: name, exactAptNm: name });
   }
 
   const stepCls = "mb-4";
@@ -2956,7 +2978,41 @@ function LocationPicker({ onComplete }) {
             placeholder="단지명 입력 (예: 동부, 래미안...)"
             className={inp} />
           {loading && <p className="text-xs text-slate-400">조회 중…</p>}
-          {complexList.length > 0 && (
+
+          {/* 브랜드 단독 검색 안내 */}
+          {!loading && isBrandOnlySearch(complexQ) && complexList.length > 0 && (
+            <div className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700 border border-amber-200">
+              ⚠️ <b>"{complexQ}"</b>은 전국에 여러 단지가 있습니다.
+              아래에서 원하는 단지를 선택하거나, <b>전체 단지명</b>(예: {complexQ}골드파크1차)을 입력하면 정확도가 올라갑니다.
+            </div>
+          )}
+
+          {/* 후보 선택 모드 — 카드 형태 */}
+          {candidateMode && candidates.length > 0 && (
+            <div className="mt-1">
+              <p className="mb-2 text-xs font-bold text-slate-500">
+                후보 {candidates.length}개 — 분석할 단지를 선택하세요
+                {candidates.length >= 20 && <span className="ml-1 text-amber-600">(상위 20개 표시 · 단지명을 더 구체적으로 입력하면 좁혀집니다)</span>}
+              </p>
+              <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                {candidates.map((c, i) => (
+                  <button key={i} onClick={() => selectComplex(c.name, c.dong)}
+                    className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left hover:border-amber-400 hover:bg-amber-50 transition-all">
+                    <p className="text-sm font-semibold text-slate-800">{c.name}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-400">{c.sigungu} {c.dong && `· ${c.dong}`}</p>
+                  </button>
+                ))}
+              </div>
+              {candidates.length >= 20 && (
+                <p className="mt-2 text-[11px] text-slate-400 text-center">
+                  더 많은 결과가 있을 수 있습니다. 단지명을 더 구체적으로 입력해보세요.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* 일반 드롭다운 — 후보 2개 미만일 때만 표시 */}
+          {!candidateMode && complexList.length > 0 && (
             <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-100 bg-white shadow-md">
               {complexList.map((name, i) => (
                 <button key={i} onClick={() => selectComplex(name)}
@@ -2966,8 +3022,13 @@ function LocationPicker({ onComplete }) {
               ))}
             </div>
           )}
+
           {!loading && complexQ.length > 0 && complexList.length === 0 && (
-            <p className="text-xs text-slate-400">단지를 찾지 못했습니다. 단지명을 직접 입력 후 면적 조회하세요.</p>
+            <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
+              <p>단지를 찾지 못했습니다.</p>
+              <p className="mt-1">① 단지명 전체(예: 더샵파크애비뉴)를 입력하거나</p>
+              <p>② 면적을 직접 입력 후 KB시세를 넣어 분석하세요.</p>
+            </div>
           )}
         </div>
       )}
