@@ -3284,11 +3284,14 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     const ff = overrideForm ? { ...f, ...overrideForm } : f;
     if (!ff.complexName && !(ff.currentPrice && ff.kbJeonse)) { setAiMsg("최소한 단지명을 입력하세요. (예: 동부)"); return; }
 
-    // 면적 변경인지 판단 — 단지명 같고 원본 있으면 로컬 재필터
+    // 면적 변경인지 판단 — Supabase 데이터로 저장된 경우만 로컬 재필터 허용
+    // MOLIT 데이터(rawMolitRef.dataSource !== 'supabase')는 항상 Supabase 재조회
     const isSameComplex = rawMolitRef.current &&
+      rawMolitRef.current.dataSource === 'supabase' &&
       rawMolitRef.current.complexName === (ff.exactAptNm || ff.complexName) &&
       rawMolitRef.current.dong === ff.dong;
     const isAreaChange = overrideArea && isSameComplex;
+    console.log('[PIPELINE] start — complexId:', ff.complexId||'null', 'complexName:', ff.exactAptNm||ff.complexName, 'isAreaChange:', isAreaChange, 'rawMolitSource:', rawMolitRef.current?.dataSource||'none');
 
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
@@ -3363,7 +3366,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
     // Supabase 단지 정보 없으면 MOLIT fallback
     if (!complexInfo) {
-      console.log("  [SB-TEST] Supabase 단지 없음 → MOLIT fallback");
+      console.log('[PIPELINE] fallback=molit (단지 없음)');
       return await _fetchRawData(ff, overrideArea, exclusiveAreas);
     }
 
@@ -3408,7 +3411,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
     // ── Supabase 거래 데이터 없으면 MOLIT fallback ──
     if (saleDeals.length === 0 && rentDeals.length === 0) {
-      console.log("  [SB-TEST] 거래 데이터 없음 → MOLIT fallback");
+      console.log('[PIPELINE] fallback=molit (거래 없음)');
       return await _fetchRawData(ff, overrideArea, exclusiveAreas);
     }
 
@@ -3451,8 +3454,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       ...data,
       complexName: ff.exactAptNm || ff.complexName,
       dong: ff.dong,
+      dataSource: 'supabase',
     };
-    console.log("[raw] 저장 (Supabase):", sale.length, "매매", jeonse.length, "전세");
+    console.log('[PIPELINE] source=supabase, 매매:', sale.length, '전세:', jeonse.length);
     return data;
   }
 
@@ -3468,8 +3472,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       ...data,
       complexName: ff.exactAptNm || ff.complexName,
       dong: ff.dong,
+      dataSource: 'molit',
     };
-    console.log("[raw] 저장:", (data.sale||[]).length, "매매", (data.jeonse||[]).length, "전세");
+    console.log('[PIPELINE] source=molit(fallback), 매매:', (data.sale||[]).length, '전세:', (data.jeonse||[]).length);
     return data;
   }
 
