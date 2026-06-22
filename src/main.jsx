@@ -3282,7 +3282,10 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   // ─────────────────────────────────────────────────────────────
   async function quickSearch(overrideArea, overrideForm, exclusiveAreas = null) {
     const ff = overrideForm ? { ...f, ...overrideForm } : f;
-    if (!ff.complexName && !(ff.currentPrice && ff.kbJeonse)) { setAiMsg("최소한 단지명을 입력하세요. (예: 동부)"); return; }
+    // listingPriceInput: 독립 state에서 직접 읽음
+    const listingPrice = Number(String(listingPriceInput).replace(/,/g, "")) || 0;
+    console.log("[PRICE_INPUT] before fetchPipeline:", listingPriceInput, "→", listingPrice);
+    if (!ff.complexName && !listingPrice) { setAiMsg("최소한 단지명을 입력하세요. (예: 동부)"); return; }
 
     // 면적 변경인지 판단 — Supabase 데이터로 저장된 경우만 로컬 재필터 허용
     // MOLIT 데이터(rawMolitRef.dataSource !== 'supabase')는 항상 Supabase 재조회
@@ -3502,9 +3505,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       filled._areaChangedMsg = `면적이 ${overrideArea}㎡로 변경되어 기존 분석값을 초기화했습니다. 다시 AI 분석을 실행하세요.`;
     }
 
-    // currentPrice는 사용자 입력값 절대 보존 — rawData/filled로 덮어쓰기 금지
-    const preservedPrice = Number(ff.currentPrice) || Number(f.currentPrice) || Number(rawDataWithUserInput.currentPrice) || 0;
-    console.log("[PRICE] setF 직전 — preservedPrice:", preservedPrice, "ff.currentPrice:", ff.currentPrice, "f.currentPrice:", f.currentPrice);
+    // listingPriceInput(독립 state)에서 직접 읽음 — 절대 초기화 안 됨
+    const preservedPrice = Number(String(listingPriceInput).replace(/,/g, "")) || Number(ff.currentPrice) || Number(f.currentPrice) || 0;
+    console.log("[PRICE_INPUT] setF 직전 — listingPriceInput:", listingPriceInput, "→ preservedPrice:", preservedPrice);
     setF({ ...filled, currentPrice: preservedPrice });
     const opts = filled._aiAreaOptions?.length > 0 ? filled._aiAreaOptions : (rawData.areaOptions || []);
     setAreaOptions(opts);
@@ -3512,8 +3515,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     const askedArea = effectiveArea;
     if (askedArea <= 0 && opts.length > 0) { setAiMsg(null); return; }
 
-    const finalCurrentPrice = preservedPrice || Number(ff.currentPrice) || Number(filled.currentPrice) || 0;
-    console.log("[PRICE] before calculate — finalCurrentPrice:", finalCurrentPrice);
+    const finalCurrentPrice = preservedPrice || Number(String(listingPriceInput).replace(/,/g, "")) || 0;
+    console.log("[PRICE_INPUT] before calculate — listingPriceInput:", listingPriceInput, "finalCurrentPrice:", finalCurrentPrice);
     const finalBlockReason = !finalCurrentPrice ? "현재 매물가를 입력하세요." : blockReason;
     const pendingFf = builtFf
       ? { ...builtFf, currentPrice: finalCurrentPrice }
