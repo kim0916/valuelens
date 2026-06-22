@@ -2817,9 +2817,9 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
     pyeong, areaExclusive: areaSqm || "", priceArea,
     buildYear: p.buildYear || "",
     buildYearWarning: p.buildYearWarning || null,
-    currentPrice: Number(p.currentPrice) || "",
-    kbSalePrice: Number(p.kbSalePrice) || "",
-    kbJeonse: Number(p.kbJeonse) || "",
+    currentPrice: Number(baseForm.currentPrice) || Number(p.currentPrice) || "",
+    kbSalePrice: Number(baseForm.kbSalePrice) || Number(p.kbSalePrice) || "",
+    kbJeonse: Number(baseForm.kbJeonse) || Number(p.kbJeonse) || "",
     deals: jd, saleDeals: sd, shockLevel: "보통",
     _aiFilled: true, _aiSource: "국토부 실거래·KB·호갱노노 웹검색(AI)", _needKbInput: needKbInput,
     _tradeStatus: ts,
@@ -3417,6 +3417,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   // quickSearch: fetchPipeline 호출 전용 래퍼
   async function quickSearch(overrideArea, overrideForm, exclusiveAreas = null) {
     const ff = overrideForm ? { ...f, ...overrideForm } : f;
+    // currentPrice는 항상 현재 입력된 DOM 값 또는 f 값 유지 (pipeline이 덮어쓰지 않도록)
+    const savedCurrentPrice = Number(ff.currentPrice) || Number(f.currentPrice) || 0;
+    console.log("[PRICE] quickSearch 시작 — savedCurrentPrice:", savedCurrentPrice);
     if (!ff.complexName && !(ff.currentPrice && ff.kbJeonse)) {
       setAiMsg("최소한 단지명을 입력하세요. (예: 동부)"); return;
     }
@@ -3444,8 +3447,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
   function _processRawData(rawData, ff, overrideArea, exclusiveAreas) {
     // 사용자 입력 currentPrice 보존 — rawData에 없어도 ff(폼) 값 우선
-    const userCurrentPrice = Number(ff.currentPrice) || Number(f.currentPrice) || 0;
-    console.log("[PRICE] before pipeline — ff.currentPrice:", ff.currentPrice, "f.currentPrice:", f.currentPrice, "→ userCurrentPrice:", userCurrentPrice);
+    const userCurrentPrice = Number(ff.currentPrice) || Number(f.currentPrice) || savedCurrentPrice || 0;
+    console.log("[PRICE] before pipeline — ff.currentPrice:", ff.currentPrice, "f.currentPrice:", f.currentPrice, "saved:", savedCurrentPrice, "→ userCurrentPrice:", userCurrentPrice);
     const rawDataWithUserInput = {
       ...rawData,
       // 사용자가 입력한 값은 절대 덮어쓰지 않음
