@@ -3604,6 +3604,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
               areaExclusive: "" }));
             rawMolitRef.current = null;
             setAreaOptions([]);
+            setListingPriceInput(""); // 단지 변경 시 매물가 초기화
             // areaList가 있으면 바로 면적 버튼 생성 (Supabase 경로)
             if (areaList && areaList.length > 0) {
               const opts = areaList.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
