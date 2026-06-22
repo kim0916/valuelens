@@ -1,8 +1,5 @@
 // api/supabase.js
-// Supabase 조회 API — 단지 검색 / 가격 요약 / 면적 목록
-// fallback: api/molit.js (기존 국토부 API)
-
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -18,14 +15,11 @@ export default async function handler(req, res) {
   const { type } = req.body || {};
 
   // ── 1. 단지 검색 ──
-  // 입력: { type:"search", name, sigungu, dong, limit }
-  // 출력: { complexes: [...] }
   if (type === 'search') {
     const { name, sigungu, dong, limit = 20 } = req.body;
     if (!name) { res.status(400).json({ error: 'name 필수' }); return; }
 
     try {
-      // alias 테이블 먼저 확인
       const aliasKey = name.replace(/\s/g, '');
       const { data: aliasData } = await supabase
         .from('realestate_complex_aliases')
@@ -40,14 +34,9 @@ export default async function handler(req, res) {
         searchName = aliasMatch.real_name;
       }
 
-      // complexes 검색 (trigram 유사도 기반)
       let query = supabase
         .from('realestate_complexes')
-        .select(`
-          id, complex_name, sigungu, sido, sigungu_short,
-          legal_dong, road_addr, build_year,
-          sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list
-        `)
+        .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
         .ilike('complex_name', `%${searchName.replace(/\s/g,'')}%`)
         .order('sale_cnt', { ascending: false })
         .limit(limit);
@@ -59,11 +48,7 @@ export default async function handler(req, res) {
       if (error) throw error;
 
       res.setHeader('Cache-Control', 's-maxage=3600');
-      res.status(200).json({
-        complexes: data || [],
-        aliasMatch,
-        total: (data || []).length,
-      });
+      res.status(200).json({ complexes: data || [], aliasMatch, total: (data || []).length });
     } catch (e) {
       res.status(500).json({ error: '단지 검색 실패: ' + e.message });
     }
@@ -71,8 +56,6 @@ export default async function handler(req, res) {
   }
 
   // ── 2. 가격 요약 조회 ──
-  // 입력: { type:"summary", complex_id, area_excl }
-  // 출력: { summary: { sale_avg, rent_avg, jeonse_ratio, ... } }
   if (type === 'summary') {
     const { complex_id, complex_name, sigungu, area_excl } = req.body;
     if (!complex_id && !complex_name) {
@@ -94,10 +77,7 @@ export default async function handler(req, res) {
       }
 
       if (area_excl) {
-        // ±1㎡ 허용
-        query = query
-          .gte('area_excl', Number(area_excl) - 1)
-          .lte('area_excl', Number(area_excl) + 1);
+        query = query.gte('area_excl', Number(area_excl) - 1).lte('area_excl', Number(area_excl) + 1);
       }
 
       const { data, error } = await query;
@@ -112,8 +92,6 @@ export default async function handler(req, res) {
   }
 
   // ── 3. 면적 목록 조회 ──
-  // 입력: { type:"areas", complex_id }
-  // 출력: { areas: [59.97, 84.96, ...] }
   if (type === 'areas') {
     const { complex_id, complex_name, sigungu } = req.body;
 
@@ -141,8 +119,6 @@ export default async function handler(req, res) {
   }
 
   // ── 4. 실거래 원본 조회 ──
-  // 입력: { type:"deals", complex_id, area_excl, months }
-  // 출력: { saleDeals, rentDeals }
   if (type === 'deals') {
     const { complex_id, complex_name, sigungu, area_excl, months = 24 } = req.body;
 
@@ -160,24 +136,20 @@ export default async function handler(req, res) {
         else q = q.eq('complex_name', complex_name).eq('sigungu', sigungu);
 
         if (area_excl) {
-          q = q
-            .gte('area_excl', Number(area_excl) - 1)
-            .lte('area_excl', Number(area_excl) + 1);
+          q = q.gte('area_excl', Number(area_excl) - 1).lte('area_excl', Number(area_excl) + 1);
         }
         return q.limit(200);
       };
 
-      const [{ data: saleData }, { data: rentData }] = await Promise.all([
-        baseFilter('realestate_sales_raw').neq('cancel_date', '-').execute
-          ? baseFilter('realestate_sales_raw')
-          : baseFilter('realestate_sales_raw'),
+      const [saleRes, rentRes] = await Promise.all([
+        baseFilter('realestate_sales_raw'),
         baseFilter('realestate_rent_raw').eq('monthly_man', 0),
       ]);
 
       res.setHeader('Cache-Control', 's-maxage=600');
       res.status(200).json({
-        saleDeals: saleData || [],
-        rentDeals: rentData || [],
+        saleDeals: saleRes.data || [],
+        rentDeals: rentRes.data || [],
       });
     } catch (e) {
       res.status(500).json({ error: '실거래 조회 실패: ' + e.message });
