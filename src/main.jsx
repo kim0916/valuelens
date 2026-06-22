@@ -3443,13 +3443,16 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
 
   function _processRawData(rawData, ff, overrideArea, exclusiveAreas) {
+    // 사용자 입력 currentPrice 보존 — rawData에 없어도 ff(폼) 값 우선
+    const userCurrentPrice = Number(ff.currentPrice) || Number(f.currentPrice) || 0;
+    console.log("[PRICE] before pipeline — ff.currentPrice:", ff.currentPrice, "f.currentPrice:", f.currentPrice, "→ userCurrentPrice:", userCurrentPrice);
     const rawDataWithUserInput = {
       ...rawData,
-      // 면적 변경 시 KB시세/현재가는 이전 값 유지 — 사용자가 입력한 값이 우선
-      currentPrice: Number(ff.currentPrice) || rawData.currentPrice || 0,
-      kbSalePrice:  Number(ff.kbSalePrice)  || rawData.kbSalePrice  || 0,
-      kbJeonse:     Number(ff.kbJeonse)     || rawData.kbJeonse     || 0,
-      buildYear:    ff.buildYear || rawData.buildYear || 0,
+      // 사용자가 입력한 값은 절대 덮어쓰지 않음
+      currentPrice: userCurrentPrice || rawData.currentPrice || 0,
+      kbSalePrice:  Number(ff.kbSalePrice)  || Number(f.kbSalePrice)  || rawData.kbSalePrice  || 0,
+      kbJeonse:     Number(ff.kbJeonse)     || Number(f.kbJeonse)     || rawData.kbJeonse     || 0,
+      buildYear:    ff.buildYear || f.buildYear || rawData.buildYear || 0,
       buildYearWarning: rawData.buildYearWarning || null,
     };
     const effectiveArea = Number(overrideArea) || Number(ff.areaExclusive) || Number(f.areaExclusive) || 0;
@@ -3466,14 +3469,18 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       filled._areaChangedMsg = `면적이 ${overrideArea}㎡로 변경되어 기존 분석값을 초기화했습니다. 다시 AI 분석을 실행하세요.`;
     }
 
-    setF(filled);
+    // currentPrice: filled에 값 없으면 현재 f 값 유지
+    const preservedCurrentPrice = Number(filled.currentPrice) || userCurrentPrice || 0;
+    console.log("[PRICE] after pipeline — filled.currentPrice:", filled.currentPrice, "→ preserved:", preservedCurrentPrice);
+    setF({ ...filled, currentPrice: preservedCurrentPrice });
     const opts = filled._aiAreaOptions?.length > 0 ? filled._aiAreaOptions : (rawData.areaOptions || []);
     setAreaOptions(opts);
 
     const askedArea = effectiveArea;
     if (askedArea <= 0 && opts.length > 0) { setAiMsg(null); return; }
 
-    const finalCurrentPrice = Number(ff.currentPrice) || Number(filled.currentPrice) || 0;
+    const finalCurrentPrice = userCurrentPrice || Number(ff.currentPrice) || Number(filled.currentPrice) || 0;
+    console.log("[PRICE] before calculate — finalCurrentPrice:", finalCurrentPrice);
     const finalBlockReason = !finalCurrentPrice ? "현재 매물가를 입력하세요." : blockReason;
     const pendingFf = builtFf
       ? { ...builtFf, currentPrice: finalCurrentPrice }
