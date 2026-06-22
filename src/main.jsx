@@ -3307,11 +3307,11 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         rawData = refilterByArea(overrideArea, exclusiveAreas);
         if (!rawData) {
           // 재필터 실패 → API 재호출로 fallback
-          rawData = await _fetchRawData(ff, overrideArea, exclusiveAreas);
+          rawData = await _fetchRawDataSupabase(ff, overrideArea, exclusiveAreas);
         }
       } else {
-        // ── 신규 단지 또는 원본 없음 → API 호출 ──
-        rawData = await _fetchRawData(ff, overrideArea, exclusiveAreas);
+        // ── 신규 단지 또는 원본 없음 → Supabase 우선 / MOLIT fallback ──
+        rawData = await _fetchRawDataSupabase(ff, overrideArea, exclusiveAreas);
       }
 
       // ── 공통 처리 ──
@@ -3328,6 +3328,131 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       setPending({ ff: fallbackFf, jeonseCalc: null, saleCalc: null,
         blockReason: e.message || "조회 실패 — 아래에서 값을 직접 입력하세요." });
     } finally { setAiLoading(false); }
+  }
+
+  // ── Supabase 우선 데이터 조회 (테스트 버전: 콘솔 로그 포함) ──
+  async function _fetchRawDataSupabase(ff, overrideArea, exclusiveAreas) {
+    const complexId = ff.complexId || null;
+    const complexName = ff.exactAptNm || ff.complexName || "";
+    const sigungu = ff.region || "";
+    const targetArea = overrideArea ? Number(overrideArea) : Number(ff.areaExclusive) || 0;
+
+    console.log("▶ [SB-TEST] 조회 시작:", { complexId, complexName, sigungu, targetArea });
+
+    // ── STEP 1: complexId 또는 단지명으로 complexes 조회 ──
+    let complexInfo = null;
+    try {
+      const r1 = await fetch("/api/supabase", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "search", name: complexName, sigungu, limit: 5 })
+      });
+      const d1 = await r1.json();
+      console.log("  [STEP1] realestate_complexes 결과:", d1.complexes?.length, "건", d1.complexes?.map(c => c.complex_name));
+      if (d1.complexes && d1.complexes.length > 0) {
+        // complexId 일치 우선, 없으면 첫 번째
+        complexInfo = d1.complexes.find(c => complexId && c.id === complexId) || d1.complexes[0];
+        console.log("  [STEP1] 선택된 단지:", complexInfo.complex_name, "id:", complexInfo.id);
+      }
+      if (d1.aliasMatch) {
+        console.log("  [STEP1-ALIAS] alias 매칭:", d1.aliasMatch);
+      }
+    } catch(e) {
+      console.warn("  [STEP1] complexes 조회 실패:", e.message);
+    }
+
+    // Supabase 단지 정보 없으면 MOLIT fallback
+    if (!complexInfo) {
+      console.log("  [SB-TEST] Supabase 단지 없음 → MOLIT fallback");
+      return await _fetchRawData(ff, overrideArea, exclusiveAreas);
+    }
+
+    const useComplexId = complexInfo.id;
+    const useComplexName = complexInfo.complex_name;
+
+    // ── STEP 2: aliases 확인 (이미 STEP1에서 반환됨, 별도 로그용) ──
+    console.log("  [STEP2] aliases 확인 완료 (STEP1에 포함)");
+
+    // ── STEP 3: price_summary 조회 ──
+    let summary = null;
+    try {
+      const r3 = await fetch("/api/supabase", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "summary", complex_id: useComplexId, area_excl: targetArea || undefined })
+      });
+      const d3 = await r3.json();
+      summary = d3.summary || null;
+      console.log("  [STEP3] price_summary:", summary ? `전세가율 ${summary.jeonse_ratio}, 매매avg ${summary.sale_avg}` : "없음");
+    } catch(e) {
+      console.warn("  [STEP3] price_summary 조회 실패:", e.message);
+    }
+
+    // ── STEP 4+5: sales_raw + rent_raw 조회 ──
+    let saleDeals = [], rentDeals = [];
+    try {
+      const r4 = await fetch("/api/supabase", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "deals", complex_id: useComplexId, area_excl: targetArea || undefined, months: 24 })
+      });
+      const d4 = await r4.json();
+      saleDeals = d4.saleDeals || [];
+      rentDeals = d4.rentDeals || [];
+      console.log("  [STEP4] sales_raw:", saleDeals.length, "건");
+      console.log("  [STEP5] rent_raw:", rentDeals.length, "건");
+    } catch(e) {
+      console.warn("  [STEP4+5] deals 조회 실패:", e.message);
+    }
+
+    // ── STEP 6: price_summary 데이터 로그 (이미 STEP3에서 조회) ──
+    console.log("  [STEP6] price_summary 재확인:", summary);
+
+    // ── Supabase 거래 데이터 없으면 MOLIT fallback ──
+    if (saleDeals.length === 0 && rentDeals.length === 0) {
+      console.log("  [SB-TEST] 거래 데이터 없음 → MOLIT fallback");
+      return await _fetchRawData(ff, overrideArea, exclusiveAreas);
+    }
+
+    // ── STEP 7: 기존 형식으로 변환 (계산식 건드리지 않음) ──
+    const toSale = (d) => ({
+      areaSqm:      Number(d.area_excl) || 0,
+      price:        Number(d.deal_amount_man) || 0,
+      contractYm:   d.contract_ym || "",
+      aptNm:        d.complex_name || useComplexName,
+      floor:        d.floor || 0,
+      cancelDate:   d.cancel_date || null,
+    });
+    const toRent = (d) => ({
+      areaSqm:      Number(d.area_excl) || 0,
+      price:        Number(d.deposit_man) || 0,
+      contractYm:   d.contract_ym || "",
+      aptNm:        d.complex_name || useComplexName,
+      floor:        d.floor || 0,
+      monthly:      Number(d.monthly_man) || 0,
+    });
+
+    const sale   = saleDeals.map(toSale).filter(d => d.price > 0 && d.areaSqm > 0);
+    const jeonse = rentDeals.map(toRent).filter(d => d.price > 0 && d.areaSqm > 0);
+
+    console.log("  [STEP7] 변환 완료 — 매매:", sale.length, "전세:", jeonse.length);
+    console.log("  [SB-TEST] ✅ Supabase 경로 성공");
+
+    const data = {
+      sale, jeonse,
+      areaOptions: complexInfo.area_list
+        ? JSON.parse(complexInfo.area_list).map(a => ({ areaSqm: a, pyeong: Math.round(a / 3.3058) }))
+        : [],
+      buildYear:    complexInfo.build_year || null,
+      lawdCd:       null,
+      tradeStatus:  { code: "OK", msg: null, pipeline: { source: "supabase" } },
+      dataSource:   "supabase",
+    };
+
+    rawMolitRef.current = {
+      ...data,
+      complexName: ff.exactAptNm || ff.complexName,
+      dong: ff.dong,
+    };
+    console.log("[raw] 저장 (Supabase):", sale.length, "매매", jeonse.length, "전세");
+    return data;
   }
 
   async function _fetchRawData(ff, overrideArea, exclusiveAreas) {
