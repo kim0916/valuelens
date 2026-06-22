@@ -140,8 +140,45 @@ function ComplexAutocomplete({ dong, value, onChange, placeholder, className }) 
 // 결제 시스템을 연결해야 합니다. 프론트에는 계산식이 노출되지 않게 해야 합니다.
 // ============================================================================
 const NAVY = "#0f1f3d";
+// ══════════════════════════════════════════════════════════
+// 백테스트 v3 기반 엔진 상수 및 헬퍼 함수
+// ══════════════════════════════════════════════════════════
+const FALLBACK_RATIO = 0.55; // 동적 전세가율 불가 시 보수값
+
+const MARKET_TRENDS = {
+  "강남구": -9.2, "서초구": -9.2, "송파구": -9.2,
+  "노원구": 4.1,
+  "성남시 분당구": 5.0, "분당구": 5.0,
+  "연수구": 0.8,
+  "마포구": -0.5,
+};
+
+function getRegionTrend(region) {
+  if (!region) return 0.3;
+  for (const [key, val] of Object.entries(MARKET_TRENDS)) {
+    if (region.includes(key)) return val;
+  }
+  return 0.3;
+}
+
+function isRisingMarket(region) {
+  return getRegionTrend(region) >= 2.0;
+}
+
+function isPremiumComplex(region, actualRatio, buildYear) {
+  if (actualRatio == null) return false;
+  if (["강남구","서초구","송파구"].some(g => (region||"").includes(g)) && actualRatio < 0.50) return true;
+  if (actualRatio < 0.35) return true;
+  if (buildYear && Number(buildYear) <= 1995 && actualRatio < 0.50) return true;
+  return false;
+}
+
+function isExcludedType(areaSqm) {
+  return Number(areaSqm) > 0 && Number(areaSqm) <= 20;
+}
+
 const CONFIG = {
-  targetRatio: { 공릉동: 0.61, 노원구: 0.61, 강남구: 0.35, 서초구: 0.35, 송파구: 0.40, 용산구: 0.38, 양천구: 0.45, 목동: 0.45, 분당: 0.45, "성남시 분당구": 0.45, 판교: 0.42, 해운대구: 0.40, default: 0.55 },
+  // targetRatio 제거 — 동적 전세가율 + FALLBACK_RATIO로 대체
   safetyMargin: 0.05,
   grade: { A: -0.15, B: -0.05, C: 0.05, D: 0.15 },
   bubble: { under: -0.1, over: 1.0 },
@@ -150,7 +187,7 @@ const CONFIG = {
   dynClamp: { lo: 0.3, hi: 0.85 },               // 동적 전세가율 허용 범위 (고급·대형 저전세가율 수용)
 };
 const GRADES = ["A", "B", "C", "D", "E"];
-const LABEL = { A: "매우 저평가", B: "저평가", C: "적정 가격", D: "다소 고평가", E: "고평가", 보류: "판단 보류" };
+const LABEL = { A: "매우 저평가", B: "저평가", C: "적정 가격", D: "고평가 주의", E: "고평가", 보류: "판단 보류" };
 const GS = {
   A: { solid: "bg-emerald-600", text: "text-emerald-700" },
   B: { solid: "bg-emerald-500", text: "text-emerald-600" },
@@ -187,13 +224,15 @@ function areaButtonLabel(exclusiveSqm, supplySqm) {
 const exclusivePyeong = (sqm) => { sqm = Number(sqm) || 0; return sqm > 0 ? Math.round((sqm / 3.3058) * 10) / 10 : 0; };
 const areaLabel = (sqm) => { sqm = Number(sqm) || 0; return sqm > 0 ? `전용 ${sqm}㎡ · 통상 약 ${typicalPyeong(sqm)}평형` : "면적 미확인"; };
 const shift = (g, s) => GRADES[Math.max(0, Math.min(4, GRADES.indexOf(g) - s))];
-const ratioOf = (f) => CONFIG.targetRatio[f.dong] ?? CONFIG.targetRatio[f.region] ?? CONFIG.targetRatio.default;
+// ratioOf 제거 — isPremiumComplex + FALLBACK_RATIO로 대체
 
 function analyze(f) {
-  const regionRatio = ratioOf(f);                 // 지역 기본(0.61) = 보수/폴백
+  // regionRatio 완전 제거 — 동적 전세가율 + FALLBACK_RATIO로 대체
   const jeonseUsed = f.jeonseUsed || 0, saleUsed = f.saleUsed || 0;
   const saleRef = f.saleRef || 0, baseJeonse = f.baseJeonse || 0;
   const actualRatio = saleRef > 0 && baseJeonse > 0 ? Math.round((baseJeonse / saleRef) * 1000) / 1000 : null;
+  const buildYear = f.buildYear ? Number(f.buildYear) : null;
+  const areaSqm   = Number(f.areaExclusive) || 0;
 
   // 표본 신뢰 등급 (전세 표본 5↑ 정상 / 3~4 보통 / 1~2 낮음 / 0 매우낮음)
   const lvl = (n) => (n >= 5 ? "정상" : n >= 3 ? "보통" : n >= 1 ? "낮음" : "매우낮음");
@@ -201,20 +240,62 @@ function analyze(f) {
   const jeonseReliable = jeonseUsed >= 3; // 전세 기반 적정가 사용 최소선 (1~2건은 미사용)
   const saleReliable = saleUsed >= 3;
 
-  // 동적 전세가율 (양쪽 표본 충분 + 클램프 범위 내)
+  // 이상치 제거
+  const isExcluded   = isExcludedType(areaSqm);
+  const ratioInvalid = actualRatio != null && actualRatio > 1.0;
+  const ratioWarn    = actualRatio != null && actualRatio > 0.80 && !ratioInvalid;
+
+  // 프리미엄/재건축 판별
+  const isPremium = isPremiumComplex(f.region, actualRatio, buildYear);
+
+  // 동적 전세가율 (백테스트 v3)
   const CL = CONFIG.dynClamp;
   let dynamicRatio = null;
-  if (jeonseReliable && saleReliable && actualRatio != null && actualRatio >= CL.lo && actualRatio <= CL.hi) dynamicRatio = actualRatio;
+  if (jeonseReliable && saleReliable && actualRatio != null
+      && actualRatio >= CL.lo && actualRatio <= CL.hi && !ratioInvalid) {
+    dynamicRatio = actualRatio;
+  }
+  const usedRatio = dynamicRatio ?? FALLBACK_RATIO;
 
-  const jeonseFair = Math.round(baseJeonse / (dynamicRatio ?? regionRatio)); // 전세 기반(동적 우선)
-  const conservativePrice = Math.round(baseJeonse / regionRatio);            // 보수(0.61)
-  const saleFair = saleRef;                                                   // 매매 정제평균
+  // 전세기반 적정가 (구간별 보정)
+  let jeonseFair;
+  if (actualRatio != null && actualRatio >= 0.60 && jeonseReliable) {
+    jeonseFair = Math.round(baseJeonse / usedRatio * 0.96);
+  } else if (actualRatio != null && actualRatio >= 0.50 && jeonseReliable) {
+    jeonseFair = Math.round(baseJeonse / usedRatio * 1.01);
+  } else if (actualRatio != null && actualRatio >= 0.45 && jeonseReliable) {
+    jeonseFair = Math.round(baseJeonse / usedRatio * 1.06);
+  } else {
+    jeonseFair = Math.round(baseJeonse / usedRatio);
+  }
+  const conservativePrice = Math.round(baseJeonse / FALLBACK_RATIO);
+  const saleFair = saleRef;
 
-  // ── 엔진 분기 (실제 전세가율 기준) ──
+  // 데이터 경고
+  const dataWarnings = [];
+  if (isExcluded) dataWarnings.push("소형(20㎡ 이하) 물건 — 아파트 엔진 미적용");
+  if (ratioInvalid) dataWarnings.push("전세가율 100% 초과 — 데이터 오류 의심");
+  if (ratioWarn) dataWarnings.push(`전세가율 ${(actualRatio*100).toFixed(0)}% 초과 — 역전세 또는 특수 사정 확인 필요`);
+  if (jeonseUsed > 0 && jeonseUsed < 3) dataWarnings.push(`전세 실거래 ${jeonseUsed}건 — 3건 미만, 신뢰도 낮음`);
+  if (saleUsed > 0 && saleUsed < 3) dataWarnings.push(`매매 실거래 ${saleUsed}건 — 3건 미만, 신뢰도 낮음`);
+
+  // ── 엔진 분기 v3 (백테스트 기반) ──
   const B = CONFIG.ratioBand;
   let engineMode, mainPrice = null, holdReason = null;
-  if (!jeonseReliable && !saleReliable) {
-    engineMode = "hold"; holdReason = "전세·매매 실거래 표본이 모두 부족합니다. 하단 실거래 직접 입력을 활용하세요";
+
+  if (isExcluded) {
+    engineMode = "hold"; holdReason = "소형(20㎡ 이하) 물건은 아파트 엔진 미적용";
+  } else if (ratioInvalid) {
+    engineMode = "hold"; holdReason = "전세가율 100% 초과 — 데이터 오류 의심, 입력값 확인 필요";
+  } else if (!jeonseReliable && !saleReliable) {
+    engineMode = "hold"; holdReason = `전세·매매 실거래 표본이 모두 부족합니다 (전세 ${jeonseUsed}건, 매매 ${saleUsed}건 — 각 3건 이상 필요)`;
+  } else if (isPremium && saleReliable) {
+    const premiumAdj = ["강남구","서초구","송파구"].some(g => (f.region||"").includes(g)) ? 1.05 : 1.0;
+    engineMode = "sale"; mainPrice = Math.round(saleRef * premiumAdj);
+  } else if (isPremium && jeonseReliable && actualRatio != null) {
+    engineMode = "jeonse"; mainPrice = jeonseFair;
+  } else if (isPremium) {
+    engineMode = "hold"; holdReason = "프리미엄 단지 — 매매·전세 실거래 부족으로 판단 보류";
   } else if (actualRatio == null) {
     if (jeonseReliable) { engineMode = "jeonse"; mainPrice = jeonseFair; }
     else { engineMode = "hold"; holdReason = "전세 실거래 표본 부족 — 하단에서 실거래 직접 입력하거나 KB전세시세를 확인하세요"; }
@@ -309,7 +390,7 @@ function analyze(f) {
   const priceHealthScore = isHold ? null : Math.round(discount * 0.5 + conf * 0.3 + shockScore * 0.2);
 
   const modeName = { jeonse: "전세 기반 엔진", blend: "혼합 엔진", sale: "매매 정제평균 엔진", hold: "판단 보류" }[engineMode];
-  const ratioNote = actualRatio != null ? `실제 전세가율 ${actualRatio} → ${modeName}${dynamicRatio ? ` (동적 전세가율 ${dynamicRatio} 적용)` : engineMode === "jeonse" || engineMode === "blend" ? ` (지역 기본 ${regionRatio} 적용)` : ""}` : `매매 시세 없음 · ${modeName}`;
+  const ratioNote = actualRatio != null ? `실제 전세가율 ${(actualRatio*100).toFixed(1)}% → ${modeName}${dynamicRatio ? ` (동적 전세가율 ${(dynamicRatio*100).toFixed(1)}% 적용)` : ` (fallback ${(FALLBACK_RATIO*100).toFixed(0)}% 적용)`}` : `매매 시세 없음 · ${modeName}`;
 
   // ── 추천 이유 3줄 ──
   const reasons = [];
@@ -346,20 +427,56 @@ function analyze(f) {
     : { valuation: `${ratioNote}. 현재 매물가(${won(f.currentPrice)})는 엔진 산출 적정가(${won(mainPrice)})보다 약 ${Math.abs(gapRatio * 100).toFixed(1)}% ${gapRatio < 0 ? "낮은" : "높은"} 수준입니다.`, review: engineMode === "sale" ? `이 단지는 전세가율이 낮아 전세 기반 적정가(참고 ${won(conservativePrice)})를 메인으로 쓰지 않고 매매 정제평균을 기준으로 판단했습니다.` : `보수 기준가(${won(conservativePrice)}) 대비로는 ${f.currentPrice > conservativePrice ? "다소 높은" : "낮은"} 편입니다. 안전마진 고려 시 ${won(safetyPrice)} 이하에서 부담이 낮아집니다.`, negotiation: `협상은 ${won(negotiation.start)} 선에서 시작해 ${won(negotiation.max)} 이내에서 마무리하는 접근을 참고하세요.` };
 
   return {
-    engineMode, modeName, holdReason, fairPrice, jeonseFair, saleFair, conservativePrice, actualRatio, dynamicRatio, regionRatio,
+    engineMode, modeName, holdReason, fairPrice, jeonseFair, saleFair, conservativePrice, actualRatio, dynamicRatio, usedRatio, isPremium, ratioWarn, dataWarnings,
     jLevel, sLevel, mainLevel, jeonseUsed, saleUsed, age, saleType, saleNote, safetyPrice, gapRatio, buyGrade, gradeLabel, headline, bubbleIndex,
     confidenceScore: conf, confLabel, dataConf, dataConfLabel, modelConf, modelConfLabel, reasons, basis, ratioNote, negotiation, priceHealthScore, shock: { level: f.shockLevel, lag: sh.lag }, explain,
   };
 }
-// 매도 모드: 추천 매도가를 '생성'하지 않고, 사용자의 희망 매도가가 적정가 대비 타당한지 '평가'만 한다.
+// 매도 모드: 백테스트 v3 — 시장 방향성 필터 적용
+// 매도 적중률 38.8%로 낮으므로 "매도 추천" 대신 "고평가 주의/보유 리스크 점검"으로 표현
 function sellVerdict(r) {
-  if (r.engineMode === "hold") return { key: "HOLD", label: "판단 보류", tone: "amber", advice: `${r.holdReason}. 호가 적정성을 평가하기엔 데이터가 부족합니다.` };
-  const g = r.gapRatio; // (희망 매도가 - 적정가) / 적정가
-  if (g > 0.10) return { key: "HIGH", label: "호가가 높음", tone: "red", advice: "적정가보다 10% 이상 높습니다. 매도까지 오래 걸리거나 거래가 안 될 수 있어요. 문의가 없으면 호가를 단계적으로 낮추는 전략이 필요합니다." };
-  if (g > 0.03) return { key: "ABIT", label: "약간 높음", tone: "amber", advice: "적정가보다 다소 높습니다. 시장이 강하면 시도해볼 만하지만, 문의가 적으면 조정 여지를 두세요." };
-  if (g >= -0.03) return { key: "FAIR", label: "적정 호가", tone: "emerald", advice: "적정가 수준의 호가입니다. 무난하게 거래될 가능성이 높습니다." };
-  if (g >= -0.10) return { key: "LOW", label: "시세보다 낮음", tone: "blue", advice: "적정가보다 낮게 내놓는 호가입니다. 빨리 팔리지만 시세 대비 손해일 수 있어요. 급하지 않다면 호가를 올릴 여지가 있습니다." };
-  return { key: "TOOLOW", label: "지나치게 낮음", tone: "blue", advice: "적정가 대비 10% 이상 낮습니다. 급매가 아니라면 호가를 재검토하세요." };
+  if (r.engineMode === "hold") return {
+    key: "HOLD", label: "판단 보류", tone: "amber",
+    advice: `${r.holdReason}. 호가 적정성을 평가하기엔 데이터가 부족합니다.`
+  };
+  const g = r.gapRatio;
+  const region = r.region || "기타";
+  const rising = isRisingMarket(region);
+  const trend  = getRegionTrend(region);
+  const trendStr = `${trend > 0 ? "+" : ""}${trend.toFixed(1)}%`;
+
+  if (g > 0.10) {
+    if (rising) return {
+      key: "HIGH_RISING", label: "고평가 — 보유 리스크 점검", tone: "amber",
+      advice: `적정가보다 10% 이상 높지만 지역 시장 상승 중(${trendStr})입니다. 목표가 도달 시 일부 매도를 고려하거나 보유 리스크를 점검하세요.`
+    };
+    return {
+      key: "HIGH", label: "고평가 주의", tone: "red",
+      advice: "적정가보다 10% 이상 높습니다. 호가 조정 또는 매도 검토가 필요합니다. 시장 약세 시 가격 조정 가능성이 있습니다."
+    };
+  }
+  if (g > 0.03) {
+    if (rising) return {
+      key: "ABIT_RISING", label: "다소 고평가 — 보유 가능", tone: "slate",
+      advice: `지역 시장 상승 중(${trendStr})으로 보유 유지 가능합니다. 상승 추세 둔화 시 매도 검토를 권합니다.`
+    };
+    return {
+      key: "ABIT", label: "다소 고평가", tone: "amber",
+      advice: "적정가보다 다소 높습니다. 시장 강세 시 보유 가능하나, 거래량 감소 시 조정을 고려하세요."
+    };
+  }
+  if (g >= -0.03) return {
+    key: "FAIR", label: "적정 호가", tone: "emerald",
+    advice: "적정가 수준의 호가입니다. 무난하게 거래될 가능성이 높습니다."
+  };
+  if (g >= -0.10) return {
+    key: "LOW", label: "시세보다 낮음", tone: "blue",
+    advice: "적정가보다 낮은 호가입니다. 빠른 거래를 원하면 적합하지만, 급하지 않다면 호가를 올릴 여지가 있습니다."
+  };
+  return {
+    key: "TOOLOW", label: "매우 낮은 호가", tone: "blue",
+    advice: "적정가 대비 10% 이상 낮습니다. 급매가 아니라면 호가를 재검토하세요."
+  };
 }
 
 
@@ -477,10 +594,25 @@ function analyzeSellerDecision(f, r) {
   let finalSellDecision, sellerAction;
   if (provisional) { finalSellDecision = "판단 보류"; sellerAction = isAbnormal ? "희망 매도가 입력 오류 가능성 — 값 확인 후 재평가하세요" : "실거래·시세 데이터 부족 — 보강 후 재평가하세요"; }
   else {
-    finalSellDecision = sellScore >= 80 ? "매도 여건 양호" : sellScore >= 65 ? "매도 검토" : sellScore >= 50 ? (gapVsRef > 0.05 ? "가격 조정 후 매도" : "보유 검토") : sellScore >= 35 ? "보유 유지" : "보유 검토";
+    const _rising = isRisingMarket(f.region || "기타");
+    const _trend  = getRegionTrend(f.region || "기타");
+    const _trendStr = `${_trend > 0 ? "+" : ""}${_trend.toFixed(1)}%`;
+    finalSellDecision =
+      sellScore >= 80 ? (_rising ? "보유 리스크 점검" : "매도 검토 가능") :
+      sellScore >= 65 ? (_rising ? "보유 유지 검토" : "매도 검토") :
+      sellScore >= 50 ? (gapVsRef > 0.05 ? "고평가 주의 — 호가 조정 고려" : "보유 유지") :
+      sellScore >= 35 ? "보유 유지" : "보유 유지 권고";
     if (mc.specialMarketType === "redevelopment" && mc.stageScore >= 85) finalSellDecision = "보유 유지"; // 후기 단계 = 고위험 보유
     const purposeNote = { "갈아타기": "갈아타기 자금·상급지 추가자금을 함께 점검하세요", "현금화": "현금화 시 세후 실수령액 기준으로 판단하세요", "손실 축소": "손실 축소가 목적이면 거래 가능성·호가 조정 폭을 우선 보세요", "세금 절감": "비과세·장기보유공제 요건(보유·거주기간)을 확인하세요", "투자금 회수": "양도차익과 세후 실수령액을 함께 보세요", "전세 전환 고민": "매도 대신 전세 전환 시 보증금·역전세 위험을 비교하세요" }[purpose] || "";
-    sellerAction = ({ "매도 여건 양호": "여건상 매도에 우호적입니다. 참고 호가 범위에서 시작해 거래 가능성을 보세요", "매도 검토": "매도를 검토할 만합니다. 세후 실수령액과 거래 가능성을 확인하세요", "가격 조정 후 매도": "호가가 높습니다. 참고 범위로 조정하면 거래 가능성이 올라갑니다", "보유 유지": "지금은 보유가 더 유리해 보입니다. 리스크 변화 시 재평가하세요", "보유 검토": "급하지 않다면 시장 흐름을 보며 시기를 살피는 것도 방법입니다" }[finalSellDecision] || "") + (purposeNote ? ` · ${purposeNote}` : "");
+    sellerAction = ({
+      "매도 검토 가능": "여건상 매도 검토가 가능합니다. 세후 실수령액과 거래 가능성을 확인하세요",
+      "보유 리스크 점검": `상승장(${_trendStr})이지만 고평가 수준입니다. 목표가 도달 시 일부 매도를 고려하세요`,
+      "보유 유지 검토": "지금은 보유 관점이 우세합니다. 시장 흐름을 보며 판단하세요",
+      "매도 검토": "매도를 검토할 만합니다. 호가 조정 후 거래 가능성을 확인하세요",
+      "고평가 주의 — 호가 조정 고려": "호가가 적정가 대비 높습니다. 조정 시 거래 가능성이 올라갑니다",
+      "보유 유지": "지금은 보유가 더 유리해 보입니다",
+      "보유 유지 권고": "매도보다 보유 관점이 우세합니다",
+    }[finalSellDecision] || "") + (purposeNote ? ` · ${purposeNote}` : "");
   }
 
   // ── 참고 매도가 범위 ──
@@ -3570,6 +3702,62 @@ function FairValueResult({ r, f, onBack }) {
       <InputWarnings r={r} f={f} />
       <div className="mb-4"><MarketTypeBadge mc={mc} /></div>
 
+      {/* ── 백테스트 v3: 핵심 지표 4개 카드 ── */}
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
+          <p className="text-[11px] text-slate-400">정제전세평균</p>
+          <p className="mt-1 text-base font-bold text-slate-800">
+            {r.jeonseUsed > 0 && r.basis?.jeonse?.value ? won(r.basis.jeonse.value) : "—"}
+          </p>
+          <p className="text-[10px] text-slate-400">{r.jeonseUsed}건 사용</p>
+        </div>
+        <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
+          <p className="text-[11px] text-slate-400">정제매매평균</p>
+          <p className="mt-1 text-base font-bold text-slate-800">
+            {r.saleFair ? won(r.saleFair) : "—"}
+          </p>
+          <p className="text-[10px] text-slate-400">{r.saleUsed}건 사용</p>
+        </div>
+        <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
+          <p className="text-[11px] text-slate-400">실제 전세가율</p>
+          <p className={`mt-1 text-base font-bold ${
+            r.actualRatio == null ? "text-slate-400" :
+            r.ratioWarn ? "text-orange-500" :
+            r.actualRatio >= 0.55 ? "text-emerald-600" :
+            r.actualRatio >= 0.45 ? "text-amber-600" : "text-orange-600"
+          }`}>
+            {r.actualRatio != null
+              ? `${(r.actualRatio*100).toFixed(1)}%${r.ratioWarn ? " ⚠️" : ""}`
+              : "계산불가"}
+          </p>
+          <p className="text-[10px] text-slate-400">
+            {r.dynamicRatio ? "동적 적용" :
+             r.usedRatio ? `fallback ${(r.usedRatio*100).toFixed(0)}%` : "—"}
+          </p>
+        </div>
+        <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
+          <p className="text-[11px] text-slate-400">분석 모드</p>
+          <p className="mt-1 text-sm font-bold text-slate-800">
+            {r.isPremium ? "프리미엄" :
+             r.engineMode === "jeonse" ? "전세기반" :
+             r.engineMode === "blend"  ? "혼합" :
+             r.engineMode === "sale"   ? "매매기반" : "보류"}
+          </p>
+          <p className="text-[10px] text-slate-400">
+            {r.isPremium ? "재건축/프리미엄" :
+             r.usedRatio ? `전세율 ${(r.usedRatio*100).toFixed(1)}%` : "—"}
+          </p>
+        </div>
+      </div>
+      {r.dataWarnings && r.dataWarnings.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-bold text-amber-800">⚠️ 데이터 부족 — 분석 신뢰 낮음</p>
+          {r.dataWarnings.map((w, i) => (
+            <p key={i} className="mt-1 text-xs text-amber-700">· {w}</p>
+          ))}
+          <p className="mt-1.5 text-[11px] text-amber-600">실거래를 보강하거나 KB시세를 입력하면 정확도가 높아집니다.</p>
+        </div>
+      )}
       {provisional ? (
         <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
           <div className="px-6 py-6 text-white" style={{ backgroundColor: NAVY }}>
@@ -3654,8 +3842,9 @@ function FairValueResult({ r, f, onBack }) {
         <Row l="전세 정제평균" v={r.jeonseFair ? won(r.jeonseFair) : "—"} />
         <Row l="매매 정제평균" v={r.saleFair ? won(r.saleFair) : "—"} />
         <Row l="적용 전세가율" v={r.basis && r.basis.ratioUsed ? `${r.basis.ratioUsed} (${r.basis.ratioKind})` : "—"} />
-        <Row l="지역 기본 전세가율" v={r.regionRatio} />
-        <Row l="동적 전세가율(실측)" v={r.dynamicRatio != null ? r.dynamicRatio : "미적용"} />
+        <Row l="적용 전세가율" v={r.usedRatio ? `${(r.usedRatio*100).toFixed(1)}% (${r.dynamicRatio ? "실측 동적" : "보수 fallback"})` : "—"} />
+        <Row l="동적 전세가율(실측)" v={r.dynamicRatio != null ? `${(r.dynamicRatio*100).toFixed(1)}%` : "미적용"} />
+        <Row l="프리미엄 단지" v={r.isPremium ? "예 (재건축/강남/투자수요)" : "아니오"} />
         <Row l="사용 거래 수 (전세/매매)" v={`${jb.used ?? 0} / ${sb.used ?? 0} 건`} />
         <Row l="제외 거래 수 (전세/매매)" v={`${jb.excluded ?? 0} / ${sb.excluded ?? 0} 건`} />
         <Row l="KB시세 가중치 (전세/매매)" v={`${jkb != null ? Math.round(jkb * 100) + "%" : "—"} / ${skb != null ? Math.round(skb * 100) + "%" : "—"}`} />
@@ -3767,7 +3956,7 @@ function BuyResult({ r, f, onBack, onSave, saved }) {
     A: { label: "A · 매우 저평가", sub: "적정가 대비 크게 낮은 가격", bg: "bg-emerald-600" },
     B: { label: "B · 저평가",     sub: "적정가 대비 낮은 가격",       bg: "bg-emerald-500" },
     C: { label: "C · 적정 가격",  sub: "적정가 수준",                  bg: "bg-amber-400"  },
-    D: { label: "D · 다소 고평가",sub: "적정가 대비 높은 편",          bg: "bg-orange-500" },
+    D: { label: "D · 고평가 주의",sub: "적정가 대비 높은 편 — 보유 리스크 점검", bg: "bg-orange-500" },
     E: { label: "E · 고평가",     sub: "적정가 대비 크게 높은 가격",   bg: "bg-red-600"    },
     보류: { label: "판단 보류",   sub: "데이터 부족",                  bg: "bg-slate-400"  },
   }[r.buyGrade] || { label: r.buyGrade, sub: "", bg: "bg-slate-400" };
@@ -3783,8 +3972,19 @@ function BuyResult({ r, f, onBack, onSave, saved }) {
     if (isSpec && r.saleType === "redev") line2 = "재건축 기대가 반영된 단지로, 실사용 가치와의 괴리를 고려하세요.";
     else if (r.buyGrade === "A" || r.buyGrade === "B") line2 = `${won(r.negotiation.start)} 이하에서 협상 시 가격 메리트가 있습니다.`;
     else if (r.buyGrade === "C") line2 = `협상을 통해 ${won(r.negotiation.start)} 수준을 목표로 하는 것이 적절합니다.`;
-    else if (r.buyGrade === "D") line2 = `${won(r.negotiation.start)} 이하로 가격 조정이 된다면 재검토 여지가 있습니다.`;
-    else line2 = `적정가 대비 가격 부담이 크며, 시세 조정을 기다리는 것도 방법입니다.`;
+    else if (r.buyGrade === "D") {
+      const _ris = isRisingMarket(f.region || "기타");
+      const _tr  = getRegionTrend(f.region || "기타");
+      line2 = _ris
+        ? `지역 시장 상승 중(${_tr > 0 ? "+" : ""}${_tr.toFixed(1)}%)이지만 고평가 수준입니다. 보유 리스크를 점검하세요.`
+        : `적정가 대비 다소 높아 보유 리스크가 있습니다. 가격 조정 후 재검토를 권합니다.`;
+    } else {
+      const _ris = isRisingMarket(f.region || "기타");
+      const _tr  = getRegionTrend(f.region || "기타");
+      line2 = _ris
+        ? `상승장(${_tr > 0 ? "+" : ""}${_tr.toFixed(1)}%)이지만 가격 부담이 큽니다. 신중한 접근이 필요합니다.`
+        : `적정가 대비 가격 부담이 크며, 시세 조정을 기다리는 것도 방법입니다.`;
+    }
     return [line1, line2];
   }
   const [aiLine1, aiLine2] = aiSummary();
@@ -4441,7 +4641,15 @@ function SellView({ onContext }) {
 function SellResult({ r, f, onBack }) {
   const sd = analyzeSellerDecision(f, r);
   const mc = sd.mc;
-  const TONE = sd.finalSellDecision.includes("여지 큼") ? "bg-emerald-500" : sd.finalSellDecision.includes("매도 검토") ? "bg-blue-500" : sd.finalSellDecision.includes("조정") ? "bg-amber-500" : sd.finalSellDecision.includes("보류") ? "bg-slate-500" : sd.finalSellDecision.includes("보유") ? "bg-emerald-600" : "bg-slate-400";
+  const TONE =
+    sd.finalSellDecision.includes("매도 검토 가능") ? "bg-blue-500" :
+    sd.finalSellDecision.includes("보유 리스크") ? "bg-amber-500" :
+    sd.finalSellDecision.includes("고평가 주의") ? "bg-orange-500" :
+    sd.finalSellDecision.includes("보유 유지 검토") ? "bg-slate-500" :
+    sd.finalSellDecision.includes("매도 검토") ? "bg-blue-400" :
+    sd.finalSellDecision.includes("보유") ? "bg-emerald-600" :
+    sd.finalSellDecision.includes("보류") ? "bg-slate-400" :
+    "bg-slate-400";
   const mrTone = (lv) => lv === "매우높음" ? "text-red-600" : lv === "높음" ? "text-orange-600" : lv === "보통" ? "text-amber-600" : lv === "평가 불가" ? "text-slate-500" : "text-emerald-600";
   const Cell = ({ l, v, tone }) => <div className="px-3 py-2.5 text-center"><p className="text-[11px] text-slate-400">{l}</p><p className={`mt-0.5 text-sm font-bold ${tone || "text-slate-800"}`}>{v}</p></div>;
   return (
