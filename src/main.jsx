@@ -3812,7 +3812,12 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         onChangeArea={() => { setR(null); }}
         onHome={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
         areaOptions={areaOptions} currentArea={f.areaExclusive}
-        onSelectArea={(area) => { setR(null); quickSearch(area); }}
+        onSelectArea={(area) => {
+          setR(null);
+          setF(prev => ({ ...prev, areaExclusive: String(area) }));
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          setTimeout(() => quickSearch(area), 50);
+        }}
       />;
   if (pending) return <ConfirmStep p={pending} f={f} onBack={() => setPending(null)} onConfirm={doAnalyze} mode={mode} onRefetch={(area) => { setF(prev => ({...prev, areaExclusive: String(area)})); quickSearch(area); }} onBackToTop={() => { setPending(null); setR(null); setF({...EMPTY}); setUploadedImages([]); setCaptureMsg(null); setAiMsg(null); }} />;
   return (
@@ -5264,11 +5269,11 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
           <div>
             <p className="mb-2 text-xs font-semibold text-slate-400">📐 같은 단지 다른 면적 선택</p>
             <div className="flex flex-wrap gap-2">
-              {areaOptions.filter(o => String(o.areaSqm) !== String(currentArea)).map((o, i) => (
+              {(areaOptions || []).filter(o => o && Number(o.areaSqm) > 0 && String(o.areaSqm) !== String(currentArea)).map((o, i) => (
                 <button key={i}
-                  onClick={() => onSelectArea && onSelectArea(o.areaSqm)}
+                  onClick={() => onSelectArea && onSelectArea(Number(o.areaSqm))}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:bg-blue-50">
-                  전용 {o.areaSqm}㎡ ({Math.round(o.areaSqm / 3.3058)}평)
+                  전용 {o.areaSqm}㎡ ({Math.round(Number(o.areaSqm) / 3.3058)}평)
                 </button>
               ))}
             </div>
@@ -5539,7 +5544,12 @@ function SellView({ onContext }) {
     onChangeArea={() => { setR(null); }}
     onHome={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
     areaOptions={areaOptions} currentArea={f.areaExclusive}
-    onSelectArea={(area) => { setR(null); quickSearch(area); }}
+    onSelectArea={(area) => {
+      setR(null);
+      set("areaExclusive", String(area));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => quickSearch(area), 50);
+    }}
   />;
   if (pending) return (
     <ConfirmStep
@@ -6012,11 +6022,11 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
           <div>
             <p className="mb-2 text-xs font-semibold text-slate-400">📐 같은 단지 다른 면적 선택</p>
             <div className="flex flex-wrap gap-2">
-              {areaOptions.filter(o => String(o.areaSqm) !== String(currentArea)).map((o, i) => (
+              {(areaOptions || []).filter(o => o && Number(o.areaSqm) > 0 && String(o.areaSqm) !== String(currentArea)).map((o, i) => (
                 <button key={i}
-                  onClick={() => onSelectArea && onSelectArea(o.areaSqm)}
+                  onClick={() => onSelectArea && onSelectArea(Number(o.areaSqm))}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:bg-blue-50">
-                  전용 {o.areaSqm}㎡ ({Math.round(o.areaSqm / 3.3058)}평)
+                  전용 {o.areaSqm}㎡ ({Math.round(Number(o.areaSqm) / 3.3058)}평)
                 </button>
               ))}
             </div>
