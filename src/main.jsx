@@ -3612,20 +3612,30 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       console.warn("  [STEP3] price_summary 조회 실패:", e.message);
     }
 
-    // ── STEP 4+5: sales_raw + rent_raw 조회 (기간 고정값 제거 — DB 적재기간 전체 사용) ──
-    let saleDeals = [], rentDeals = [];
+    // ── STEP 4+5: sales_raw + rent_raw 조회 ──
+    // ⚠️ 면적 필터 없이 전체 단지 deals 조회 → rawMolitRef에 전체 저장
+    // → 뒤로가기 후 다른 면적 선택 시 refilterByArea가 정상 동작
+    let saleDealsAll = [], rentDealsAll = [];
     try {
       const r4 = await fetch("/api/supabase", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        // months 파라미터 제거 → api/supabase.js가 DB 적재 전체 범위 반환
-        body: JSON.stringify({ type: "deals", complex_id: useComplexId, complex_name: useComplexName, sigungu, area_excl: targetArea || undefined })
+        body: JSON.stringify({ type: "deals", complex_id: useComplexId, complex_name: useComplexName, sigungu })
+        // area_excl 제거 — 전체 면적 데이터 받아서 클라이언트 필터
       });
       const d4 = await r4.json();
-      saleDeals = d4.saleDeals || [];
-      rentDeals = d4.rentDeals || [];
+      saleDealsAll = d4.saleDeals || [];
+      rentDealsAll = d4.rentDeals || [];
     } catch(e) {
       console.warn("  [STEP4+5] deals 조회 실패:", e.message);
     }
+
+    // 현재 선택 면적으로 클라이언트 필터 (±3㎡)
+    const filterByArea = (deals, area) => {
+      if (!area) return deals;
+      return deals.filter(d => Math.abs(Number(d.area_excl) - area) <= 3);
+    };
+    const saleDeals = targetArea ? filterByArea(saleDealsAll, targetArea) : saleDealsAll;
+    const rentDeals = targetArea ? filterByArea(rentDealsAll, targetArea) : rentDealsAll;
 
     // ── Supabase: 단지는 있지만 적재기간 내 거래 없음 → MOLIT fallback ──
     // (단지 미매칭과 거래 없음을 구분해서 tradeStatus에 반영)
@@ -3688,6 +3698,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
     rawMolitRef.current = {
       ...data,
+      // 전체 deals 보관 (면적 필터 전) → refilterByArea 정상 동작
+      sale:   saleDealsAll.map(d => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deal_amount_man)||0, ym: d.contract_ym||"", aptNm: d.complex_name||useComplexName, floor: d.floor||0, cancelDate: d.cancel_date||null })).filter(d => d.price>0 && d.areaSqm>0),
+      jeonse: rentDealsAll.map(d => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deposit_man)||0,    ym: d.contract_ym||"", aptNm: d.complex_name||useComplexName, floor: d.floor||0, monthly: Number(d.monthly_man)||0 })).filter(d => d.price>0 && d.areaSqm>0),
       complexName: ff.exactAptNm || ff.complexName,
       dong: ff.dong,
       dataSource: 'supabase',
@@ -5561,17 +5574,23 @@ function SellView({ onContext }) {
     const useComplexId   = complexInfo.id;
     const useComplexName = complexInfo.complex_name;
 
-    // STEP 2: deals 조회 (months 제거 — DB 전체 범위)
-    let saleDeals = [], rentDeals = [];
+    // STEP 2: deals 조회 — 면적 필터 없이 전체 조회 후 클라이언트 필터
+    // (rawMolitRef에 전체 데이터 저장 → 면적 변경 시 refilterByArea 정상 동작)
+    let saleDealsAll = [], rentDealsAll = [];
     try {
       const r4 = await fetch("/api/supabase", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "deals", complex_id: useComplexId, complex_name: useComplexName, sigungu, area_excl: targetArea || undefined }),
+        body: JSON.stringify({ type: "deals", complex_id: useComplexId, complex_name: useComplexName, sigungu }),
       });
       const d4 = await r4.json();
-      saleDeals = d4.saleDeals || [];
-      rentDeals = d4.rentDeals || [];
+      saleDealsAll = d4.saleDeals || [];
+      rentDealsAll = d4.rentDeals || [];
     } catch(e) { console.warn('[SellView] Supabase deals 실패:', e.message); }
+
+    // 선택 면적으로 클라이언트 필터 (±3㎡)
+    const filterByArea = (deals, area) => area ? deals.filter(d => Math.abs(Number(d.area_excl) - area) <= 3) : deals;
+    const saleDeals = filterByArea(saleDealsAll, targetArea);
+    const rentDeals = filterByArea(rentDealsAll, targetArea);
 
     // STEP 3: 거래 없음 → MOLIT fallback 후 없으면 명확한 상태 반환
     if (saleDeals.length === 0 && rentDeals.length === 0) {
@@ -5609,7 +5628,13 @@ function SellView({ onContext }) {
       buildYear: complexInfo.build_year || null, lawdCd: null,
       tradeStatus: sbStatus,
     };
-    rawMolitRef.current = { ...data, complexName: ff.exactAptNm || ff.complexName, dong: ff.dong, dataSource: "supabase" };
+    rawMolitRef.current = {
+      ...data,
+      // 전체 deals 보관 (면적 필터 전) → 면적 변경 시 refilterByArea 정상 동작
+      sale:   saleDealsAll.map(d => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deal_amount_man)||0, ym: d.contract_ym||"", aptNm: d.complex_name||useComplexName, floor: d.floor||0, cancelDate: d.cancel_date||null })).filter(d => d.price>0 && d.areaSqm>0),
+      jeonse: rentDealsAll.map(d => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deposit_man)||0,    ym: d.contract_ym||"", aptNm: d.complex_name||useComplexName, floor: d.floor||0, monthly: Number(d.monthly_man)||0 })).filter(d => d.price>0 && d.areaSqm>0),
+      complexName: ff.exactAptNm || ff.complexName, dong: ff.dong, dataSource: "supabase"
+    };
     return data;
   }
 
