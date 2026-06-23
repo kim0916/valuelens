@@ -5421,7 +5421,6 @@ function SellView({ onContext }) {
     rawMolitRef.current = { ...data, complexName: ff.exactAptNm || ff.complexName, dong: ff.dong, dataSource: "supabase" };
     return data;
   }
-  }
 
   async function _fetchRawData(ff, overrideArea, exclusiveAreas) {
     const data = await fetchApartmentData({
@@ -5570,6 +5569,9 @@ function SellView({ onContext }) {
         {/* 실거래 상태 안내 */}
         {f._tradeStatus && f._tradeStatus.code !== "OK" && (() => {
           const ts = f._tradeStatus;
+          const isNoTrade  = ["COMPLEX_NO_TRADE","NAME_NO_MATCH","PERIOD_NO_TRADE"].includes(ts.code);
+          const isLowData  = ["LOW_DATA","TOO_FEW"].includes(ts.code);
+          const isAreaFail = ts.code === "AREA_NO_MATCH";
           const needKb = ["API_FAIL", "COMPLEX_NO_TRADE", "NAME_NO_MATCH", "PERIOD_NO_TRADE", "AREA_NO_MATCH"].includes(ts.code) || (ts.jeonseShort && !ts.canExpand);
           const boxColor = isNoTrade ? "bg-red-50 ring-red-200" : isLowData ? "bg-amber-50 ring-amber-200" : isAreaFail ? "bg-orange-50 ring-orange-200" : "bg-amber-50 ring-amber-200";
           return (
