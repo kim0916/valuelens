@@ -4405,16 +4405,12 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
       {/* 버튼 */}
       <div className="mt-5 space-y-3">
         <button onClick={onBack} className="w-full rounded-2xl border border-slate-200 py-4 text-base font-bold text-slate-600">← 다시 검색</button>
-        <div className="grid grid-cols-2 gap-3">
-          <button onClick={onNewSearch}
-            className="rounded-2xl border border-blue-100 bg-blue-50 py-3 text-sm font-bold text-blue-700 hover:bg-blue-100">
-            🔄 다른 단지 검색
-          </button>
-          <button onClick={onHome}
-            className="rounded-2xl bg-slate-800 py-3 text-sm font-bold text-white hover:bg-slate-700">
+        {onBackToTop && (
+          <button onClick={onBackToTop}
+            className="w-full rounded-2xl bg-slate-800 py-3 text-sm font-bold text-white hover:bg-slate-700">
             🏠 처음으로
           </button>
-        </div>
+        )}
       </div>
     </>
   );
