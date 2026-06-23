@@ -57,21 +57,31 @@ export default async function handler(req, res) {
         searchName = aliasMatch.real_name;
       }
 
-      // 공백제거 버전 + 원본 OR 검색
-      // 이유: '부천범박힐스테이트 6단지'처럼 공백 포함 DB명이 있어
-      //       공백제거 패턴('%부천범박힐스테이트6단지%')으로는 매칭 실패
+      // 검색명 처리:
+      // 1) 특수문자(괄호,하이픈 등) 포함 시 → .ilike() 직접 사용 (Supabase .or() 파서가 괄호를 그룹 연산자로 오인)
+      // 2) 공백 포함 시 → 공백제거+원본 두 버전 OR 검색 (DB에 공백 포함 단지명 존재)
+      // 3) 일반 단지명 → 공백제거 단일 ilike
       const nameNoSpace = searchName.replace(/\s/g, '');
       const nameOrig    = searchName.trim();
-      const orFilter = nameNoSpace === nameOrig
-        ? `complex_name.ilike.%${nameNoSpace}%`
-        : `complex_name.ilike.%${nameNoSpace}%,complex_name.ilike.%${nameOrig}%`;
+      const hasSpecial  = /[()\[\]\-·,]/.test(nameOrig);
+      const hasSpace    = nameNoSpace !== nameOrig;
 
       let query = supabase
         .from('realestate_complexes')
         .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
-        .or(orFilter)
         .order('sale_cnt', { ascending: false })
         .limit(limit);
+
+      if (hasSpecial) {
+        // 특수문자 포함: .ilike() 직접 사용
+        query = query.ilike('complex_name', `%${nameOrig}%`);
+      } else if (hasSpace) {
+        // 공백 포함: 공백제거+원본 OR
+        query = query.or(`complex_name.ilike.%${nameNoSpace}%,complex_name.ilike.%${nameOrig}%`);
+      } else {
+        // 일반: 공백제거 단일 ilike
+        query = query.ilike('complex_name', `%${nameNoSpace}%`);
+      }
 
       if (sigungu) query = query.ilike('sigungu', `%${sigungu}%`);
       if (dong)    query = query.ilike('legal_dong', `%${dong}%`);
