@@ -134,18 +134,15 @@ export default async function handler(req, res) {
   }
 
   // ── 4. 실거래 원본 조회 ──
+  // months 파라미터 제거 — DB 적재 전체 범위 반환 (cutoff 없음)
   if (type === 'deals') {
-    const { complex_id, complex_name, sigungu, area_excl, months = 24 } = req.body;
+    const { complex_id, complex_name, sigungu, area_excl } = req.body;
     const requestedArea = area_excl ? Number(area_excl) : null;
 
     try {
-      const now = new Date();
-      const cutoff = new Date(now.getFullYear(), now.getMonth() - months, 1);
-      const cutoffYm = `${cutoff.getFullYear()}${String(cutoff.getMonth()+1).padStart(2,'0')}`;
-
+      // cutoff 없음 — DB에 있는 데이터 전부 반환
       const baseQ = (table) => {
         let q = supabase.from(table).select('*')
-          .gte('contract_ym', cutoffYm)
           .order('contract_ym', { ascending: false });
         if (complex_id) q = q.eq('complex_id', complex_id);
         else q = q.eq('complex_name', complex_name).eq('sigungu', sigungu);
@@ -189,13 +186,15 @@ export default async function handler(req, res) {
           );
           const areaDiff = Math.abs(closest - requestedArea);
 
-          if (areaDiff > 5) {
+          // areaDiff > 10㎡이면 면적 미매칭으로 처리
+          if (areaDiff > 10) {
             res.status(200).json({ saleDeals: [], rentDeals: [], availableAreas, areaDiff, noMatch: true });
             return;
           }
-
-          saleData = (sAll.data || []).filter(r => Math.abs(Number(r.area_excl) - closest) <= 3);
-          rentData = (rAll.data || []).filter(r => Math.abs(Number(r.area_excl) - closest) <= 3);
+          // areaDiff 5~10㎡: 보조 데이터로 반환 (isExpanded 플래그)
+          const expandedTol = areaDiff > 5 ? 8 : 3;
+          saleData = (sAll.data || []).filter(r => Math.abs(Number(r.area_excl) - closest) <= expandedTol);
+          rentData = (rAll.data || []).filter(r => Math.abs(Number(r.area_excl) - closest) <= expandedTol);
         } else {
           saleData = sAll.data || [];
           rentData = rAll.data || [];
