@@ -1022,7 +1022,7 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse", periodMonths = 2
   let within = [], usedPeriod = 6;
   for (const mo of tryPeriods) {
     const cutoff = new Date(now.getFullYear(), now.getMonth() - (mo - 1), 1);
-    const w = norm.filter((d) => { const [y,m]=String(d.ym).split("-").map(Number); return new Date(y,(m||1)-1,1)>=cutoff; });
+    const w = norm.filter((d) => { const s=String(d.ym).replace('-',''); const y=Number(s.slice(0,4)),m=Number(s.slice(4,6)); return !isNaN(y)&&!isNaN(m)&&new Date(y,(m||1)-1,1)>=cutoff; });
     within = w; usedPeriod = mo;
     if (w.length >= 5) break; // 5건 이상이면 이 기간으로 확정
   }
@@ -1124,9 +1124,11 @@ function computeDataTrust(r, deals = [], saleDeals = []) {
   // 최근 거래 경과 개월 수
   let monthsAgo = null;
   if (latestYm) {
-    const [y, m] = latestYm.split('-').map(Number);
+    // YYYYMM(6자리) 또는 YYYY-MM 둘 다 처리
+    const ymStr = String(latestYm).replace('-', '');
+    const y = Number(ymStr.slice(0, 4)), m = Number(ymStr.slice(4, 6));
     const now = new Date();
-    monthsAgo = (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - m);
+    monthsAgo = (isNaN(y) || isNaN(m)) ? null : (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - m);
   }
 
   // 등급 산정 (A~D)
@@ -1185,7 +1187,7 @@ function DataTrustBadge({ trust }) {
         </div>
         <div>
           <p className="text-slate-400">최근 거래</p>
-          <p className="font-bold">{trust.latestYm ? (trust.monthsAgo === 0 ? '이번 달' : `${trust.monthsAgo}개월 전`) : '—'}</p>
+          <p className="font-bold">{trust.latestYm && trust.monthsAgo != null && !isNaN(trust.monthsAgo) ? (trust.monthsAgo === 0 ? '이번 달' : `${trust.monthsAgo}개월 전`) : trust.latestYm ? trust.latestYm : '—'}</p>
         </div>
       </div>
       <p className="mt-2 text-[11px]">{trust.gradeDesc}</p>
@@ -4730,6 +4732,24 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
           <span className="text-xs text-slate-400">다운로드 ↓</span>
         </button>
       </div>
+
+      {/* ── 하단 네비게이션 CTA ── */}
+      <div className="mt-6 space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={onBack}
+            className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 active:bg-slate-50">
+            ← 다시 검색
+          </button>
+          <button onClick={onNewSearch}
+            className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 active:bg-blue-100">
+            🔄 다른 단지 분석
+          </button>
+        </div>
+        <button onClick={onHome}
+          className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white active:bg-slate-700">
+          🏠 처음으로
+        </button>
+      </div>
     </>
   );
 }
@@ -5297,12 +5317,12 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
         {/* 같은 단지 다른 면적 */}
         {areaOptions && areaOptions.length > 1 && (
           <div>
-            <p className="mb-2 text-xs font-semibold text-slate-400">📐 같은 단지 다른 면적 선택</p>
+            <p className="mb-2 text-xs font-semibold text-slate-400">📐 같은 단지 다른 면적</p>
             <div className="flex flex-wrap gap-2">
               {(areaOptions || []).filter(o => o && Number(o.areaSqm) > 0 && String(o.areaSqm) !== String(currentArea)).map((o, i) => (
                 <button key={i}
                   onClick={() => onSelectArea && onSelectArea(Number(o.areaSqm))}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:bg-blue-50">
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 active:bg-slate-100">
                   전용 {o.areaSqm}㎡ ({Math.round(Number(o.areaSqm) / 3.3058)}평)
                 </button>
               ))}
@@ -5312,18 +5332,50 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
         {/* 2×2 네비 버튼 */}
         <div className="grid grid-cols-2 gap-3">
           <button onClick={onBack}
-            className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 hover:bg-slate-50">
+            className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 active:bg-slate-50">
             ← 다시 분석
           </button>
           <button onClick={onNewSearch}
-            className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 hover:bg-blue-100">
-            🔄 다른 단지 검색
+            className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 active:bg-blue-100">
+            🔄 다른 단지 분석
           </button>
           <button onClick={onHome}
-            className="col-span-2 rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white hover:bg-slate-700">
+            className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white active:bg-slate-700">
             🏠 처음으로
           </button>
         </div>
+      </div>
+
+      {/* ── 하단 네비게이션 CTA ── */}
+      <div className="mt-6 space-y-3">
+        {areaOptions && areaOptions.length > 1 && (
+          <div>
+            <p className="mb-2 text-xs font-semibold text-slate-400">📐 같은 단지 다른 면적</p>
+            <div className="flex flex-wrap gap-2">
+              {(areaOptions || []).filter(o => o && Number(o.areaSqm) > 0 && String(o.areaSqm) !== String(currentArea)).map((o, i) => (
+                <button key={i}
+                  onClick={() => onSelectArea && onSelectArea(Number(o.areaSqm))}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 active:bg-slate-100">
+                  전용 {o.areaSqm}㎡ ({Math.round(Number(o.areaSqm) / 3.3058)}평)
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={onBack}
+            className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 active:bg-slate-50">
+            ← 다시 분석
+          </button>
+          <button onClick={onNewSearch}
+            className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 active:bg-blue-100">
+            🔄 다른 단지 분석
+          </button>
+        </div>
+        <button onClick={onHome}
+          className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white active:bg-slate-700">
+          🏠 처음으로
+        </button>
       </div>
     </>
   );
@@ -6079,12 +6131,12 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
       <div className="mt-6 space-y-3">
         {areaOptions && areaOptions.length > 1 && (
           <div>
-            <p className="mb-2 text-xs font-semibold text-slate-400">📐 같은 단지 다른 면적 선택</p>
+            <p className="mb-2 text-xs font-semibold text-slate-400">📐 같은 단지 다른 면적</p>
             <div className="flex flex-wrap gap-2">
               {(areaOptions || []).filter(o => o && Number(o.areaSqm) > 0 && String(o.areaSqm) !== String(currentArea)).map((o, i) => (
                 <button key={i}
                   onClick={() => onSelectArea && onSelectArea(Number(o.areaSqm))}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:bg-blue-50">
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 active:bg-slate-100">
                   전용 {o.areaSqm}㎡ ({Math.round(Number(o.areaSqm) / 3.3058)}평)
                 </button>
               ))}
@@ -6093,18 +6145,18 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
         )}
         <div className="grid grid-cols-2 gap-3">
           <button onClick={onBack}
-            className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 hover:bg-slate-50">
+            className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 active:bg-slate-50">
             ← 다시 평가
           </button>
           <button onClick={onNewSearch}
-            className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 hover:bg-blue-100">
-            🔄 다른 단지 검색
-          </button>
-          <button onClick={onHome}
-            className="col-span-2 rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white hover:bg-slate-700">
-            🏠 처음으로
+            className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 active:bg-blue-100">
+            🔄 다른 단지 분석
           </button>
         </div>
+        <button onClick={onHome}
+          className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white active:bg-slate-700">
+          🏠 처음으로
+        </button>
       </div>
     </>
   );
