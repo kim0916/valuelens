@@ -3616,7 +3616,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       const r4 = await fetch("/api/supabase", {
         method: "POST", headers: { "Content-Type": "application/json" },
         // months 파라미터 제거 → api/supabase.js가 DB 적재 전체 범위 반환
-        body: JSON.stringify({ type: "deals", complex_id: useComplexId, area_excl: targetArea || undefined })
+        body: JSON.stringify({ type: "deals", complex_id: useComplexId, complex_name: useComplexName, sigungu, area_excl: targetArea || undefined })
       });
       const d4 = await r4.json();
       saleDeals = d4.saleDeals || [];
@@ -5375,7 +5375,7 @@ function SellView({ onContext }) {
     try {
       const r4 = await fetch("/api/supabase", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "deals", complex_id: useComplexId, area_excl: targetArea || undefined }),
+        body: JSON.stringify({ type: "deals", complex_id: useComplexId, complex_name: useComplexName, sigungu, area_excl: targetArea || undefined }),
       });
       const d4 = await r4.json();
       saleDeals = d4.saleDeals || [];
