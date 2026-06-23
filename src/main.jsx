@@ -5391,6 +5391,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
 
       {/* ── 하단 네비게이션 CTA ── */}
       <div className="mt-6 space-y-3">
+        {/* 같은 단지 다른 면적 */}
         {areaOptions && areaOptions.length > 1 && (
           <div>
             <p className="mb-2 text-xs font-semibold text-slate-400">📐 같은 단지 다른 면적</p>
@@ -5405,6 +5406,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
             </div>
           </div>
         )}
+        {/* 2×2 네비 버튼 */}
         <div className="grid grid-cols-2 gap-3">
           <button onClick={onBack}
             className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 active:bg-slate-50">
@@ -5414,12 +5416,13 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
             className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 active:bg-blue-100">
             🔄 다른 단지 분석
           </button>
+          <button onClick={onHome}
+            className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white active:bg-slate-700">
+            🏠 처음으로
+          </button>
         </div>
-        <button onClick={onHome}
-          className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white active:bg-slate-700">
-          🏠 처음으로
-        </button>
       </div>
+
     </>
   );
 }
