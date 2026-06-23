@@ -1107,6 +1107,108 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse", periodMonths = 2
   return { value, used, excluded: total-used, total, confidence: conf, confLabel, kbWeight, reasonText, usedPeriod, isFallback, strictMode };
 }
 
+
+// ═══════════════════════════════════════════════════════════
+// 데이터 신뢰도 점수 (DataTrust) — analyze() 결과 + raw 거래 기반
+// ═══════════════════════════════════════════════════════════
+function computeDataTrust(r, deals = [], saleDeals = []) {
+  const saleUsed   = r.saleUsed  || 0;
+  const jeonseUsed = r.jeonseUsed || 0;
+  const totalUsed  = saleUsed + jeonseUsed;
+
+  // 최근 거래일 (deals: [{ym:'YYYY-MM'}])
+  const allDeals = [...(deals || []), ...(saleDeals || [])];
+  const sortedYm = allDeals.map(d => d.ym).filter(Boolean).sort().reverse();
+  const latestYm = sortedYm[0] || null;
+
+  // 최근 거래 경과 개월 수
+  let monthsAgo = null;
+  if (latestYm) {
+    const [y, m] = latestYm.split('-').map(Number);
+    const now = new Date();
+    monthsAgo = (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - m);
+  }
+
+  // 등급 산정 (A~D)
+  let grade, gradeLabel, gradeColor, gradeDesc;
+  const freshness = monthsAgo == null ? 0 : monthsAgo <= 3 ? 3 : monthsAgo <= 6 ? 2 : monthsAgo <= 12 ? 1 : 0;
+  const sampleScore = totalUsed >= 10 ? 4 : totalUsed >= 6 ? 3 : totalUsed >= 3 ? 2 : totalUsed >= 1 ? 1 : 0;
+  const rawScore = Math.round((freshness * 0.4 + sampleScore * 0.6) * 25); // 0~100
+
+  if (rawScore >= 75) {
+    grade = 'A'; gradeLabel = '신뢰도 높음';
+    gradeColor = 'text-emerald-600 bg-emerald-50 border-emerald-200';
+    gradeDesc = '충분한 실거래 표본 + 최근 거래 확인';
+  } else if (rawScore >= 50) {
+    grade = 'B'; gradeLabel = '신뢰도 보통';
+    gradeColor = 'text-amber-600 bg-amber-50 border-amber-200';
+    gradeDesc = '표본 또는 최신성 중 하나 미흡';
+  } else if (rawScore >= 25) {
+    grade = 'C'; gradeLabel = '신뢰도 낮음';
+    gradeColor = 'text-orange-600 bg-orange-50 border-orange-200';
+    gradeDesc = '표본 부족 또는 오래된 데이터';
+  } else {
+    grade = 'D'; gradeLabel = '신뢰도 매우 낮음';
+    gradeColor = 'text-red-600 bg-red-50 border-red-200';
+    gradeDesc = '실거래 거의 없음 — 참고용으로만 활용';
+  }
+
+  const sufficient = totalUsed >= 5 && (monthsAgo == null || monthsAgo <= 6);
+
+  return {
+    grade, gradeLabel, gradeColor, gradeDesc,
+    score: rawScore,
+    saleUsed, jeonseUsed, totalUsed,
+    latestYm, monthsAgo, sufficient,
+  };
+}
+
+function DataTrustBadge({ trust }) {
+  if (!trust) return null;
+  return (
+    <div className={`rounded-2xl border p-4 ${trust.gradeColor}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-extrabold">{trust.grade}등급</span>
+          <span className="text-sm font-semibold">{trust.gradeLabel}</span>
+        </div>
+        <span className="text-xs text-slate-500">신뢰도 {trust.score}/100</span>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+        <div>
+          <p className="text-slate-400">매매 표본</p>
+          <p className="font-bold">{trust.saleUsed}건</p>
+        </div>
+        <div>
+          <p className="text-slate-400">전세 표본</p>
+          <p className="font-bold">{trust.jeonseUsed}건</p>
+        </div>
+        <div>
+          <p className="text-slate-400">최근 거래</p>
+          <p className="font-bold">{trust.latestYm ? (trust.monthsAgo === 0 ? '이번 달' : `${trust.monthsAgo}개월 전`) : '—'}</p>
+        </div>
+      </div>
+      <p className="mt-2 text-[11px]">{trust.gradeDesc}</p>
+      {!trust.sufficient && (
+        <p className="mt-1 text-[11px] font-semibold">⚠ 데이터가 충분하지 않아 결과를 참고용으로만 활용하세요.</p>
+      )}
+    </div>
+  );
+}
+
+// ── 로그 write (비동기·fire-and-forget) ──
+async function writeSearchLog(payload) {
+  try {
+    await fetch('/api/search_logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'write', ...payload }),
+    });
+  } catch(e) {
+    // 로그 실패는 무시
+  }
+}
+
 const SAMPLE_DEALS = [
   { ym: "2025-08", price: 35000, floor: 5, topFloor: 15 },
   { ym: "2025-09", price: 34500, floor: 8, topFloor: 15 },
@@ -1200,7 +1302,7 @@ const propertyTypes = [
   { key: "commercial", label: "상가", ready: false },
   { key: "oneRoom", label: "원룸", ready: true },
 ];
-const apartmentTabsDef = [["fair", "적정가"], ["buy", "매수"], ["sell", "매도"], ["tax", "세금"], ["reco", "추천 후보"], ["adv", "내 자산"]];
+const apartmentTabsDef = [["fair", "적정가"], ["buy", "매수"], ["sell", "매도"], ["tax", "세금"], ["reco", "추천 후보"], ["adv", "내 자산"], ["logs", "🔍 로그"]];
 const oneRoomTabsDef = [["search", "원룸 찾기"], ["manage", "원룸 관리"], ["yield", "원룸 수익률"]];
 
 function ComingSoon({ title, desc }) {
@@ -2105,6 +2207,7 @@ function AppInner() {
           <div style={{display: (aptTab === "fair" || aptTab === "buy") ? "block" : "none"}}><BuyView mode={aptTab === "fair" ? "fair" : "buy"} onSaveHistory={(h) => setHistory((p) => [h, ...p])} onAddWatch={(w) => setWatch((p) => [w, ...p.filter((x) => x.key !== w.key)])} onContext={(c) => setBuyCtx(c)} /></div>
           <div style={{display: aptTab === "sell" ? "block" : "none"}}><SellView onContext={(c) => setSellCtx(c)} /></div>
           {aptTab === "tax" && <TaxView buyCtx={buyCtx} sellCtx={sellCtx} />}
+          {aptTab === "logs" && <LogsView />}
           {aptTab === "reco" && <BudgetView onProfile={(p) => setFinProfile(p)} />}
           {aptTab === "adv" && <AdvancedView watch={watch} setWatch={setWatch} history={history} finProfile={finProfile} onReanalyze={() => setAptTab("fair")} />}
         </>)}
@@ -4236,8 +4339,59 @@ function FairValueResult({ r, f, onBack }) {
   const kbHeavy = (jkb != null && jkb >= 0.6) || (skb != null && skb >= 0.6);
   const Row = ({ l, v }) => <div className="flex justify-between border-t border-slate-100 px-4 py-2.5 text-sm"><span className="text-slate-500">{l}</span><span className="font-semibold text-slate-800">{v}</span></div>;
   const Big = ({ l, v, tone }) => <div className="bg-orange-50 px-4 py-4 text-center"><p className="text-xs text-orange-500">{l}</p><p className={`mt-1 text-xl font-extrabold ${tone || "text-slate-800"}`}>{v}</p></div>;
+  const trust = computeDataTrust(r, f.deals, f.saleDeals);
+  React.useEffect(() => {
+    writeSearchLog({
+      region: f.region, dong: f.dong, complex_name: f.complexName,
+      area_excl: f.areaExclusive || null,
+      success: r.engineMode !== 'hold',
+      fail_reason: r.engineMode === 'hold' ? r.holdReason : null,
+      data_source: f.dataSource || 'unknown',
+      sale_count: r.saleUsed || 0, rent_count: r.jeonseUsed || 0,
+      jeonse_ratio: r.actualRatio || null, engine_mode: r.engineMode, buy_grade: r.buyGrade,
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <>
+      {/* ── 결론 카드 ── */}
+      <div className="mb-4 overflow-hidden rounded-3xl shadow-lg ring-1 ring-slate-200">
+        <div className="px-5 py-4 text-white" style={{ backgroundColor: NAVY }}>
+          <p className="text-xs text-slate-300">{f.complexName} · {f.dong}{Number(f.areaExclusive) > 0 ? ` 전용 ${f.areaExclusive}㎡` : ""}</p>
+          <div className="mt-2 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] text-slate-400">적정가 판단</p>
+              <p className="text-xl font-extrabold">{provisional ? "판단 보류" : `${r.buyGrade}등급 · ${r.gradeLabel}`}</p>
+            </div>
+            {!provisional && (
+              <div className="text-right">
+                <p className="text-[11px] text-slate-400">AI 적정가</p>
+                <p className="text-xl font-extrabold text-emerald-400">{won(r.fairPrice)}</p>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="grid grid-cols-3 divide-x divide-slate-100 bg-white">
+          <div className="px-3 py-3 text-center">
+            <p className="text-[11px] text-slate-400">현재가</p>
+            <p className="mt-0.5 text-sm font-extrabold text-slate-900">{won(Number(f.currentPrice) || 0)}</p>
+          </div>
+          <div className="px-3 py-3 text-center">
+            <p className="text-[11px] text-slate-400">AI 적정가</p>
+            <p className="mt-0.5 text-sm font-extrabold" style={{ color: NAVY }}>{provisional ? "—" : won(r.fairPrice)}</p>
+          </div>
+          <div className="px-3 py-3 text-center">
+            <p className="text-[11px] text-slate-400">{r.gapRatio < 0 ? "저평가" : "고평가"}</p>
+            <p className={`mt-0.5 text-sm font-extrabold ${r.gapRatio < -0.03 ? "text-emerald-600" : r.gapRatio > 0.03 ? "text-red-500" : "text-slate-700"}`}>
+              {provisional ? "—" : pct(r.gapRatio)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 데이터 신뢰도 ── */}
+      <div className="mb-4"><DataTrustBadge trust={trust} /></div>
+
       <div className="mb-4"><button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 분석</button></div>
       <InputWarnings r={r} f={f} />
       <div className="mb-4"><MarketTypeBadge mc={mc} /></div>
@@ -4622,8 +4776,70 @@ function BuyResult({ r, f, onBack, onSave, saved }) {
     return `현재 시세에는 ${typeStr} 프리미엄이 크게 반영되어 있습니다. 전세가 기준 적정가보다 ${pct_}% 높은 수준에 거래되고 있습니다.`;
   }
 
+  // ── 데이터 신뢰도 + 로그 write ──
+  const trust = computeDataTrust(r, f.deals, f.saleDeals);
+  React.useEffect(() => {
+    writeSearchLog({
+      region:       f.region,
+      dong:         f.dong,
+      complex_name: f.complexName,
+      area_excl:    f.areaExclusive || null,
+      success:      r.engineMode !== 'hold',
+      fail_reason:  r.engineMode === 'hold' ? r.holdReason : null,
+      data_source:  f.dataSource || 'unknown',
+      sale_count:   r.saleUsed  || 0,
+      rent_count:   r.jeonseUsed || 0,
+      jeonse_ratio: r.actualRatio || null,
+      engine_mode:  r.engineMode,
+      buy_grade:    r.buyGrade,
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <>
+      {/* ── 결론 카드 (최상단 고정) ── */}
+      <div className="mb-4 overflow-hidden rounded-3xl shadow-lg ring-1 ring-slate-200">
+        <div className="px-5 py-4 text-white" style={{ backgroundColor: NAVY }}>
+          <p className="text-xs text-slate-300">{f.complexName} · {f.dong}{Number(f.areaExclusive) > 0 ? ` 전용 ${f.areaExclusive}㎡` : ""}</p>
+          <div className="mt-2 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] text-slate-400">매수 판단</p>
+              <p className="text-xl font-extrabold">{hold0 ? "판단 보류" : bd.finalLabel}</p>
+            </div>
+            {!hold0 && (
+              <div className="text-right">
+                <p className="text-[11px] text-slate-400">가격 평가</p>
+                <p className={`text-2xl font-extrabold ${r.buyGrade === 'A' || r.buyGrade === 'B' ? 'text-emerald-400' : r.buyGrade === 'D' || r.buyGrade === 'E' ? 'text-red-400' : 'text-amber-300'}`}>{r.buyGrade}등급</p>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="grid grid-cols-3 divide-x divide-slate-100 bg-white">
+          <div className="px-3 py-3 text-center">
+            <p className="text-[11px] text-slate-400">현재가</p>
+            <p className="mt-0.5 text-sm font-extrabold text-slate-900">{won(Number(f.currentPrice) || 0)}</p>
+          </div>
+          <div className="px-3 py-3 text-center">
+            <p className="text-[11px] text-slate-400">AI 적정가</p>
+            <p className="mt-0.5 text-sm font-extrabold" style={{ color: NAVY }}>{hold0 ? "—" : won(r.fairPrice)}</p>
+          </div>
+          <div className="px-3 py-3 text-center">
+            <p className="text-[11px] text-slate-400">{r.gapRatio < 0 ? "저평가" : "고평가"}</p>
+            <p className={`mt-0.5 text-sm font-extrabold ${r.gapRatio < -0.03 ? "text-emerald-600" : r.gapRatio > 0.03 ? "text-red-500" : "text-slate-700"}`}>
+              {hold0 ? "—" : pct(r.gapRatio)}
+            </p>
+          </div>
+        </div>
+        {!hold0 && (
+          <div className="border-t border-slate-100 bg-slate-50 px-5 py-2.5 text-xs text-slate-600">
+            {bd.action}
+          </div>
+        )}
+      </div>
+
+      {/* ── 데이터 신뢰도 ── */}
+      <div className="mb-4"><DataTrustBadge trust={trust} /></div>
+
       <div className="mb-4 flex items-center justify-between">
         <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 분석</button>
         <button onClick={onSave} disabled={saved} className={`rounded-lg px-3 py-1.5 text-sm font-medium ${saved ? "bg-slate-100 text-slate-400" : "text-white"}`} style={saved ? {} : { backgroundColor: NAVY }}>{saved ? "★ 관심단지 추가됨" : "☆ 관심단지 추가"}</button>
@@ -5427,8 +5643,58 @@ function SellResult({ r, f, onBack }) {
     "bg-slate-400";
   const mrTone = (lv) => lv === "매우높음" ? "text-red-600" : lv === "높음" ? "text-orange-600" : lv === "보통" ? "text-amber-600" : lv === "평가 불가" ? "text-slate-500" : "text-emerald-600";
   const Cell = ({ l, v, tone }) => <div className="px-3 py-2.5 text-center"><p className="text-[11px] text-slate-400">{l}</p><p className={`mt-0.5 text-sm font-bold ${tone || "text-slate-800"}`}>{v}</p></div>;
+  const trust = computeDataTrust(r, f.deals, f.saleDeals);
+  React.useEffect(() => {
+    writeSearchLog({
+      region: f.region, dong: f.dong, complex_name: f.complexName,
+      area_excl: f.areaExclusive || null,
+      success: r.engineMode !== 'hold',
+      fail_reason: r.engineMode === 'hold' ? r.holdReason : null,
+      data_source: f.dataSource || 'unknown',
+      sale_count: r.saleUsed || 0, rent_count: r.jeonseUsed || 0,
+      jeonse_ratio: r.actualRatio || null, engine_mode: r.engineMode, buy_grade: r.buyGrade,
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <>
+      {/* ── 결론 카드 (매도) ── */}
+      <div className="mb-4 overflow-hidden rounded-3xl shadow-lg ring-1 ring-slate-200">
+        <div className={`px-5 py-4 text-white ${TONE}`}>
+          <p className="text-xs text-white/70">{f.complexName} · {f.dong}{Number(f.areaExclusive) > 0 ? ` 전용 ${f.areaExclusive}㎡` : ""}</p>
+          <div className="mt-2 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] text-white/70">매도 판단</p>
+              <p className="text-xl font-extrabold">{sd.finalSellDecision}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] text-white/70">희망 매도가</p>
+              <p className="text-xl font-extrabold">{won(sd.desired)}</p>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 divide-x divide-slate-100 bg-white">
+          <div className="px-3 py-3 text-center">
+            <p className="text-[11px] text-slate-400">희망가</p>
+            <p className="mt-0.5 text-sm font-extrabold text-slate-900">{won(sd.desired)}</p>
+          </div>
+          <div className="px-3 py-3 text-center">
+            <p className="text-[11px] text-slate-400">AI 적정가</p>
+            <p className="mt-0.5 text-sm font-extrabold" style={{ color: NAVY }}>{won(r.fairPrice)}</p>
+          </div>
+          <div className="px-3 py-3 text-center">
+            <p className="text-[11px] text-slate-400">가격 위치</p>
+            <p className={`mt-0.5 text-sm font-extrabold ${sd.gapVsRef > 0.03 ? "text-red-500" : sd.gapVsRef < -0.03 ? "text-blue-500" : "text-slate-700"}`}>{sd.askingLevel}</p>
+          </div>
+        </div>
+        {sd.sellerAction && (
+          <div className="border-t border-slate-100 bg-slate-50 px-5 py-2.5 text-xs text-slate-600">{sd.sellerAction}</div>
+        )}
+      </div>
+
+      {/* ── 데이터 신뢰도 ── */}
+      <div className="mb-4"><DataTrustBadge trust={trust} /></div>
+
       <div className="mb-4"><button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 평가</button></div>
       <InputWarnings r={r} f={f} />
       <div className="mb-4"><MarketTypeBadge mc={mc} /></div>
@@ -5610,6 +5876,172 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
     </>
   );
 }
+// ═══════════════════════════════════════════════════════════
+// 로그 뷰어 — 조회 이력 확인 (관리자용)
+// ═══════════════════════════════════════════════════════════
+function LogsView() {
+  const [logs, setLogs] = React.useState([]);
+  const [stats, setStats] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [filter, setFilter] = React.useState('all'); // all | fail | success
+  const [page, setPage] = React.useState(0);
+  const [total, setTotal] = React.useState(0);
+  const PAGE_SIZE = 30;
+
+  async function fetchLogs(filterVal = filter, pageVal = page) {
+    setLoading(true);
+    try {
+      const body = {
+        type: 'read',
+        limit: PAGE_SIZE,
+        offset: pageVal * PAGE_SIZE,
+        fail_only: filterVal === 'fail',
+        success_only: filterVal === 'success',
+      };
+      const [logsRes, statsRes] = await Promise.all([
+        fetch('/api/search_logs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+        fetch('/api/search_logs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'stats' }) }),
+      ]);
+      const logsData  = await logsRes.json();
+      const statsData = await statsRes.json();
+      setLogs(logsData.logs || []);
+      setTotal(logsData.total || 0);
+      if (statsData.stats) setStats(statsData.stats);
+    } catch(e) {
+      console.warn('[LogsView] 로드 실패:', e.message);
+    }
+    setLoading(false);
+  }
+
+  React.useEffect(() => { fetchLogs(); }, []);
+
+  function handleFilter(v) { setFilter(v); setPage(0); fetchLogs(v, 0); }
+
+  const gradeColor = (g) => ({ A:'text-emerald-600', B:'text-emerald-500', C:'text-amber-600', D:'text-orange-500', E:'text-red-500', '보류':'text-slate-400' }[g] || 'text-slate-400');
+
+  return (
+    <>
+      <header className="mb-5 text-center">
+        <h1 className="text-2xl font-bold text-slate-900">🔍 조회 로그</h1>
+        <p className="mt-1 text-sm text-slate-500">실제 사용자 조회 이력 및 실패 케이스 모니터링</p>
+      </header>
+
+      {/* 통계 카드 */}
+      {stats && (
+        <div className="mb-5 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+          <p className="mb-3 text-sm font-bold text-slate-700">최근 7일 요약</p>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl bg-slate-50 px-3 py-3">
+              <p className="text-[11px] text-slate-400">전체 조회</p>
+              <p className="mt-0.5 text-xl font-extrabold text-slate-800">{stats.total}</p>
+            </div>
+            <div className="rounded-xl bg-emerald-50 px-3 py-3">
+              <p className="text-[11px] text-emerald-600">성공률</p>
+              <p className="mt-0.5 text-xl font-extrabold text-emerald-700">{stats.successRate}%</p>
+            </div>
+            <div className="rounded-xl bg-red-50 px-3 py-3">
+              <p className="text-[11px] text-red-500">실패</p>
+              <p className="mt-0.5 text-xl font-extrabold text-red-600">{stats.fail}</p>
+            </div>
+          </div>
+          {stats.topFailReasons?.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-2 text-xs font-semibold text-slate-500">주요 실패 사유</p>
+              {stats.topFailReasons.map((item, i) => (
+                <div key={i} className="flex items-center justify-between rounded-lg bg-red-50 px-3 py-2 mb-1 text-xs">
+                  <span className="text-red-700">{item.reason || '(사유 없음)'}</span>
+                  <span className="font-bold text-red-600">{item.count}건</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {stats.bySource && (
+            <div className="mt-3 flex gap-2 flex-wrap">
+              {Object.entries(stats.bySource).map(([src, cnt]) => (
+                <span key={src} className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] text-slate-600">
+                  {src}: {cnt}건
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 필터 */}
+      <div className="mb-3 flex gap-2">
+        {[['all','전체'],['fail','실패만'],['success','성공만']].map(([v, l]) => (
+          <button key={v} onClick={() => handleFilter(v)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-bold ${filter === v ? 'text-white' : 'bg-slate-100 text-slate-500'}`}
+            style={filter === v ? { backgroundColor: NAVY } : {}}>
+            {l}
+          </button>
+        ))}
+        <button onClick={() => fetchLogs()} className="ml-auto rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">
+          새로고침
+        </button>
+      </div>
+
+      {/* 로그 목록 */}
+      {loading ? (
+        <div className="py-10 text-center text-sm text-slate-400">로딩 중…</div>
+      ) : logs.length === 0 ? (
+        <div className="rounded-2xl bg-white py-10 text-center text-sm text-slate-400 shadow-sm ring-1 ring-slate-100">
+          조회 이력이 없습니다.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {logs.map((log, i) => (
+            <div key={i} className={`rounded-2xl bg-white p-4 shadow-sm ring-1 ${log.success ? 'ring-slate-100' : 'ring-red-200 bg-red-50'}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${log.success ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      {log.success ? '성공' : '실패'}
+                    </span>
+                    <span className="text-sm font-bold text-slate-800 truncate">{log.complex_name || '—'}</span>
+                    <span className="text-xs text-slate-400">{log.region} {log.dong}</span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-500">
+                    {log.area_excl && <span>전용 {log.area_excl}㎡</span>}
+                    {log.engine_mode && <span>엔진:{log.engine_mode}</span>}
+                    {log.buy_grade && <span className={gradeColor(log.buy_grade)}>등급:{log.buy_grade}</span>}
+                    {log.sale_count > 0 && <span>매매:{log.sale_count}건</span>}
+                    {log.rent_count > 0 && <span>전세:{log.rent_count}건</span>}
+                    {log.jeonse_ratio && <span>전세율:{(log.jeonse_ratio*100).toFixed(0)}%</span>}
+                    <span className={`rounded px-1 ${log.data_source === 'supabase' ? 'text-blue-500' : log.data_source === 'molit' ? 'text-green-600' : 'text-slate-400'}`}>
+                      {log.data_source || 'none'}
+                    </span>
+                  </div>
+                  {!log.success && log.fail_reason && (
+                    <p className="mt-1 text-[11px] text-red-600">⚠ {log.fail_reason}</p>
+                  )}
+                </div>
+                <p className="shrink-0 text-[10px] text-slate-300">
+                  {log.searched_at ? new Date(log.searched_at).toLocaleString('ko-KR', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—'}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 페이지네이션 */}
+      {total > PAGE_SIZE && (
+        <div className="mt-4 flex items-center justify-between">
+          <button disabled={page === 0} onClick={() => { const p = page - 1; setPage(p); fetchLogs(filter, p); }}
+            className="rounded-lg px-3 py-2 text-xs font-medium text-slate-500 disabled:opacity-30 bg-slate-100">← 이전</button>
+          <span className="text-xs text-slate-400">{page + 1} / {Math.ceil(total / PAGE_SIZE)}페이지 (총 {total}건)</span>
+          <button disabled={(page + 1) * PAGE_SIZE >= total} onClick={() => { const p = page + 1; setPage(p); fetchLogs(filter, p); }}
+            className="rounded-lg px-3 py-2 text-xs font-medium text-slate-500 disabled:opacity-30 bg-slate-100">다음 →</button>
+        </div>
+      )}
+
+      <p className="mt-4 text-[11px] text-slate-300 text-center">로그는 실시간 write · 민감 개인정보 미포함</p>
+    </>
+  );
+}
+
+
 function BudgetView({ onProfile }) {
   const [budget, setBudget] = useState("");
   const [equity, setEquity] = useState("");
