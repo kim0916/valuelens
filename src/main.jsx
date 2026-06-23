@@ -2589,10 +2589,21 @@ function parsePrice(val) {
 }
 
 // ── 공통 실거래 조회 함수 ──
+// MIN_DEALS 고정값 제거 — 거래 건수에 따라 신뢰도 등급으로 처리
+// 거래 1건: 참고값 / 2~3건: 낮은 신뢰도 / 4건+: 일반 분석
+function getDataConfidence(count) {
+  if (count === 0) return { level: "없음",  label: "거래 없음",              canAnalyze: false };
+  if (count <= 1)  return { level: "참고",  label: "참고값 (거래 1건)",       canAnalyze: false };
+  if (count <= 3)  return { level: "낮음",  label: `거래 부족 (${count}건·참고용)`, canAnalyze: true };
+  if (count <= 6)  return { level: "보통",  label: `거래 ${count}건`,         canAnalyze: true };
+  return             { level: "높음",  label: `거래 ${count}건`,         canAnalyze: true };
+}
+
 async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, exactAptNm = "", dong = "", exclusiveAreas = null) {
   const now = new Date();
-  const AREA_STEPS = [0.5, 1, 3, 5];
-  const MIN_DEALS = 5;
+  // 면적 확장: ±3㎡ 우선, 거래 3건 미만일 때만 ±5·±8㎡ 확장 (보조 데이터)
+  const AREA_STEPS_PRIMARY = [3];
+  const AREA_STEPS_EXPAND  = [5, 8];
 
   // alias 해석: 입력 단지명이 alias 사전에 있으면 실명으로 교체
   const aliasInfo = resolveAlias(complexName);
@@ -2695,35 +2706,32 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
   jeonseP.areaSamples = [...new Set(rentRaw.map(i => Number(i.excluUseAr)).filter(Boolean))].sort((a,b)=>a-b);
   for (const i of [...saleAptFiltered, ...rentRaw]) { const a = Math.round((Number(i.excluUseAr)||0)*100)/100; if (a>0) allAreas.add(a); }
 
-  // ── Step3: 면적 필터 — 매매/전세 완전 동일 기준 ──
-  // filterByAreaGroup: exclusiveAreas 배열 있으면 ±1㎡ 엄격 적용, 없으면 단계적 확장
-  const filterByAreaGroup = (items, target, steps) => {
-    if (!target) return { filtered: items, tol: -1 };
+  // ── Step3: 면적 필터 — ±3㎡ 우선, 거래 부족(3건 미만)일 때만 확장 ──
+  // isExpanded=true 이면 보조 데이터로 표시해야 함
+  const filterByAreaGroup = (items, target) => {
+    if (!target) return { filtered: items, tol: -1, isExpanded: false };
     if (Array.isArray(target)) {
-      // 평형 그룹 배열 기반 — ±1㎡ 고정 (절대 확장 안 함)
-      // ±3㎡ 통일: groupAreasByPyeong 그룹핑 기준과 동일하게 맞춤
       const filtered = items.filter(i => target.some(a => Math.abs(Number(i.excluUseAr) - a) <= 3));
-      return { filtered, tol: 3 };
+      return { filtered, tol: 3, isExpanded: false };
     }
-    // 단일값 — 단계적 확장 (매매/전세 둘 다 적용)
-    let result = [], tol = steps[0];
-    for (const t of steps) {
-      result = items.filter(i => Math.abs(Number(i.excluUseAr) - Number(target)) <= t);
-      tol = t;
-      if (result.length >= 3) break;
+    // 1차: ±3㎡
+    const primary = items.filter(i => Math.abs(Number(i.excluUseAr) - Number(target)) <= 3);
+    if (primary.length >= 3) return { filtered: primary, tol: 3, isExpanded: false };
+    // 2차: 거래 3건 미만일 때만 확장 (보조 데이터 플래그)
+    for (const t of AREA_STEPS_EXPAND) {
+      const expanded = items.filter(i => Math.abs(Number(i.excluUseAr) - Number(target)) <= t);
+      if (expanded.length > 0) return { filtered: expanded, tol: t, isExpanded: true };
     }
-    return { filtered: result, tol };
+    return { filtered: primary, tol: 3, isExpanded: false };
   };
 
-  let saleArea, rentArea, usedTol;
+  let saleArea, rentArea, usedTol, saleExpanded = false, rentExpanded = false;
   if (areaTarget) {
-    const { filtered: sf, tol: st } = filterByAreaGroup(saleAptFiltered, areaTarget, AREA_STEPS);
-    const { filtered: jf, tol: jt } = filterByAreaGroup(rentRaw,         areaTarget, AREA_STEPS);
+    const { filtered: sf, tol: st, isExpanded: se } = filterByAreaGroup(saleAptFiltered, areaTarget);
+    const { filtered: jf, tol: jt, isExpanded: je } = filterByAreaGroup(rentRaw,         areaTarget);
     saleArea = sf; rentArea = jf;
-    usedTol = Math.max(st, jt); // 로그용 — 실제 각각 다를 수 있음
-
-    // 파이프라인 로그
-                `전세통과(${jf.length}건)`, [...new Set(jf.map(i => Number(i.excluUseAr)))], "기준", areaTarget);
+    saleExpanded = se; rentExpanded = je;
+    usedTol = Math.max(st, jt);
   } else {
     saleArea = saleAptFiltered; rentArea = rentRaw; usedTol = -1;
   }
@@ -2777,17 +2785,25 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
   }
 
   // ── diagnosis 객체 (UI 표시용) ──
-  const targetCount = 3;
+  const saleConf  = getDataConfidence(saleOut.length);
+  const rentConf  = getDataConfidence(jeonseOut.length);
   const diagnosis = {
     apiFailed: apiFailed >= monthList.length,
+    // 원인별 구분 (4가지)
+    noComplex:    salePipe.step2_aptNm === 0 && jeonseP.step2_aptNm === 0 && salePipe.step1_raw > 0,
     complexNoTrade: salePipe.step2_aptNm === 0 && jeonseP.step2_aptNm === 0,
-    saleAreaShort: saleOut.length < targetCount,
-    jeonseAreaShort: jeonseOut.length < targetCount,
-    jeonseExistsOtherArea: jeonseP.step2_aptNm > 0 && jeonseOut.length < targetCount,
+    areaNoMatch:  salePipe.step2_aptNm > 0 && salePipe.step3_area === 0,
+    periodNoTrade: salePipe.step2_aptNm > 0 && salePipe.step3_area > 0 && saleOut.length === 0,
+    // 거래 건수 신뢰도
+    saleConf,  rentConf,
+    saleAreaShort:  saleOut.length < 4,
+    jeonseAreaShort: jeonseOut.length < 4,
+    jeonseExistsOtherArea: jeonseP.step2_aptNm > 0 && jeonseOut.length < 4,
+    // 확장 면적 사용 여부
+    saleExpanded, rentExpanded,
     usedTolerance: usedTol,
     complexSaleTotal: salePipe.step2_aptNm,
     complexRentTotal: jeonseP.step2_aptNm,
-    // 단계별 건수 (UI 표시용)
     pipeline: { sale: salePipe, jeonse: jeonseP },
   };
 
@@ -2834,35 +2850,35 @@ async function fetchApartmentData(query) {
     const d = molitResult.diagnosis || {};
     const pipeline = d.pipeline || {};
 
-    // ── 5. 원인별 tradeStatus 생성 ──
+    // ── 5. 원인별 tradeStatus 생성 (4가지 원인 구분) ──
     if (d.apiFailed) {
       tradeStatus = { code: "API_FAIL", msg: "국토부 API 조회 실패 — 잠시 후 다시 시도하거나 KB시세를 직접 입력하세요.", pipeline };
-    } else if (d.complexNoTrade) {
+    } else if (d.complexNoTrade && d.noComplex) {
+      // 원인 1: 단지명 매칭 실패 (API 응답은 왔는데 단지명이 안 맞음)
       const sampleNames = [...new Set([...(pipeline.sale?.aptNmSamples||[]), ...(pipeline.jeonse?.aptNmSamples||[])])].slice(0,5).join(", ");
-      tradeStatus = { code: "COMPLEX_NO_TRADE", msg: `단지명 매칭 실패 — ${qComplexName}을(를) 찾을 수 없음${sampleNames ? ` (조회된 단지: ${sampleNames})` : ""}`, pipeline };
+      tradeStatus = { code: "NAME_NO_MATCH", msg: `단지명 매칭 실패 — "${qComplexName}"을(를) 찾을 수 없습니다${sampleNames ? ` (조회된 단지명: ${sampleNames})` : ""}. 전체 단지명을 정확히 입력하세요.`, pipeline };
+    } else if (d.complexNoTrade) {
+      // 원인 2: DB/기간 내 거래 없음 (단지 자체가 없거나 기간 내 거래 0)
+      tradeStatus = { code: "PERIOD_NO_TRADE", msg: `DB 적재기간 내 "${qComplexName}" 거래 없음 — KB시세를 직접 입력하세요.`, pipeline };
+    } else if (d.areaNoMatch) {
+      // 원인 3: 면적 매칭 실패
+      const areaSamples = (pipeline.sale?.areaSamples || []).slice(0,5).join(", ");
+      tradeStatus = { code: "AREA_NO_MATCH", msg: `면적 매칭 실패 — 선택 면적(${qArea}㎡)과 실거래 면적이 다릅니다${areaSamples ? ` (단지 실거래 면적: ${areaSamples}㎡)` : ""}`, canExpand: true, pipeline };
     } else {
-      const saleShort = d.saleAreaShort;
-      const jeonseShort = d.jeonseAreaShort;
-      const jeonseElsewhere = d.jeonseExistsOtherArea;
-      const tol = d.usedTolerance;
-      const tolLabel = tol <= 0.5 ? "정확히" : tol <= 3 ? "±3㎡" : "±5㎡";
-
-      if (saleShort && jeonseShort) {
-        if (jeonseElsewhere) {
-          tradeStatus = { code: "AREA_SHORT_JEONSE_ELSEWHERE", msg: `선택 면적(${qArea}㎡) 전세 실거래 부족 — 다른 평형에 전세 거래 있음`, saleShort: true, jeonseShort: true, canExpand: true, pipeline };
-        } else {
-          tradeStatus = { code: "AREA_SHORT_BOTH", msg: `선택 면적(${qArea}㎡) 매매·전세 실거래 부족 (${tolLabel} 범위 사용)`, saleShort: true, jeonseShort: true, canExpand: true, pipeline };
-        }
-      } else if (jeonseShort) {
-        if (jeonseElsewhere) {
-          tradeStatus = { code: "JEONSE_AREA_SHORT", msg: `선택 면적 전세 실거래 부족 — 다른 평형에 전세 거래 있음`, jeonseShort: true, canExpand: true, pipeline };
-        } else {
-          tradeStatus = { code: "JEONSE_SHORT", msg: `전세 실거래 부족 — KB전세시세를 직접 입력하세요.`, jeonseShort: true, pipeline };
-        }
-      } else if (saleShort) {
-        tradeStatus = { code: "SALE_SHORT", msg: `매매 실거래 부족 (${tolLabel} 범위 ${sale.length}건 사용)`, saleShort: true, pipeline };
+      // 거래 있음 — 신뢰도 기반으로 상태 결정 (에러 아님)
+      const sc = d.saleConf, jc = d.rentConf;
+      const expandNote = (d.saleExpanded || d.rentExpanded) ? " · 인접 면적 보조 데이터 포함" : "";
+      if (!sc.canAnalyze && !jc.canAnalyze) {
+        // 원인 4: 기간 내 거래 있지만 너무 적음 (참고값만)
+        tradeStatus = { code: "TOO_FEW", msg: `거래 건수 부족 (매매 ${saleOut.length}건·전세 ${jeonseOut.length}건) — 참고용으로만 표시됩니다${expandNote}`, saleConf: sc, rentConf: jc, pipeline };
+      } else if (sc.level === "낮음" || jc.level === "낮음") {
+        tradeStatus = { code: "LOW_DATA", msg: `거래 부족 — 참고용 분석 (매매 ${saleOut.length}건·전세 ${jeonseOut.length}건)${expandNote}`, saleConf: sc, rentConf: jc, pipeline };
+      } else if (d.jeonseAreaShort && d.jeonseExistsOtherArea) {
+        tradeStatus = { code: "JEONSE_AREA_SHORT", msg: `전세 실거래 부족 — 다른 평형에 전세 거래 있음${expandNote}`, saleConf: sc, rentConf: jc, canExpand: true, pipeline };
+      } else if (d.jeonseAreaShort) {
+        tradeStatus = { code: "JEONSE_SHORT", msg: `전세 실거래 부족 — KB전세시세를 직접 입력하세요${expandNote}`, saleConf: sc, rentConf: jc, pipeline };
       } else {
-        tradeStatus = { code: "OK", msg: null, pipeline };
+        tradeStatus = { code: "OK", msg: expandNote ? `데이터 정상${expandNote}` : null, saleConf: sc, rentConf: jc, pipeline };
       }
     }
   } catch(e) {
@@ -3014,7 +3030,7 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
   // tradeStatus 기반 경고
   if (ts.code && ts.code !== "OK" && ts.msg) warns.push(`⚠️ ${ts.msg}`);
   // KB 입력 필요 조건: API 실패, 단지 거래 없음, 또는 매매+전세 둘 다 부족
-  const needKbInput = ["API_FAIL", "COMPLEX_NO_TRADE", "AREA_SHORT_BOTH"].includes(ts.code) ||
+  const needKbInput = ["API_FAIL", "COMPLEX_NO_TRADE", "NAME_NO_MATCH", "PERIOD_NO_TRADE", "TOO_FEW", "AREA_NO_MATCH"].includes(ts.code) ||
     (ts.jeonseShort && !ts.canExpand);
   if (p.buildYearWarning) warns.push(`⚠️ ${p.buildYearWarning} — 준공연도를 직접 확인 후 입력하세요.`);
   if (areaSqm <= 0 && !askedArea) warns.push("전용면적 미확인 — 면적을 직접 확인/입력하세요.");
@@ -3192,15 +3208,11 @@ function LocationPicker({ onComplete }) {
       // - 브랜드 단독 검색
       // - 후보 2개 이상
       const isBrand = isBrandOnlySearch(kw);
-      const needSelect = richCandidates.length >= 2 || (isBrand && richCandidates.length >= 1);
+      const needSelect = richCandidates.length >= 1 || (isBrand && richCandidates.length >= 1);
 
       if (needSelect) {
         setCandidates(richCandidates.slice(0, 20));
         setCandidateMode(true);
-      } else if (richCandidates.length === 1) {
-        // 후보 1개이면 바로 선택 (alias 자동 해결 케이스)
-        const c = richCandidates[0];
-        selectComplex(c.name, c.dong, c.complexId, c);
       }
     } catch(e) {
       console.error('[searchComplex]', e);
@@ -3549,7 +3561,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     } finally { setAiLoading(false); }
   }
 
-  // ── Supabase 우선 데이터 조회 (테스트 버전: 콘솔 로그 포함) ──
+  // ── Supabase 우선 데이터 조회 ──
   async function _fetchRawDataSupabase(ff, overrideArea, exclusiveAreas) {
     const complexId = ff.complexId || null;
     const complexName = ff.exactAptNm || ff.complexName || "";
@@ -3598,12 +3610,13 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       console.warn("  [STEP3] price_summary 조회 실패:", e.message);
     }
 
-    // ── STEP 4+5: sales_raw + rent_raw 조회 ──
+    // ── STEP 4+5: sales_raw + rent_raw 조회 (기간 고정값 제거 — DB 적재기간 전체 사용) ──
     let saleDeals = [], rentDeals = [];
     try {
       const r4 = await fetch("/api/supabase", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "deals", complex_id: useComplexId, area_excl: targetArea || undefined, months: 24 })
+        // months 파라미터 제거 → api/supabase.js가 DB 적재 전체 범위 반환
+        body: JSON.stringify({ type: "deals", complex_id: useComplexId, area_excl: targetArea || undefined })
       });
       const d4 = await r4.json();
       saleDeals = d4.saleDeals || [];
@@ -3612,11 +3625,22 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       console.warn("  [STEP4+5] deals 조회 실패:", e.message);
     }
 
-    // ── STEP 6: price_summary 데이터 로그 (이미 STEP3에서 조회) ──
-
-    // ── Supabase 거래 데이터 없으면 MOLIT fallback ──
+    // ── Supabase: 단지는 있지만 적재기간 내 거래 없음 → MOLIT fallback ──
+    // (단지 미매칭과 거래 없음을 구분해서 tradeStatus에 반영)
     if (saleDeals.length === 0 && rentDeals.length === 0) {
-      return await _fetchRawData(ff, overrideArea, exclusiveAreas);
+      // MOLIT fallback 시도
+      const molitData = await _fetchRawData(ff, overrideArea, exclusiveAreas);
+      if (molitData && (molitData.sale?.length > 0 || molitData.jeonse?.length > 0)) {
+        return molitData;
+      }
+      // MOLIT도 없으면 "DB 적재기간 내 거래 없음" 명확히 표시
+      return {
+        sale: [], jeonse: [], areaOptions: complexInfo.area_list
+          ? JSON.parse(complexInfo.area_list).map(a => ({ areaSqm: a, pyeong: Math.round(a / 3.3058) })) : [],
+        buildYear: complexInfo.build_year || null, lawdCd: null,
+        tradeStatus: { code: "PERIOD_NO_TRADE", msg: `DB 적재기간 내 "${ff.complexName}" 거래 없음 — KB시세를 직접 입력하세요.`, pipeline: { source: "supabase" } },
+        dataSource: "supabase",
+      };
     }
 
     // ── STEP 7: 기존 형식으로 변환 (계산식 건드리지 않음) ──
@@ -3641,6 +3665,14 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     const jeonse = rentDeals.map(toRent).filter(d => d.price > 0 && d.areaSqm > 0);
 
 
+    // 신뢰도 계산
+    const sbSaleConf = getDataConfidence(sale.length);
+    const sbRentConf = getDataConfidence(jeonse.length);
+    const sbStatus = (!sbSaleConf.canAnalyze && !sbRentConf.canAnalyze)
+      ? { code: "TOO_FEW",  msg: `거래 건수 부족 (매매 ${sale.length}건·전세 ${jeonse.length}건) — 참고용으로만 표시됩니다`, saleConf: sbSaleConf, rentConf: sbRentConf, pipeline: { source: "supabase" } }
+      : (sbSaleConf.level === "낮음" || sbRentConf.level === "낮음")
+        ? { code: "LOW_DATA", msg: `거래 부족 — 참고용 분석 (매매 ${sale.length}건·전세 ${jeonse.length}건)`, saleConf: sbSaleConf, rentConf: sbRentConf, pipeline: { source: "supabase" } }
+        : { code: "OK", msg: null, saleConf: sbSaleConf, rentConf: sbRentConf, pipeline: { source: "supabase" } };
     const data = {
       sale, jeonse,
       areaOptions: complexInfo.area_list
@@ -3648,7 +3680,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         : [],
       buildYear:    complexInfo.build_year || null,
       lawdCd:       null,
-      tradeStatus:  { code: "OK", msg: null, pipeline: { source: "supabase" } },
+      tradeStatus:  sbStatus,
       dataSource:   "supabase",
     };
 
@@ -3704,7 +3736,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
     // listingPriceInput(독립 state)에서 직접 읽음 — 절대 초기화 안 됨
     const preservedPrice = Number(String(listingPriceInput).replace(/,/g, "")) || Number(ff.currentPrice) || Number(f.currentPrice) || 0;
-    setF({ ...filled, currentPrice: preservedPrice });
+    // tradeStatus를 f에 저장 → UI에서 원인별 메시지 표시
+    setF({ ...filled, currentPrice: preservedPrice, _tradeStatus: rawData.tradeStatus || null });
     const opts = filled._aiAreaOptions?.length > 0 ? filled._aiAreaOptions : (rawData.areaOptions || []);
     setAreaOptions(opts);
 
@@ -3845,11 +3878,14 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         {/* 실거래 상태 안내 카드 — 원인별 구분 */}
         {f._tradeStatus && f._tradeStatus.code !== "OK" && (() => {
           const ts = f._tradeStatus;
-          const isApiFail = ts.code === "API_FAIL";
-          const isNoTrade = ts.code === "COMPLEX_NO_TRADE";
-          const needKb = isApiFail || isNoTrade || (ts.jeonseShort && !ts.canExpand);
+          const isApiFail  = ts.code === "API_FAIL";
+          const isNoTrade  = ["COMPLEX_NO_TRADE","NAME_NO_MATCH","PERIOD_NO_TRADE"].includes(ts.code);
+          const isLowData  = ["LOW_DATA","TOO_FEW"].includes(ts.code);
+          const isAreaFail = ts.code === "AREA_NO_MATCH";
+          const needKb = isApiFail || isNoTrade || ts.code === "JEONSE_SHORT";
+          const boxColor = isNoTrade ? "bg-red-50 ring-red-200" : isLowData ? "bg-amber-50 ring-amber-200" : isAreaFail ? "bg-orange-50 ring-orange-200" : "bg-amber-50 ring-amber-200";
           return (
-            <div className="mt-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
+            <div className={`mt-3 rounded-2xl p-4 ring-1 ${boxColor}`0">
               <p className="text-sm font-bold text-amber-800">
                 {isApiFail ? "⚠️ API 조회 실패" :
                  isNoTrade ? "⚠️ 단지 거래 없음" :
@@ -4131,9 +4167,11 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
           {/* 실거래 상태 안내 — 원인별 구분 */}
           {edit._tradeStatus && edit._tradeStatus.code !== "OK" && (() => {
             const ts = edit._tradeStatus;
-            const isApiFail = ts.code === "API_FAIL";
-            const isNoTrade = ts.code === "COMPLEX_NO_TRADE";
-            const needKb = isApiFail || isNoTrade || (ts.jeonseShort && !ts.canExpand);
+            const isApiFail  = ts.code === "API_FAIL";
+            const isNoTrade  = ["COMPLEX_NO_TRADE","NAME_NO_MATCH","PERIOD_NO_TRADE"].includes(ts.code);
+            const isLowData  = ["LOW_DATA","TOO_FEW"].includes(ts.code);
+            const isAreaFail = ts.code === "AREA_NO_MATCH";
+            const needKb = isApiFail || isNoTrade || ts.code === "JEONSE_SHORT";
             const label =
               isApiFail ? "⚠️ API 조회 실패" :
               isNoTrade ? "⚠️ 단지 거래 없음" :
@@ -4271,7 +4309,8 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
           const mkRow = (p, label) => {
             if (!p) return null;
             const tol = p.usedTolerance >= 0 ? `±${p.usedTolerance}㎡` : "전체";
-            const steps = `원본 ${p.step1_raw}건 → 단지명 ${p.step2_aptNm}건 → 면적(${tol}) ${p.step3_area}건 → 최종 ${p.step6_final}건`;
+            const conf = getDataConfidence(p.step6_final);
+            const steps = `원본 ${p.step1_raw}건 → 단지명 ${p.step2_aptNm}건 → 면적(${tol}) ${p.step3_area}건 → 최종 ${p.step6_final}건 [신뢰도: ${conf.label}]`;
             const ok = p.step6_final > 0;
             return (
               <div key={label} className={`flex items-start gap-2 ${ok ? "" : "text-amber-700"}`}>
@@ -5307,11 +5346,12 @@ function SellView({ onContext }) {
 
   // ── Supabase 우선 조회 (BuyView _fetchRawDataSupabase와 동일 로직) ──
   async function _fetchRawDataSupabase(ff, overrideArea, exclusiveAreas) {
+    const complexId  = ff.complexId || null;
     const complexName = ff.exactAptNm || ff.complexName || "";
-    const sigungu     = ff.region || "";
-    const targetArea  = overrideArea ? Number(overrideArea) : Number(ff.areaExclusive) || 0;
+    const sigungu    = ff.region || "";
+    const targetArea = overrideArea ? Number(overrideArea) : Number(ff.areaExclusive) || 0;
 
-    // STEP 1: complexes 검색
+    // STEP 1: 단지 검색
     let complexInfo = null;
     try {
       const r1 = await fetch("/api/supabase", {
@@ -5320,43 +5360,67 @@ function SellView({ onContext }) {
       });
       const d1 = await r1.json();
       if (d1.complexes && d1.complexes.length > 0) {
-        complexInfo = d1.complexes.find(c => ff.complexId && c.id === ff.complexId) || d1.complexes[0];
+        complexInfo = d1.complexes.find(c => complexId && c.id === complexId) || d1.complexes[0];
       }
     } catch(e) { console.warn('[SellView] Supabase search 실패:', e.message); }
 
+    // 단지 미매칭 → MOLIT fallback
     if (!complexInfo) return await _fetchRawData(ff, overrideArea, exclusiveAreas);
 
-    // STEP 2: deals 조회
+    const useComplexId   = complexInfo.id;
+    const useComplexName = complexInfo.complex_name;
+
+    // STEP 2: deals 조회 (months 제거 — DB 전체 범위)
     let saleDeals = [], rentDeals = [];
     try {
       const r4 = await fetch("/api/supabase", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "deals", complex_id: complexInfo.id, area_excl: targetArea || undefined, months: 24 }),
+        body: JSON.stringify({ type: "deals", complex_id: useComplexId, area_excl: targetArea || undefined }),
       });
       const d4 = await r4.json();
       saleDeals = d4.saleDeals || [];
       rentDeals = d4.rentDeals || [];
     } catch(e) { console.warn('[SellView] Supabase deals 실패:', e.message); }
 
-    if (saleDeals.length === 0 && rentDeals.length === 0)
-      return await _fetchRawData(ff, overrideArea, exclusiveAreas);
+    // STEP 3: 거래 없음 → MOLIT fallback 후 없으면 명확한 상태 반환
+    if (saleDeals.length === 0 && rentDeals.length === 0) {
+      const molitData = await _fetchRawData(ff, overrideArea, exclusiveAreas);
+      if (molitData && (molitData.sale?.length > 0 || molitData.jeonse?.length > 0)) return molitData;
+      return {
+        sale: [], jeonse: [],
+        areaOptions: complexInfo.area_list
+          ? JSON.parse(complexInfo.area_list).map(a => ({ areaSqm: a, pyeong: Math.round(a / 3.3058) })) : [],
+        buildYear: complexInfo.build_year || null, lawdCd: null,
+        tradeStatus: { code: "PERIOD_NO_TRADE", msg: `DB 적재기간 내 "${ff.complexName}" 거래 없음 — 희망 매도가를 직접 입력하세요.`, pipeline: { source: "supabase" } },
+        dataSource: "supabase",
+      };
+    }
 
-    const toSale = (d) => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deal_amount_man)||0, contractYm: d.contract_ym||"", aptNm: d.complex_name || complexInfo.complex_name, floor: d.floor||0 });
-    const toRent = (d) => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deposit_man)||0,    contractYm: d.contract_ym||"", aptNm: d.complex_name || complexInfo.complex_name, floor: d.floor||0, monthly: Number(d.monthly_man)||0 });
-
+    // STEP 4: 변환
+    const toSale = (d) => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deal_amount_man)||0, contractYm: d.contract_ym||"", aptNm: d.complex_name || useComplexName, floor: d.floor||0, cancelDate: d.cancel_date||null });
+    const toRent = (d) => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deposit_man)||0,    contractYm: d.contract_ym||"", aptNm: d.complex_name || useComplexName, floor: d.floor||0, monthly: Number(d.monthly_man)||0 });
     const sale   = saleDeals.map(toSale).filter(d => d.price > 0 && d.areaSqm > 0);
     const jeonse = rentDeals.map(toRent).filter(d => d.price > 0 && d.areaSqm > 0);
 
+    // STEP 5: 신뢰도 계산 (BuyView와 동일)
+    const sbSaleConf = getDataConfidence(sale.length);
+    const sbRentConf = getDataConfidence(jeonse.length);
+    const sbStatus = (!sbSaleConf.canAnalyze && !sbRentConf.canAnalyze)
+      ? { code: "TOO_FEW",  msg: `거래 건수 부족 (매매 ${sale.length}건·전세 ${jeonse.length}건) — 참고용으로만 표시됩니다`, saleConf: sbSaleConf, rentConf: sbRentConf, pipeline: { source: "supabase" } }
+      : (sbSaleConf.level === "낮음" || sbRentConf.level === "낮음")
+        ? { code: "LOW_DATA", msg: `거래 부족 — 참고용 분석 (매매 ${sale.length}건·전세 ${jeonse.length}건)`, saleConf: sbSaleConf, rentConf: sbRentConf, pipeline: { source: "supabase" } }
+        : { code: "OK", msg: null, saleConf: sbSaleConf, rentConf: sbRentConf, pipeline: { source: "supabase" } };
+
     const data = {
-      sale, jeonse, dataSource: 'supabase',
+      sale, jeonse, dataSource: "supabase",
       areaOptions: complexInfo.area_list
-        ? JSON.parse(complexInfo.area_list).map(a => ({ areaSqm: a, pyeong: Math.round(a / 3.3058) }))
-        : [],
-      buildYear:   complexInfo.build_year || null,
-      tradeStatus: { code: "OK", msg: null, pipeline: { source: "supabase" } },
+        ? JSON.parse(complexInfo.area_list).map(a => ({ areaSqm: a, pyeong: Math.round(a / 3.3058) })) : [],
+      buildYear: complexInfo.build_year || null, lawdCd: null,
+      tradeStatus: sbStatus,
     };
-    rawMolitRef.current = { ...data, complexName: ff.exactAptNm || ff.complexName, dong: ff.dong, dataSource: 'supabase' };
+    rawMolitRef.current = { ...data, complexName: ff.exactAptNm || ff.complexName, dong: ff.dong, dataSource: "supabase" };
     return data;
+  }
   }
 
   async function _fetchRawData(ff, overrideArea, exclusiveAreas) {
@@ -5387,7 +5451,8 @@ function SellView({ onContext }) {
     if (ff.buildYear && !filled.buildYear) filled.buildYear = ff.buildYear;
 
     const preservedPrice = Number(String(listingPriceInput).replace(/,/g, "")) || Number(ff.currentPrice) || Number(f.currentPrice) || 0;
-    setF({ ...filled, currentPrice: preservedPrice });
+    // tradeStatus를 f에 저장 → UI에서 원인별 메시지 표시
+    setF({ ...filled, currentPrice: preservedPrice, _tradeStatus: rawData.tradeStatus || null });
     const opts = filled._aiAreaOptions?.length > 0 ? filled._aiAreaOptions : (rawData.areaOptions || []);
     setAreaOptions(opts);
 
@@ -5505,9 +5570,10 @@ function SellView({ onContext }) {
         {/* 실거래 상태 안내 */}
         {f._tradeStatus && f._tradeStatus.code !== "OK" && (() => {
           const ts = f._tradeStatus;
-          const needKb = ["API_FAIL", "COMPLEX_NO_TRADE", "AREA_SHORT_BOTH"].includes(ts.code) || (ts.jeonseShort && !ts.canExpand);
+          const needKb = ["API_FAIL", "COMPLEX_NO_TRADE", "NAME_NO_MATCH", "PERIOD_NO_TRADE", "AREA_NO_MATCH"].includes(ts.code) || (ts.jeonseShort && !ts.canExpand);
+          const boxColor = isNoTrade ? "bg-red-50 ring-red-200" : isLowData ? "bg-amber-50 ring-amber-200" : isAreaFail ? "bg-orange-50 ring-orange-200" : "bg-amber-50 ring-amber-200";
           return (
-            <div className="mt-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
+            <div className={`mt-3 rounded-2xl p-4 ring-1 ${boxColor}`0">
               <p className="text-sm font-bold text-amber-800">ℹ️ {ts.msg}</p>
               {needKb && (
                 <div className="mt-3 grid grid-cols-2 gap-2">
