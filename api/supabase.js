@@ -152,10 +152,14 @@ export default async function handler(req, res) {
     try {
       // cutoff 없음 — DB에 있는 데이터 전부 반환
       // ⚠️ sales_raw/rent_raw의 complex_id가 NULL이므로 항상 complex_name + sigungu로 조회
+      // 필요한 컬럼만 select → 전송량·속도 개선 (select('*') 제거)
+      const SALE_COLS = 'complex_name,sigungu,area_excl,deal_amount_man,contract_ym,floor,cancel_date';
+      const RENT_COLS = 'complex_name,sigungu,area_excl,deposit_man,monthly_man,contract_ym,floor';
       const baseQ = (table) => {
-        let q = supabase.from(table).select('*')
+        const cols = table === 'realestate_sales_raw' ? SALE_COLS : RENT_COLS;
+        let q = supabase.from(table).select(cols)
           .order('contract_ym', { ascending: false });
-        // complex_name 정확일치 + sigungu 부분일치 (앱은 "강남구", DB는 "서울특별시 강남구")
+        // complex_name 정확일치 + sigungu 부분일치 (앱은 "강남구" 또는 풀주소 모두 처리)
         q = q.eq('complex_name', complex_name);
         if (sigungu) q = q.ilike('sigungu', `%${sigungu}%`);
         return q;
@@ -176,8 +180,8 @@ export default async function handler(req, res) {
 
       if (saleData.length === 0 && rentData.length === 0) {
         const [sAll, rAll] = await Promise.all([
-          baseQ('realestate_sales_raw').limit(500),
-          baseQ('realestate_rent_raw').eq('monthly_man', 0).limit(500),
+          baseQ('realestate_sales_raw').limit(200),
+          baseQ('realestate_rent_raw').eq('monthly_man', 0).limit(200),
         ]);
         if (sAll.error) throw sAll.error;
         if (rAll.error) throw rAll.error;
