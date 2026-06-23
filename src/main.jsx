@@ -2495,7 +2495,6 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
   const aliasInfo = resolveAlias(complexName);
   if (aliasInfo && aliasInfo.real.length > 0 && !exactAptNm) {
     exactAptNm = aliasInfo.real[0]; // 첫 번째 실명으로 exactAptNm 설정
-    console.log(`[alias] "${complexName}" → "${exactAptNm}"`);
   }
   // 면적 필터 기준: exclusiveAreas 배열 우선, 없으면 단일값
   const areaTarget = exclusiveAreas && exclusiveAreas.length > 0 ? exclusiveAreas : (Number(areaExclusive) > 0 ? Number(areaExclusive) : null);
@@ -2599,8 +2598,9 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
     if (!target) return { filtered: items, tol: -1 };
     if (Array.isArray(target)) {
       // 평형 그룹 배열 기반 — ±1㎡ 고정 (절대 확장 안 함)
-      const filtered = items.filter(i => target.some(a => Math.abs(Number(i.excluUseAr) - a) <= 1));
-      return { filtered, tol: 1 };
+      // ±3㎡ 통일: groupAreasByPyeong 그룹핑 기준과 동일하게 맞춤
+      const filtered = items.filter(i => target.some(a => Math.abs(Number(i.excluUseAr) - a) <= 3));
+      return { filtered, tol: 3 };
     }
     // 단일값 — 단계적 확장 (매매/전세 둘 다 적용)
     let result = [], tol = steps[0];
@@ -2620,7 +2620,6 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
     usedTol = Math.max(st, jt); // 로그용 — 실제 각각 다를 수 있음
 
     // 파이프라인 로그
-    console.log(`[pipe] 면적필터: 매매통과(${sf.length}건)`, [...new Set(sf.map(i => Number(i.excluUseAr)))],
                 `전세통과(${jf.length}건)`, [...new Set(jf.map(i => Number(i.excluUseAr)))], "기준", areaTarget);
   } else {
     saleArea = saleAptFiltered; rentArea = rentRaw; usedTol = -1;
@@ -2671,11 +2670,7 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
 
   // ── 콘솔 파이프라인 요약 ──
   const fmt = (p, label) => `${label}: 원본${p.step1_raw}→단지명${p.step2_aptNm}→면적${p.step3_area}(±${p.usedTolerance}㎡)→최종${p.step6_final}건${p.failReason ? ` ❌${p.failReason}` : ""}`;
-  console.log("[pipe]", fmt(salePipe, "매매"));
-  console.log("[pipe]", fmt(jeonseP, "전세"));
   if (salePipe.step2_aptNm === 0 || jeonseP.step2_aptNm === 0) {
-    console.log("[pipe] 단지명 샘플:", [...new Set([...salePipe.aptNmSamples, ...jeonseP.aptNmSamples])].slice(0,10));
-    console.log("[pipe] 매칭 시도:", { complexName, exactAptNm });
   }
 
   // ── diagnosis 객체 (UI 표시용) ──
@@ -2747,7 +2742,7 @@ async function fetchApartmentData(query) {
       const jeonseShort = d.jeonseAreaShort;
       const jeonseElsewhere = d.jeonseExistsOtherArea;
       const tol = d.usedTolerance;
-      const tolLabel = tol <= 0.5 ? "정확히" : tol <= 1 ? "±1㎡" : tol <= 3 ? "±3㎡" : "±5㎡";
+      const tolLabel = tol <= 0.5 ? "정확히" : tol <= 3 ? "±3㎡" : "±5㎡";
 
       if (saleShort && jeonseShort) {
         if (jeonseElsewhere) {
@@ -2813,7 +2808,6 @@ async function fetchApartmentData(query) {
     : [];
   if (otherAreaJeonse.length > 0 || otherAreaSale.length > 0) {
     const otherAreas = [...new Set([...otherAreaJeonse, ...otherAreaSale].map(d => d.areaSqm))].sort((a,b)=>a-b).slice(0,5);
-    console.log("[area] 다른 평형 거래(참고):", otherAreas.join(", ") + "㎡");
   }
 
   // ── 8. buildYear 추출 — 단지명 필터된 아이템에서만, 최빈값 사용 ──
@@ -2846,7 +2840,6 @@ async function fetchApartmentData(query) {
     }
   }
 
-  console.log("buildYear 추출(매매 최빈값):", buildYear, buildYearWarning ? `[경고: ${buildYearWarning}]` : "");
 
   // ── 9. 지역명 역변환 ──
   const LAWD_CD_REVERSE = Object.fromEntries(Object.entries(LAWD_CD_MAP).map(([k, v]) => [String(v), k]));
@@ -2899,15 +2892,14 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
     if (!Array.isArray(arr)) return [];
     const result = [];
     for (const d of arr) {
-      if (!d) { console.log("[norm] null item 탈락"); continue; }
-      if (!d.price) { console.log("[norm] price falsy 탈락:", { price: d.price, ym: d.ym, areaSqm: d.areaSqm }); continue; }
-      if (!d.ym) { console.log("[norm] ym falsy 탈락:", { price: d.price, ym: d.ym, areaSqm: d.areaSqm }); continue; }
+      if (!d) { continue; }
+      if (!d.price) { continue; }
+      if (!d.ym) { continue; }
       result.push({ ym: d.ym, price: Number(d.price), floor: Number(d.floor) || 5, topFloor: tf });
     }
     return result;
   };
   const jd = norm(p.jeonse), sd = norm(p.sale);
-  console.log("[buildAnalysis] p.jeonse:", JSON.stringify(p.jeonse), "→jd:", jd.length);
   const areaSqm = Number(p.areaSqm) || 0;
   const priceArea = Number(p.priceArea) || 0;
   const pyeong = areaSqm > 0 ? typicalPyeong(areaSqm) : 0;
@@ -2964,7 +2956,6 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
 
   // 전세시세 없으면 경고만 (분석은 진행)
   if (!baseJeonse && filled.currentPrice) {
-    console.log("필수값 부족: 전세 시세 없음. 매매 기반 임시 분석으로 진행합니다.");
     warns.push("전세 실거래가 없습니다. KB전세시세를 입력하거나 전세 실거래를 직접 입력하세요.");
   }
 
@@ -3075,7 +3066,6 @@ function LocationPicker({ onComplete }) {
 
         // alias 매칭이면 자동 선택 안내
         if (sbResult.aliasMatch && richCandidates.length === 1) {
-          console.log('[alias] 자동 매칭:', richCandidates[0].name);
         }
       } else {
         // ── 2차: 국토부 API fallback ──
@@ -3308,7 +3298,6 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
     const sale   = filterDeals(raw.sale);
     const jeonse = filterDeals(raw.jeonse);
-    console.log(`[refilter] area=${overrideArea} excl=${JSON.stringify(exclusiveAreas)} → 매매${sale.length}건 전세${jeonse.length}건`);
     return { ...raw, sale, jeonse, areaSqm: Number(overrideArea) || 0 };
   }
 
@@ -3407,7 +3396,6 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     const ff = overrideForm ? { ...f, ...overrideForm } : f;
     // listingPriceInput: 독립 state에서 직접 읽음
     const listingPrice = Number(String(listingPriceInput).replace(/,/g, "")) || 0;
-    console.log("[PRICE_INPUT] before fetchPipeline:", listingPriceInput, "→", listingPrice);
     if (!ff.complexName && !listingPrice) { setAiMsg("최소한 단지명을 입력하세요. (예: 동부)"); return; }
 
     // 면적 변경인지 판단 — Supabase 데이터로 저장된 경우만 로컬 재필터 허용
@@ -3417,7 +3405,6 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       rawMolitRef.current.complexName === (ff.exactAptNm || ff.complexName) &&
       rawMolitRef.current.dong === ff.dong;
     const isAreaChange = overrideArea && isSameComplex;
-    console.log('[PIPELINE] start — complexId:', ff.complexId||'null', 'complexName:', ff.exactAptNm||ff.complexName, 'isAreaChange:', isAreaChange, 'rawMolitSource:', rawMolitRef.current?.dataSource||'none');
 
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
@@ -3461,13 +3448,11 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
   // ── Supabase 우선 데이터 조회 (테스트 버전: 콘솔 로그 포함) ──
   async function _fetchRawDataSupabase(ff, overrideArea, exclusiveAreas) {
-    setAiMsg("⚡ [DEBUG] Supabase 경로 진입: " + (ff.complexId||"null") + " / " + (ff.exactAptNm||ff.complexName));
     const complexId = ff.complexId || null;
     const complexName = ff.exactAptNm || ff.complexName || "";
     const sigungu = ff.region || "";
     const targetArea = overrideArea ? Number(overrideArea) : Number(ff.areaExclusive) || 0;
 
-    console.log("▶ [SB-TEST] 조회 시작:", { complexId, complexName, sigungu, targetArea });
 
     // ── STEP 1: complexId 또는 단지명으로 complexes 조회 ──
     let complexInfo = null;
@@ -3477,14 +3462,11 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         body: JSON.stringify({ type: "search", name: complexName, sigungu, limit: 5 })
       });
       const d1 = await r1.json();
-      console.log("  [STEP1] realestate_complexes 결과:", d1.complexes?.length, "건", d1.complexes?.map(c => c.complex_name));
       if (d1.complexes && d1.complexes.length > 0) {
         // complexId 일치 우선, 없으면 첫 번째
         complexInfo = d1.complexes.find(c => complexId && c.id === complexId) || d1.complexes[0];
-        console.log("  [STEP1] 선택된 단지:", complexInfo.complex_name, "id:", complexInfo.id);
       }
       if (d1.aliasMatch) {
-        console.log("  [STEP1-ALIAS] alias 매칭:", d1.aliasMatch);
       }
     } catch(e) {
       console.warn("  [STEP1] complexes 조회 실패:", e.message);
@@ -3492,7 +3474,6 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
     // Supabase 단지 정보 없으면 MOLIT fallback
     if (!complexInfo) {
-      console.log('[PIPELINE] fallback=molit (단지 없음)');
       return await _fetchRawData(ff, overrideArea, exclusiveAreas);
     }
 
@@ -3500,7 +3481,6 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     const useComplexName = complexInfo.complex_name;
 
     // ── STEP 2: aliases 확인 (이미 STEP1에서 반환됨, 별도 로그용) ──
-    console.log("  [STEP2] aliases 확인 완료 (STEP1에 포함)");
 
     // ── STEP 3: price_summary 조회 ──
     let summary = null;
@@ -3511,7 +3491,6 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       });
       const d3 = await r3.json();
       summary = d3.summary || null;
-      console.log("  [STEP3] price_summary:", summary ? `전세가율 ${summary.jeonse_ratio}, 매매avg ${summary.sale_avg}` : "없음");
     } catch(e) {
       console.warn("  [STEP3] price_summary 조회 실패:", e.message);
     }
@@ -3526,18 +3505,14 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       const d4 = await r4.json();
       saleDeals = d4.saleDeals || [];
       rentDeals = d4.rentDeals || [];
-      console.log("  [STEP4] sales_raw:", saleDeals.length, "건");
-      console.log("  [STEP5] rent_raw:", rentDeals.length, "건");
     } catch(e) {
       console.warn("  [STEP4+5] deals 조회 실패:", e.message);
     }
 
     // ── STEP 6: price_summary 데이터 로그 (이미 STEP3에서 조회) ──
-    console.log("  [STEP6] price_summary 재확인:", summary);
 
     // ── Supabase 거래 데이터 없으면 MOLIT fallback ──
     if (saleDeals.length === 0 && rentDeals.length === 0) {
-      console.log('[PIPELINE] fallback=molit (거래 없음)');
       return await _fetchRawData(ff, overrideArea, exclusiveAreas);
     }
 
@@ -3562,8 +3537,6 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     const sale   = saleDeals.map(toSale).filter(d => d.price > 0 && d.areaSqm > 0);
     const jeonse = rentDeals.map(toRent).filter(d => d.price > 0 && d.areaSqm > 0);
 
-    console.log("  [STEP7] 변환 완료 — 매매:", sale.length, "전세:", jeonse.length);
-    console.log("  [SB-TEST] ✅ Supabase 경로 성공");
 
     const data = {
       sale, jeonse,
@@ -3582,7 +3555,6 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       dong: ff.dong,
       dataSource: 'supabase',
     };
-    console.log('[PIPELINE] source=supabase, 매매:', sale.length, '전세:', jeonse.length);
     return data;
   }
 
@@ -3600,7 +3572,6 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       dong: ff.dong,
       dataSource: 'molit',
     };
-    console.log('[PIPELINE] source=molit(fallback), 매매:', (data.sale||[]).length, '전세:', (data.jeonse||[]).length);
     return data;
   }
 
@@ -3630,7 +3601,6 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
     // listingPriceInput(독립 state)에서 직접 읽음 — 절대 초기화 안 됨
     const preservedPrice = Number(String(listingPriceInput).replace(/,/g, "")) || Number(ff.currentPrice) || Number(f.currentPrice) || 0;
-    console.log("[PRICE_INPUT] setF 직전 — listingPriceInput:", listingPriceInput, "→ preservedPrice:", preservedPrice);
     setF({ ...filled, currentPrice: preservedPrice });
     const opts = filled._aiAreaOptions?.length > 0 ? filled._aiAreaOptions : (rawData.areaOptions || []);
     setAreaOptions(opts);
@@ -3639,7 +3609,6 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     if (askedArea <= 0 && opts.length > 0) { setAiMsg(null); return; }
 
     const finalCurrentPrice = preservedPrice || Number(String(listingPriceInput).replace(/,/g, "")) || 0;
-    console.log("[PRICE_INPUT] before calculate — listingPriceInput:", listingPriceInput, "finalCurrentPrice:", finalCurrentPrice);
     const finalBlockReason = !finalCurrentPrice ? "현재 매물가를 입력하세요." : blockReason;
     const pendingFf = builtFf
       ? { ...builtFf, currentPrice: finalCurrentPrice }
@@ -3766,7 +3735,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         {f.complexName && (
         <div className="mt-3">
           <p className="mb-1 text-xs font-medium text-slate-500">현재 매물가 (만원) <span className="text-red-500">*필수</span></p>
-          <input type="number" value={listingPriceInput} placeholder="예: 50000" onChange={(e) => { console.log("[PRICE_INPUT] onChange:", e.target.value); setListingPriceInput(e.target.value); }} className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
+          <input type="number" value={listingPriceInput} placeholder="예: 50000" onChange={(e) => setListingPriceInput(e.target.value)} className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
         </div>
         )}
 
@@ -5015,219 +4984,430 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
 }
 
 function SellView({ onContext }) {
+  // ── BuyView와 동일한 아키텍처 ──
+  // · LocationPicker → Supabase 검색 → MOLIT fallback
+  // · AI 웹검색 제거: fetchApartmentData() 재사용
+  // · region은 LocationPicker 선택 시 즉시 저장 (AI 의존 없음)
+  // · rawMolitRef: 24개월 데이터 1회 캐싱, 면적 변경 시 로컬 재필터
   const [f, setF] = useState(EMPTY);
   const [r, setR] = useState(null);
   const [pending, setPending] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMsg, setAiMsg] = useState(null);
-  const [showManual, setShowManual] = useState(false);
-  const abortRef = useRef(null);
   const [areaOptions, setAreaOptions] = useState([]);
   const [fetchingAreas, setFetchingAreas] = useState(false);
+  const [listingPriceInput, setListingPriceInput] = useState("");
+  const abortRef = useRef(null);
+  // 국토부 원본 24개월 캐시 — 면적 변경 시 재호출 없이 로컬 재필터
+  const rawMolitRef = useRef(null);
 
-  // 면적만 먼저 조회하는 함수
-  async function fetchAreas() {
-    if (!f.complexName || !f.region) { setAiMsg("지역(구)과 단지명을 입력하세요."); return; }
+  const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+
+  // ── 로컬 재필터 (rawMolitRef 있을 때, API 재호출 없음) ──
+  function refilterByArea(overrideArea, exclusiveAreas) {
+    const raw = rawMolitRef.current;
+    if (!raw) return null;
+    const areaTarget = exclusiveAreas && exclusiveAreas.length > 0
+      ? exclusiveAreas : Number(overrideArea) || null;
+    if (!areaTarget) return null;
+    const filterDeals = (deals) => {
+      if (!areaTarget) return deals;
+      if (Array.isArray(areaTarget)) return deals.filter(d => areaTarget.some(a => Math.abs(d.areaSqm - a) <= 3));
+      return deals.filter(d => Math.abs(d.areaSqm - Number(areaTarget)) <= 3);
+    };
+    return { ...raw, sale: filterDeals(raw.sale), jeonse: filterDeals(raw.jeonse), areaSqm: Number(overrideArea) || 0 };
+  }
+
+  // ── LocationPicker 완료 시 면적 목록 로드 (BuyView와 동일) ──
+  async function fetchAreasFor(region, dong, complexName, exactAptNm, sido) {
+    if (!complexName || !region) return;
     setFetchingAreas(true); setAiMsg(null); setAreaOptions([]);
+    // 1) Supabase 면적 목록 우선
     try {
-      let lawdCd2 = null;
+      const sbRes = await fetch('/api/supabase', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'areas', complex_name: exactAptNm || complexName, sigungu: region }),
+      });
+      if (sbRes.ok) {
+        const sbData = await sbRes.json();
+        if (sbData.areas && sbData.areas.length > 0) {
+          setAreaOptions(sbData.areas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) })));
+          setFetchingAreas(false);
+          return;
+        }
+      }
+    } catch (e) { console.warn('[SellView] Supabase areas 실패:', e.message); }
+    // 2) MOLIT fallback
+    try {
+      let lawdCd = null;
       try {
         const lr = await fetch("/api/lawdCd", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "lawdCd", sigungu: f.region }),
+          body: JSON.stringify({ type: "lawdCd", sigungu: region, sido: sido || "" }),
         });
-        lawdCd2 = (await lr.json()).lawdCd || null;
+        lawdCd = (await lr.json()).lawdCd || null;
       } catch(e) {}
-      if (!lawdCd2) lawdCd2 = getLawdCd(f.dong, f.region);
-      if (!lawdCd2) { setAiMsg("지역 코드를 찾지 못했습니다."); setFetchingAreas(false); return; }
-      const result = await fetchMolitData(lawdCd2, f.exactAptNm || f.complexName, "", 12);
-      // 단지명 필터 적용된 실거래에서만 면적 추출
+      if (!lawdCd) lawdCd = getLawdCd(dong, region);
+      if (!lawdCd) { setAiMsg(`지역 코드를 찾지 못했습니다 (${region})`); setFetchingAreas(false); return; }
+      const result = await fetchMolitData(lawdCd, exactAptNm || complexName, "", 12);
       const allAreas = [...(result.sale || []), ...(result.jeonse || [])].map(d => d.areaSqm).filter(a => a > 0);
-      const unique = [...new Set(allAreas)].sort((a, b) => a - b);
-      const opts = unique.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
-      if (opts.length === 0) {
-        setAiMsg("해당 단지 최근 6개월 실거래가 없습니다. 면적을 직접 입력하거나 KB시세를 입력하세요.");
-        setF(prev => ({ ...prev, _needKbInput: true }));
+      const opts = groupAreasByPyeong(allAreas).map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: g.pyeong }));
+      if (opts.length > 0) setAreaOptions(opts);
+      else { setAiMsg("최근 실거래가 없습니다. KB시세를 직접 입력하세요."); set("_needKbInput", true); }
+    } catch(e) { setAiMsg("면적 조회 실패 — 지역명을 확인하세요."); }
+    finally { setFetchingAreas(false); }
+  }
+
+  // ── quickSearch: BuyView와 동일 경로 (Supabase → MOLIT, AI 없음) ──
+  async function quickSearch(overrideArea, overrideForm, exclusiveAreas = null) {
+    const ff = overrideForm ? { ...f, ...overrideForm } : f;
+    const listingPrice = Number(String(listingPriceInput).replace(/,/g, "")) || 0;
+    if (!ff.complexName) { setAiMsg("단지를 선택하세요."); return; }
+
+    // 면적 변경 + 캐시 있으면 로컬 재필터
+    const isSameComplex = rawMolitRef.current &&
+      rawMolitRef.current.complexName === (ff.exactAptNm || ff.complexName) &&
+      rawMolitRef.current.dong === ff.dong;
+    const isAreaChange = overrideArea && isSameComplex;
+
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
+    setAiLoading(true); setAiMsg(null); setPending(null);
+
+    try {
+      let rawData;
+      if (isAreaChange) {
+        rawData = refilterByArea(overrideArea, exclusiveAreas);
+        if (!rawData) rawData = await _fetchRawData(ff, overrideArea, exclusiveAreas);
       } else {
-        setAreaOptions(opts);
+        rawData = await _fetchRawDataSupabase(ff, overrideArea, exclusiveAreas);
       }
-    } catch(e) {
-      setAiMsg("면적 조회 실패 — 지역(구)명을 확인하세요.");
-    } finally { setFetchingAreas(false); }
+      _processRawData(rawData, ff, overrideArea, exclusiveAreas);
+    } catch (e) {
+      console.error('[SellView] quickSearch 오류:', e);
+      setAiMsg(`조회 실패: ${e.message} — 값을 직접 입력하세요.`);
+    } finally { setAiLoading(false); }
   }
-  const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
-  // 단일 검색 → AI가 시세·실거래·연식 채움 (희망 매도가는 사용자 입력) · 데모용
-  // TODO(상용화): 실거래·연식 = 국토부 API / 시세 = KB API
-  async function quickSearch(overrideArea) {
-    if (!f.complexName) { setAiMsg("최소한 단지명을 입력하세요."); return; }
-    if (!f.currentPrice && !overrideArea) { setAiMsg("희망 매도가를 입력하세요. (AI는 시세·실거래만 채웁니다)"); return; }
-    setPending(null);
-    const q = [f.dong, f.complexName, Number(overrideArea || f.areaExclusive) > 0 ? `전용 ${overrideArea || f.areaExclusive}㎡` : ""].filter(Boolean).join(" ");
-    setAiLoading(true); setAiMsg(null);
+  // ── Supabase 우선 조회 (BuyView _fetchRawDataSupabase와 동일 로직) ──
+  async function _fetchRawDataSupabase(ff, overrideArea, exclusiveAreas) {
+    const complexName = ff.exactAptNm || ff.complexName || "";
+    const sigungu     = ff.region || "";
+    const targetArea  = overrideArea ? Number(overrideArea) : Number(ff.areaExclusive) || 0;
+
+    // STEP 1: complexes 검색
+    let complexInfo = null;
     try {
-      const prompt = `너는 한국 부동산 실거래가 조사원이야. 국토교통부 실거래가 공개시스템·집품·아실·KB부동산을 웹 검색해 아래 단지의 실제 데이터를 찾아.
-입력: "${q}" (지방·구축 단지도 지역명과 함께 끝까지 검색)
-[면적·가격 정합성 — 매우 중요]
-- 전용면적(areaSqm)은 실제 존재하는 면적만. 국민평형 84㎡ 기본값 금지. 못 찾으면 areaSqm=0.
-- kbSalePrice(매매)·kbJeonse(전세)·jeonse·sale은 모두 같은 전용면적 기준. 59㎡ 가격을 84㎡처럼 쓰지 마라.
-- 면적별 가격이 확인 안 되면 그 가격은 0. 추측으로 면적 채우지 마라.
-- 입력 전용면적이 단지에 없으면 areaSqm=0 + areaOptions에 실제 면적들.
-- 전용면적 입력이 없으면 반드시 areaOptions에 단지의 모든 전용면적 목록을 넣어라. areaSqm=0 필수.
-아래 JSON만 출력 (설명·백틱 금지):
-{"region":"시군구","dong":"법정동","complexName":"단지명","areaSqm":전용㎡숫자,"pyeong":통상평형숫자,"buildYear":준공연도숫자,"topFloor":최고층숫자,"kbSalePrice":KB매매시세만원,"kbJeonse":KB전세시세만원,"jeonse":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"sale":[{"ym":"YYYY-MM","price":만원정수,"floor":층}],"areaOptions":[{"areaSqm":전용㎡,"pyeong":통상평형}]}
-규칙: 가격은 만원 정수(7억4000만→74000). 취소거래 제외. 각 최대 10건. 못 찾은 값만 0/빈배열 (지어내지 말 것).`;
-      const response = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500, messages: [{ role: "user", content: prompt }], tools: [{ type: "web_search_20250305", name: "web_search" }] }) });
-      const data = await response.json();
-      const text = (data.content || []).map((i) => (i.type === "text" ? i.text : "")).filter(Boolean).join("\n");
-      const mt = text.replace(/```json|```/g, "").trim().match(/\{[\s\S]*\}/);
-      const p = JSON.parse(mt ? mt[0] : "{}");
-      const tf = Number(p.topFloor) || 0; // 0이면 최고층 필터 미적용
-      const norm = (arr) => (Array.isArray(arr) ? arr.filter((d) => d && d.price && d.ym).map((d) => ({ ym: d.ym, price: Number(d.price), floor: Number(d.floor) || 5, topFloor: tf })) : []);
-      const jd = norm(p.jeonse), sd = norm(p.sale);
-      const areaSqm = Number(p.areaSqm) || 0;
-      const pyeong = areaSqm > 0 ? typicalPyeong(areaSqm) : 0; // 평형은 전용면적에서만 계산 (AI 평형값 무시)
-      const areaOptions = Array.isArray(p.areaOptions) ? p.areaOptions.filter((o) => Number(o.areaSqm) > 0).map((o) => ({ areaSqm: Number(o.areaSqm), pyeong: typicalPyeong(Number(o.areaSqm)) })) : [];
-      const warns = [];
-      if (areaSqm <= 0) warns.push("전용면적 미확인 — 면적을 직접 확인/입력하세요.");
-      const askedArea = Number(f.areaExclusive) || 0;
-      if (askedArea > 0 && areaSqm > 0 && Math.abs(askedArea - areaSqm) > Math.max(3, askedArea * 0.06)) warns.push(`입력한 전용 ${askedArea}㎡와 조회된 시세 기준 ${areaSqm}㎡가 다릅니다.`);
-      if (Number(p.kbJeonse) > 0 && Number(p.kbSalePrice) > 0 && Number(p.kbJeonse) >= Number(p.kbSalePrice)) warns.push("전세가가 매매가 이상입니다. 입력값을 확인하세요.");
-      const filled = { ...EMPTY, region: p.region || f.region || "", dong: p.dong || f.dong || "", complexName: p.complexName || f.complexName, pyeong, areaExclusive: areaSqm || "", buildYear: p.buildYear || "", currentPrice: f.currentPrice, kbSalePrice: Number(p.kbSalePrice) || "", kbJeonse: Number(p.kbJeonse) || "", acqPrice: f.acqPrice || "", deals: jd, saleDeals: sd, shockLevel: "보통", _aiFilled: true, _aiSource: "국토부 실거래·KB·호갱노노 웹검색(AI)", _aiWarns: warns, _aiAreaOptions: areaOptions };
-      setF(filled);
-      const jeonseCalc = jd.length ? computeTrimmedMean(jd, Number(filled.kbJeonse) || 0, "jeonse") : null;
-      const baseJeonse = jeonseCalc && jeonseCalc.value ? jeonseCalc.value : Number(filled.kbJeonse) || 0;
-      const saleCalc = sd.length ? computeTrimmedMean(sd, Number(filled.kbSalePrice) || 0, "sale") : null;
-      if (areaSqm <= 0 || !baseJeonse) {
-        if (areaSqm <= 0 && areaOptions.length > 0) {
-          setAreaOptions(areaOptions);
-          setAiMsg("전용면적을 확인하지 못했습니다. 아래에서 면적을 선택하면 재조회합니다.");
-        } else {
-          setAiMsg(areaSqm <= 0 ? "전용면적을 확인하지 못했습니다. 직접 입력하세요." : "전세 시세를 못 찾았어요. 아래에서 직접 입력하세요.");
-          setShowManual(true);
-        }
-        return;
+      const r1 = await fetch("/api/supabase", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "search", name: complexName, sigungu, limit: 5 }),
+      });
+      const d1 = await r1.json();
+      if (d1.complexes && d1.complexes.length > 0) {
+        complexInfo = d1.complexes.find(c => ff.complexId && c.id === ff.complexId) || d1.complexes[0];
       }
-      const ff = { ...filled, currentPrice: Number(filled.currentPrice), baseJeonse, kbSalePrice: Number(filled.kbSalePrice), saleRef: saleCalc && saleCalc.value ? saleCalc.value : null, jeonseUsed: jeonseCalc ? jeonseCalc.used : 0, saleUsed: saleCalc ? saleCalc.used : 0, jeonseCalc, saleCalc, dataSource: "ai" };
-      setPending({ ff, jeonseCalc, saleCalc });
-    } catch (e) { setAiMsg("불러오기 실패 — 아래 ‘직접 입력·수정’에서 입력하세요."); setShowManual(true); } finally { setAiLoading(false); }
-  }
+    } catch(e) { console.warn('[SellView] Supabase search 실패:', e.message); }
 
-  async function extractFromImage(file) {
-    if (!file) return;
-    setAiLoading(true); setAiMsg(null);
+    if (!complexInfo) return await _fetchRawData(ff, overrideArea, exclusiveAreas);
+
+    // STEP 2: deals 조회
+    let saleDeals = [], rentDeals = [];
     try {
-      const base64 = await new Promise((res, rej) => { const rd = new FileReader(); rd.onload = () => res(String(rd.result).split(",")[1]); rd.onerror = () => rej(new Error("read")); rd.readAsDataURL(file); });
-      const mediaType = file.type || "image/png";
-      const prompt = `이 이미지는 한국 부동산 매물 화면의 캡처야. 화면에 보이는 정보만 추출해 아래 JSON만 출력 (설명·백틱 금지):
-{"region":"시군구","dong":"법정동","complexName":"단지명","pyeong":평형숫자,"areaExclusive":전용㎡숫자,"buildYear":준공연도숫자}
-규칙: 화면에 안 보이는 값은 0/빈문자. 추정하지 말고 보이는 값만.`;
-      const response = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: mediaType, data: base64 } }, { type: "text", text: prompt }] }] }) });
-      const data = await response.json();
-      const text = (data.content || []).map((i) => (i.type === "text" ? i.text : "")).filter(Boolean).join("\n");
-      const m = text.replace(/```json|```/g, "").trim().match(/\{[\s\S]*\}/);
-      const p = JSON.parse(m ? m[0] : "{}");
-      setF((prev) => ({ ...prev, region: p.region || prev.region, dong: p.dong || prev.dong, complexName: p.complexName || prev.complexName, pyeong: p.pyeong || prev.pyeong, areaExclusive: p.areaExclusive || prev.areaExclusive, buildYear: p.buildYear || prev.buildYear, _aiFilled: true }));
-      setAiMsg(`캡처 분석 완료 — ${p.complexName || "단지"} ${p.pyeong ? p.pyeong + "평" : ""}. 희망 매도가·실거래는 직접 입력하세요. (상용화 시 국토부 API 자동 연동)`);
-    } catch (e) { setAiMsg("이미지 분석 실패 — 직접 입력하세요."); } finally { setAiLoading(false); }
+      const r4 = await fetch("/api/supabase", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "deals", complex_id: complexInfo.id, area_excl: targetArea || undefined, months: 24 }),
+      });
+      const d4 = await r4.json();
+      saleDeals = d4.saleDeals || [];
+      rentDeals = d4.rentDeals || [];
+    } catch(e) { console.warn('[SellView] Supabase deals 실패:', e.message); }
+
+    if (saleDeals.length === 0 && rentDeals.length === 0)
+      return await _fetchRawData(ff, overrideArea, exclusiveAreas);
+
+    const toSale = (d) => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deal_amount_man)||0, contractYm: d.contract_ym||"", aptNm: d.complex_name || complexInfo.complex_name, floor: d.floor||0 });
+    const toRent = (d) => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deposit_man)||0,    contractYm: d.contract_ym||"", aptNm: d.complex_name || complexInfo.complex_name, floor: d.floor||0, monthly: Number(d.monthly_man)||0 });
+
+    const sale   = saleDeals.map(toSale).filter(d => d.price > 0 && d.areaSqm > 0);
+    const jeonse = rentDeals.map(toRent).filter(d => d.price > 0 && d.areaSqm > 0);
+
+    const data = {
+      sale, jeonse, dataSource: 'supabase',
+      areaOptions: complexInfo.area_list
+        ? JSON.parse(complexInfo.area_list).map(a => ({ areaSqm: a, pyeong: Math.round(a / 3.3058) }))
+        : [],
+      buildYear:   complexInfo.build_year || null,
+      tradeStatus: { code: "OK", msg: null, pipeline: { source: "supabase" } },
+    };
+    rawMolitRef.current = { ...data, complexName: ff.exactAptNm || ff.complexName, dong: ff.dong, dataSource: 'supabase' };
+    return data;
   }
 
-  function run() {
-    if (!f.currentPrice || !f.complexName) { alert("단지명 · 희망 매도가는 필수입니다."); return; }
-    const hasD = (f.deals || []).some((d) => d.price && d.ym);
-    const jeonseCalc = hasD ? computeTrimmedMean(f.deals, Number(f.kbJeonse) || 0, "jeonse") : null;
-    const baseJeonse = jeonseCalc && jeonseCalc.value ? jeonseCalc.value : Number(f.baseJeonse);
-    if (!baseJeonse) { alert("전세 실거래를 입력하거나 기준 전세가를 직접 입력하세요."); return; }
-    const hasS = (f.saleDeals || []).some((d) => d.price && d.ym);
-    const saleCalc = hasS ? computeTrimmedMean(f.saleDeals, Number(f.kbSalePrice) || 0, "sale") : null;
-    const ff = { ...f, currentPrice: Number(f.currentPrice), baseJeonse, kbSalePrice: Number(f.kbSalePrice), saleRef: saleCalc && saleCalc.value ? saleCalc.value : null, jeonseUsed: jeonseCalc ? jeonseCalc.used : 0, saleUsed: saleCalc ? saleCalc.used : 0, jeonseCalc, saleCalc, dataSource: f._aiFilled ? "ai" : "manual" };
-    setPending({ ff, jeonseCalc, saleCalc });
+  async function _fetchRawData(ff, overrideArea, exclusiveAreas) {
+    const data = await fetchApartmentData({
+      complexName:    ff.complexName,
+      exactAptNm:     ff.exactAptNm,
+      dong:           ff.dong,
+      region:         ff.region,
+      sido:           ff.sido || "",
+      areaExclusive:  overrideArea ? String(overrideArea) : ff.areaExclusive,
+      exclusiveAreas: exclusiveAreas || null,
+    });
+    rawMolitRef.current = { ...data, complexName: ff.exactAptNm || ff.complexName, dong: ff.dong, dataSource: 'molit' };
+    return data;
   }
-  function doAnalyze() {
-    if (!pending) return;
-    const res = analyze(pending.ff);
-    res.jeonseCalc = pending.jeonseCalc; res.saleCalc = pending.saleCalc;
+
+  function _processRawData(rawData, ff, overrideArea, exclusiveAreas) {
+    const rawWithInput = {
+      ...rawData,
+      currentPrice: Number(ff.currentPrice) || rawData.currentPrice || 0,
+      kbSalePrice:  Number(ff.kbSalePrice)  || rawData.kbSalePrice  || 0,
+      kbJeonse:     Number(ff.kbJeonse)     || rawData.kbJeonse     || 0,
+      buildYear:    ff.buildYear || rawData.buildYear || 0,
+    };
+    const effectiveArea = Number(overrideArea) || Number(ff.areaExclusive) || Number(f.areaExclusive) || 0;
+    const { filled, ff: builtFf, jeonseCalc, saleCalc, blockReason } = buildAnalysisInput(rawWithInput, ff, effectiveArea);
+    if (overrideArea) filled.areaExclusive = String(overrideArea);
+    if (ff.buildYear && !filled.buildYear) filled.buildYear = ff.buildYear;
+
+    const preservedPrice = Number(String(listingPriceInput).replace(/,/g, "")) || Number(ff.currentPrice) || Number(f.currentPrice) || 0;
+    setF({ ...filled, currentPrice: preservedPrice });
+    const opts = filled._aiAreaOptions?.length > 0 ? filled._aiAreaOptions : (rawData.areaOptions || []);
+    setAreaOptions(opts);
+
+    const finalCurrentPrice = preservedPrice;
+    const finalBlockReason  = !finalCurrentPrice ? "희망 매도가를 입력하세요." : blockReason;
+    const pendingFf = builtFf
+      ? { ...builtFf, currentPrice: finalCurrentPrice }
+      : { ...filled,  currentPrice: finalCurrentPrice, baseJeonse: Number(filled.kbJeonse) || 0,
+          kbSalePrice: Number(filled.kbSalePrice) || 0, jeonseUsed: 0, saleUsed: 0,
+          jeonseCalc: null, saleCalc: null, dataSource: "ai" };
+    setPending({ ff: pendingFf, jeonseCalc, saleCalc, blockReason: finalBlockReason });
+  }
+
+  // ── doAnalyze: ConfirmStep에서 수정된 값으로 분석 실행 ──
+  function doAnalyze(updated) {
+    const src = updated || pending;
+    if (!src) return;
+    const { ff, jeonseCalc, saleCalc } = src;
+    const res = analyze(ff);
+    res.jeonseCalc = jeonseCalc; res.saleCalc = saleCalc;
     setR(res); setPending(null);
-    if (onContext) onContext({ acqPrice: Number(f.acqPrice) || 0, sellPrice: Number(f.currentPrice), years: Number(f.holdingYears) || 5, loanBalance: Number(f.loanBalance) || 0 });
+    if (onContext) onContext({ acqPrice: Number(f.acqPrice) || 0, sellPrice: Number(ff.currentPrice), years: Number(f.holdingYears) || 5, loanBalance: Number(f.loanBalance) || 0 });
   }
+
   if (r) return <SellResult r={r} f={f} onBack={() => setR(null)} />;
-  if (pending) return <ConfirmStep p={pending} f={f} mode="sell" onBack={() => setPending(null)} onConfirm={doAnalyze} onRefetch={(area) => { set("areaExclusive", String(area)); quickSearch(area); }} />;
-  const fields = [["지역 (시/구)", "region", "text", "노원구"], ["법정동", "dong", "text", "공릉동"], ["단지명", "complexName", "text", "동부"], ["전용면적 (㎡)", "areaExclusive", "number", "59"], ["희망 매도가 (만원)", "currentPrice", "number", "50000"], ["KB 매매시세 (만원)", "kbSalePrice", "number", "50250"], ["KB 전세시세 (만원)", "kbJeonse", "number", "35500"], ["기준 전세가 (만원, 수동)", "baseJeonse", "number", "35000"], ["준공연도", "buildYear", "number", "1999"], ["취득가 (만원, 양도세용·선택)", "acqPrice", "number", ""]];
+  if (pending) return (
+    <ConfirmStep
+      p={pending} f={f} mode="sell"
+      onBack={() => setPending(null)}
+      onConfirm={doAnalyze}
+      onRefetch={(area) => { set("areaExclusive", String(area)); quickSearch(area); }}
+      onBackToTop={() => { setPending(null); setR(null); setF({ ...EMPTY }); setAiMsg(null); rawMolitRef.current = null; }}
+    />
+  );
+
   return (
     <>
-      <header className="mb-6 text-center"><h1 className="text-2xl font-bold text-slate-900">이 가격에 팔아도 될까요?</h1><p className="mt-2 text-sm text-slate-500">동·단지·전용면적 + 희망가만 넣으면 AI가 시세를 채워 적정성을 평가합니다.</p></header>
+      <header className="mb-6 text-center">
+        <h1 className="text-2xl font-bold text-slate-900">이 가격에 팔아도 될까요?</h1>
+        <p className="mt-2 text-sm text-slate-500">단지를 선택하고 희망 매도가를 입력하면 실거래·시세 기반으로 평가합니다.</p>
+      </header>
+
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
-        <label className="block text-sm font-bold text-slate-800">단지 검색 + 희망 매도가</label>
-        <p className="mt-1 text-xs text-slate-400">동·단지명·전용면적을 입력하면 그 면적 기준 시세를 채웁니다.</p>
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <DongAutocomplete value={f.dong} onChange={(v) => set("dong", v)} onSelect={(v) => { set("dong", v); set("complexName", ""); }} placeholder="동 (예: 공릉동)" className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          <ComplexAutocomplete dong={f.dong} value={f.complexName} onChange={(v) => set("complexName", v)} onSelect={(v) => set("complexName", v)} placeholder="단지명 (예: 동신)" className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-          <input type="number" value={f.areaExclusive} placeholder="전용면적 ㎡ (예: 59.99)" onChange={(e) => set("areaExclusive", e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-slate-400" />
-        </div>
-        {Number(f.areaExclusive) > 0 && <p className="mt-1.5 text-xs text-slate-500">전용면적: {f.areaExclusive}㎡ · 통상 평형: 약 {typicalPyeong(f.areaExclusive)}평형</p>}
-        <input type="number" value={f.currentPrice} placeholder="희망 매도가 (만원) — 예: 50000" onChange={(e) => set("currentPrice", e.target.value)} className="mt-2 w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
-        <button onClick={quickSearch} disabled={aiLoading} className="mt-3 w-full rounded-2xl py-3.5 text-base font-bold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>{aiLoading ? "AI 분석 중… (실거래·시세 데이터 수집 중, 1~2분 소요)" : "AI 분석 — 시세 채우고 평가하기"}</button>
-        {aiLoading && <button onClick={() => { if (abortRef.current) abortRef.current.abort(); setAiLoading(false); setAiMsg("조회가 취소되었습니다."); }} className="mt-2 w-full rounded-2xl border border-red-200 py-2.5 text-sm font-medium text-red-500">⬛ 조회 취소</button>}
-        {aiMsg && <p className="mt-2 text-xs leading-relaxed text-indigo-700">{aiMsg}</p>}
-        {areaOptions.length > 0 && !aiLoading && (
-          <div className="mt-2 rounded-xl bg-amber-50 px-3 py-2.5 ring-1 ring-amber-200">
-            <p className="mb-1.5 text-xs font-medium text-amber-800">면적 선택 후 재조회:</p>
-            <div className="flex flex-wrap gap-2">
-              {areaOptions.map((o, i) => (
-                <button key={i}
-                  onClick={() => { setAreaOptions([]); set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm); }}
-                  className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-amber-800 ring-1 ring-amber-300 active:bg-amber-100">
-                  전용 {o.areaSqm}㎡ (약 {o.pyeong}평)
-                </button>
-              ))}
+        <p className="mb-3 text-sm font-bold text-slate-800">단지 검색</p>
+
+        {/* 선택된 단지 표시 */}
+        {f.complexName && f.region ? (
+          <div className="mb-3 flex items-center justify-between rounded-2xl bg-slate-800 px-4 py-3">
+            <div>
+              <p className="text-xs text-slate-400">{f.region} · {f.dong}</p>
+              <p className="text-base font-bold text-white">{f.complexName}</p>
             </div>
+            <button
+              onClick={() => { setF(p => ({ ...p, region: "", dong: "", complexName: "", areaExclusive: "" })); setAreaOptions([]); setAiMsg(null); rawMolitRef.current = null; setListingPriceInput(""); }}
+              className="rounded-lg bg-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-600">
+              변경
+            </button>
+          </div>
+        ) : (
+          <LocationPicker onComplete={({ sido, sigungu, dong, complexName, exactAptNm, complexId, buildYear, areaList }) => {
+            setF(p => ({ ...p, region: sigungu, sido, dong, complexName, exactAptNm,
+              complexId: complexId || null,
+              buildYear: buildYear || p.buildYear,
+              areaExclusive: "" }));
+            rawMolitRef.current = null;
+            setAreaOptions([]);
+            setListingPriceInput("");
+            if (areaList && areaList.length > 0) {
+              setAreaOptions(areaList.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) })));
+            } else {
+              setTimeout(() => fetchAreasFor(sigungu, dong, complexName, exactAptNm, sido), 100);
+            }
+          }} />
+        )}
+
+        {/* 면적 버튼 */}
+        {areaOptions.length > 0 && (
+          <div className="mt-3 rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200">
+            <p className="mb-2 text-xs font-bold text-amber-800">📐 면적 선택</p>
+            <div className="flex flex-wrap gap-2">
+              {areaOptions.map((o, i) => {
+                const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
+                const selected = String(f.areaExclusive) === String(o.areaSqm);
+                return (
+                  <button key={i}
+                    onClick={() => { set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm, undefined, o.exclusiveAreas || null); }}
+                    className={`rounded-xl px-3 py-2 text-left border transition-all ${selected ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400"}`}>
+                    <p className="text-sm font-semibold leading-tight">{mainLabel}</p>
+                    {subLabel && <p className={`text-[10px] mt-0.5 ${selected ? "text-amber-100" : "text-slate-400"}`}>{subLabel}</p>}
+                  </button>
+                );
+              })}
+            </div>
+            {f.areaExclusive && (() => {
+              const sel = areaOptions.find(o => String(o.areaSqm) === String(f.areaExclusive));
+              const { mainLabel } = sel ? areaButtonLabel(sel.areaSqm, sel.supplySqm) : { mainLabel: `전용 ${f.areaExclusive}㎡` };
+              return <p className="mt-1.5 text-xs text-amber-700">선택: {mainLabel}</p>;
+            })()}
           </div>
         )}
-        <div className="mt-3 flex flex-wrap items-center gap-1.5"><span className="text-xs text-slate-400">샘플:</span><button onClick={() => { setF({ ...SAMPLE, acqPrice: 35000, holdingYears: 8, loanBalance: 10000, sellPurpose: "갈아타기" }); setShowManual(true); }} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">동부</button><button onClick={() => { setF({ ...PRESET_EUNMA, acqPrice: 120000, holdingYears: 15, sellPurpose: "투자금 회수" }); setShowManual(true); }} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">은마</button></div>
-        <button onClick={() => setShowManual((v) => !v)} className="mt-4 w-full rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-500">{showManual ? "직접 입력·수정 닫기 ▴" : "시세 직접 입력 · 캡처 업로드 · 취득가 입력 ▾"}</button>
+        {fetchingAreas && <p className="mt-2 text-xs text-slate-400 text-center">면적 조회 중…</p>}
 
-        {showManual && (
-          <div className="mt-4 border-t border-slate-100 pt-4">
-            <div className="mb-5 rounded-2xl bg-indigo-50 p-4 ring-1 ring-indigo-100">
-              <p className="text-sm font-bold text-indigo-900">매물 캡처로 가져오기</p>
-              <p className="mt-0.5 text-xs text-indigo-500">네이버 부동산 매물 화면을 캡처해서 올리면 단지·평형·연식을 자동 인식합니다.</p>
-              <label className={`mt-3 block w-full cursor-pointer rounded-xl px-4 py-2.5 text-center text-sm font-semibold text-white ${aiLoading ? "opacity-50" : ""}`} style={{ backgroundColor: "#4f46e5" }}>{aiLoading ? "이미지 분석 중…" : "📷 매물 캡처 업로드 → 자동 인식"}<input type="file" accept="image/*" disabled={aiLoading} className="hidden" onChange={(e) => { const file = e.target.files && e.target.files[0]; if (file) extractFromImage(file); e.target.value = ""; }} /></label>
+        {/* 희망 매도가 */}
+        {f.complexName && (
+          <div className="mt-3">
+            <p className="mb-1 text-xs font-medium text-slate-500">희망 매도가 (만원) <span className="text-red-500">*필수</span></p>
+            <input
+              type="number" value={listingPriceInput} placeholder="예: 50000"
+              onChange={(e) => setListingPriceInput(e.target.value)}
+              className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500"
+            />
+          </div>
+        )}
+
+        {/* 실거래 상태 안내 */}
+        {f._tradeStatus && f._tradeStatus.code !== "OK" && (() => {
+          const ts = f._tradeStatus;
+          const needKb = ["API_FAIL", "COMPLEX_NO_TRADE", "AREA_SHORT_BOTH"].includes(ts.code) || (ts.jeonseShort && !ts.canExpand);
+          return (
+            <div className="mt-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
+              <p className="text-sm font-bold text-amber-800">ℹ️ {ts.msg}</p>
+              {needKb && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-amber-700">KB매매시세 (만원)</p>
+                    <input type="number" value={f.kbSalePrice} placeholder="예: 50250"
+                      onChange={(e) => set("kbSalePrice", e.target.value)}
+                      className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500" />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-amber-700">KB전세시세 (만원)</p>
+                    <input type="number" value={f.kbJeonse} placeholder="예: 35500"
+                      onChange={(e) => set("kbJeonse", e.target.value)}
+                      className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500" />
+                  </div>
+                </div>
+              )}
+              <p className="mt-2 text-[10px] text-amber-500">네이버 부동산 → 시세/실거래가 탭 → KB시세 중간값 확인 후 입력</p>
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {fields.map(([l, k, t, ph]) => {
-                if (k === "kbSalePrice" || k === "kbJeonse") {
-                  return (
-                    <label key={k} className="block">
-                      <div className="mb-1.5 flex items-center justify-between">
-                        <span className="text-xs font-medium text-slate-500">{l}</span>
-                        <div className="flex gap-1">
-                          <button type="button" onClick={() => { const q=((f.dong||"")+" "+(f.complexName||"")).trim(); window.open("https://new.land.naver.com/search?keyword="+encodeURIComponent(q),"_blank","noopener,noreferrer"); }} className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">📋 네이버 KB시세 확인</button>
-                        </div>
-                      </div>
-                      <input type={t} className={inp} value={f[k]} placeholder="중간값 직접 확인 후 입력" onChange={(e) => set(k, e.target.value)} />
-                      <p className="mt-1 text-[10px] text-slate-400">⚠ AI가 정확히 못 가져올 수 있어요</p>
-                    </label>
-                  );
-                }
-                return (<label key={k} className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">{l}</span><input type={t} className={inp} value={f[k]} placeholder={ph} onChange={(e) => set(k, e.target.value)} /></label>);
-              })}
-              <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">시장충격 위험도</span><select className={inp} value={f.shockLevel} onChange={(e) => set("shockLevel", e.target.value)}>{["낮음", "보통", "높음", "매우높음"].map((x) => <option key={x}>{x}</option>)}</select></label>
-            </div>
-            <div className="mt-4 rounded-2xl bg-slate-50 p-4">
-              <p className="text-xs font-bold text-slate-600">세후 실수령·매도 판단용 (선택)</p>
-              <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">보유기간 (년)</span><input type="number" className={inp} value={f.holdingYears} placeholder="5" onChange={(e) => set("holdingYears", e.target.value)} /></label>
-                <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">대출잔액 (만원)</span><input type="number" className={inp} value={f.loanBalance} placeholder="0" onChange={(e) => set("loanBalance", e.target.value)} /></label>
-                <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">실거주 여부</span><select className={inp} value={f.lived ? "예" : "아니오"} onChange={(e) => set("lived", e.target.value === "예")}>{["예", "아니오"].map((x) => <option key={x}>{x}</option>)}</select></label>
-                <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">1주택 여부</span><select className={inp} value={f.oneHouse ? "1주택" : "다주택"} onChange={(e) => set("oneHouse", e.target.value === "1주택")}>{["1주택", "다주택"].map((x) => <option key={x}>{x}</option>)}</select></label>
-                <label className="block sm:col-span-2"><span className="mb-1.5 block text-xs font-medium text-slate-500">매도 목적</span><select className={inp} value={f.sellPurpose} onChange={(e) => set("sellPurpose", e.target.value)}>{["갈아타기", "현금화", "손실 축소", "세금 절감", "투자금 회수", "전세 전환 고민"].map((x) => <option key={x}>{x}</option>)}</select></label>
+          );
+        })()}
+
+        {/* 메인 버튼 */}
+        <button
+          onClick={() => quickSearch(f.areaExclusive || undefined)}
+          disabled={aiLoading}
+          className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50"
+          style={{ backgroundColor: NAVY }}>
+          {aiLoading ? "조회 중… (실거래 데이터 수집 중)" : "이 가격에 팔아도 될까? — 매도 분석"}
+        </button>
+        {aiLoading && (
+          <button onClick={() => { if (abortRef.current) abortRef.current.abort(); setAiLoading(false); setAiMsg("조회가 취소되었습니다."); }}
+            className="mt-2 w-full rounded-2xl border border-red-200 py-2.5 text-sm font-medium text-red-500">
+            ⬛ 조회 취소
+          </button>
+        )}
+        {aiMsg && (
+          <div className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800 ring-1 ring-amber-100">
+            {aiMsg}
+          </div>
+        )}
+
+        {/* 매도 전용 추가 정보 (접기) */}
+        {f.complexName && (
+          <details className="mt-4">
+            <summary className="cursor-pointer rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50">
+              세후 실수령·매도 판단용 추가 정보 ▾
+            </summary>
+            <div className="mt-3 rounded-2xl bg-slate-50 p-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {[
+                  ["취득가 (만원, 양도세용)", "acqPrice", "number", ""],
+                  ["보유기간 (년)", "holdingYears", "number", "5"],
+                  ["대출잔액 (만원)", "loanBalance", "number", "0"],
+                ].map(([l, k, t, ph]) => (
+                  <label key={k} className="block">
+                    <span className="mb-1.5 block text-xs font-medium text-slate-500">{l}</span>
+                    <input type={t} value={f[k] || ""} placeholder={ph}
+                      onChange={(e) => set(k, e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-600" />
+                  </label>
+                ))}
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-medium text-slate-500">실거주 여부</span>
+                  <select value={f.lived ? "예" : "아니오"} onChange={(e) => set("lived", e.target.value === "예")}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-600">
+                    {["예", "아니오"].map(x => <option key={x}>{x}</option>)}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-medium text-slate-500">1주택 여부</span>
+                  <select value={f.oneHouse ? "1주택" : "다주택"} onChange={(e) => set("oneHouse", e.target.value === "1주택")}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-600">
+                    {["1주택", "다주택"].map(x => <option key={x}>{x}</option>)}
+                  </select>
+                </label>
+                <label className="block sm:col-span-2">
+                  <span className="mb-1.5 block text-xs font-medium text-slate-500">매도 목적</span>
+                  <select value={f.sellPurpose} onChange={(e) => set("sellPurpose", e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-600">
+                    {["갈아타기", "현금화", "손실 축소", "세금 절감", "투자금 회수", "전세 전환 고민"].map(x => <option key={x}>{x}</option>)}
+                  </select>
+                </label>
               </div>
             </div>
-            <DealsEditor title="전세 실거래" deals={f.deals} setDeals={(d) => set("deals", d)} kind="jeonse" />
-            <DealsEditor title="매매 실거래" deals={f.saleDeals} setDeals={(d) => set("saleDeals", d)} kind="sale" />
-            <button onClick={run} className="mt-6 w-full rounded-2xl py-4 text-base font-bold text-white" style={{ backgroundColor: NAVY }}>이 값으로 평가하기</button>
-          </div>
+          </details>
         )}
+
+        {/* 샘플 */}
+        <div className="mt-4 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-slate-400">샘플:</span>
+          <button onClick={() => {
+            const s = { ...SAMPLE, acqPrice: 35000, holdingYears: 8, loanBalance: 10000, sellPurpose: "갈아타기" };
+            setF(s);
+            const r2 = buildAnalysisInput({ region: s.region, dong: s.dong, complexName: s.complexName, areaSqm: s.areaExclusive, pyeong: s.pyeong, priceArea: s.areaExclusive, buildYear: s.buildYear, topFloor: 15, currentPrice: s.currentPrice, kbSalePrice: s.kbSalePrice, kbJeonse: s.kbJeonse, jeonse: s.deals, sale: s.saleDeals, areaOptions: [] }, s, s.areaExclusive);
+            const ff2 = r2.ff || { ...s, currentPrice: Number(s.currentPrice), baseJeonse: Number(s.kbJeonse) || 0, kbSalePrice: Number(s.kbSalePrice) || 0, jeonseUsed: 0, saleUsed: 0, jeonseCalc: null, saleCalc: null, dataSource: "manual" };
+            setListingPriceInput(String(s.currentPrice));
+            setPending({ ff: ff2, jeonseCalc: r2.jeonseCalc, saleCalc: r2.saleCalc });
+          }} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">동부</button>
+          <button onClick={() => {
+            const s = { ...PRESET_EUNMA, acqPrice: 120000, holdingYears: 15, sellPurpose: "투자금 회수" };
+            setF(s);
+            const r2 = buildAnalysisInput({ region: s.region, dong: s.dong, complexName: s.complexName, areaSqm: s.areaExclusive, pyeong: s.pyeong, priceArea: s.areaExclusive, buildYear: s.buildYear, topFloor: 14, currentPrice: s.currentPrice, kbSalePrice: s.kbSalePrice, kbJeonse: s.kbJeonse, jeonse: s.deals, sale: s.saleDeals, areaOptions: [] }, s, s.areaExclusive);
+            const ff2 = r2.ff || { ...s, currentPrice: Number(s.currentPrice), baseJeonse: Number(s.kbJeonse) || 0, kbSalePrice: Number(s.kbSalePrice) || 0, jeonseUsed: 0, saleUsed: 0, jeonseCalc: null, saleCalc: null, dataSource: "manual" };
+            setListingPriceInput(String(s.currentPrice));
+            setPending({ ff: ff2, jeonseCalc: r2.jeonseCalc, saleCalc: r2.saleCalc });
+          }} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">은마</button>
+          <button onClick={() => {
+            const s = { ...PRESET_SG7 };
+            setF(s);
+            const r2 = buildAnalysisInput({ region: s.region, dong: s.dong, complexName: s.complexName, areaSqm: s.areaExclusive, pyeong: s.pyeong, priceArea: s.areaExclusive, buildYear: s.buildYear, topFloor: 15, currentPrice: s.currentPrice, kbSalePrice: s.kbSalePrice, kbJeonse: s.kbJeonse, jeonse: s.deals, sale: s.saleDeals, areaOptions: [] }, s, s.areaExclusive);
+            const ff2 = r2.ff || { ...s, currentPrice: Number(s.currentPrice), baseJeonse: Number(s.kbJeonse) || 0, kbSalePrice: Number(s.kbSalePrice) || 0, jeonseUsed: 0, saleUsed: 0, jeonseCalc: null, saleCalc: null, dataSource: "manual" };
+            setListingPriceInput(String(s.currentPrice));
+            setPending({ ff: ff2, jeonseCalc: r2.jeonseCalc, saleCalc: r2.saleCalc });
+          }} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">상계주공7</button>
+        </div>
       </div>
     </>
   );
