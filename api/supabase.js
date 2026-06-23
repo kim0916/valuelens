@@ -93,7 +93,11 @@ export default async function handler(req, res) {
         .limit(1);
 
       if (complex_id) query = query.eq('complex_id', complex_id);
-      else query = query.eq('complex_name', complex_name).eq('sigungu', sigungu);
+      // DB sigungu는 "서울특별시 강남구 역삼동" 풀주소, 앱은 "강남구" 전송 → ilike 부분일치
+      else {
+        query = query.eq('complex_name', complex_name);
+        if (sigungu) query = query.ilike('sigungu', `%${sigungu}%`);
+      }
 
       if (area_excl) {
         query = query.gte('area_excl', Number(area_excl) - 1).lte('area_excl', Number(area_excl) + 1);
@@ -119,14 +123,20 @@ export default async function handler(req, res) {
         .select('area_list, complex_name, build_year');
 
       if (complex_id) query = query.eq('id', complex_id);
-      else query = query.eq('complex_name', complex_name).eq('sigungu', sigungu);
+      else {
+        query = query.eq('complex_name', complex_name);
+        // DB sigungu는 "서울특별시 강남구 역삼동" 풀주소, 앱은 "강남구" 전송 → ilike 부분일치
+        // 같은 단지명이 여러 지역에 존재 가능 → .single() 대신 .limit(1) 후 첫 번째 사용
+        if (sigungu) query = query.ilike('sigungu', `%${sigungu}%`);
+      }
 
-      const { data, error } = await query.single();
+      const { data, error } = await query.limit(1);
       if (error) throw error;
 
-      const areas = data?.area_list ? JSON.parse(data.area_list) : [];
+      const row = Array.isArray(data) ? data[0] : data;
+      const areas = row?.area_list ? JSON.parse(row.area_list) : [];
       res.setHeader('Cache-Control', 's-maxage=3600');
-      res.status(200).json({ areas, complex_name: data?.complex_name });
+      res.status(200).json({ areas, complex_name: row?.complex_name });
     } catch (e) {
       errRes(res, e, 'areas');
     }
