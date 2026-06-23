@@ -3858,7 +3858,20 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   return (
     <>
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
-        <p className="mb-3 text-sm font-bold text-slate-800">단지 검색</p>
+        {/* 진입 안내 — 단지 미선택 시만 표시 */}
+        {!f.complexName && (
+          <div className="mb-4 rounded-2xl bg-blue-50 px-4 py-3 ring-1 ring-blue-100">
+            <p className="text-sm font-bold text-blue-800">분석 순서</p>
+            <div className="mt-2 space-y-1 text-xs text-blue-600">
+              <p>① 시/도 → 구/군 → 동 → 단지명 순으로 선택</p>
+              <p>② 면적 선택</p>
+              <p>③ 현재 매물가 입력</p>
+              <p>④ AI 분석 버튼 클릭</p>
+            </div>
+          </div>
+        )}
+
+        <p className="mb-3 text-sm font-bold text-slate-800">① 단지 검색</p>
 
         {/* 선택된 단지 표시 */}
         {f.complexName && f.region ? (
@@ -3891,40 +3904,53 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
           }} />
         )}
 
-        {/* 면적 버튼 */}
+        {/* ── STEP 1: 면적 선택 ── */}
         {areaOptions.length > 0 && (
-          <div className="mt-3 rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200">
-            <p className="mb-2 text-xs font-bold text-amber-800">📐 면적 선택</p>
-            <div className="flex flex-wrap gap-2">
-              {areaOptions.map((o, i) => {
-                const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
-                const selected = String(f.areaExclusive) === String(o.areaSqm);
-                return (
-                  // 면적 클릭 → 선택 상태만 변경, 매물가·입력값 유지
-                  // 재조회는 사용자가 "다시 분석" 버튼 클릭 시 수행
-                  <button key={i} onClick={() => { set("areaExclusive", String(o.areaSqm)); setAiMsg(null); }}
-                    className={`rounded-xl px-3 py-2 text-left border transition-all ${selected ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400"}`}>
-                    <p className="text-sm font-semibold leading-tight">{mainLabel}</p>
-                    {subLabel && <p className={`text-[10px] mt-0.5 ${selected ? "text-amber-100" : "text-slate-400"}`}>{subLabel}</p>}
-                  </button>
-                );
-              })}
+          <div className="mt-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white ${f.areaExclusive ? "bg-emerald-500" : "bg-amber-500"}`}>
+                {f.areaExclusive ? "✓" : "1"}
+              </span>
+              <p className="text-sm font-bold text-slate-700">면적 선택</p>
+              {!f.areaExclusive && <p className="text-xs text-amber-600">← 분석할 면적을 선택하세요</p>}
             </div>
-            {f.areaExclusive && (() => {
-              const sel = areaOptions.find(o => String(o.areaSqm) === String(f.areaExclusive));
-              const { mainLabel } = sel ? areaButtonLabel(sel.areaSqm, sel.supplySqm) : { mainLabel: `전용 ${f.areaExclusive}㎡` };
-              return <p className="mt-1.5 text-xs text-amber-700">✓ 분석 기준: {mainLabel}</p>;
-            })()}
+            <div className="rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200">
+              <div className="flex flex-wrap gap-2">
+                {areaOptions.map((o, i) => {
+                  const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
+                  const selected = String(f.areaExclusive) === String(o.areaSqm);
+                  return (
+                    <button key={i} onClick={() => { set("areaExclusive", String(o.areaSqm)); setAiMsg(null); }}
+                      className={`rounded-xl px-3 py-2 text-left border transition-all ${selected ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400"}`}>
+                      <p className="text-sm font-semibold leading-tight">{mainLabel}</p>
+                      {subLabel && <p className={`text-[10px] mt-0.5 ${selected ? "text-amber-100" : "text-slate-400"}`}>{subLabel}</p>}
+                    </button>
+                  );
+                })}
+              </div>
+              {f.areaExclusive && (() => {
+                const sel = areaOptions.find(o => String(o.areaSqm) === String(f.areaExclusive));
+                const { mainLabel } = sel ? areaButtonLabel(sel.areaSqm, sel.supplySqm) : { mainLabel: `전용 ${f.areaExclusive}㎡` };
+                return <p className="mt-1.5 text-xs text-amber-700">✓ 선택됨: {mainLabel}</p>;
+              })()}
+            </div>
           </div>
         )}
         {fetchingAreas && <p className="mt-2 text-xs text-slate-400 text-center">면적 조회 중…</p>}
 
-        {/* 매물가 입력 */}
+        {/* ── STEP 2: 현재 매물가 입력 ── */}
         {f.complexName && (
-        <div className="mt-3">
-          <p className="mb-1 text-xs font-medium text-slate-500">현재 매물가 (만원) <span className="text-red-500">*필수</span></p>
-          <input type="number" value={listingPriceInput} placeholder="예: 50000" onChange={(e) => setListingPriceInput(e.target.value)} className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
-        </div>
+          <div className="mt-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white ${listingPriceInput ? "bg-emerald-500" : "bg-slate-400"}`}>
+                {listingPriceInput ? "✓" : "2"}
+              </span>
+              <p className="text-sm font-bold text-slate-700">현재 매물가 입력</p>
+              {!listingPriceInput && <p className="text-xs text-slate-400">호가 또는 실거래가 (만원)</p>}
+            </div>
+            <input type="number" value={listingPriceInput} placeholder="예: 50000  (= 5억원)" onChange={(e) => setListingPriceInput(e.target.value)}
+              className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
+          </div>
         )}
 
         {/* 실거래 상태 안내 카드 — 원인별 구분 */}
@@ -4015,14 +4041,30 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         </div>
 
 
-        {/* 메인 버튼 */}
-        <button onClick={() => quickSearch(f.areaExclusive || undefined)} disabled={aiLoading} className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
-          {aiLoading
-            ? "AI 조회 중… (실거래 데이터 수집 중)"
-            : rawMolitRef.current && rawMolitRef.current.complexName === (f.exactAptNm || f.complexName)
-              ? (mode === "fair" ? "🔄 다시 분석 (면적 변경됨)" : "🔄 다시 분석 (면적 변경됨)")
-              : (mode === "fair" ? "현재 아파트 적정가격은? — AI 적정가 판단" : "이 집 사도 될까? — AI 매수판단")}
-        </button>
+        {/* ── STEP 3: AI 분석 실행 ── */}
+        {f.complexName && (
+          <div className="mt-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-300 text-xs font-bold text-white">3</span>
+              <p className="text-sm font-bold text-slate-700">AI 분석 실행</p>
+            </div>
+            {/* 필수값 미입력 안내 */}
+            {!listingPriceInput && (
+              <p className="mb-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                ↑ 현재 매물가를 입력하면 분석을 시작할 수 있습니다.
+              </p>
+            )}
+            <button onClick={() => quickSearch(f.areaExclusive || undefined)} disabled={aiLoading}
+              className={`w-full rounded-2xl py-4 text-lg font-extrabold text-white transition-opacity ${!listingPriceInput ? "opacity-40" : "opacity-100"}`}
+              style={{ backgroundColor: NAVY }}>
+              {aiLoading
+                ? "AI 조회 중… (실거래 데이터 수집 중)"
+                : rawMolitRef.current && rawMolitRef.current.complexName === (f.exactAptNm || f.complexName)
+                  ? (mode === "fair" ? "🔄 다시 분석 (면적 변경됨)" : "🔄 다시 분석 (면적 변경됨)")
+                  : (mode === "fair" ? "현재 아파트 적정가격은? — AI 적정가 판단" : "이 집 사도 될까? — AI 매수판단")}
+            </button>
+          </div>
+        )}
         {aiLoading && <button onClick={() => { if (abortRef.current) abortRef.current.abort(); setAiLoading(false); setAiMsg("조회가 취소되었습니다."); }} className="mt-2 w-full rounded-2xl border border-red-200 py-2.5 text-sm font-medium text-red-500">⬛ 조회 취소</button>}
 
         {/* 조회 실패 메시지 */}
@@ -5686,7 +5728,20 @@ function SellView({ onContext }) {
       </header>
 
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
-        <p className="mb-3 text-sm font-bold text-slate-800">단지 검색</p>
+        {/* 진입 안내 */}
+        {!f.complexName && (
+          <div className="mb-4 rounded-2xl bg-blue-50 px-4 py-3 ring-1 ring-blue-100">
+            <p className="text-sm font-bold text-blue-800">분석 순서</p>
+            <div className="mt-2 space-y-1 text-xs text-blue-600">
+              <p>① 시/도 → 구/군 → 동 → 단지명 순으로 선택</p>
+              <p>② 면적 선택</p>
+              <p>③ 희망 매도가 입력</p>
+              <p>④ AI 분석 버튼 클릭</p>
+            </div>
+          </div>
+        )}
+
+        <p className="mb-3 text-sm font-bold text-slate-800">① 단지 검색</p>
 
         {/* 선택된 단지 표시 */}
         {f.complexName && f.region ? (
@@ -5718,39 +5773,53 @@ function SellView({ onContext }) {
           }} />
         )}
 
-        {/* 면적 버튼 */}
+        {/* ── STEP 1: 면적 선택 ── */}
         {areaOptions.length > 0 && (
-          <div className="mt-3 rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200">
-            <p className="mb-2 text-xs font-bold text-amber-800">📐 면적 선택</p>
-            <div className="flex flex-wrap gap-2">
-              {areaOptions.map((o, i) => {
-                const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
-                const selected = String(f.areaExclusive) === String(o.areaSqm);
-                return (
-                  <button key={i}
-                    onClick={() => { set("areaExclusive", String(o.areaSqm)); setAiMsg(null); }}
-                    className={`rounded-xl px-3 py-2 text-left border transition-all ${selected ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400"}`}>
-                    <p className="text-sm font-semibold leading-tight">{mainLabel}</p>
-                    {subLabel && <p className={`text-[10px] mt-0.5 ${selected ? "text-amber-100" : "text-slate-400"}`}>{subLabel}</p>}
-                  </button>
-                );
-              })}
+          <div className="mt-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white ${f.areaExclusive ? "bg-emerald-500" : "bg-amber-500"}`}>
+                {f.areaExclusive ? "✓" : "1"}
+              </span>
+              <p className="text-sm font-bold text-slate-700">면적 선택</p>
+              {!f.areaExclusive && <p className="text-xs text-amber-600">← 분석할 면적을 선택하세요</p>}
             </div>
-            {f.areaExclusive && (() => {
-              const sel = areaOptions.find(o => String(o.areaSqm) === String(f.areaExclusive));
-              const { mainLabel } = sel ? areaButtonLabel(sel.areaSqm, sel.supplySqm) : { mainLabel: `전용 ${f.areaExclusive}㎡` };
-              return <p className="mt-1.5 text-xs text-amber-700">✓ 분석 기준: {mainLabel}</p>;
-            })()}
+            <div className="rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200">
+              <div className="flex flex-wrap gap-2">
+                {areaOptions.map((o, i) => {
+                  const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
+                  const selected = String(f.areaExclusive) === String(o.areaSqm);
+                  return (
+                    <button key={i}
+                      onClick={() => { set("areaExclusive", String(o.areaSqm)); setAiMsg(null); }}
+                      className={`rounded-xl px-3 py-2 text-left border transition-all ${selected ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400"}`}>
+                      <p className="text-sm font-semibold leading-tight">{mainLabel}</p>
+                      {subLabel && <p className={`text-[10px] mt-0.5 ${selected ? "text-amber-100" : "text-slate-400"}`}>{subLabel}</p>}
+                    </button>
+                  );
+                })}
+              </div>
+              {f.areaExclusive && (() => {
+                const sel = areaOptions.find(o => String(o.areaSqm) === String(f.areaExclusive));
+                const { mainLabel } = sel ? areaButtonLabel(sel.areaSqm, sel.supplySqm) : { mainLabel: `전용 ${f.areaExclusive}㎡` };
+                return <p className="mt-1.5 text-xs text-amber-700">✓ 선택됨: {mainLabel}</p>;
+              })()}
+            </div>
           </div>
         )}
         {fetchingAreas && <p className="mt-2 text-xs text-slate-400 text-center">면적 조회 중…</p>}
 
-        {/* 희망 매도가 */}
+        {/* ── STEP 2: 희망 매도가 입력 ── */}
         {f.complexName && (
-          <div className="mt-3">
-            <p className="mb-1 text-xs font-medium text-slate-500">희망 매도가 (만원) <span className="text-red-500">*필수</span></p>
+          <div className="mt-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white ${listingPriceInput ? "bg-emerald-500" : "bg-slate-400"}`}>
+                {listingPriceInput ? "✓" : "2"}
+              </span>
+              <p className="text-sm font-bold text-slate-700">희망 매도가 입력</p>
+              {!listingPriceInput && <p className="text-xs text-slate-400">내가 팔고 싶은 금액 (만원)</p>}
+            </div>
             <input
-              type="number" value={listingPriceInput} placeholder="예: 50000"
+              type="number" value={listingPriceInput} placeholder="예: 50000  (= 5억원)"
               onChange={(e) => setListingPriceInput(e.target.value)}
               className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500"
             />
@@ -5789,18 +5858,31 @@ function SellView({ onContext }) {
           );
         })()}
 
-        {/* 메인 버튼 */}
-        <button
-          onClick={() => quickSearch(f.areaExclusive || undefined)}
-          disabled={aiLoading}
-          className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50"
-          style={{ backgroundColor: NAVY }}>
-          {aiLoading
-            ? "조회 중… (실거래 데이터 수집 중)"
-            : rawMolitRef.current && rawMolitRef.current.complexName === (f.exactAptNm || f.complexName)
-              ? "🔄 다시 분석 (면적 변경됨)"
-              : "이 가격에 팔아도 될까? — 매도 분석"}
-        </button>
+        {/* ── STEP 3: AI 분석 실행 ── */}
+        {f.complexName && (
+          <div className="mt-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-300 text-xs font-bold text-white">3</span>
+              <p className="text-sm font-bold text-slate-700">AI 분석 실행</p>
+            </div>
+            {!listingPriceInput && (
+              <p className="mb-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                ↑ 희망 매도가를 입력하면 분석을 시작할 수 있습니다.
+              </p>
+            )}
+            <button
+              onClick={() => quickSearch(f.areaExclusive || undefined)}
+              disabled={aiLoading}
+              className={`w-full rounded-2xl py-4 text-lg font-extrabold text-white transition-opacity ${!listingPriceInput ? "opacity-40" : "opacity-100"}`}
+              style={{ backgroundColor: NAVY }}>
+              {aiLoading
+                ? "조회 중… (실거래 데이터 수집 중)"
+                : rawMolitRef.current && rawMolitRef.current.complexName === (f.exactAptNm || f.complexName)
+                  ? "🔄 다시 분석 (면적 변경됨)"
+                  : "이 가격에 팔아도 될까? — 매도 분석"}
+            </button>
+          </div>
+        )}
         {aiLoading && (
           <button onClick={() => { if (abortRef.current) abortRef.current.abort(); setAiLoading(false); setAiMsg("조회가 취소되었습니다."); }}
             className="mt-2 w-full rounded-2xl border border-red-200 py-2.5 text-sm font-medium text-red-500">
