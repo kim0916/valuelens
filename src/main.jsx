@@ -3802,8 +3802,18 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     onSaveHistory({ date: new Date().toISOString().slice(0, 10), complex: ff.complexName, dong: ff.dong, area: ff.areaExclusive ? `전용 ${ff.areaExclusive}㎡` : "", currentPrice: ff.currentPrice, fairPrice: res.fairPrice, safetyPrice: res.safetyPrice, grade: res.buyGrade, headline: res.headline });
   }
   if (r) return mode === "fair"
-    ? <FairValueResult r={r} f={f} onBack={() => setR(null)} />
-    : <BuyResult r={r} f={f} onBack={() => setR(null)} saved={saved} onSave={() => { onAddWatch({ key: `${f.complexName}-${f.dong}`, complex: f.complexName, dong: f.dong, fairPrice: r.fairPrice, currentPrice: Number(f.currentPrice), target: "" }); setSaved(true); }} />;
+    ? <FairValueResult r={r} f={f} onBack={() => setR(null)}
+        onNewSearch={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
+        onHome={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
+      />
+    : <BuyResult r={r} f={f} onBack={() => setR(null)} saved={saved}
+        onSave={() => { onAddWatch({ key: `${f.complexName}-${f.dong}`, complex: f.complexName, dong: f.dong, fairPrice: r.fairPrice, currentPrice: Number(f.currentPrice), target: "" }); setSaved(true); }}
+        onNewSearch={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
+        onChangeArea={() => { setR(null); }}
+        onHome={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
+        areaOptions={areaOptions} currentArea={f.areaExclusive}
+        onSelectArea={(area) => { setR(null); quickSearch(area); }}
+      />;
   if (pending) return <ConfirmStep p={pending} f={f} onBack={() => setPending(null)} onConfirm={doAnalyze} mode={mode} onRefetch={(area) => { setF(prev => ({...prev, areaExclusive: String(area)})); quickSearch(area); }} onBackToTop={() => { setPending(null); setR(null); setF({...EMPTY}); setUploadedImages([]); setCaptureMsg(null); setAiMsg(null); }} />;
   return (
     <>
@@ -4355,18 +4365,30 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
       </div>
 
       {/* 버튼 */}
-      <div className="mt-5 flex gap-3">
-        <button onClick={onBack} className="flex-1 rounded-2xl border border-slate-200 py-4 text-base font-bold text-slate-600">← 다시 검색</button>
-        <button onClick={handleConfirm} className="flex-[2] rounded-2xl py-4 text-lg font-extrabold text-white" style={{ backgroundColor: NAVY }}>
-          이 집 사도 될까? — AI 분석
-        </button>
+      <div className="mt-5 space-y-3">
+        <div className="flex gap-3">
+          <button onClick={onBack} className="flex-1 rounded-2xl border border-slate-200 py-4 text-base font-bold text-slate-600">← 다시 검색</button>
+          <button onClick={handleConfirm} className="flex-[2] rounded-2xl py-4 text-lg font-extrabold text-white" style={{ backgroundColor: NAVY }}>
+            이 집 사도 될까? — AI 분석
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={onNewSearch}
+            className="rounded-2xl border border-blue-100 bg-blue-50 py-3 text-sm font-bold text-blue-700 hover:bg-blue-100">
+            🔄 다른 단지 검색
+          </button>
+          <button onClick={onHome}
+            className="rounded-2xl bg-slate-800 py-3 text-sm font-bold text-white hover:bg-slate-700">
+            🏠 처음으로
+          </button>
+        </div>
       </div>
     </>
   );
 }
 
 // 적정가 화면 — 집 자체의 가치평가 전용 (매수판단·자금·대출·월상환 표시 안 함)
-function FairValueResult({ r, f, onBack }) {
+function FairValueResult({ r, f, onBack, onNewSearch, onHome }) {
   const mc = classifyApartmentMarket(f, r);
   const hold = r.engineMode === "hold";
   const isLowData = mc.specialMarketType === "lowData";
@@ -4677,7 +4699,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
   );
 }
 
-function BuyResult({ r, f, onBack, onSave, saved }) {
+function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onHome, areaOptions, currentArea, onSelectArea }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const s = GS[r.buyGrade], cheap = r.gapRatio < 0;
   const tone = (sc) => (sc >= 80 ? "text-emerald-600" : sc >= 60 ? "text-amber-600" : "text-orange-600");
@@ -5234,6 +5256,40 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
           <span className="text-xs text-slate-400">다운로드 ↓</span>
         </button>
       </div>
+
+      {/* ── 하단 네비게이션 CTA ── */}
+      <div className="mt-6 space-y-3">
+        {/* 같은 단지 다른 면적 */}
+        {areaOptions && areaOptions.length > 1 && (
+          <div>
+            <p className="mb-2 text-xs font-semibold text-slate-400">📐 같은 단지 다른 면적 선택</p>
+            <div className="flex flex-wrap gap-2">
+              {areaOptions.filter(o => String(o.areaSqm) !== String(currentArea)).map((o, i) => (
+                <button key={i}
+                  onClick={() => onSelectArea && onSelectArea(o.areaSqm)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:bg-blue-50">
+                  전용 {o.areaSqm}㎡ ({Math.round(o.areaSqm / 3.3058)}평)
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* 2×2 네비 버튼 */}
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={onBack}
+            className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 hover:bg-slate-50">
+            ← 다시 분석
+          </button>
+          <button onClick={onNewSearch}
+            className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 hover:bg-blue-100">
+            🔄 다른 단지 검색
+          </button>
+          <button onClick={onHome}
+            className="col-span-2 rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white hover:bg-slate-700">
+            🏠 처음으로
+          </button>
+        </div>
+      </div>
     </>
   );
 }
@@ -5478,7 +5534,13 @@ function SellView({ onContext }) {
     if (onContext) onContext({ acqPrice: Number(f.acqPrice) || 0, sellPrice: Number(ff.currentPrice), years: Number(f.holdingYears) || 5, loanBalance: Number(f.loanBalance) || 0 });
   }
 
-  if (r) return <SellResult r={r} f={f} onBack={() => setR(null)} />;
+  if (r) return <SellResult r={r} f={f} onBack={() => setR(null)}
+    onNewSearch={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
+    onChangeArea={() => { setR(null); }}
+    onHome={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
+    areaOptions={areaOptions} currentArea={f.areaExclusive}
+    onSelectArea={(area) => { setR(null); quickSearch(area); }}
+  />;
   if (pending) return (
     <ConfirmStep
       p={pending} f={f} mode="sell"
@@ -5699,7 +5761,7 @@ function SellView({ onContext }) {
   );
 }
 
-function SellResult({ r, f, onBack }) {
+function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptions, currentArea, onSelectArea }) {
   const sd = analyzeSellerDecision(f, r);
   const mc = sd.mc;
   const TONE =
@@ -5942,6 +6004,38 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
           </div>
           <span className="text-xs text-slate-400">다운로드 ↓</span>
         </button>
+      </div>
+
+      {/* ── 하단 네비게이션 CTA ── */}
+      <div className="mt-6 space-y-3">
+        {areaOptions && areaOptions.length > 1 && (
+          <div>
+            <p className="mb-2 text-xs font-semibold text-slate-400">📐 같은 단지 다른 면적 선택</p>
+            <div className="flex flex-wrap gap-2">
+              {areaOptions.filter(o => String(o.areaSqm) !== String(currentArea)).map((o, i) => (
+                <button key={i}
+                  onClick={() => onSelectArea && onSelectArea(o.areaSqm)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:bg-blue-50">
+                  전용 {o.areaSqm}㎡ ({Math.round(o.areaSqm / 3.3058)}평)
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={onBack}
+            className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 hover:bg-slate-50">
+            ← 다시 평가
+          </button>
+          <button onClick={onNewSearch}
+            className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 hover:bg-blue-100">
+            🔄 다른 단지 검색
+          </button>
+          <button onClick={onHome}
+            className="col-span-2 rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white hover:bg-slate-700">
+            🏠 처음으로
+          </button>
+        </div>
       </div>
     </>
   );
