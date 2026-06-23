@@ -3948,7 +3948,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
               <p className="text-sm font-bold text-slate-700">현재 매물가 입력</p>
               {!listingPriceInput && <p className="text-xs text-slate-400">호가 또는 실거래가 (만원)</p>}
             </div>
-            <input type="number" value={listingPriceInput} placeholder="예: 50000  (= 5억원)" onChange={(e) => setListingPriceInput(e.target.value)}
+            <input type="text" inputMode="numeric" pattern="[0-9]*" value={listingPriceInput} placeholder="예: 50000  (= 5억원)"
+              onChange={(e) => setListingPriceInput(e.target.value.replace(/[^0-9]/g, ""))}
               className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
           </div>
         )}
@@ -5819,8 +5820,8 @@ function SellView({ onContext }) {
               {!listingPriceInput && <p className="text-xs text-slate-400">내가 팔고 싶은 금액 (만원)</p>}
             </div>
             <input
-              type="number" value={listingPriceInput} placeholder="예: 50000  (= 5억원)"
-              onChange={(e) => setListingPriceInput(e.target.value)}
+              type="text" inputMode="numeric" pattern="[0-9]*" value={listingPriceInput} placeholder="예: 50000  (= 5억원)"
+              onChange={(e) => setListingPriceInput(e.target.value.replace(/[^0-9]/g, ""))}
               className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500"
             />
           </div>
