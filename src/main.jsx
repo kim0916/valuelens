@@ -3900,7 +3900,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
                 const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
                 const selected = String(f.areaExclusive) === String(o.areaSqm);
                 return (
-                  <button key={i} onClick={() => { set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm, undefined, o.exclusiveAreas || null); }}
+                  // 면적 클릭 → 선택 상태만 변경, 매물가·입력값 유지
+                  // 재조회는 사용자가 "다시 분석" 버튼 클릭 시 수행
+                  <button key={i} onClick={() => { set("areaExclusive", String(o.areaSqm)); setAiMsg(null); }}
                     className={`rounded-xl px-3 py-2 text-left border transition-all ${selected ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400"}`}>
                     <p className="text-sm font-semibold leading-tight">{mainLabel}</p>
                     {subLabel && <p className={`text-[10px] mt-0.5 ${selected ? "text-amber-100" : "text-slate-400"}`}>{subLabel}</p>}
@@ -3911,7 +3913,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
             {f.areaExclusive && (() => {
               const sel = areaOptions.find(o => String(o.areaSqm) === String(f.areaExclusive));
               const { mainLabel } = sel ? areaButtonLabel(sel.areaSqm, sel.supplySqm) : { mainLabel: `전용 ${f.areaExclusive}㎡` };
-              return <p className="mt-1.5 text-xs text-amber-700">선택: {mainLabel}</p>;
+              return <p className="mt-1.5 text-xs text-amber-700">✓ 분석 기준: {mainLabel}</p>;
             })()}
           </div>
         )}
@@ -4015,7 +4017,11 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
         {/* 메인 버튼 */}
         <button onClick={() => quickSearch(f.areaExclusive || undefined)} disabled={aiLoading} className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50" style={{ backgroundColor: NAVY }}>
-          {aiLoading ? "AI 조회 중… (실거래 데이터 수집 중)" : mode === "fair" ? "현재 아파트 적정가격은? — AI 적정가 판단" : "이 집 사도 될까? — AI 매수판단"}
+          {aiLoading
+            ? "AI 조회 중… (실거래 데이터 수집 중)"
+            : rawMolitRef.current && rawMolitRef.current.complexName === (f.exactAptNm || f.complexName)
+              ? (mode === "fair" ? "🔄 다시 분석 (면적 변경됨)" : "🔄 다시 분석 (면적 변경됨)")
+              : (mode === "fair" ? "현재 아파트 적정가격은? — AI 적정가 판단" : "이 집 사도 될까? — AI 매수판단")}
         </button>
         {aiLoading && <button onClick={() => { if (abortRef.current) abortRef.current.abort(); setAiLoading(false); setAiMsg("조회가 취소되었습니다."); }} className="mt-2 w-full rounded-2xl border border-red-200 py-2.5 text-sm font-medium text-red-500">⬛ 조회 취소</button>}
 
@@ -4110,12 +4116,12 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
 
       {/* 경고 메시지 */}
       {p.blockReason && (
-        <div className="mb-4 rounded-2xl bg-red-50 px-4 py-3 ring-1 ring-red-100">
-          <p className="text-sm font-semibold text-red-700">⚠️ 조회 불완전</p>
-          <p className="mt-0.5 text-xs text-red-600">{p.blockReason}</p>
+        <div className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
+          <p className="text-sm font-semibold text-amber-800">📝 추가 입력이 필요합니다</p>
+          <p className="mt-0.5 text-xs text-amber-700">{p.blockReason}</p>
           {Array.isArray(edit._aiAreaOptions) && edit._aiAreaOptions.length > 0 ? (
             <div className="mt-2">
-              <p className="mb-1.5 text-xs font-medium text-red-700">면적을 선택하면 재조회합니다:</p>
+              <p className="mb-1.5 text-xs font-medium text-amber-700">다른 면적으로 분석하려면 선택하세요:</p>
               <div className="flex flex-wrap gap-2">
                 {edit._aiAreaOptions.map((o, i) => {
                   const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
@@ -5722,7 +5728,7 @@ function SellView({ onContext }) {
                 const selected = String(f.areaExclusive) === String(o.areaSqm);
                 return (
                   <button key={i}
-                    onClick={() => { set("areaExclusive", String(o.areaSqm)); quickSearch(o.areaSqm, undefined, o.exclusiveAreas || null); }}
+                    onClick={() => { set("areaExclusive", String(o.areaSqm)); setAiMsg(null); }}
                     className={`rounded-xl px-3 py-2 text-left border transition-all ${selected ? "bg-amber-600 text-white border-amber-600" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400"}`}>
                     <p className="text-sm font-semibold leading-tight">{mainLabel}</p>
                     {subLabel && <p className={`text-[10px] mt-0.5 ${selected ? "text-amber-100" : "text-slate-400"}`}>{subLabel}</p>}
@@ -5733,7 +5739,7 @@ function SellView({ onContext }) {
             {f.areaExclusive && (() => {
               const sel = areaOptions.find(o => String(o.areaSqm) === String(f.areaExclusive));
               const { mainLabel } = sel ? areaButtonLabel(sel.areaSqm, sel.supplySqm) : { mainLabel: `전용 ${f.areaExclusive}㎡` };
-              return <p className="mt-1.5 text-xs text-amber-700">선택: {mainLabel}</p>;
+              return <p className="mt-1.5 text-xs text-amber-700">✓ 분석 기준: {mainLabel}</p>;
             })()}
           </div>
         )}
@@ -5789,7 +5795,11 @@ function SellView({ onContext }) {
           disabled={aiLoading}
           className="mt-4 w-full rounded-2xl py-4 text-lg font-extrabold text-white disabled:opacity-50"
           style={{ backgroundColor: NAVY }}>
-          {aiLoading ? "조회 중… (실거래 데이터 수집 중)" : "이 가격에 팔아도 될까? — 매도 분석"}
+          {aiLoading
+            ? "조회 중… (실거래 데이터 수집 중)"
+            : rawMolitRef.current && rawMolitRef.current.complexName === (f.exactAptNm || f.complexName)
+              ? "🔄 다시 분석 (면적 변경됨)"
+              : "이 가격에 팔아도 될까? — 매도 분석"}
         </button>
         {aiLoading && (
           <button onClick={() => { if (abortRef.current) abortRef.current.abort(); setAiLoading(false); setAiMsg("조회가 취소되었습니다."); }}
