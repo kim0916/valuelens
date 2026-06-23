@@ -1,5 +1,126 @@
 import "./index.css";
 import React, { useState, useRef, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+
+function AuthGate({ children }) {
+  const [user, setUser] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [mode, setMode] = React.useState("login"); // login | signup
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [name, setName] = React.useState("");
+  const [error, setError] = React.useState("");
+  const [authLoading, setAuthLoading] = React.useState(false);
+  const [successMsg, setSuccessMsg] = React.useState("");
+
+  React.useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function handleLogin() {
+    if (!email || !password) { setError("이메일과 비밀번호를 입력해주세요."); return; }
+    setAuthLoading(true); setError("");
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+    setAuthLoading(false);
+  }
+
+  async function handleSignup() {
+    if (!email || !password || !name) { setError("모든 항목을 입력해주세요."); return; }
+    if (password.length < 6) { setError("비밀번호는 6자 이상이어야 합니다."); return; }
+    setAuthLoading(true); setError("");
+    const { error } = await supabase.auth.signUp({ 
+      email, password, 
+      options: { data: { name } }
+    });
+    if (error) setError("오류: " + error.message);
+    else setSuccessMsg("가입 완료! 이메일을 확인해주세요.");
+    setAuthLoading(false);
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+  }
+
+  if (loading) return (
+    <div style={{ minHeight:"100vh", background:"#0a0a0a", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff" }}>
+      로딩 중...
+    </div>
+  );
+
+  if (!user) return (
+    <div style={{ minHeight:"100vh", background:"#0a0a0a", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"sans-serif" }}>
+      <div style={{ background:"#111", border:"1px solid #222", borderRadius:"16px", padding:"40px 36px", width:"100%", maxWidth:"380px" }}>
+        <div style={{ textAlign:"center", marginBottom:"28px" }}>
+          <div style={{ fontSize:"28px" }}>🥝</div>
+          <h1 style={{ color:"#fff", fontSize:"22px", fontWeight:"700", margin:"8px 0 4px" }}>ValueLens 부동산</h1>
+          <p style={{ color:"#666", fontSize:"13px", margin:0 }}>KiwiLab 계정으로 {mode === "login" ? "로그인" : "회원가입"}하세요</p>
+        </div>
+
+        {mode === "signup" && (
+          <div style={{ marginBottom:"12px" }}>
+            <label style={{ color:"#aaa", fontSize:"12px", display:"block", marginBottom:"5px" }}>이름</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="이름 입력"
+              style={{ width:"100%", padding:"11px 13px", background:"#1a1a1a", border:"1px solid #333", borderRadius:"8px", color:"#fff", fontSize:"14px", outline:"none", boxSizing:"border-box" }} />
+          </div>
+        )}
+
+        <div style={{ marginBottom:"12px" }}>
+          <label style={{ color:"#aaa", fontSize:"12px", display:"block", marginBottom:"5px" }}>이메일</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="이메일 입력"
+            style={{ width:"100%", padding:"11px 13px", background:"#1a1a1a", border:"1px solid #333", borderRadius:"8px", color:"#fff", fontSize:"14px", outline:"none", boxSizing:"border-box" }} />
+        </div>
+
+        <div style={{ marginBottom:"16px" }}>
+          <label style={{ color:"#aaa", fontSize:"12px", display:"block", marginBottom:"5px" }}>비밀번호</label>
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="6자 이상"
+            style={{ width:"100%", padding:"11px 13px", background:"#1a1a1a", border:"1px solid #333", borderRadius:"8px", color:"#fff", fontSize:"14px", outline:"none", boxSizing:"border-box" }} />
+        </div>
+
+        {error && <p style={{ color:"#ff4444", fontSize:"12px", marginBottom:"12px" }}>{error}</p>}
+        {successMsg && <p style={{ color:"#00FF87", fontSize:"12px", marginBottom:"12px" }}>{successMsg}</p>}
+
+        <button onClick={mode === "login" ? handleLogin : handleSignup}
+          style={{ width:"100%", padding:"12px", background:authLoading ? "#555" : "#00FF87", border:"none", borderRadius:"8px", color:"#000", fontSize:"15px", fontWeight:"700", cursor:"pointer", marginBottom:"12px" }}>
+          {authLoading ? "처리 중..." : mode === "login" ? "로그인" : "회원가입"}
+        </button>
+
+        <p style={{ textAlign:"center", color:"#666", fontSize:"13px", margin:0 }}>
+          {mode === "login" ? "계정이 없으신가요? " : "이미 계정이 있으신가요? "}
+          <span onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); }}
+            style={{ color:"#00FF87", cursor:"pointer" }}>
+            {mode === "login" ? "회원가입" : "로그인"}
+          </span>
+        </p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ position:"fixed", top:"8px", right:"12px", zIndex:9999 }}>
+        <button onClick={handleLogout} style={{ fontSize:"12px", color:"#ff4444", background:"#ff444420", border:"none", padding:"4px 12px", borderRadius:"20px", cursor:"pointer" }}>
+          로그아웃
+        </button>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+
 
 // ── 자동완성 데이터 (하드코딩 · API 연동 전까지 사용) ──
 const DONG_DATA = {
@@ -1944,7 +2065,7 @@ function AdvancedView({ watch, setWatch, history, finProfile, onReanalyze }) {
   );
 }
 
-export default function App() {
+function AppInner() {
   const [ptype, setPtype] = useState("apartment");   // 상위 카테고리
   const [aptTab, setAptTab] = useState("fair");       // 아파트 내부 메뉴 (기본: 적정가)
   const [roomTab, setRoomTab] = useState("search");   // 원룸 내부 메뉴
@@ -5520,3 +5641,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 
 
 
+
+export default function App() { return <AuthGate><AppInner /></AuthGate>; }
