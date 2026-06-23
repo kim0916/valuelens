@@ -3812,13 +3812,44 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         onChangeArea={() => { setR(null); }}
         onHome={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
         areaOptions={areaOptions} currentArea={f.areaExclusive}
-        onSelectArea={(area) => {
-          // 면적만 바꾸고 폼으로 복귀 — 빈화면 방지
-          // 사용자가 조회버튼을 다시 누르면 해당 면적으로 분석
+        onSelectArea={async (area) => {
+          // 면적 변경 → 데이터 재조회 → 자동 분석까지 실행
           setR(null);
           setPending(null);
           setF(prev => ({ ...prev, areaExclusive: String(area) }));
           window.scrollTo({ top: 0, behavior: 'smooth' });
+          // quickSearch 후 pending 세팅 → 자동으로 doAnalyze 실행
+          setAiLoading(true);
+          try {
+            const rawData = await _fetchRawDataSupabase(
+              { ...f, areaExclusive: String(area) }, area, null
+            );
+            const effectiveArea = Number(area);
+            const rawWithInput = {
+              ...rawData,
+              currentPrice: Number(f.currentPrice) || 0,
+              kbSalePrice: Number(f.kbSalePrice) || 0,
+              kbJeonse: Number(f.kbJeonse) || 0,
+              buildYear: f.buildYear || rawData.buildYear || 0,
+            };
+            const { ff: builtFf, jeonseCalc, saleCalc } = buildAnalysisInput(rawWithInput, { ...f, areaExclusive: String(area) }, effectiveArea);
+            if (builtFf && Number(f.currentPrice) > 0) {
+              const res = analyze({ ...builtFf, currentPrice: Number(f.currentPrice) });
+              res.jeonseCalc = jeonseCalc; res.saleCalc = saleCalc;
+              setF(prev => ({ ...prev, areaExclusive: String(area), _tradeStatus: rawData.tradeStatus || null }));
+              setAreaOptions(rawData.areaOptions || []);
+              setR(res); setSaved(false);
+            } else {
+              // 현재가 없거나 분석 불가 → 폼으로 복귀
+              setF(prev => ({ ...prev, areaExclusive: String(area), _tradeStatus: rawData.tradeStatus || null }));
+              setAreaOptions(rawData.areaOptions || []);
+              setAiMsg('면적을 변경했습니다. 현재 매물가 확인 후 조회하세요.');
+            }
+          } catch(e) {
+            setAiMsg(`면적 변경 실패: ${e.message}`);
+          } finally {
+            setAiLoading(false);
+          }
         }}
       />;
   if (pending) return <ConfirmStep p={pending} f={f} onBack={() => setPending(null)} onConfirm={doAnalyze} mode={mode} onRefetch={(area) => { setF(prev => ({...prev, areaExclusive: String(area)})); quickSearch(area); }} onBackToTop={() => { setPending(null); setR(null); setF({...EMPTY}); setUploadedImages([]); setCaptureMsg(null); setAiMsg(null); }} />;
@@ -5546,11 +5577,40 @@ function SellView({ onContext }) {
     onChangeArea={() => { setR(null); }}
     onHome={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
     areaOptions={areaOptions} currentArea={f.areaExclusive}
-    onSelectArea={(area) => {
+    onSelectArea={async (area) => {
       setR(null);
       setPending(null);
       set("areaExclusive", String(area));
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      setAiLoading(true);
+      try {
+        const rawData = await _fetchRawDataSupabase(
+          { ...f, areaExclusive: String(area) }, area, null
+        );
+        const rawWithInput = {
+          ...rawData,
+          currentPrice: Number(f.currentPrice) || 0,
+          kbSalePrice: Number(f.kbSalePrice) || 0,
+          kbJeonse: Number(f.kbJeonse) || 0,
+          buildYear: f.buildYear || rawData.buildYear || 0,
+        };
+        const { ff: builtFf, jeonseCalc, saleCalc } = buildAnalysisInput(rawWithInput, { ...f, areaExclusive: String(area) }, Number(area));
+        if (builtFf && Number(f.currentPrice) > 0) {
+          const res = analyze({ ...builtFf, currentPrice: Number(f.currentPrice) });
+          res.jeonseCalc = jeonseCalc; res.saleCalc = saleCalc;
+          set("areaExclusive", String(area));
+          setAreaOptions(rawData.areaOptions || []);
+          setR(res);
+        } else {
+          set("areaExclusive", String(area));
+          setAreaOptions(rawData.areaOptions || []);
+          setAiMsg('면적을 변경했습니다. 현재 매물가 확인 후 조회하세요.');
+        }
+      } catch(e) {
+        setAiMsg(`면적 변경 실패: ${e.message}`);
+      } finally {
+        setAiLoading(false);
+      }
     }}
   />;
   if (pending) return (
