@@ -5320,7 +5320,9 @@ function SellView({ onContext }) {
     if (!ff.complexName) { setAiMsg("단지를 선택하세요."); return; }
 
     // 면적 변경 + 캐시 있으면 로컬 재필터
+    // MOLIT 데이터(dataSource !== 'supabase')는 항상 Supabase 재조회 (BuyView와 동일)
     const isSameComplex = rawMolitRef.current &&
+      rawMolitRef.current.dataSource === 'supabase' &&
       rawMolitRef.current.complexName === (ff.exactAptNm || ff.complexName) &&
       rawMolitRef.current.dong === ff.dong;
     const isAreaChange = overrideArea && isSameComplex;
