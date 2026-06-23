@@ -334,12 +334,15 @@ function supplyAreaInfo(exclusiveSqm, supplySqm) {
   return { supply, pyeong: supply > 0 ? Math.round(supply / 3.3058) : 0, estimated: true };
 }
 
-// 면적 버튼 라벨: "81㎡ (25평)" + 하단 "전용 59.34㎡ 기준 분석"
+// 면적 버튼 라벨: "59.99㎡ (25평)" + 하단 "공급 81㎡"
 function areaButtonLabel(exclusiveSqm, supplySqm) {
   const excl = Number(exclusiveSqm) || 0;
-  const { supply, pyeong, estimated } = supplyAreaInfo(excl, supplySqm);
-  const mainLabel = supply > 0 ? `${supply}㎡ (${pyeong}평${estimated ? ", 추정" : ""})` : `전용 ${excl}㎡`;
-  const subLabel = excl > 0 ? `전용 ${excl}㎡ 기준 분석` : "";
+  const exclPyeong = excl > 0 ? Math.round(excl / 3.3058) : 0;
+  // mainLabel: 전용면적 기준 (사용자가 직관적으로 이해)
+  const mainLabel = excl > 0 ? `${excl}㎡ (${exclPyeong}평)` : "—";
+  // subLabel: 공급면적 있으면 표시, 없으면 생략
+  const supply = supplySqm && Number(supplySqm) > 0 ? Math.round(Number(supplySqm)) : null;
+  const subLabel = supply ? `공급 ${supply}㎡` : "";
   return { mainLabel, subLabel };
 }
 const exclusivePyeong = (sqm) => { sqm = Number(sqm) || 0; return sqm > 0 ? Math.round((sqm / 3.3058) * 10) / 10 : 0; };
@@ -3972,7 +3975,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
               {f.areaExclusive && (() => {
                 const sel = areaOptions.find(o => String(o.areaSqm) === String(f.areaExclusive));
                 const { mainLabel } = sel ? areaButtonLabel(sel.areaSqm, sel.supplySqm) : { mainLabel: `전용 ${f.areaExclusive}㎡` };
-                return <p className="mt-1.5 text-xs text-amber-700">✓ 선택됨: {mainLabel}</p>;
+                return <p className="mt-1.5 text-xs text-amber-700">✓ 분석 기준: 전용 {sel ? sel.areaSqm : f.areaExclusive}㎡ ({Math.round(Number(sel ? sel.areaSqm : f.areaExclusive) / 3.3058)}평)</p>;
               })()}
             </div>
           </div>
@@ -5838,7 +5841,7 @@ function SellView({ onContext }) {
               {f.areaExclusive && (() => {
                 const sel = areaOptions.find(o => String(o.areaSqm) === String(f.areaExclusive));
                 const { mainLabel } = sel ? areaButtonLabel(sel.areaSqm, sel.supplySqm) : { mainLabel: `전용 ${f.areaExclusive}㎡` };
-                return <p className="mt-1.5 text-xs text-amber-700">✓ 선택됨: {mainLabel}</p>;
+                return <p className="mt-1.5 text-xs text-amber-700">✓ 분석 기준: 전용 {sel ? sel.areaSqm : f.areaExclusive}㎡ ({Math.round(Number(sel ? sel.areaSqm : f.areaExclusive) / 3.3058)}평)</p>;
               })()}
             </div>
           </div>
