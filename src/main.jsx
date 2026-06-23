@@ -3813,10 +3813,12 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         onHome={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
         areaOptions={areaOptions} currentArea={f.areaExclusive}
         onSelectArea={(area) => {
+          // 면적만 바꾸고 폼으로 복귀 — 빈화면 방지
+          // 사용자가 조회버튼을 다시 누르면 해당 면적으로 분석
           setR(null);
+          setPending(null);
           setF(prev => ({ ...prev, areaExclusive: String(area) }));
           window.scrollTo({ top: 0, behavior: 'smooth' });
-          setTimeout(() => quickSearch(area), 50);
         }}
       />;
   if (pending) return <ConfirmStep p={pending} f={f} onBack={() => setPending(null)} onConfirm={doAnalyze} mode={mode} onRefetch={(area) => { setF(prev => ({...prev, areaExclusive: String(area)})); quickSearch(area); }} onBackToTop={() => { setPending(null); setR(null); setF({...EMPTY}); setUploadedImages([]); setCaptureMsg(null); setAiMsg(null); }} />;
@@ -5546,9 +5548,9 @@ function SellView({ onContext }) {
     areaOptions={areaOptions} currentArea={f.areaExclusive}
     onSelectArea={(area) => {
       setR(null);
+      setPending(null);
       set("areaExclusive", String(area));
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      setTimeout(() => quickSearch(area), 50);
     }}
   />;
   if (pending) return (
