@@ -3753,7 +3753,35 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       : { ...filled, currentPrice: finalCurrentPrice, baseJeonse: Number(filled.kbJeonse) || 0,
           kbSalePrice: Number(filled.kbSalePrice) || 0, jeonseUsed: 0, saleUsed: 0,
           jeonseCalc: null, saleCalc: null, dataSource: "ai" };
-    setPending({ ff: pendingFf, jeonseCalc, saleCalc, blockReason: finalBlockReason });
+
+    // ── B안: ConfirmStep 조건부 자동 스킵 ──
+    // Case 1: FairValue → 현재가 불필요 → 항상 바로 분석
+    // Case 2: Buy/Sell + 현재가 있음 + blockReason 없음 + 데이터 정상(OK/LOW_DATA/TOO_FEW) → 바로 분석
+    // Case 3: 현재가 없음 / 데이터 부족(API_FAIL, NAME_NO_MATCH 등) → ConfirmStep 표시
+    const tradeCode = rawData.tradeStatus?.code || "OK";
+    const dataOk = ["OK","LOW_DATA","TOO_FEW","JEONSE_SHORT","JEONSE_AREA_SHORT"].includes(tradeCode);
+    const canAutoSkip =
+      mode === "fair"
+        ? (builtFf != null)  // FairValue: blockReason 없으면 바로
+        : (finalCurrentPrice > 0 && !finalBlockReason && dataOk && builtFf != null);
+
+    if (canAutoSkip) {
+      // ConfirmStep 건너뛰고 바로 분석 실행
+      const autoFf = { ...pendingFf, currentPrice: mode === "fair" ? (finalCurrentPrice || 0) : finalCurrentPrice };
+      const res = analyze(autoFf);
+      res.jeonseCalc = jeonseCalc; res.saleCalc = saleCalc;
+      setR(res); setSaved(false); setPending(null);
+      if (onContext) onContext({ price: autoFf.currentPrice, area: Number(autoFf.areaExclusive) || 0 });
+      if (mode !== "fair") {
+        onSaveHistory({ date: new Date().toISOString().slice(0,10), complex: autoFf.complexName, dong: autoFf.dong,
+          area: autoFf.areaExclusive ? `전용 ${autoFf.areaExclusive}㎡` : "",
+          currentPrice: autoFf.currentPrice, fairPrice: res.fairPrice, safetyPrice: res.safetyPrice,
+          grade: res.buyGrade, headline: res.headline });
+      }
+    } else {
+      // 데이터 부족 or 현재가 없음 → ConfirmStep 표시
+      setPending({ ff: pendingFf, jeonseCalc, saleCalc, blockReason: finalBlockReason });
+    }
   }
 
   // 매물 캡처(이미지)에서 정보 추출 — 사용자가 올린 화면만 분석
@@ -5656,7 +5684,21 @@ function SellView({ onContext }) {
       : { ...filled,  currentPrice: finalCurrentPrice, baseJeonse: Number(filled.kbJeonse) || 0,
           kbSalePrice: Number(filled.kbSalePrice) || 0, jeonseUsed: 0, saleUsed: 0,
           jeonseCalc: null, saleCalc: null, dataSource: "ai" };
-    setPending({ ff: pendingFf, jeonseCalc, saleCalc, blockReason: finalBlockReason });
+
+    // ── B안: ConfirmStep 조건부 자동 스킵 (SellView) ──
+    const tradeCode = rawData.tradeStatus?.code || "OK";
+    const dataOk = ["OK","LOW_DATA","TOO_FEW","JEONSE_SHORT","JEONSE_AREA_SHORT"].includes(tradeCode);
+    const canAutoSkip = finalCurrentPrice > 0 && !finalBlockReason && dataOk && builtFf != null;
+
+    if (canAutoSkip) {
+      const autoFf = { ...pendingFf, currentPrice: finalCurrentPrice };
+      const res = analyze(autoFf);
+      res.jeonseCalc = jeonseCalc; res.saleCalc = saleCalc;
+      setR(res); setPending(null);
+      if (onContext) onContext({ acqPrice: Number(f.acqPrice) || 0, sellPrice: Number(autoFf.currentPrice), years: Number(f.holdingYears) || 5, loanBalance: Number(f.loanBalance) || 0 });
+    } else {
+      setPending({ ff: pendingFf, jeonseCalc, saleCalc, blockReason: finalBlockReason });
+    }
   }
 
   // ── doAnalyze: ConfirmStep에서 수정된 값으로 분석 실행 ──
