@@ -4404,12 +4404,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
 
       {/* 버튼 */}
       <div className="mt-5 space-y-3">
-        <div className="flex gap-3">
-          <button onClick={onBack} className="flex-1 rounded-2xl border border-slate-200 py-4 text-base font-bold text-slate-600">← 다시 검색</button>
-          <button onClick={handleConfirm} className="flex-[2] rounded-2xl py-4 text-lg font-extrabold text-white" style={{ backgroundColor: NAVY }}>
-            이 집 사도 될까? — AI 분석
-          </button>
-        </div>
+        <button onClick={onBack} className="w-full rounded-2xl border border-slate-200 py-4 text-base font-bold text-slate-600">← 다시 검색</button>
         <div className="grid grid-cols-2 gap-3">
           <button onClick={onNewSearch}
             className="rounded-2xl border border-blue-100 bg-blue-50 py-3 text-sm font-bold text-blue-700 hover:bg-blue-100">
