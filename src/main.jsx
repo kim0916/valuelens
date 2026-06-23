@@ -3647,7 +3647,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     const toSale = (d) => ({
       areaSqm:      Number(d.area_excl) || 0,
       price:        Number(d.deal_amount_man) || 0,
-      contractYm:   d.contract_ym || "",
+      ym:           d.contract_ym || "",
       aptNm:        d.complex_name || useComplexName,
       floor:        d.floor || 0,
       cancelDate:   d.cancel_date || null,
@@ -3655,7 +3655,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     const toRent = (d) => ({
       areaSqm:      Number(d.area_excl) || 0,
       price:        Number(d.deposit_man) || 0,
-      contractYm:   d.contract_ym || "",
+      ym:           d.contract_ym || "",
       aptNm:        d.complex_name || useComplexName,
       floor:        d.floor || 0,
       monthly:      Number(d.monthly_man) || 0,
@@ -5399,8 +5399,8 @@ function SellView({ onContext }) {
     }
 
     // STEP 4: 변환
-    const toSale = (d) => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deal_amount_man)||0, contractYm: d.contract_ym||"", aptNm: d.complex_name || useComplexName, floor: d.floor||0, cancelDate: d.cancel_date||null });
-    const toRent = (d) => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deposit_man)||0,    contractYm: d.contract_ym||"", aptNm: d.complex_name || useComplexName, floor: d.floor||0, monthly: Number(d.monthly_man)||0 });
+    const toSale = (d) => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deal_amount_man)||0, ym: d.contract_ym||"", aptNm: d.complex_name || useComplexName, floor: d.floor||0, cancelDate: d.cancel_date||null });
+    const toRent = (d) => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deposit_man)||0,    ym: d.contract_ym||"", aptNm: d.complex_name || useComplexName, floor: d.floor||0, monthly: Number(d.monthly_man)||0 });
     const sale   = saleDeals.map(toSale).filter(d => d.price > 0 && d.areaSqm > 0);
     const jeonse = rentDeals.map(toRent).filter(d => d.price > 0 && d.areaSqm > 0);
 
