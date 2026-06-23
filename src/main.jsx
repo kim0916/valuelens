@@ -3885,7 +3885,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
           const needKb = isApiFail || isNoTrade || ts.code === "JEONSE_SHORT";
           const boxColor = isNoTrade ? "bg-red-50 ring-red-200" : isLowData ? "bg-amber-50 ring-amber-200" : isAreaFail ? "bg-orange-50 ring-orange-200" : "bg-amber-50 ring-amber-200";
           return (
-            <div className={`mt-3 rounded-2xl p-4 ring-1 ${boxColor}`0">
+            <div className={`mt-3 rounded-2xl p-4 ring-1 ${boxColor}`}>
               <p className="text-sm font-bold text-amber-800">
                 {isApiFail ? "⚠️ API 조회 실패" :
                  isNoTrade ? "⚠️ 단지 거래 없음" :
@@ -5573,7 +5573,7 @@ function SellView({ onContext }) {
           const needKb = ["API_FAIL", "COMPLEX_NO_TRADE", "NAME_NO_MATCH", "PERIOD_NO_TRADE", "AREA_NO_MATCH"].includes(ts.code) || (ts.jeonseShort && !ts.canExpand);
           const boxColor = isNoTrade ? "bg-red-50 ring-red-200" : isLowData ? "bg-amber-50 ring-amber-200" : isAreaFail ? "bg-orange-50 ring-orange-200" : "bg-amber-50 ring-amber-200";
           return (
-            <div className={`mt-3 rounded-2xl p-4 ring-1 ${boxColor}`0">
+            <div className={`mt-3 rounded-2xl p-4 ring-1 ${boxColor}`}>
               <p className="text-sm font-bold text-amber-800">ℹ️ {ts.msg}</p>
               {needKb && (
                 <div className="mt-3 grid grid-cols-2 gap-2">
