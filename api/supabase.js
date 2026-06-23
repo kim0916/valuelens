@@ -141,11 +141,13 @@ export default async function handler(req, res) {
 
     try {
       // cutoff 없음 — DB에 있는 데이터 전부 반환
+      // ⚠️ sales_raw/rent_raw의 complex_id가 NULL이므로 항상 complex_name + sigungu로 조회
       const baseQ = (table) => {
         let q = supabase.from(table).select('*')
           .order('contract_ym', { ascending: false });
-        if (complex_id) q = q.eq('complex_id', complex_id);
-        else q = q.eq('complex_name', complex_name).eq('sigungu', sigungu);
+        // complex_name 정확일치 + sigungu 부분일치 (앱은 "강남구", DB는 "서울특별시 강남구")
+        q = q.eq('complex_name', complex_name);
+        if (sigungu) q = q.ilike('sigungu', `%${sigungu}%`);
         return q;
       };
 
