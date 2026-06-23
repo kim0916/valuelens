@@ -4404,13 +4404,19 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
 
       {/* 버튼 */}
       <div className="mt-5 space-y-3">
-        <button onClick={onBack} className="w-full rounded-2xl border border-slate-200 py-4 text-base font-bold text-slate-600">← 다시 검색</button>
-        {onBackToTop && (
-          <button onClick={onBackToTop}
-            className="w-full rounded-2xl bg-slate-800 py-3 text-sm font-bold text-white hover:bg-slate-700">
-            🏠 처음으로
-          </button>
-        )}
+        <button
+          onClick={handleConfirm}
+          className="w-full rounded-2xl py-4 text-lg font-extrabold text-white"
+          style={{ backgroundColor: NAVY }}
+        >
+          {isSell ? "이 가격에 팔아도 될까? — 매도 분석" : mode === "fair" ? "현재 아파트 적정가격은? — AI 적정가 판단" : "이 집 사도 될까? — AI 매수판단"}
+        </button>
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={onBack} className="rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600">← 수정</button>
+          {onBackToTop && (
+            <button onClick={onBackToTop} className="rounded-2xl bg-slate-700 py-3 text-sm font-bold text-white">🏠 처음으로</button>
+          )}
+        </div>
       </div>
     </>
   );
