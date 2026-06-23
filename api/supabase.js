@@ -57,10 +57,19 @@ export default async function handler(req, res) {
         searchName = aliasMatch.real_name;
       }
 
+      // 공백제거 버전 + 원본 OR 검색
+      // 이유: '부천범박힐스테이트 6단지'처럼 공백 포함 DB명이 있어
+      //       공백제거 패턴('%부천범박힐스테이트6단지%')으로는 매칭 실패
+      const nameNoSpace = searchName.replace(/\s/g, '');
+      const nameOrig    = searchName.trim();
+      const orFilter = nameNoSpace === nameOrig
+        ? `complex_name.ilike.%${nameNoSpace}%`
+        : `complex_name.ilike.%${nameNoSpace}%,complex_name.ilike.%${nameOrig}%`;
+
       let query = supabase
         .from('realestate_complexes')
         .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
-        .ilike('complex_name', `%${searchName.replace(/\s/g,'')}%`)
+        .or(orFilter)
         .order('sale_cnt', { ascending: false })
         .limit(limit);
 
