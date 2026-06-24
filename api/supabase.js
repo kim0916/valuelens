@@ -48,7 +48,7 @@ export default async function handler(req, res) {
       // 헤링턴·더샾은 DB에 해당 표기 없음 → 변환 후 단일 검색이 맞음
       const BRAND_OR_MAP = {
         '레미안':   '래미안',     // DB 양쪽 혼재 → OR 검색
-        '이편한세상': 'e편한세상', // DB 양쪽 혼재 → OR 검색
+        '이편한': 'e편한',       // DB 양쪽 혼재 → OR 검색 (이편한/이편한세상 부분 입력 모두 커버)
         'XI':       '자이',       // 영문 XI 입력 → 자이 OR XI 양쪽 검색
       };
       const BRAND_ALIAS = {
