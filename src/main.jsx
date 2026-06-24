@@ -4342,25 +4342,63 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
         {Number(edit.areaExclusive) > 0 && (
           <p className="mt-0.5 text-xs text-slate-400">{areaButtonLabel(edit.areaExclusive).subLabel}</p>
         )}
-        {/* 면적 옵션 버튼 */}
-        {Array.isArray(edit._aiAreaOptions) && edit._aiAreaOptions.length > 0 && (
-          <div className="mt-2">
-            <p className="text-[11px] text-slate-400">다른 면적 선택:</p>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {edit._aiAreaOptions.map((o, i) => {
-                const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
-                const selected = Number(edit.areaExclusive) === o.areaSqm;
-                return (
-                  <button key={i} onClick={() => { setE("areaExclusive", String(o.areaSqm)); if (onRefetch) onRefetch(o.areaSqm); }}
-                    className={`rounded-lg px-2.5 py-1.5 text-left ${selected ? "bg-white text-slate-900" : "bg-slate-700 text-slate-300"}`}>
-                    <p className="text-xs font-semibold">{mainLabel}</p>
-                    {subLabel && <p className={`text-[10px] mt-0.5 ${selected ? "text-slate-500" : "text-slate-500"}`}>{subLabel}</p>}
+        {/* 면적 옵션 — AI 인식 여부로 분기 */}
+        {Array.isArray(edit._aiAreaOptions) && edit._aiAreaOptions.length > 0 && (() => {
+          const hasAiArea = Number(edit.areaExclusive) > 0;
+          const [areaOpen, setAreaOpen] = React.useState(false);
+          return hasAiArea ? (
+            // AI가 면적 인식 → 접힘 패턴
+            <div className="mt-3">
+              <div className="flex items-center justify-between rounded-xl bg-slate-700 px-3 py-2.5">
+                <div>
+                  <p className="text-[10px] text-slate-400">📐 AI 추천 면적</p>
+                  <p className="mt-0.5 text-sm font-bold text-white">{areaButtonLabel(edit.areaExclusive).mainLabel}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">🟢 자동 인식됨</span>
+                  <button
+                    onClick={() => setAreaOpen(v => !v)}
+                    className="rounded-lg bg-slate-600 px-2.5 py-1 text-[10px] font-semibold text-slate-300 hover:bg-slate-500">
+                    {areaOpen ? "접기 ▲" : "다른 면적 선택 ▼"}
                   </button>
-                );
-              })}
+                </div>
+              </div>
+              {areaOpen && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {edit._aiAreaOptions.map((o, i) => {
+                    const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
+                    const selected = Number(edit.areaExclusive) === o.areaSqm;
+                    return (
+                      <button key={i} onClick={() => { setE("areaExclusive", String(o.areaSqm)); if (onRefetch) onRefetch(o.areaSqm); setAreaOpen(false); }}
+                        className={`rounded-lg px-2.5 py-1.5 text-left ${selected ? "bg-white text-slate-900" : "bg-slate-700 text-slate-300"}`}>
+                        <p className="text-xs font-semibold">{mainLabel}</p>
+                        {subLabel && <p className="text-[10px] mt-0.5 text-slate-500">{subLabel}</p>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          ) : (
+            // AI 면적 미인식 → 기존처럼 기본 노출
+            <div className="mt-2">
+              <p className="text-[11px] text-slate-400">면적을 선택하세요:</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {edit._aiAreaOptions.map((o, i) => {
+                  const { mainLabel, subLabel } = areaButtonLabel(o.areaSqm, o.supplySqm);
+                  const selected = Number(edit.areaExclusive) === o.areaSqm;
+                  return (
+                    <button key={i} onClick={() => { setE("areaExclusive", String(o.areaSqm)); if (onRefetch) onRefetch(o.areaSqm); }}
+                      className={`rounded-lg px-2.5 py-1.5 text-left ${selected ? "bg-white text-slate-900" : "bg-slate-700 text-slate-300"}`}>
+                      <p className="text-xs font-semibold">{mainLabel}</p>
+                      {subLabel && <p className="text-[10px] mt-0.5 text-slate-500">{subLabel}</p>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── 핵심 수치 수정 카드 ── */}
@@ -4685,14 +4723,14 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
       {/* ── 백테스트 v3: 핵심 지표 4개 카드 ── */}
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">정제전세평균</p>
+          <p className="text-[11px] text-slate-400">분석 기준 전세가</p>
           <p className="mt-1 text-base font-bold text-slate-800">
             {r.jeonseUsed > 0 && r.basis?.jeonse?.value ? won(r.basis.jeonse.value) : "—"}
           </p>
           <p className="text-[10px] text-slate-400">{r.jeonseUsed}건 사용</p>
         </div>
         <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">정제매매평균</p>
+          <p className="text-[11px] text-slate-400">분석 기준 매매가</p>
           <p className="mt-1 text-base font-bold text-slate-800">
             {r.saleFair ? won(r.saleFair) : "—"}
           </p>
@@ -5141,6 +5179,24 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
         )}
       </div>
 
+      {/* ── 자연어 한줄 결론 ── */}
+      {!hold0 && (
+        <div className={`mb-4 rounded-2xl px-5 py-4 ring-1 ${cheap ? "bg-emerald-50 ring-emerald-200" : r.buyGrade === "C" ? "bg-slate-50 ring-slate-200" : "bg-red-50 ring-red-200"}`}>
+          <p className={`text-sm font-bold ${cheap ? "text-emerald-800" : r.buyGrade === "C" ? "text-slate-700" : "text-red-800"}`}>
+            {aiLine1}
+          </p>
+          <p className={`mt-1 text-xs leading-relaxed ${cheap ? "text-emerald-700" : r.buyGrade === "C" ? "text-slate-500" : "text-red-700"}`}>
+            {aiLine2}
+          </p>
+        </div>
+      )}
+      {hold0 && (
+        <div className="mb-4 rounded-2xl bg-slate-50 px-5 py-4 ring-1 ring-slate-200">
+          <p className="text-sm font-bold text-slate-700">현재 데이터로는 정확한 판단이 어렵습니다.</p>
+          <p className="mt-1 text-xs text-slate-500">실거래 데이터를 보강 후 다시 분석하세요.</p>
+        </div>
+      )}
+
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
@@ -5203,16 +5259,17 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
         </div>
       </div>
 
-      {/* ── [2] AI 한줄 의견 ── */}
-      <div className="mb-4 rounded-2xl bg-indigo-50 px-5 py-4 ring-1 ring-indigo-100">
-        <div className="mb-2 flex items-center gap-2">
-          <span className="grid h-6 w-6 place-items-center rounded-md text-xs font-bold text-white" style={{ backgroundColor: NAVY }}>AI</span>
-          <span className="text-sm font-bold text-slate-800">AI 의견</span>
+      {/* ── [2] 프리미엄 설명 (특수시장만) ── */}
+      {isSpec && premiumDesc() && (
+        <div className="mb-4 rounded-2xl bg-amber-50 px-5 py-4 ring-1 ring-amber-200">
+          <p className="text-xs font-bold text-amber-800 mb-1">프리미엄 단지 안내</p>
+          <p className="text-xs leading-relaxed text-amber-700">
+            재건축 기대감 또는 희소성으로 인해 매매가가 전세가보다 높게 형성된 단지입니다.<br />
+            현재 분석은 프리미엄 요인을 반영하여 계산되었습니다.
+          </p>
+          <p className="mt-2 text-xs text-amber-600">{premiumDesc()}</p>
         </div>
-        <p className="text-sm leading-relaxed text-slate-700">{aiLine1}</p>
-        <p className="mt-1 text-sm leading-relaxed text-slate-700">{aiLine2}</p>
-        {premiumDesc() && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">{premiumDesc()}</p>}
-      </div>
+      )}
 
       {/* ── [3] 가격 시나리오 ── */}
       {scenarios.length > 0 && (
