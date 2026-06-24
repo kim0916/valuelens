@@ -1827,6 +1827,8 @@ function analyzeBuyerDecision(r, f) {
   const shortfallCash = Math.max(0, neededCash - cash);
   const monthlyPayment = monthlyPay(loan, rate, years);
   const monthlyRatio = income ? Math.round(((monthlyPayment * 12 + existPay) / income) * 100) : null;
+  // 자금 정보 입력 여부 — 미입력 시 자금 판단 표시 안 함
+  const hasFundInput = cash > 0 || loan > 0 || income > 0;
   const fundRisk = !income && !cash ? "미입력" : shortfallCash > 0 ? "자금부족" : monthlyRatio == null ? "소득미입력" : monthlyRatio > 45 ? "위험" : monthlyRatio > 30 ? "주의" : "안정";
   let affordabilityScore;
   if (!income && !cash) affordabilityScore = 50; // 미입력 중립
@@ -1924,7 +1926,7 @@ function analyzeBuyerDecision(r, f) {
     finalLabel = buyerScore >= 68 ? "가격 검토 가능" : buyerScore >= 52 ? "신중 접근" : "가격 부담 큼";
     action = finalLabel === "가격 부담 큼" ? "실사용가치 대비 프리미엄·리스크가 큽니다. 신중한 접근이 필요합니다" : "실사용가치와 시장가치를 분리해 가격 적정성을 판단하세요";
   }
-  else if (shortfallCash > 0 && (income > 0 || cash > 0)) { finalLabel = "자금 보강 필요"; action = `입력한 자금 기준으로 약 ${won(shortfallCash)}의 추가 자금이 필요합니다 (취득세·부대비용 포함)`; }
+  else if (shortfallCash > 0 && hasFundInput) { finalLabel = "자금 보강 필요"; action = `입력한 자금 기준으로 약 ${won(shortfallCash)}의 추가 자금이 필요합니다 (취득세·부대비용 포함)`; }
   else if (mr != null && mr > 45) { finalLabel = "자금 부담 큼"; action = `월상환 부담 ${mr}% (45% 초과) — 자금 여건 보강이 필요합니다`; }
   else if (mr != null && mr >= 30) { finalLabel = "가격 협상 후 검토"; action = `월상환 부담 ${mr}% — 가격 협상으로 부담을 낮춘 뒤 검토하세요`; }
   else if (buyerScore >= 75) { finalLabel = "가격 조건 양호"; action = "적정가·자금·보유 여건 양호 — 가격 적정성 기준 매수를 검토해볼 수 있습니다"; }
@@ -1973,7 +1975,7 @@ function analyzeBuyerDecision(r, f) {
     holding: { monthlyHoldingCost, interestBurdenRatio, reverseJeonseRisk, jeonseSafetyMargin, rateShock, rateShockRisk },
     timing: { score: timingScore, trendAvailable: false },
     comparison: { result: comparisonResult, score: comparisonScore }, opportunity: opp,
-    finalLabel, action, reasons, sentences,
+    finalLabel, action, reasons, sentences, hasFundInput,
   };
 }
 
@@ -5241,35 +5243,35 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
       {/* ── 결론 카드 (최상단 고정) ── */}
       <div className="mb-4 overflow-hidden rounded-3xl shadow-lg ring-1 ring-slate-200">
         <div className="px-5 py-4 text-white" style={{ backgroundColor: NAVY }}>
-          <p className="text-xs text-slate-300">{f.complexName} · {f.dong}{Number(f.areaExclusive) > 0 ? ` 전용 ${f.areaExclusive}㎡` : ""}</p>
-          <div className="mt-2 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] text-slate-400">매수 판단</p>
-              <p className="text-xl font-extrabold">{hold0 ? "판단 보류" : bd.finalLabel}</p>
-            </div>
-            {!hold0 && (() => {
-              const gp = Math.abs(r.gapRatio * 100).toFixed(1);
-              const gradeDesc =
-                r.buyGrade === "A" ? `AI 적정가보다 ${gp}% 낮습니다. 가격 메리트가 큽니다.` :
-                r.buyGrade === "B" ? `AI 적정가보다 ${gp}% 낮습니다. 매수 검토가 가능한 가격대입니다.` :
-                r.buyGrade === "C" ? `AI 적정가 수준입니다. 협상을 통한 접근이 적절합니다.` :
-                r.buyGrade === "D" ? `AI 적정가보다 ${gp}% 높습니다. 지금 가격엔 부담이 있는 구간입니다.` :
-                r.buyGrade === "E" ? `AI 적정가보다 ${gp}% 높습니다. 가격 부담이 큰 구간입니다.` : "";
-              return (
-                <div className="text-right max-w-[160px]">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <GradeInfoPopup />
-                  </div>
-                  <p className={`mt-1 text-xl font-extrabold ${r.buyGrade === 'A' || r.buyGrade === 'B' ? 'text-emerald-400' : r.buyGrade === 'D' || r.buyGrade === 'E' ? 'text-red-400' : 'text-amber-300'}`}>
-                    {r.gradeLabel}
-                  </p>
-                  <p className="text-[11px] text-slate-400">ValueLens {r.buyGrade}등급</p>
-                  {gradeDesc && <p className="mt-0.5 text-[10px] leading-tight text-slate-300">{gradeDesc}</p>}
-                </div>
-              );
-            })()}
+          <div className="flex items-start justify-between">
+            <p className="text-xs text-slate-300">{f.complexName} · {f.dong}{Number(f.areaExclusive) > 0 ? ` 전용 ${f.areaExclusive}㎡` : ""}</p>
+            {!hold0 && <GradeInfoPopup />}
           </div>
+          {hold0 ? (
+            <p className="mt-3 text-xl font-extrabold">판단 보류</p>
+          ) : (
+            <>
+              {/* 가격 판단 최우선 표시 */}
+              <div className="mt-2">
+                <p className="text-[11px] text-slate-400">가격 평가</p>
+                <p className={`text-2xl font-extrabold ${r.buyGrade === 'A' || r.buyGrade === 'B' ? 'text-emerald-400' : r.buyGrade === 'D' || r.buyGrade === 'E' ? 'text-red-400' : 'text-amber-300'}`}>
+                  {r.gradeLabel}
+                </p>
+                <p className="mt-0.5 text-[11px] text-slate-400">
+                  ValueLens {r.buyGrade}등급 · {r.buyGrade === 'A' || r.buyGrade === 'B' ? `AI 적정가보다 ${Math.abs(r.gapRatio*100).toFixed(1)}% 낮음` : r.buyGrade === 'D' || r.buyGrade === 'E' ? `AI 적정가보다 ${Math.abs(r.gapRatio*100).toFixed(1)}% 높음` : `AI 적정가 수준`}
+                </p>
+              </div>
+              {/* 자금 판단 — 입력 시에만 표시 */}
+              {bd.hasFundInput && (
+                <div className="mt-2 rounded-xl bg-white/10 px-3 py-2">
+                  <p className="text-[10px] text-slate-300">매수 판단</p>
+                  <p className="text-sm font-bold text-white">{bd.finalLabel}</p>
+                </div>
+              )}
+            </>
+          )}
         </div>
+        {/* 핵심 수치 3개 */}
         <div className="grid grid-cols-3 divide-x divide-slate-100 bg-white">
           <div className="px-3 py-3 text-center">
             <p className="text-[11px] text-slate-400">현재가</p>
@@ -5286,9 +5288,16 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
             </p>
           </div>
         </div>
+        {/* 액션 문구 */}
         {!hold0 && (
           <div className="border-t border-slate-100 bg-slate-50 px-5 py-2.5 text-xs text-slate-600">
             {bd.action}
+          </div>
+        )}
+        {/* 자금 미입력 안내 */}
+        {!hold0 && !bd.hasFundInput && (
+          <div className="border-t border-slate-100 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
+            💡 자금 정보를 입력하면 구매 가능 여부를 확인할 수 있습니다.
           </div>
         )}
       </div>
