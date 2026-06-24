@@ -3859,6 +3859,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     ? <FairValueResult r={r} f={f} onBack={() => setR(null)}
         onNewSearch={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
         onHome={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
+        areaOptions={areaOptions}
       />
     : <BuyResult r={r} f={f} onBack={() => setR(null)} saved={saved}
         onSave={() => { onAddWatch({ key: `${f.complexName}-${f.dong}`, complex: f.complexName, dong: f.dong, fairPrice: r.fairPrice, currentPrice: Number(f.currentPrice), target: "" }); setSaved(true); }}
@@ -4526,7 +4527,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
 }
 
 // 적정가 화면 — 집 자체의 가치평가 전용 (매수판단·자금·대출·월상환 표시 안 함)
-function FairValueResult({ r, f, onBack, onNewSearch, onHome }) {
+function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }) {
   const mc = classifyApartmentMarket(f, r);
   const hold = r.engineMode === "hold";
   const isLowData = mc.specialMarketType === "lowData";
