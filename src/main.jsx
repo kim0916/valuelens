@@ -4359,7 +4359,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
             setListingPriceInput(""); // 단지 변경 시 매물가 초기화
             // areaList가 있으면 바로 면적 버튼 생성 (Supabase 경로)
             if (areaList && areaList.length > 0) {
-              const opts = areaList.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
+              const opts = groupAreasByPyeong(areaList)
+                .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: typicalPyeong(g.rep) }));
               setAreaOptions(opts);
             } else {
               setTimeout(() => fetchAreasFor(sigungu, dong, complexName, exactAptNm, sido), 100);
@@ -6550,7 +6551,8 @@ function SellView({ onContext }) {
             setAreaOptions([]);
             setListingPriceInput("");
             if (areaList && areaList.length > 0) {
-              setAreaOptions(areaList.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) })));
+              setAreaOptions(groupAreasByPyeong(areaList)
+                .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: typicalPyeong(g.rep) })));
             } else {
               setTimeout(() => fetchAreasFor(sigungu, dong, complexName, exactAptNm, sido), 100);
             }
