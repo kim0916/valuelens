@@ -5598,7 +5598,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
             {/* 협상 여지 */}
             <div className="flex items-center justify-between">
               <span className={sp.undervalue < -0.03 ? "text-red-400" : "text-amber-600"}>
-                {sp.undervalue > 0.05 ? "가격 협상 여지 있음" : sp.undervalue < -0.03 ? "협상 여지 제한적" : "협상 시 가격 조정 가능"}
+                {sp.undervalue > 0.05 ? "가격 협상 여지 있음" : sp.undervalue < -0.03 ? "협상 여지는 제한적일 수 있습니다" : "협상 시 가격 조정 가능"}
               </span>
               <span className={`ml-2 flex-shrink-0 font-semibold ${sp.undervalue > 0.05 ? "text-emerald-600" : sp.undervalue < -0.03 ? "text-red-400" : "text-amber-600"}`}>
                 {sp.undervalue > 0.05 ? "유리" : sp.undervalue < -0.03 ? "제한" : "보통"}
@@ -5620,10 +5620,10 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
                 </div>
               );
             })()}
-            {/* 하락 위험 */}
+            {/* 가격 변동 가능성 */}
             <div className="flex items-center justify-between">
               <span className={sp.down < 40 ? "text-emerald-600" : sp.down < 65 ? "text-amber-600" : "text-red-400"}>
-                {sp.down < 40 ? "가격 하락 위험 낮음" : sp.down < 65 ? "가격 하락 위험 보통" : "가격 하락 위험 있음"}
+                {sp.down < 40 ? "가격 변동 가능성 낮음" : sp.down < 65 ? "가격 변동 가능성 보통" : "가격 변동 가능성 있음"}
               </span>
               <span className={`ml-2 flex-shrink-0 font-semibold ${sp.down < 40 ? "text-emerald-600" : sp.down < 65 ? "text-amber-600" : "text-red-400"}`}>
                 {sp.down < 40 ? "낮음" : sp.down < 65 ? "보통" : "높음"}
