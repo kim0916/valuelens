@@ -41,8 +41,23 @@ export default async function handler(req, res) {
     if (!name) { res.status(400).json({ error: 'name 필수' }); return; }
 
     try {
+      // ── 브랜드 표기 정규화 (DB 저장명 기준) ──
+      // 국토부 실거래 원본 표기와 일반 사용자 입력 표기 차이 흡수
+      const BRAND_ALIAS = {
+        '헤링턴': '해링턴',   // Harrington: 국토부는 "해링턴" 표기
+        '더샾':   '더샵',     // The Sharp: 국토부는 "더샵" 표기
+        '레미안': '래미안',   // Raemian: 일부 지역 "래미안" 표기
+      };
+      let normalizedName = name;
+      for (const [from, to] of Object.entries(BRAND_ALIAS)) {
+        if (normalizedName.includes(from)) {
+          normalizedName = normalizedName.split(from).join(to);
+          console.log(`[search] 브랜드 정규화: "${name}" → "${normalizedName}" (${from}→${to})`);
+        }
+      }
+
       // alias 조회
-      const aliasKey = name.replace(/\s/g, '');
+      const aliasKey = normalizedName.replace(/\s/g, '');
       const { data: aliasData, error: aliasErr } = await supabase
         .from('realestate_complex_aliases')
         .select('real_name, sigungu_hint, complex_id')
@@ -50,7 +65,7 @@ export default async function handler(req, res) {
         .limit(3);
       if (aliasErr) console.warn('[search] alias 조회 경고:', aliasErr.message);
 
-      let searchName = name;
+      let searchName = normalizedName;
       let aliasMatch = null;
       if (aliasData && aliasData.length > 0) {
         aliasMatch = aliasData[0];
