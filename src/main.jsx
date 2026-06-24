@@ -2268,6 +2268,7 @@ function runCase(c) {
 // 고급 기능 — 관심단지·분석이력·백테스트 (메인에서 분리)
 // 내 자산 — 관심단지 · 내 저장함 · 재무 프로필
 function AdvancedView({ watch, setWatch, history, finProfile, onReanalyze }) {
+  const recent = (history || []).slice(0, 5);
   const fp = finProfile;
   const won2 = (a) => (a ? won(Number(a) * 10000) : "—");
   const [savedList, setSavedList] = React.useState(() => getSavedAnalyses());
