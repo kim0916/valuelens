@@ -6254,6 +6254,71 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
         )}
       </div>
 
+      {/* ── 자연어 한줄 결론 (매도) ── */}
+      {!sd.provisional && (() => {
+        const isSellFav = sd.finalSellDecision.includes("매도 검토");
+        const isHold    = sd.finalSellDecision.includes("보유");
+        const bgCls  = isSellFav ? "bg-blue-50 ring-blue-200"    : isHold ? "bg-emerald-50 ring-emerald-200" : "bg-amber-50 ring-amber-200";
+        const txtCls = isSellFav ? "text-blue-800"               : isHold ? "text-emerald-800"               : "text-amber-800";
+        const subCls = isSellFav ? "text-blue-700"               : isHold ? "text-emerald-700"               : "text-amber-700";
+        const gapPct = Math.abs(sd.gapVsRef * 100).toFixed(1);
+        const line1  = sd.gapVsRef > 0.03
+          ? `희망 매도가가 AI 적정가보다 ${gapPct}% 높게 설정되어 있습니다.`
+          : sd.gapVsRef < -0.03
+            ? `희망 매도가가 AI 적정가보다 ${gapPct}% 낮은 수준입니다.`
+            : "희망 매도가가 AI 적정가 수준에 있습니다.";
+        const line2 = sd.sellerAction;
+        return (
+          <div className={`mb-4 rounded-2xl px-5 py-4 ring-1 ${bgCls}`}>
+            <p className={`text-sm font-bold ${txtCls}`}>{line1}</p>
+            <p className={`mt-1 text-xs leading-relaxed ${subCls}`}>{line2}</p>
+          </div>
+        );
+      })()}
+      {sd.provisional && (
+        <div className="mb-4 rounded-2xl bg-slate-50 px-5 py-4 ring-1 ring-slate-200">
+          <p className="text-sm font-bold text-slate-700">현재 데이터로는 정확한 판단이 어렵습니다.</p>
+          <p className="mt-1 text-xs text-slate-500">실거래 데이터를 보강 후 다시 분석하세요.</p>
+        </div>
+      )}
+
+      {/* ── 판단 이유 박스 (매도) ── */}
+      {!sd.provisional && (() => {
+        const checks = [];
+        const gapPct = Math.abs(sd.gapVsRef * 100).toFixed(1);
+        if (sd.gapVsRef > 0.05)       checks.push({ ok: null,  text: `호가가 적정가 대비 ${gapPct}% 높음 — 거래 가능성 확인 필요` });
+        else if (sd.gapVsRef < -0.05) checks.push({ ok: true,  text: `호가가 적정가 대비 ${gapPct}% 낮음 — 거래 유리` });
+        else                           checks.push({ ok: true,  text: `호가가 적정가 수준 — 적정 호가` });
+        checks.push(
+          sd.holdingVsSellingResult === "매도 쪽 우세"
+            ? { ok: null,  text: `매도 우세 — ${sd.holdingVsSellingNote || "현재 여건상 매도 검토 가능"}` }
+            : sd.holdingVsSellingResult === "보유 쪽 우세"
+              ? { ok: true,  text: `보유 우세 — ${sd.holdingVsSellingNote || "지금은 보유가 유리"}` }
+              : { ok: null,  text: "보유·매도 중립 — 목적에 따라 판단" }
+        );
+        const liqOk = sd.liquidityScore >= 60;
+        checks.push({ ok: liqOk ? true : null, text: `거래 가능성 ${sd.liquidityLevel}${liqOk ? "" : " — 호가 조정 고려"}` });
+        const riskOk = !["높음","매우높음"].includes(sd.marketRiskLevel);
+        checks.push({ ok: riskOk ? true : false, text: `시장 위험도 ${sd.marketRiskLevel}` });
+        if (!sd.provisional && sd.tax)
+          checks.push({ ok: true, text: `세후 실수령 약 ${won(sd.netProceeds)}` });
+        return (
+          <div className="mb-4 rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-slate-100">
+            <p className="mb-2.5 text-sm font-bold text-slate-700">판단 이유</p>
+            <div className="space-y-1.5">
+              {checks.map((c, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <span className={`flex-shrink-0 font-bold ${c.ok === true ? "text-emerald-500" : c.ok === false ? "text-red-400" : "text-amber-400"}`}>
+                    {c.ok === true ? "✓" : c.ok === false ? "✗" : "△"}
+                  </span>
+                  <span className={c.ok === false ? "text-slate-400" : "text-slate-700"}>{c.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
@@ -6331,7 +6396,10 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
 
       {sd.isSpecial && (
         <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-orange-200">
-          <div className="px-4 py-2.5" style={{ backgroundColor: "#fff7ed" }}><p className="text-sm font-bold text-orange-700">특수시장 · 프리미엄 / 재건축</p></div>
+          <div className="px-4 py-2.5" style={{ backgroundColor: "#fff7ed" }}>
+            <p className="text-sm font-bold text-orange-700">프리미엄 단지 안내</p>
+            <p className="mt-0.5 text-xs text-orange-600">재건축 기대감 또는 희소성으로 인해 매매가가 전세가보다 높게 형성된 단지입니다. 현재 분석은 프리미엄 요인을 반영하여 계산되었습니다.</p>
+          </div>
           <div className="grid grid-cols-2 gap-px bg-orange-100">
             <div className="bg-orange-50 px-4 py-3 text-center"><p className="text-[11px] text-orange-500">실사용 적정가</p><p className="mt-0.5 font-bold text-slate-800">{won(mc.intrinsicFairPrice)}</p></div>
             <div className="bg-orange-50 px-4 py-3 text-center"><p className="text-[11px] text-orange-500">시장 기준가</p><p className="mt-0.5 font-bold text-slate-800">{won(mc.marketReferencePrice)}</p></div>
