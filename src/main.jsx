@@ -6645,11 +6645,11 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
       <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
         <div className="px-4 py-2.5" style={{ backgroundColor: "#f1f5f9" }}><p className="text-sm font-bold text-slate-700">참고 매도가 범위</p></div>
         <div className="grid grid-cols-3 divide-x divide-slate-100">
-          <div className="px-3 py-3 text-center"><p className="text-[11px] text-slate-400">빠른 매도</p><p className="mt-0.5 text-base font-bold text-blue-600">{won(sd.recommendedAskingRange.fast)}</p></div>
-          <div className="px-3 py-3 text-center"><p className="text-[11px] text-slate-400">현실 매도</p><p className="mt-0.5 text-base font-bold" style={{ color: NAVY }}>{won(sd.recommendedAskingRange.real)}</p></div>
-          <div className="px-3 py-3 text-center"><p className="text-[11px] text-slate-400">상단 호가</p><p className="mt-0.5 text-base font-bold text-amber-600">{won(sd.recommendedAskingRange.challenge)}</p></div>
+          <div className="px-3 py-3 text-center"><p className="text-[11px] text-slate-400">빠른 거래</p><p className="mt-0.5 text-base font-bold text-blue-600">{won(sd.recommendedAskingRange.fast)}</p></div>
+          <div className="px-3 py-3 text-center"><p className="text-[11px] text-slate-400">적정 거래</p><p className="mt-0.5 text-base font-bold" style={{ color: NAVY }}>{won(sd.recommendedAskingRange.real)}</p></div>
+          <div className="px-3 py-3 text-center"><p className="text-[11px] text-slate-400">상단 참고 호가</p><p className="mt-0.5 text-base font-bold text-amber-600">{won(sd.recommendedAskingRange.challenge)}</p></div>
         </div>
-        <p className="px-4 pb-3 text-[11px] text-slate-400">상단 호가 가격은 거래기간이 길어질 수 있는 상단 호가입니다.</p>
+        <p className="px-4 pb-3 text-[11px] text-slate-400">상단 참고 호가는 거래기간이 길어질 수 있는 높은 호가입니다.</p>
       </div>
 
       {!sd.provisional && sd.tax && (
@@ -6673,9 +6673,9 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
       </div>
 
       <div className="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-        <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-slate-700">매도 타이밍</h3><span className="text-sm font-bold" style={{ color: NAVY }}>{sd.sellTimingLabel}</span></div>
+        <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-slate-700">AI 매도 시점 참고</h3><span className="text-sm font-bold" style={{ color: NAVY }}>{sd.sellTimingLabel}</span></div>
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${sd.sellTimingScore}%`, backgroundColor: NAVY }} /></div>
-        <p className="mt-2 text-[11px] text-slate-400">고평가·프리미엄·공급·정책 가점 / 호재·재건축 진전·저평가 감점으로 산출된 참고 지표입니다.</p>
+        <p className="mt-2 text-[11px] text-slate-400">가격·시장·공급 등 복합 요인을 반영한 AI 참고 지표입니다.</p>
       </div>
 
       {sd.isSpecial && (
@@ -6721,14 +6721,14 @@ ${"=".repeat(40)}
   세후 실수령 개략: ${!sd.provisional && sd.tax ? won(sd.netProceeds) : "—"}
 
 [참고 매도가 범위]
-  빠른 매도: ${won(sd.recommendedAskingRange.fast)}
-  현실 매도: ${won(sd.recommendedAskingRange.real)}
-  상단 호가: ${won(sd.recommendedAskingRange.challenge)}
+  빠른 거래: ${won(sd.recommendedAskingRange.fast)}
+  적정 거래: ${won(sd.recommendedAskingRange.real)}
+  상단 참고 호가: ${won(sd.recommendedAskingRange.challenge)}
 
 [거래 가능성]
   ${sd.liquidityLevel} · ${sd.liquidityDelayCause}
 
-[매도 타이밍]
+[AI 매도 시점 참고]
   ${sd.sellTimingLabel}
 
 [AI 판단 요약]
