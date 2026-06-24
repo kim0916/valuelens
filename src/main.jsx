@@ -759,7 +759,7 @@ function analyzeSellerDecision(f, r) {
   else sellerReasons.push(`[가격] 희망 매도가 ${won(desired)} — 적정가 ${won(refPrice)} 대비 ${gapVsRef >= 0 ? "+" : ""}${(gapVsRef * 100).toFixed(1)}% (${askingLevel})`);
   sellerReasons.push(provisional || !tax ? "[세후] 세후 실수령액은 데이터 보강 후 계산됩니다 (취득가·보유기간 입력 시 정밀)" : `[세후] 세금·중개·대출상환 차감 후 약 ${won(netProceeds)} 남습니다 (양도세 ${won(tax.tax)} 추정${acqEstimated ? " · 취득가 추정" : ""})`);
   sellerReasons.push(`[보유] 보유 리스크 ${holdingRisk >= 60 ? "높음" : holdingRisk >= 40 ? "보통" : "낮음"}${riskBits.length ? ` (${riskBits.join("·")})` : ""} · 금리 상승 시 부담 증가 가능`);
-  sellerReasons.push(`[시장] 매도 타이밍 ${sellTimingLabel} · 거래 가능성 ${liquidityLevel} · 시장 위험도 ${mrLevel}`);
+  sellerReasons.push(`[시장] 매도 타이밍 ${sellTimingLabel} · 거래 가능성 ${liquidityLevel} · 시장 환경 ${mrLevel}`);
   if (isSpecial) sellerReasons.push(`[전략] 이 단지는 일반 적정가보다 프리미엄과 시장 위험을 분리해 해석해야 합니다 · ${opportunityCost}`);
   else sellerReasons.push(`[전략] 매도 목적 ‘${purpose}’ · ${opportunityCost}`);
 
@@ -1460,7 +1460,7 @@ function TaxView({ buyCtx, sellCtx }) {
             {anyComplex && (
               <div className="mt-3 rounded-2xl border-2 border-red-300 bg-red-50 p-4">
                 <p className="text-sm font-bold text-red-700">⚠️ 복잡 세무 케이스입니다.</p>
-                <p className="mt-1 text-xs leading-relaxed text-red-600">본 계산은 일반 1주택·다주택 기준의 <b>단순 개략 추정</b>이며, 체크하신 항목(일시적 2주택·상속/증여·분양권/입주권·임대사업자·법인 등)은 별도 세법이 적용되어 <b>이 추정에 반영되지 않았습니다</b>. 실제 세액은 반드시 <b>세무사 확인이 필요합니다.</b></p>
+                <p className="mt-1 text-xs leading-relaxed text-red-600">본 계산은 일반 1주택·다주택 기준의 <b>단순 개략 추정</b>이며, 체크하신 항목(일시적 2주택·상속/증여·분양권/입주권·임대사업자·법인 등)은 별도 세법이 적용되어 <b>이 추정에 반영되지 않았습니다</b>. 실제 세액은 반드시 <b>세무사 확인을 권장합니다.</b></p>
               </div>
             )}
             {cgt && (
@@ -5785,7 +5785,7 @@ ${"=".repeat(40)}
 □ 등기부등본·권리관계·압류 여부를 확인했나요?
 □ 실제 현장 방문 및 주변 시세를 직접 확인했나요?
 
-위 항목을 확인한 후 최종 결정을 내리세요.
+위 항목 확인 후 최종 결정하시기 바랍니다.
 본 리포트는 AI 가격 적정성 참고자료이며
 매수 권유·투자자문·감정평가서가 아닙니다.
 전문가 상담을 대체하지 않습니다.
@@ -6569,7 +6569,7 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
           sd.holdingVsSellingResult === "매도 쪽 우세"
             ? { ok: null,  text: `매도 우세 — ${sd.holdingVsSellingNote || "현재 여건상 매도 검토 가능"}` }
             : sd.holdingVsSellingResult === "보유 쪽 우세"
-              ? { ok: true,  text: `보유 우세 — ${sd.holdingVsSellingNote || "지금은 보유가 유리"}` }
+              ? { ok: true,  text: `보유 우세 — ${sd.holdingVsSellingNote || "보유 관점이 우세한 것으로 분석됩니다"}` }
               : { ok: null,  text: "보유·매도 중립 — 목적에 따라 판단" }
         );
         const liqOk = sd.liquidityScore >= 60;
@@ -6619,9 +6619,9 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
 
       <div className="overflow-hidden rounded-3xl shadow-lg ring-1 ring-slate-200">
         <div className="px-6 py-5 text-white" style={{ backgroundColor: NAVY }}>
-          <div className="flex items-center justify-between"><p className="text-xs text-slate-300">최종 매도 판단{sd.isSpecial ? ` · ${mc.premiumLevel || "특수시장"}` : ""}</p>{!sd.provisional && <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] text-slate-300">매도점수 {sd.sellScore}</span>}</div>
+          <div className="flex items-center justify-between"><p className="text-xs text-slate-300">최종 매도 판단{sd.isSpecial ? ` · ${mc.premiumLevel || "특수시장"}` : ""}</p></div>
           <div className="mt-1.5 flex items-center gap-3"><span className={`rounded-xl px-3 py-1 text-xl font-extrabold text-white ${TONE}`}>{sd.finalSellDecision}</span></div>
-          <p className="mt-3 text-sm leading-relaxed text-slate-200"><b className="text-white">추천 행동</b> · {sd.sellerAction}</p>
+          <p className="mt-3 text-sm leading-relaxed text-slate-200"><b className="text-white">AI 판단 요약</b> · {sd.sellerAction}</p>
         </div>
         <div className="grid grid-cols-3 gap-px border-b border-slate-100 bg-slate-100">
           <Cell l="가격 위치" v={sd.askingLevel} tone={sd.gapVsRef > 0.05 ? "text-red-500" : sd.gapVsRef < -0.05 ? "text-blue-500" : "text-slate-800"} />
@@ -6629,7 +6629,7 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
           <Cell l="시장 환경 분석" v={sd.marketRiskLevel} tone={mrTone(sd.marketRiskLevel)} />
         </div>
         <div className="bg-white px-5 py-1.5 text-center text-[11px] text-slate-400">데이터 신뢰도 {sd.dataConfLabel} · 거래 데이터 충분도 {sd.fitLabel}</div>
-        {(sd.marketRiskLevel === "높음" || sd.marketRiskLevel === "매우높음") && <p className="bg-orange-50 px-5 py-2 text-[11px] leading-relaxed text-orange-700">시장 위험도는 계산 오류가 아니라 재건축·정책·프리미엄·공급 등에 따른 가격 변동성 위험을 의미합니다.</p>}
+        {(sd.marketRiskLevel === "높음" || sd.marketRiskLevel === "매우높음") && <p className="bg-orange-50 px-5 py-2 text-[11px] leading-relaxed text-orange-700">시장 환경 분석은 재건축·정책·프리미엄·공급 등에 따른 가격 변동 가능성을 나타냅니다.</p>}
       </div>
 
       <div className="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
@@ -6663,13 +6663,13 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
             <div className="flex justify-between"><span>대출잔액 상환</span><span className="text-red-500">− {won(sd.loanBalance)}</span></div>
             <div className="flex justify-between border-t border-slate-100 pt-1 font-bold text-slate-700"><span>최종 실수령 개략 추정</span><span>{won(sd.netProceeds)}</span></div>
           </div>
-          <p className="mt-2 text-[11px] text-slate-400">{sd.tax.statusMsg || sd.tax.note} · 지방소득세 포함 · {sd.acqEstimated ? "취득가 미입력→추정" : "취득가 입력값 사용"} · 필요경비 미반영(0). 세금 숫자는 개략 추정이며 확정값이 아닙니다. 실제 세액은 보유기간, 거주요건, 세대 주택 수, 조정대상지역, 필요경비, 세법 변경, 일시적 2주택, 상속·증여·분양권·입주권 여부에 따라 달라질 수 있습니다. 세무사 확인이 필요합니다.</p>
+          <p className="mt-2 text-[11px] text-slate-400">{sd.tax.statusMsg || sd.tax.note} · 지방소득세 포함 · {sd.acqEstimated ? "취득가 미입력→추정" : "취득가 입력값 사용"} · 필요경비 미반영(0). 세금 숫자는 개략 추정이며 확정값이 아닙니다. 실제 세액은 보유기간, 거주요건, 세대 주택 수, 조정대상지역, 필요경비, 세법 변경, 일시적 2주택, 상속·증여·분양권·입주권 여부에 따라 달라질 수 있습니다. 세무사 확인을 권장합니다.</p>
         </div>
       )}
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className={card}><h3 className="text-sm font-semibold text-slate-500">보유 vs 매도 <span className="font-normal text-slate-400">(종합 판단 보조)</span></h3><p className={`mt-2 text-base font-bold ${sd.holdingVsSellingResult === "매도 쪽 우세" ? "text-blue-600" : sd.holdingVsSellingResult === "보유 쪽 우세" ? "text-emerald-600" : "text-amber-600"}`}>{sd.holdingVsSellingResult}</p><p className="mt-1 text-[11px] leading-relaxed text-slate-400">{sd.holdingVsSellingNote}</p></div>
-        <div className={card}><h3 className="text-sm font-semibold text-slate-500">거래 가능성</h3><p className={`mt-2 text-2xl font-bold ${sd.liquidityScore >= 80 ? "text-emerald-600" : sd.liquidityScore >= 60 ? "text-emerald-500" : sd.liquidityScore >= 40 ? "text-amber-600" : "text-orange-600"}`}>{sd.liquidityLevel}</p><p className="mt-1 text-[11px] leading-relaxed text-slate-500">지연 원인: {sd.liquidityDelayCause}</p><p className="mt-0.5 text-[11px] text-slate-500">{sd.liquidityNeedAdjust ? "호가 조정 시 거래 가능성이 올라갈 수 있습니다." : "호가 수준은 거래에 큰 부담이 아닙니다."}</p><p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">거래 가능성은 실제 매수자 수요, 매물 경쟁, 호가 수준에 따라 달라질 수 있습니다. (mock 추정 · TODO(API): 거래량·매물수 연동)</p></div>
+        <div className={card}><h3 className="text-sm font-semibold text-slate-500">거래 가능성</h3><p className={`mt-2 text-2xl font-bold ${sd.liquidityScore >= 80 ? "text-emerald-600" : sd.liquidityScore >= 60 ? "text-emerald-500" : sd.liquidityScore >= 40 ? "text-amber-600" : "text-orange-600"}`}>{sd.liquidityLevel}</p><p className="mt-1 text-[11px] leading-relaxed text-slate-500">지연 원인: {sd.liquidityDelayCause}</p><p className="mt-0.5 text-[11px] text-slate-500">{sd.liquidityNeedAdjust ? "호가 조정 시 거래 가능성이 올라갈 수 있습니다." : "호가 수준은 거래에 큰 부담이 아닙니다."}</p><p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">거래 가능성은 실제 매수자 수요, 매물 경쟁, 호가 수준에 따라 달라질 수 있습니다.</p></div>
       </div>
 
       <div className="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
@@ -6691,7 +6691,7 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
             <div className="bg-orange-50 px-4 py-3 text-center"><p className="text-[11px] text-orange-500">프리미엄 비율</p><p className="mt-0.5 font-bold text-amber-600">{(mc.premiumRatio * 100).toFixed(0)}%</p></div>
           </div>
           <div className="flex items-center justify-between px-4 py-3 text-sm"><span className="text-slate-500">재건축 단계</span><span className="font-semibold text-slate-700">{RECON[mc.reconstructionStage].label} · {mc.stageScore}점</span></div>
-          <p className="px-4 pb-3 text-[11px] leading-relaxed text-slate-400">{mc.specialMarketType === "redevelopment" && mc.stageScore >= 85 ? "관리처분·이주·착공에 가까워 보유(고위험 보유) 관점이 우세합니다." : mc.specialMarketType === "redevelopment" ? "재건축 초기·프리미엄 과다 구간에서는 일부 차익실현(매도 검토)도 선택지입니다." : "프리미엄이 큰 단지는 시장 분위기 변화 시 프리미엄 축소 위험을 함께 고려하세요."} 사업 지연·분담금·정책 변경 가능성 존재.</p>
+          <p className="px-4 pb-3 text-[11px] leading-relaxed text-slate-400">{mc.specialMarketType === "redevelopment" && mc.stageScore >= 85 ? "관리처분·이주·착공에 가까워 보유 관점이 우세한 것으로 분석됩니다." : mc.specialMarketType === "redevelopment" ? "재건축 초기·프리미엄 과다 구간에서는 일부 차익실현(매도 검토)도 선택지입니다." : "프리미엄이 큰 단지는 시장 분위기 변화 시 프리미엄 축소 위험을 함께 고려하세요."} 사업 지연·분담금·정책 변경 가능성 존재.</p>
         </div>
       )}
 
@@ -6731,7 +6731,7 @@ ${"=".repeat(40)}
 [매도 타이밍]
   ${sd.sellTimingLabel}
 
-[추천 행동]
+[AI 판단 요약]
   ${sd.sellerAction}
 
 ${"=".repeat(40)}
@@ -6742,7 +6742,7 @@ ${"=".repeat(40)}
 □ 세후 실수령액을 세무사와 함께 계산했나요?
 □ 대출 상환 일정·중도상환 수수료를 확인했나요?
 
-위 항목을 확인한 후 최종 결정을 내리세요.
+위 항목 확인 후 최종 결정하시기 바랍니다.
 본 리포트는 AI 가격 적정성 참고자료이며
 매도 권유·투자자문·감정평가서가 아닙니다.
 전문가 상담을 대체하지 않습니다.
@@ -6782,7 +6782,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
         >
           <div>
             <p className="text-sm font-bold text-slate-800">📄 매도 가격평가 리포트 저장</p>
-            <p className="mt-0.5 text-xs text-slate-400">희망가·적정가·거래 가능성·추천 행동 포함 · 계산식 제외</p>
+            <p className="mt-0.5 text-xs text-slate-400">희망가·적정가·거래 가능성·AI 판단 요약 포함 · 계산식 제외</p>
           </div>
           <span className="text-xs text-slate-400">다운로드 ↓</span>
         </button>
