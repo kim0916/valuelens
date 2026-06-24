@@ -522,7 +522,7 @@ function analyze(f) {
   const priceHealthScore = isHold ? null : Math.round(discount * 0.5 + conf * 0.3 + shockScore * 0.2);
 
   const modeName = { jeonse: "전세 기반 엔진", blend: "혼합 엔진", sale: "매매 정제평균 엔진", hold: "판단 보류" }[engineMode];
-  const ratioNote = actualRatio != null ? `실제 전세가율 ${(actualRatio*100).toFixed(1)}% → ${modeName}${dynamicRatio ? ` (동적 전세가율 ${(dynamicRatio*100).toFixed(1)}% 적용)` : ` (fallback ${(FALLBACK_RATIO*100).toFixed(0)}% 적용)`}` : `매매 시세 없음 · ${modeName}`;
+  const ratioNote = actualRatio != null ? `전세가율 ${(actualRatio*100).toFixed(1)}% → ${modeName}${dynamicRatio ? ` (동적 전세가율 ${(dynamicRatio*100).toFixed(1)}% 적용)` : ` (fallback ${(FALLBACK_RATIO*100).toFixed(0)}% 적용)`}` : `매매 시세 없음 · ${modeName}`;
 
   // ── 추천 이유 3줄 ──
   const reasons = [];
@@ -3174,19 +3174,37 @@ function LocationPicker({ onComplete }) {
     setDong(dg); setDongQ(""); setComplexQ(""); setComplexList([]);
   }
 
-  async function searchComplex(kw) {
+  // 검색 요청 세대 카운터 — 경쟁 조건 방지 (오래된 응답 무시)
+  const searchGenRef = React.useRef(0);
+  const debounceRef  = React.useRef(null);
+
+  function searchComplex(kw) {
     setComplexQ(kw);
+    // debounce: 입력 멈춘 뒤 250ms 후 실행
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (kw.length < 2) {
+      setCandidateMode(false); setCandidates([]); setComplexList([]);
+      return;
+    }
+    debounceRef.current = setTimeout(() => _doSearch(kw), 250);
+  }
+
+  async function _doSearch(kw) {
+    // 세대 번호 부여 — 이 요청보다 늦게 온 응답은 무시
+    const gen = ++searchGenRef.current;
     setCandidateMode(false); setCandidates([]);
-    if (kw.length < 1) { setComplexList([]); return; }
     setLoading(true);
     try {
       // ── 1차: Supabase 검색 (복합키 기반) ──
       const sbResult = await searchComplexFromSupabase(kw, sigungu, dong);
+
+      // 더 최신 요청이 이미 진행 중이면 이 응답 버림
+      if (gen !== searchGenRef.current) return;
+
       let list = [];
       let richCandidates = [];
 
       if (sbResult.fromSupabase && sbResult.complexes.length > 0) {
-        // Supabase 결과: 상세 정보 포함
         richCandidates = sbResult.complexes.map(c => ({
           name:       c.complex_name,
           complexId:  c.id,
@@ -3203,7 +3221,6 @@ function LocationPicker({ onComplete }) {
         }));
         list = richCandidates.map(c => c.name);
 
-        // alias 매칭이면 자동 선택 안내
         if (sbResult.aliasMatch && richCandidates.length === 1) {
         }
       } else {
@@ -3211,9 +3228,11 @@ function LocationPicker({ onComplete }) {
         if (sigungu) {
           const lawdRes = await fetch("/api/lawdCd", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"lawdCd", sido, sigungu }) });
           const { lawdCd } = await lawdRes.json();
+          if (gen !== searchGenRef.current) return; // fallback 응답도 경쟁 체크
           if (lawdCd) {
             const cRes = await fetch("/api/molit", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"complexList", lawdCd, complexName: kw }) });
             const cd = await cRes.json();
+            if (gen !== searchGenRef.current) return;
             list = cd.list || [];
             richCandidates = list.map(name => ({
               name, sigungu, dong, sido, fromSB: false,
@@ -3224,9 +3243,6 @@ function LocationPicker({ onComplete }) {
 
       setComplexList(list);
 
-      // 후보 선택 모드 진입 조건:
-      // - 브랜드 단독 검색
-      // - 후보 2개 이상
       const isBrand = isBrandOnlySearch(kw);
       const needSelect = richCandidates.length >= 1 || (isBrand && richCandidates.length >= 1);
 
@@ -3235,10 +3251,13 @@ function LocationPicker({ onComplete }) {
         setCandidateMode(true);
       }
     } catch(e) {
+      if (gen !== searchGenRef.current) return;
       console.error('[searchComplex]', e);
       setComplexList([]);
     }
-    finally { setLoading(false); }
+    finally {
+      if (gen === searchGenRef.current) setLoading(false);
+    }
   }
 
   function selectComplex(name, candidateDong, complexId, meta) {
@@ -3389,10 +3408,14 @@ function LocationPicker({ onComplete }) {
             </div>
           )}
 
-          {!loading && complexQ.length > 0 && complexList.length === 0 && (
+          {!loading && complexQ.length > 0 && complexQ.length < 2 && (
+            <p className="mt-1 text-xs text-slate-400">두 글자 이상 입력하면 검색됩니다.</p>
+          )}
+          {!loading && complexQ.length >= 2 && complexList.length === 0 && !candidateMode && (
             <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
-              <p>단지를 찾지 못했습니다.</p>
-              <p className="mt-1">① 단지명 전체(예: 더샵파크애비뉴)를 입력하거나</p>
+              <p className="font-semibold text-slate-600">검색 결과가 없습니다.</p>
+              <p className="mt-1">단지명 또는 동 이름을 다시 확인해 주세요.</p>
+              <p className="mt-0.5">① 단지명 전체(예: 더샵파크애비뉴)를 입력하거나</p>
               <p>② 면적을 직접 입력 후 KB시세를 넣어 분석하세요.</p>
             </div>
           )}
@@ -4723,21 +4746,21 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
       {/* ── 백테스트 v3: 핵심 지표 4개 카드 ── */}
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">분석 기준 전세가</p>
+          <p className="text-[11px] text-slate-400">전세 시세</p>
           <p className="mt-1 text-base font-bold text-slate-800">
             {r.jeonseUsed > 0 && r.basis?.jeonse?.value ? won(r.basis.jeonse.value) : "—"}
           </p>
           <p className="text-[10px] text-slate-400">{r.jeonseUsed}건 사용</p>
         </div>
         <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">분석 기준 매매가</p>
+          <p className="text-[11px] text-slate-400">매매 시세</p>
           <p className="mt-1 text-base font-bold text-slate-800">
             {r.saleFair ? won(r.saleFair) : "—"}
           </p>
           <p className="text-[10px] text-slate-400">{r.saleUsed}건 사용</p>
         </div>
         <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">실제 전세가율</p>
+          <p className="text-[11px] text-slate-400">전세가율</p>
           <p className={`mt-1 text-base font-bold ${
             r.actualRatio == null ? "text-slate-400" :
             r.ratioWarn ? "text-orange-500" :
@@ -4757,7 +4780,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
           <p className="text-[11px] text-slate-400">분석 모드</p>
           <p className="mt-1 text-sm font-bold text-slate-800">
             {r.isPremium ? "프리미엄" :
-             r.engineMode === "jeonse" ? "전세기반" :
+             r.engineMode === "jeonse" ? "전세 중심" :
              r.engineMode === "blend"  ? "혼합" :
              r.engineMode === "sale"   ? "매매기반" : "보류"}
           </p>
@@ -5197,6 +5220,23 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
         </div>
       )}
 
+      {/* ── 판단 이유 요약 박스 ── */}
+      {!hold0 && (
+        <div className="mb-4 rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-slate-100">
+          <p className="mb-2.5 text-sm font-bold text-slate-700">판단 이유</p>
+          <div className="space-y-1.5">
+            {reasonChecks.map((c, i) => (
+              <div key={i} className="flex items-center gap-2 text-sm">
+                <span className={`flex-shrink-0 font-bold ${c.ok === true ? "text-emerald-500" : c.ok === false ? "text-red-400" : "text-amber-400"}`}>
+                  {c.ok === true ? "✓" : c.ok === false ? "✗" : "△"}
+                </span>
+                <span className={c.ok === false ? "text-slate-400" : "text-slate-700"}>{c.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
@@ -5244,22 +5284,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
         </div>
       </div>
 
-      {/* ── [1] AI 판단 근거 ── */}
-      <div className="mb-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-        <p className="mb-3 text-sm font-bold text-slate-700">AI 판단 근거</p>
-        <div className="space-y-2">
-          {reasonChecks.map((c, i) => (
-            <div key={i} className="flex items-center gap-2.5 text-sm">
-              <span className={`flex-shrink-0 text-base ${c.ok === true ? "text-emerald-500" : c.ok === false ? "text-red-400" : "text-amber-400"}`}>
-                {c.ok === true ? "✓" : c.ok === false ? "✗" : "△"}
-              </span>
-              <span className={c.ok === false ? "text-slate-500" : "text-slate-700"}>{c.text}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── [2] 프리미엄 설명 (특수시장만) ── */}
+      {/* ── [1] 프리미엄 설명 (특수시장만) ── */}
       {isSpec && premiumDesc() && (
         <div className="mb-4 rounded-2xl bg-amber-50 px-5 py-4 ring-1 ring-amber-200">
           <p className="text-xs font-bold text-amber-800 mb-1">프리미엄 단지 안내</p>
