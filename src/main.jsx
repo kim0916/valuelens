@@ -268,6 +268,19 @@ function ComplexAutocomplete({ dong, value, onChange, placeholder, className }) 
 const NAVY = "#0f1f3d";
 
 // ── 최근 분석 localStorage 유틸 ──
+// device_id: 비로그인 사용자 식별용 (localStorage)
+function getOrCreateDeviceId() {
+  try {
+    const key = 'valuelens_device_id';
+    let id = localStorage.getItem(key);
+    if (!id) {
+      id = 'dev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+      localStorage.setItem(key, id);
+    }
+    return id;
+  } catch { return 'dev_unknown'; }
+}
+
 // localStorage 키 — userId 기반 분리 (다른 계정 데이터 격리)
 const LS_KEY = (uid) => uid ? `valuelens_recent_analysis_${uid}` : "valuelens_recent_analysis_guest";
 const LS_MAX = 20;
@@ -3768,6 +3781,33 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
   const [listingPriceInput, setListingPriceInput] = useState("");
   const abortRef = useRef(null);
   const [areaOptions, setAreaOptions] = useState([]);
+
+  // ── 분석 횟수 제한 체크 ──
+  async function checkAnalysisLimit() {
+    try {
+      const deviceId = getOrCreateDeviceId();
+      const res = await fetch('/api/check-analysis-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'check_and_record',
+          userId: currentUserId || null,
+          userEmail: currentUserEmail || null,
+          deviceId,
+        }),
+      });
+      if (res.status === 429) {
+        const d = await res.json();
+        setAiMsg(d.message || '오늘 무료 분석 1회를 모두 사용했습니다.\n내일 다시 이용하거나 저장된 분석 결과를 확인해주세요.');
+        return false; // 차단
+      }
+      return true; // 통과
+    } catch (e) {
+      console.warn('[checkAnalysisLimit] 오류 (통과):', e?.message);
+      return true; // 오류 시 통과
+    }
+  }
+
   const [fetchingAreas, setFetchingAreas] = useState(false);
   // 국토부 원본 데이터 보관 — 면적 변경 시 API 재호출 없이 재필터
   const rawMolitRef = useRef(null); // { complexName, dong, sale:[], jeonse:[], areaOptions:[], allAreas:Set, lawdCd }
@@ -4160,6 +4200,9 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
 
     if (canAutoSkip) {
       // ConfirmStep 건너뛰고 바로 분석 실행
+      // 분석 횟수 제한 체크 (TODO: 유료화 시 서버사이드 계산으로 이전)
+      const allowed = await checkAnalysisLimit();
+      if (!allowed) return;
       const autoFf = { ...pendingFf, currentPrice: mode === "fair" ? (finalCurrentPrice || 0) : finalCurrentPrice };
       const res = analyze(autoFf);
       res.jeonseCalc = jeonseCalc; res.saleCalc = saleCalc;
@@ -4222,9 +4265,12 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
     setPending({ ff, jeonseCalc, saleCalc }); // 입력값 확인 단계로
   }
   // doAnalyze: ConfirmStep에서 수정된 { ff, jeonseCalc, saleCalc } 객체를 직접 받음
-  function doAnalyze(updated) {
+  async function doAnalyze(updated) {
     const src = updated || pending;
     if (!src) return;
+    // 분석 횟수 제한 체크 (TODO: 유료화 시 서버사이드 계산으로 이전)
+    const allowed = await checkAnalysisLimit();
+    if (!allowed) { setPending(null); return; }
     const { ff, jeonseCalc, saleCalc } = src;
     const res = analyze(ff);
     res.jeonseCalc = jeonseCalc; res.saleCalc = saleCalc;
@@ -6245,6 +6291,33 @@ function SellView({ onContext, currentUserId, currentUserEmail }) {
     return { ...raw, sale: filterDeals(raw.sale), jeonse: filterDeals(raw.jeonse), areaSqm: Number(overrideArea) || 0 };
   }
 
+
+  // ── 분석 횟수 제한 체크 ──
+  async function checkAnalysisLimit() {
+    try {
+      const deviceId = getOrCreateDeviceId();
+      const res = await fetch('/api/check-analysis-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'check_and_record',
+          userId: currentUserId || null,
+          userEmail: currentUserEmail || null,
+          deviceId,
+        }),
+      });
+      if (res.status === 429) {
+        const d = await res.json();
+        setAiMsg(d.message || '오늘 무료 분석 1회를 모두 사용했습니다.\n내일 다시 이용하거나 저장된 분석 결과를 확인해주세요.');
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('[checkAnalysisLimit] 오류 (통과):', e?.message);
+      return true;
+    }
+  }
+
   // ── LocationPicker 완료 시 면적 목록 로드 (BuyView와 동일) ──
   async function fetchAreasFor(region, dong, complexName, exactAptNm, sido) {
     if (!complexName || !region) return;
@@ -6461,6 +6534,9 @@ function SellView({ onContext, currentUserId, currentUserEmail }) {
     const canAutoSkip = finalCurrentPrice > 0 && !finalBlockReason && dataOk && builtFf != null;
 
     if (canAutoSkip) {
+      // 분석 횟수 제한 체크 (TODO: 유료화 시 서버사이드 계산으로 이전)
+      const allowed = await checkAnalysisLimit();
+      if (!allowed) return;
       const autoFf = { ...pendingFf, currentPrice: finalCurrentPrice };
       const res = analyze(autoFf);
       res.jeonseCalc = jeonseCalc; res.saleCalc = saleCalc;
@@ -6472,9 +6548,12 @@ function SellView({ onContext, currentUserId, currentUserEmail }) {
   }
 
   // ── doAnalyze: ConfirmStep에서 수정된 값으로 분석 실행 ──
-  function doAnalyze(updated) {
+  async function doAnalyze(updated) {
     const src = updated || pending;
     if (!src) return;
+    // 분석 횟수 제한 체크 (TODO: 유료화 시 서버사이드 계산으로 이전)
+    const allowed = await checkAnalysisLimit();
+    if (!allowed) { setPending(null); return; }
     const { ff, jeonseCalc, saleCalc } = src;
     const res = analyze(ff);
     res.jeonseCalc = jeonseCalc; res.saleCalc = saleCalc;
