@@ -2504,6 +2504,14 @@ function AppInner() {
   const [finProfile, setFinProfile] = useState(null);  // 추천후보 탭 「내 조건」 → 내 자산 재무 프로필 공유
   const [buyCtx, setBuyCtx] = useState(null);         // 매수 입력값 → 매수세금 자동 반영용
   const [sellCtx, setSellCtx] = useState(null);       // 매도 입력값 → 매도세금 자동 반영용
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  // 로그인 유저 ID 가져오기 (AI 일일 제한용)
+  React.useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserId(user?.id ?? null);
+    });
+  }, []);
 
   const subTabs = ptype === "apartment" ? apartmentTabsDef : ptype === "oneRoom" ? oneRoomTabsDef : null;
   const curSub = ptype === "apartment" ? aptTab : roomTab;
@@ -4174,9 +4182,10 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 {"region":"시군구","dong":"법정동","complexName":"단지명","pyeong":평형숫자,"areaExclusive":전용면적㎡숫자,"buildYear":준공연도숫자,"currentPrice":매물호가만원,"floor":해당층숫자,"tradeType":"매매|전세|월세"}
 규칙: 가격은 만원 단위 정수(12억4000만→124000). 화면에 안 보이는 값은 0/빈문자. 추정하지 말고 보이는 값만.`;
       const response = await fetch("/api/ai", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json", ...(currentUserId ? { "x-user-id": currentUserId } : {}) },
         body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: mediaType, data: base64 } }, { type: "text", text: prompt }] }] }),
       });
+      if (response.status === 429) { const d = await response.json(); setAiMsg(d.message || "오늘 무료 AI 분석 횟수를 모두 사용했습니다.\n내일 다시 이용하거나 저장된 분석 결과를 확인해주세요."); setAiLoading(false); return; }
       const data = await response.json();
       const text = (data.content || []).map((i) => (i.type === "text" ? i.text : "")).filter(Boolean).join("\n");
       const m = text.replace(/```json|```/g, "").trim().match(/\{[\s\S]*\}/);
@@ -4486,7 +4495,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
                   ...imgs.map(img => ({ type: "image", source: { type: "base64", media_type: img.type, data: img.data } })),
                   { type: "text", text: `이 이미지들은 네이버 부동산 화면 캡처야. 보이는 정보만 추출해 아래 JSON만 출력 (설명·백틱 금지):\n{"region":"시군구","dong":"법정동","complexName":"단지명","currentPrice":매물호가또는최근실거래만원정수,"kbSalePrice":KB매매시세만원정수,"kbJeonse":KB전세시세만원정수}\n규칙:\n- 가격은 만원 정수(4억5100만→45100, 5억→50000)\n- 단지명은 화면 상단 굵은 글씨\n- currentPrice: 매물 호가 없으면 최근 실거래가\n- KB시세 없으면 0\n- 안 보이는 값은 0. 절대 추정 금지.` }
                 ];
-                const res = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content }] }) });
+                const res = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json", ...(currentUserId ? { "x-user-id": currentUserId } : {}) }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content }] }) });
+                if (res.status === 429) { const d = await res.json(); setAiMsg(d.message || "오늘 무료 AI 분석 횟수를 모두 사용했습니다.\n내일 다시 이용하거나 저장된 분석 결과를 확인해주세요."); setAiLoading(false); return; }
                 const data = await res.json();
                 const text = (data.content||[]).map(i=>i.type==="text"?i.text:"").join("").replace(/```json|```/g,"").trim();
                 const m = text.match(/\{[\s\S]*\}/);
