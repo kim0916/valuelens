@@ -6,6 +6,8 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
+console.log("[Auth] VITE_SUPABASE_URL:", import.meta.env.VITE_SUPABASE_URL ? "✅ 설정됨" : "❌ 없음");
+console.log("[Auth] VITE_SUPABASE_ANON_KEY:", import.meta.env.VITE_SUPABASE_ANON_KEY ? "✅ 설정됨" : "❌ 없음");
 
 function AuthGate({ children }) {
   const [user, setUser] = React.useState(null);
@@ -33,7 +35,10 @@ function AuthGate({ children }) {
     if (!email || !password) { setError("이메일과 비밀번호를 입력해주세요."); return; }
     setAuthLoading(true); setError("");
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+    if (error) {
+      console.error("Login error:", error.message, error);
+      setError(`로그인 실패: ${error.message}`);
+    }
     setAuthLoading(false);
   }
 
