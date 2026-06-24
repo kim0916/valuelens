@@ -2883,7 +2883,9 @@ function matchAptName(itemName, complexName, exactAptNm) {
 // 전용면적 배열을 평형 그룹으로 묶기 (±2㎡ 이내 = 같은 그룹)
 // 반환: [{ rep: 대표면적, areas: [59.97, 59.99, 60.0], pyeong: 25 }, ...]
 function groupAreasByPyeong(areaList) {
-  const sorted = [...new Set(areaList.map(a => Math.round(a*100)/100))].sort((a,b)=>a-b);
+  if (!areaList || !Array.isArray(areaList) || areaList.length === 0) return [];
+  const sorted = [...new Set(areaList.map(a => Math.round(Number(a)*100)/100).filter(a => a > 0))].sort((a,b)=>a-b);
+  if (sorted.length === 0) return [];
   const groups = [];
   for (const a of sorted) {
     const last = groups[groups.length - 1];
