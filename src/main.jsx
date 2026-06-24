@@ -4231,7 +4231,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
       <div className="mb-5 flex items-center gap-3">
         <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 수정</button>
         <h1 className="text-lg font-bold text-slate-900">
-          {fromAI ? "AI 인식 결과 확인" : "AI 조회값 확인"}
+          {fromAI ? "AI 인식 결과 확인" : "최근 실거래 데이터가 부족합니다"}
         </h1>
         {onBackToTop && <button onClick={onBackToTop} className="ml-auto text-xs text-slate-400 hover:text-slate-600">🏠 처음으로</button>}
       </div>
@@ -4245,8 +4245,8 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
           </>
         ) : (
           <>
-            <p className="text-sm font-semibold text-blue-800">AI가 자동으로 조회한 데이터입니다.</p>
-            <p className="mt-0.5 text-xs text-blue-600">실제 정보와 다를 경우 아래에서 수정 후 분석하세요. 부동산은 고가 의사결정이므로 주요 수치를 꼭 확인하세요.</p>
+            <p className="text-sm font-semibold text-blue-800">⚠️ 최근 실거래 데이터가 부족합니다</p>
+            <p className="mt-0.5 text-xs text-blue-600">최근 12개월 동안 해당 면적의 실거래가 부족합니다.<br />KB시세 또는 직접 확인한 시세를 입력하면 더 정확한 분석이 가능합니다.</p>
           </>
         )}
       </div>
