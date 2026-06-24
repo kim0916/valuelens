@@ -551,7 +551,7 @@ function analyze(f) {
   let headline;
   if (engineMode === "hold") headline = "현재 데이터로는 판단을 보류합니다";
   else if (engineMode === "sale") headline = gapRatio > CONFIG.grade.C ? "매매 시세 대비 다소 높습니다" : gapRatio < CONFIG.grade.B ? "매매 시세 대비 저렴한 편입니다" : "매매 시세 수준입니다";
-  else headline = gapRatio > CONFIG.grade.D ? "현재 가격은 적정가 대비 높습니다" : gapRatio > CONFIG.grade.C ? "협상 후 접근이 적절합니다" : "현재 가격은 적정가 수준입니다";
+  else headline = gapRatio > CONFIG.grade.D ? "현재 가격은 적정가 대비 높습니다" : gapRatio > CONFIG.grade.C ? "협상 후 접근을 검토해볼 수 있습니다" : "현재 가격은 적정가 수준입니다";
   if (saleType === "redev") headline = "재건축 기대가 반영된 시세입니다";
 
   const explain = engineMode === "hold"
@@ -590,7 +590,7 @@ function sellVerdict(r) {
   if (g > 0.03) {
     if (rising) return {
       key: "ABIT_RISING", label: "고평가 — 보유 가능", tone: "slate",
-      advice: `지역 시장 상승 중(${trendStr})으로 보유 유지 가능합니다. 상승 추세 둔화 시 매도 검토를 권합니다.`
+      advice: `지역 시장 상승 중(${trendStr})으로 보유 유지 가능합니다. 상승 추세 둔화 시 매도 검토를 고려해볼 수 있습니다.`
     };
     return {
       key: "ABIT", label: "고평가 주의", tone: "amber",
@@ -742,7 +742,7 @@ function analyzeSellerDecision(f, r) {
       "보유 유지 검토": "지금은 보유 관점이 우세합니다. 시장 흐름을 보며 판단하세요",
       "매도 검토": "매도를 검토할 만합니다. 호가 조정 후 거래 가능성을 확인하세요",
       "고평가 주의 — 호가 조정 고려": "호가가 적정가 대비 높습니다. 조정 시 거래 가능성이 올라갑니다",
-      "보유 유지": "지금은 보유가 더 유리해 보입니다",
+      "보유 유지": "지금은 보유 관점이 우세한 것으로 분석됩니다",
       "보유 유지 권고": "매도보다 보유 관점이 우세합니다",
     }[finalSellDecision] || "") + (purposeNote ? ` · ${purposeNote}` : "");
   }
@@ -1788,7 +1788,7 @@ function buildBuyerSentences(x) {
   else if (x.specialMarketType === "lowData" || x.specialMarketType === "abnormalInput") s.push(`데이터·입력값이 충분하지 않아 가격 적정성 판단을 보류합니다. 실거래·시세를 보강해 다시 분석하세요.`);
   else s.push(x.gap < 0 ? `현재 가격은 적정가보다 ${gp}% 낮습니다.` : `현재 가격은 적정가보다 ${gp}% 높습니다.`);
   if (x.shortfallCash > 0) s.push(`다만 필요 현금 대비 ${won(x.shortfallCash)}이 부족해 자금 보강이 선행되어야 합니다.`);
-  else if (x.monthlyRatio != null) s.push(x.monthlyRatio > 45 ? `자금상 매수는 가능하지만 월상환 부담(소득 대비 ${x.monthlyRatio}%)이 높아 가격 협상 후 검토가 적절합니다.` : x.monthlyRatio > 30 ? `자금 여건은 가능하나 월상환 부담이 다소 있어 여유 자금을 확인하세요.` : `자금·월상환 여건은 비교적 안정적입니다.`);
+  else if (x.monthlyRatio != null) s.push(x.monthlyRatio > 45 ? `자금상 매수는 가능하지만 월상환 부담(소득 대비 ${x.monthlyRatio}%)이 높아 가격 협상 후 검토를 고려해볼 수 있습니다.` : x.monthlyRatio > 30 ? `자금 여건은 가능하나 월상환 부담이 다소 있어 여유 자금을 확인하세요.` : `자금·월상환 여건은 비교적 안정적입니다.`);
   const rw = [];
   if (x.supplyLevel === "높음") rw.push("입주물량 증가");
   if (x.policyLevel === "높음") rw.push("정책·재건축 규제");
@@ -1945,16 +1945,16 @@ function analyzeBuyerDecision(r, f) {
     action = finalLabel === "가격 부담 큼" ? "실사용가치 대비 프리미엄·리스크가 큽니다. 신중한 접근이 필요합니다" : "실사용가치와 시장가치를 분리해 가격 적정성을 판단하세요";
   }
   else if (shortfallCash > 0 && hasFundInput) { finalLabel = "자금 보강 필요"; action = `입력한 자금 기준으로 약 ${won(shortfallCash)}의 추가 자금이 필요합니다 (취득세·부대비용 포함)`; }
-  else if (mr != null && mr > 45) { finalLabel = "자금 부담 큼"; action = `월상환 부담 ${mr}% (45% 초과) — 자금 여건 보강이 필요합니다`; }
+  else if (mr != null && mr > 45) { finalLabel = "자금 부담 큼"; action = `월상환 부담 ${mr}% (45% 초과) — 자금 여건 보강을 검토해보세요`; }
   else if (mr != null && mr >= 30) { finalLabel = "가격 협상 후 검토"; action = `월상환 부담 ${mr}% — 가격 협상으로 부담을 낮춘 뒤 검토하세요`; }
   else if (buyerScore >= 75) { finalLabel = "가격 조건 양호"; action = "적정가·자금·보유 여건 양호 — 가격 적정성 기준 매수를 검토해볼 수 있습니다"; }
-  else if (buyerScore >= 55) { finalLabel = "협상 후 검토"; action = "가격 여건 보통 — 협상을 통한 가격 조정 후 검토를 권합니다"; }
+  else if (buyerScore >= 55) { finalLabel = "협상 후 검토"; action = "가격 여건 보통 — 협상을 통한 가격 조정 후 검토를 고려해볼 수 있습니다"; }
   else if (buyerScore >= 40) { finalLabel = "신중 접근"; action = "가격·자금 여건 미흡 — 신중한 접근이 필요합니다"; }
   else { finalLabel = "가격 부담 큼"; action = "가격·자금·리스크 부담이 있습니다 — 신중한 접근이 필요합니다"; }
   // ── 정확도/신뢰도 위험 시 보수화 (일반 단지) ──
   if (!isSpecial && specialMarketType !== "abnormalInput" && specialMarketType !== "lowData") {
     const lowConf = decisionConfidence < 50 || mockPenalty >= 30;
-    if (lowConf && finalLabel === "가격 조건 양호") { finalLabel = "협상 후 검토"; action = "데이터 신뢰도가 낮아 보수적으로 — 가격 협상 후 검토를 권합니다"; }
+    if (lowConf && finalLabel === "가격 조건 양호") { finalLabel = "협상 후 검토"; action = "데이터 신뢰도가 낮아 보수적으로 — 가격 협상 후 검토를 고려해볼 수 있습니다"; }
     else if (lowConf && finalLabel === "신중 접근" && buyerScore < 45) { finalLabel = "가격 부담 큼"; }
   }
   // ── 호재·악재 한 단계 조정 (일반 단지만, 자금 하드스톱 시 상향 금지, 특수시장 제외) ──
@@ -2008,7 +2008,7 @@ function BuyerDecisionCard({ bd, r, f }) {
   const fundProblem = a.fundRisk === "자금부족" || a.fundRisk === "위험";
   const verdict = bd.provisional ? "데이터·입력값이 부족해 판단을 보류합니다." :
     (priceOK && !fundProblem) ? "가격과 자금 조건 모두 양호합니다." :
-    (priceOK && fundProblem) ? "가격은 적정 수준이나 자금 조건 보강이 필요합니다." :
+    (priceOK && fundProblem) ? "가격은 적정 수준이나 자금 조건 보강을 검토해보세요." :
     (!priceOK && !fundProblem) ? "자금 조건은 양호하나 가격이 적정가 대비 높습니다." :
     "가격과 자금 조건 모두 부담이 있어 신중한 접근이 필요합니다.";
 
@@ -2042,7 +2042,7 @@ function BuyerDecisionCard({ bd, r, f }) {
 
       {/* 데이터 신뢰도 레이블 (숫자 없음) */}
       <div className="bg-slate-50 px-5 py-2 text-center text-[11px] text-slate-400">
-        데이터 신뢰도 {r.dataConfLabel} · 분석 적합도 {bd.fitLabel}
+        데이터 신뢰도 {r.dataConfLabel} · 거래 데이터 충분도 {bd.fitLabel}
       </div>
 
       {/* AI 문장 요약 */}
@@ -5009,8 +5009,8 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
                   <Row l="사용 거래 수 (전세/매매)" v={`${jb.used ?? 0} / ${sb.used ?? 0} 건`} />
                   <Row l="제외 거래 수 (전세/매매)" v={`${jb.excluded ?? 0} / ${sb.excluded ?? 0} 건`} />
                   <Row l="KB시세 가중치 (전세/매매)" v={`${jkb != null ? Math.round(jkb * 100) + "%" : "—"} / ${skb != null ? Math.round(skb * 100) + "%" : "—"}`} />
-                  <Row l="분석 적합도" v={`${fs} · ${fs >= 80 ? "높음" : fs >= 60 ? "보통" : fs >= 40 ? "낮음" : "매우낮음"}`} />
-                  <Row l="시장 위험도" v={mrLevel} />
+                  <Row l="거래 데이터 충분도" v={`${fs} · ${fs >= 80 ? "높음" : fs >= 60 ? "보통" : fs >= 40 ? "낮음" : "매우낮음"}`} />
+                  <Row l="시장 환경 분석" v={mrLevel} />
                   <Row l="단지 특성" v={r.isPremium ? "재건축·학군·희소성 영향" : "일반"} />
                   {kbHeavy && <div className="bg-amber-50 px-4 py-2 text-xs text-amber-700">⚠ 실거래 표본이 적어 KB시세 의존도가 높습니다 — 신뢰도를 보수적으로 해석하세요.</div>}
                 </div>
@@ -5039,7 +5039,7 @@ ${"=".repeat(40)}
   현재 매물가: ${won(Number(f.currentPrice))}
   AI 적정가: ${r.engineMode === "hold" ? "판단 보류" : won(r.fairPrice)}
   ${r.gapRatio < 0 ? "저평가율" : "고평가율"}: ${r.engineMode === "hold" ? "보류" : gp}
-  안전 매수가: ${r.safetyPrice ? won(r.safetyPrice) : "—"}
+  보수적 참고가: ${r.safetyPrice ? won(r.safetyPrice) : "—"}
   분석 엔진: ${r.modeName || "—"}
 
 [적정가 산출 근거]
@@ -5162,13 +5162,13 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
     let line2;
     if (isSpec && r.saleType === "redev") line2 = "재건축 기대가 반영된 단지로, 실사용 가치와의 괴리를 고려하세요.";
     else if (r.buyGrade === "A" || r.buyGrade === "B") line2 = `${won(r.negotiation.start)} 이하에서 협상 시 가격 메리트가 있습니다.`;
-    else if (r.buyGrade === "C") line2 = `협상을 통해 ${won(r.negotiation.start)} 수준을 목표로 하는 것이 적절합니다.`;
+    else if (r.buyGrade === "C") line2 = `협상을 통해 ${won(r.negotiation.start)} 수준을 검토해볼 수 있습니다.`;
     else if (r.buyGrade === "D") {
       const _ris = isRisingMarket(f.region || "기타");
       const _tr  = getRegionTrend(f.region || "기타");
       line2 = _ris
         ? `지역 시장 상승 중(${_tr > 0 ? "+" : ""}${_tr.toFixed(1)}%)이지만 고평가 수준입니다. 보유 리스크를 점검하세요.`
-        : `적정가 대비 다소 높아 보유 리스크가 있습니다. 가격 조정 후 재검토를 권합니다.`;
+        : `적정가 대비 다소 높아 보유 리스크가 있습니다. 가격 조정 후 재검토를 고려해볼 수 있습니다.`;
     } else {
       const _ris = isRisingMarket(f.region || "기타");
       const _tr  = getRegionTrend(f.region || "기타");
@@ -5231,7 +5231,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
     // 안전매수가
     if (r.safetyPrice && r.safetyPrice !== fair) {
       const g3 = gradeOf((r.safetyPrice - fair) / fair);
-      scenarios.push({ price: r.safetyPrice, label: "안전 매수가", grade: g3, gradeLabel: labelOf(g3), color: "text-emerald-600", highlight: false });
+      scenarios.push({ price: r.safetyPrice, label: "보수적 참고가", grade: g3, gradeLabel: labelOf(g3), color: "text-emerald-600", highlight: false });
     }
     return scenarios;
   }
@@ -5245,7 +5245,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
     if (r.saleType === "redev") risks.push({ label: "재건축 단지 특성", desc: "재건축 기대가 반영된 단지입니다. 사업 지연·분담금 리스크를 함께 고려하세요." });
     if (r.actualRatio != null && r.actualRatio < 0.4) risks.push({ label: "전세가율 낮음", desc: "실거주 수요보다 투자 수요 비중이 높은 단지입니다." });
     if (r.shock?.level === "높음" || r.shock?.level === "매우높음") risks.push({ label: "시장 변동성 주의", desc: "현재 시장 상황에 따라 가격 반영이 지연될 수 있습니다." });
-    if (bd.marketRisk?.level === "높음" || bd.marketRisk?.level === "매우높음") risks.push({ label: "시장 위험도 높음", desc: "프리미엄·공급·정책 등 복합 요인으로 가격 변동 가능성이 있습니다." });
+    if (bd.marketRisk?.level === "높음" || bd.marketRisk?.level === "매우높음") risks.push({ label: "시장 변동 가능성 높음", desc: "프리미엄·공급·정책 등 복합 요인으로 가격 변동 가능성이 있습니다." });
     if (r.dataConf < 50) risks.push({ label: "거래 표본 부족", desc: "데이터가 적어 분석 신뢰도가 낮습니다. 표본 보강 후 재분석을 권장합니다." });
     if (neg.list?.[0]) risks.push({ label: "지역 특성 참고", desc: neg.list[0] });
     // 중복 label 제거
@@ -5612,7 +5612,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
               return (
                 <div className="flex items-center justify-between">
                   <span className={aboveSafe ? "text-red-400" : "text-emerald-600"}>
-                    {aboveSafe ? "안전 매수가 대비 부담 존재" : "안전 매수가 이하 — 여유 있음"}
+                    {aboveSafe ? "보수적 참고가 대비 부담 있음" : "보수적 참고가 이하 — 여유 있음"}
                   </span>
                   <span className={`ml-2 flex-shrink-0 font-semibold ${aboveSafe ? "text-red-400" : "text-emerald-600"}`}>
                     {aboveSafe ? "주의" : "양호"}
@@ -5769,7 +5769,7 @@ ${"=".repeat(40)}
 
 [AI 의견]
   ${cheap ? `현재 가격은 적정가 대비 ${gp}% 낮은 수준입니다.` : `현재 가격은 적정가 대비 ${gp}% 높은 수준입니다.`}
-  ${r.buyGrade === "A" || r.buyGrade === "B" ? `${won(r.negotiation.start)} 이하에서 협상 시 가격 메리트가 있습니다.` : r.buyGrade === "C" ? `협상을 통해 ${won(r.negotiation.start)} 수준을 목표로 하는 것이 적절합니다.` : `가격 조정 후 재검토를 권합니다.`}
+  ${r.buyGrade === "A" || r.buyGrade === "B" ? `${won(r.negotiation.start)} 이하에서 협상 시 가격 메리트가 있습니다.` : r.buyGrade === "C" ? `협상을 통해 ${won(r.negotiation.start)} 수준을 검토해볼 수 있습니다.` : `가격 조정 후 재검토를 고려해볼 수 있습니다.`}
 
 [가격별 평가 시나리오]
 ${scenarioLines}
@@ -6575,7 +6575,7 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
         const liqOk = sd.liquidityScore >= 60;
         checks.push({ ok: liqOk ? true : null, text: `거래 가능성 ${sd.liquidityLevel}${liqOk ? "" : " — 호가 조정 고려"}` });
         const riskOk = !["높음","매우높음"].includes(sd.marketRiskLevel);
-        checks.push({ ok: riskOk ? true : false, text: `시장 위험도 ${sd.marketRiskLevel}` });
+        checks.push({ ok: riskOk ? true : false, text: `시장 환경 ${sd.marketRiskLevel}` });
         if (!sd.provisional && sd.tax)
           checks.push({ ok: true, text: `세후 실수령 약 ${won(sd.netProceeds)}` });
         return (
@@ -6626,9 +6626,9 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
         <div className="grid grid-cols-3 gap-px border-b border-slate-100 bg-slate-100">
           <Cell l="가격 위치" v={sd.askingLevel} tone={sd.gapVsRef > 0.05 ? "text-red-500" : sd.gapVsRef < -0.05 ? "text-blue-500" : "text-slate-800"} />
           <Cell l="세후 실수령" v={!sd.provisional && sd.tax ? won(sd.netProceeds) : "—"} />
-          <Cell l="시장 위험도" v={sd.marketRiskLevel} tone={mrTone(sd.marketRiskLevel)} />
+          <Cell l="시장 환경 분석" v={sd.marketRiskLevel} tone={mrTone(sd.marketRiskLevel)} />
         </div>
-        <div className="bg-white px-5 py-1.5 text-center text-[11px] text-slate-400">데이터 신뢰도 {sd.dataConfLabel} · 분석 적합도 {sd.fitLabel}</div>
+        <div className="bg-white px-5 py-1.5 text-center text-[11px] text-slate-400">데이터 신뢰도 {sd.dataConfLabel} · 거래 데이터 충분도 {sd.fitLabel}</div>
         {(sd.marketRiskLevel === "높음" || sd.marketRiskLevel === "매우높음") && <p className="bg-orange-50 px-5 py-2 text-[11px] leading-relaxed text-orange-700">시장 위험도는 계산 오류가 아니라 재건축·정책·프리미엄·공급 등에 따른 가격 변동성 위험을 의미합니다.</p>}
       </div>
 
