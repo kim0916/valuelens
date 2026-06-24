@@ -3602,7 +3602,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   //   [2] buildAnalysisInput  → 변환 모듈 (rawData → analyze() 입력 형태)
   //   [3] analyze()           → 계산 엔진 (ConfirmStep → doAnalyze에서 실행, 절대 수정 금지)
   // ─────────────────────────────────────────────────────────────
-  async function quickSearch(overrideArea, overrideForm, exclusiveAreas = null) {
+  async function quickSearch(overrideArea, overrideForm, exclusiveAreas = null, fromConfirm = false) {
     const ff = overrideForm ? { ...f, ...overrideForm } : f;
     // listingPriceInput: 독립 state에서 직접 읽음
     const listingPrice = Number(String(listingPriceInput).replace(/,/g, "")) || 0;
@@ -3872,7 +3872,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     const canAutoSkip =
       mode === "fair"
         ? (builtFf != null)  // FairValue: blockReason 없으면 바로
-        : (finalCurrentPrice > 0 && !finalBlockReason && dataOk && builtFf != null);
+        : (finalCurrentPrice > 0 && !finalBlockReason && (dataOk || fromConfirm) && builtFf != null);
 
     if (canAutoSkip) {
       // ConfirmStep 건너뛰고 바로 분석 실행
@@ -3992,7 +3992,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
           }
         }}
       />;
-  if (pending) return <ConfirmStep p={pending} f={f} onBack={() => setPending(null)} onConfirm={doAnalyze} mode={mode} onRefetch={(area) => { setF(prev => ({...prev, areaExclusive: String(area)})); quickSearch(area); }} onBackToTop={() => { setPending(null); setR(null); setF({...EMPTY}); setUploadedImages([]); setCaptureMsg(null); setAiMsg(null); }} />;
+  if (pending) return <ConfirmStep p={pending} f={f} onBack={() => setPending(null)} onConfirm={doAnalyze} mode={mode} onRefetch={(area) => { setF(prev => ({...prev, areaExclusive: String(area)})); quickSearch(area, null, null, true); }} onBackToTop={() => { setPending(null); setR(null); setF({...EMPTY}); setUploadedImages([]); setCaptureMsg(null); setAiMsg(null); }} />;
   return (
     <>
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
