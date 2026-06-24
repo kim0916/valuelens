@@ -3783,7 +3783,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       if (sbRes.ok) {
         const sbData = await sbRes.json();
         if (sbData.areas && sbData.areas.length > 0) {
-          const opts = sbData.areas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
+          const opts = groupAreasByPyeong(sbData.areas)
+            .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: typicalPyeong(g.rep) }));
           setAreaOptions(opts);
           setFetchingAreas(false);
           return; // Supabase 성공 → 국토부 API 스킵
@@ -3810,7 +3811,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         body: JSON.stringify({ type: "areas", lawdCd, complexName: exactAptNm || complexName }),
       });
       const areasData = await areasRes.json();
-      const opts = (areasData.areaOptions || []).map(o => ({ areaSqm: o.areaSqm, pyeong: typicalPyeong(o.areaSqm) }));
+      const opts = groupAreasByPyeong((areasData.areaOptions || []).map(o => Number(o.areaSqm)).filter(a => a > 0))
+        .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: typicalPyeong(g.rep) }));
       if (opts.length === 0) {
         setAiMsg("최근 실거래가 없습니다. 네이버 부동산 또는 KB부동산원에서 KB시세를 확인 후 입력해 주세요.");
         setF(prev => ({ ...prev, _needKbInput: true }));
@@ -3839,7 +3841,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       // 단지명 필터 적용된 실거래에서만 면적 추출
       const allAreas = [...(result.sale || []), ...(result.jeonse || [])].map(d => d.areaSqm).filter(a => a > 0);
       const unique = [...new Set(allAreas)].sort((a, b) => a - b);
-      const opts = unique.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) }));
+      const opts = groupAreasByPyeong(unique)
+        .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: typicalPyeong(g.rep) }));
       if (opts.length === 0) {
         setAiMsg("해당 단지 최근 6개월 실거래가 없습니다. 면적을 직접 입력하거나 KB시세를 입력하세요.");
         setF(prev => ({ ...prev, _needKbInput: true }));
@@ -6226,7 +6229,8 @@ function SellView({ onContext }) {
       if (sbRes.ok) {
         const sbData = await sbRes.json();
         if (sbData.areas && sbData.areas.length > 0) {
-          setAreaOptions(sbData.areas.map(a => ({ areaSqm: a, pyeong: typicalPyeong(a) })));
+          setAreaOptions(groupAreasByPyeong(sbData.areas)
+            .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: typicalPyeong(g.rep) })));
           setFetchingAreas(false);
           return;
         }
