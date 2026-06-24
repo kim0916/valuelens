@@ -4156,7 +4156,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
         {/* 조회 실패 메시지 */}
         {aiMsg && (() => {
-          const isDataShort = aiMsg.includes("실거래가 없습니다") || aiMsg.includes("실거래 데이터가 부족") || aiMsg.includes("실거래를 불러오지 못");
+          const isDataShort = aiMsg.includes("실거래가 없습니다") || aiMsg.includes("실거래 데이터가 부족") || aiMsg.includes("실거래를 불러오지 못") || aiMsg.includes("불러오지 못했습니다");
           if (isDataShort) {
             return (
               <div className="mt-3 rounded-2xl bg-blue-50 px-4 py-4 ring-1 ring-blue-200">
@@ -5746,7 +5746,10 @@ function SellView({ onContext }) {
       _processRawData(rawData, ff, overrideArea, exclusiveAreas);
     } catch (e) {
       console.error('[SellView] quickSearch 오류:', e);
-      setAiMsg(`조회 실패: ${e.message} — 값을 직접 입력하세요.`);
+      const userMsg = e.message && !e.message.includes("undefined") && !e.message.includes("serviceKey") && !e.message.includes("API 호출")
+        ? e.message
+        : "실거래 데이터를 불러오지 못했습니다. 잠시 후 다시 시도하거나 직접 입력해 주세요.";
+      setAiMsg(userMsg);
     } finally { setAiLoading(false); }
   }
 
@@ -6129,7 +6132,7 @@ function SellView({ onContext }) {
           </button>
         )}
         {aiMsg && (() => {
-          const isDataShort = aiMsg.includes("실거래가 없습니다") || aiMsg.includes("실거래 데이터가 부족") || aiMsg.includes("실거래를 불러오지 못");
+          const isDataShort = aiMsg.includes("실거래가 없습니다") || aiMsg.includes("실거래 데이터가 부족") || aiMsg.includes("실거래를 불러오지 못") || aiMsg.includes("불러오지 못했습니다");
           if (isDataShort) {
             return (
               <div className="mt-3 rounded-2xl bg-blue-50 px-4 py-4 ring-1 ring-blue-200">
