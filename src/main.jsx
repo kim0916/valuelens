@@ -1046,12 +1046,15 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse", periodMonths = 2
 
   // ── 1차 필터: 표본 5건 이상일 때만 구조적 제외, 미만이면 완화 ──
   const strictMode = total >= 5;
+  // 1층 제외 후 0건이 되는지 사전 체크
+  const hasNonFloor1 = within.some(d => d.floor !== 1 && !d.banjiha && d.floor >= 0);
   const pass1 = within.filter((d) => {
     if (d.banjiha || d.floor < 0) { reasons.banjiha++; return false; }
-    if (strictMode && d.floor === 1) { reasons.floor1++; return false; } // 표본 충분할 때만 1층 제외
+    // 1층: 항상 제외 (표본 수 무관) — 단, 1층 제외 시 0건이 되면 포함
+    if (d.floor === 1 && hasNonFloor1) { reasons.floor1++; return false; }
     if (d.topFloor && d.floor >= d.topFloor) { reasons.top++; return false; }
-    if (strictMode && d.urgent) { reasons.urgent++; return false; }   // 표본 충분할 때만 급매 제외
-    if (strictMode && d.related) { reasons.related++; return false; } // 표본 충분할 때만 특수관계 제외
+    if (strictMode && d.urgent) { reasons.urgent++; return false; }
+    if (strictMode && d.related) { reasons.related++; return false; }
     return true;
   });
 
