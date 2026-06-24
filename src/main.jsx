@@ -6359,7 +6359,6 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
               <p className="text-xl font-extrabold">{sd.finalSellDecision}</p>
             </div>
             <div className="flex flex-col items-end gap-1">
-              <GradeInfoPopup />
               <div className="text-right">
                 <p className="text-[11px] text-white/70">희망 매도가</p>
                 <p className="text-xl font-extrabold">{won(sd.desired)}</p>
@@ -6489,7 +6488,10 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
       </div>
 
       <div className="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-        <h3 className="text-sm font-bold text-slate-700">희망 매도가 적정성</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-700">희망 매도가 적정성</h3>
+          <GradeInfoPopup />
+        </div>
         <div className="mt-2 flex items-baseline gap-2"><span className="text-lg font-extrabold" style={{ color: NAVY }}>{won(sd.desired)}</span><span className={`text-sm font-semibold ${sd.gapVsRef > 0.03 ? "text-red-500" : sd.gapVsRef < -0.03 ? "text-blue-500" : "text-emerald-600"}`}>{sd.askingLevel}</span></div>
         <p className="mt-1 text-xs text-slate-500">{sd.isSpecial ? "시장 기준가" : "적정가"} {won(sd.refPrice)} 대비 {sd.gapVsRef >= 0 ? "+" : ""}{(sd.gapVsRef * 100).toFixed(1)}%{sd.isSpecial && sd.gapVsIntrinsic != null ? ` · 실사용 적정가 ${won(mc.intrinsicFairPrice)} 대비 +${(sd.gapVsIntrinsic * 100).toFixed(0)}%` : ""}</p>
         {sd.isSpecial && <p className="mt-1 text-[11px] text-amber-600">특수시장: 프리미엄 {(mc.premiumRatio * 100).toFixed(0)}% — 시장 분위기 변화 시 프리미엄 축소 위험을 함께 보세요.</p>}
