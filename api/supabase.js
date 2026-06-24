@@ -41,20 +41,41 @@ export default async function handler(req, res) {
     if (!name) { res.status(400).json({ error: 'name 필수' }); return; }
 
     try {
-      // ── 브랜드 표기 정규화 (DB 저장명 기준) ──
-      // 국토부 실거래 원본 표기와 일반 사용자 입력 표기 차이 흡수
-      const BRAND_ALIAS = {
-        '헤링턴': '해링턴',   // Harrington: 국토부는 "해링턴" 표기
-        '더샾':   '더샵',     // The Sharp: 국토부는 "더샵" 표기
-        '레미안': '래미안',   // Raemian: 일부 지역 "래미안" 표기
-        '이편한세상': 'e편한세상', // 국토부는 "e편한세상" 표기
-        'XI':     '자이',     // GS건설 브랜드: 국토부는 "자이" 한글 표기
+      // ── 브랜드 표기 정규화 (DB 혼재 대응) ──
+      // 국토부 DB에는 두 가지 표기가 혼재함:
+      //   레미안(9건) + 래미안(218건), 이편한세상(64건) + e편한세상(240건)
+      // 단순 변환 시 한쪽 누락 → OR 검색으로 양쪽 모두 잡음
+      // 헤링턴·더샾은 DB에 해당 표기 없음 → 변환 후 단일 검색이 맞음
+      const BRAND_OR_MAP = {
+        '레미안':   '래미안',     // DB 양쪽 혼재 → OR 검색
+        '이편한세상': 'e편한세상', // DB 양쪽 혼재 → OR 검색
+        'XI':       '자이',       // 영문 XI 입력 → 자이 OR XI 양쪽 검색
       };
+      const BRAND_ALIAS = {
+        '헤링턴': '해링턴',  // DB에 헤링턴 없음 → 단순 변환
+        '더샾':   '더샵',    // DB에 더샾 없음 → 단순 변환
+      };
+
+      // 단순 변환 (DB에 원본 표기 없는 경우)
       let normalizedName = name;
       for (const [from, to] of Object.entries(BRAND_ALIAS)) {
         if (normalizedName.includes(from)) {
           normalizedName = normalizedName.split(from).join(to);
-          console.log(`[search] 브랜드 정규화: "${name}" → "${normalizedName}" (${from}→${to})`);
+          console.log(`[search] 브랜드 변환: "${name}" → "${normalizedName}" (${from}→${to})`);
+        }
+      }
+
+      // OR 검색 추가어 (DB 양쪽 혼재 브랜드)
+      let orVariant = null;
+      for (const [from, to] of Object.entries(BRAND_OR_MAP)) {
+        if (normalizedName.includes(from)) {
+          orVariant = normalizedName.replace(from, to);
+          console.log(`[search] 브랜드 OR: "${normalizedName}" + "${orVariant}"`);
+          break;
+        } else if (normalizedName.includes(to)) {
+          orVariant = normalizedName.replace(to, from);
+          console.log(`[search] 브랜드 OR: "${normalizedName}" + "${orVariant}"`);
+          break;
         }
       }
 
@@ -72,12 +93,14 @@ export default async function handler(req, res) {
       if (aliasData && aliasData.length > 0) {
         aliasMatch = aliasData[0];
         searchName = aliasMatch.real_name;
+        orVariant = null; // alias 매칭 시 OR 불필요
       }
 
       // 검색명 처리:
       // 1) 특수문자(괄호,하이픈 등) 포함 시 → .ilike() 직접 사용 (Supabase .or() 파서가 괄호를 그룹 연산자로 오인)
-      // 2) 공백 포함 시 → 공백제거+원본 두 버전 OR 검색 (DB에 공백 포함 단지명 존재)
-      // 3) 일반 단지명 → 공백제거 단일 ilike
+      // 2) OR variant 있음 → 원본 + variant 양쪽 OR 검색 (레미안↔래미안, 이편한↔e편한)
+      // 3) 공백 포함 시 → 공백제거+원본 두 버전 OR 검색
+      // 4) 일반 단지명 → 공백제거 단일 ilike
       const nameNoSpace = searchName.replace(/\s/g, '');
       const nameOrig    = searchName.trim();
       const hasSpecial  = /[()\[\]\-·,]/.test(nameOrig);
@@ -92,6 +115,10 @@ export default async function handler(req, res) {
       if (hasSpecial) {
         // 특수문자 포함: .ilike() 직접 사용
         query = query.ilike('complex_name', `%${nameOrig}%`);
+      } else if (orVariant) {
+        // 브랜드 양쪽 표기 OR 검색
+        const varNoSpace = orVariant.replace(/\s/g, '');
+        query = query.or(`complex_name.ilike.%${nameNoSpace}%,complex_name.ilike.%${varNoSpace}%`);
       } else if (hasSpace) {
         // 공백 포함: 공백제거+원본 OR
         query = query.or(`complex_name.ilike.%${nameNoSpace}%,complex_name.ilike.%${nameOrig}%`);
