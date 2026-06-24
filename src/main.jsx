@@ -1747,16 +1747,34 @@ function classifyApartmentMarket(f, r) {
 }
 
 function MarketTypeBadge({ mc }) {
-  const MAP = { normal: ["일반", "bg-slate-100 text-slate-600"], semiPremium: ["준프리미엄", "bg-amber-100 text-amber-700"], redevelopment: ["재건축형", "bg-orange-100 text-orange-700"], primePremium: ["프리미엄형", "bg-red-100 text-red-700"], investmentPremium: ["투자수요형", "bg-red-100 text-red-700"], policyDriven: ["정책변수형", "bg-orange-100 text-orange-700"], lowData: ["데이터 부족", "bg-slate-200 text-slate-600"], abnormalInput: ["입력오류 의심", "bg-slate-200 text-slate-600"] };
-  const [label, cls] = MAP[mc.specialMarketType] || MAP.normal;
-  const strong = ["redevelopment", "primePremium", "investmentPremium", "policyDriven"].includes(mc.specialMarketType);
+  const MAP = {
+    normal:          ["일반 단지",                    "bg-white ring-slate-100",        "bg-slate-100 text-slate-600"],
+    semiPremium:     ["재건축·학군·희소성 영향 단지", "bg-amber-50 ring-amber-100",     "bg-amber-100 text-amber-700"],
+    redevelopment:   ["재건축 기대 단지",             "bg-orange-50 ring-orange-200",   "bg-orange-100 text-orange-700"],
+    primePremium:    ["프라임 입지 단지",             "bg-orange-50 ring-orange-200",   "bg-red-100 text-red-700"],
+    investmentPremium:["투자수요 중심 단지",          "bg-orange-50 ring-orange-200",   "bg-red-100 text-red-700"],
+    policyDriven:    ["정책 변수 영향 단지",          "bg-orange-50 ring-orange-200",   "bg-orange-100 text-orange-700"],
+    lowData:         ["거래 데이터 부족",             "bg-slate-50 ring-slate-200",     "bg-slate-200 text-slate-600"],
+    abnormalInput:   ["입력값 확인 필요",             "bg-slate-50 ring-slate-200",     "bg-slate-200 text-slate-600"],
+  };
+  const DESC = {
+    normal:           "일반적인 전세·매매 기반으로 분석했습니다.",
+    semiPremium:      "재건축 기대나 학군·희소성 요인이 일부 반영된 단지입니다. 실사용 가치와 시장 가격을 함께 보세요.",
+    redevelopment:    "재건축 기대가 반영된 단지입니다. 사업 진행 여부와 분담금 리스크를 함께 고려하세요.",
+    primePremium:     "입지·희소성 프리미엄이 있는 단지입니다. 전세 기반 적정가만으로 판단하기 어렵습니다.",
+    investmentPremium:"전세가율이 낮아 투자 수요 비중이 높은 단지입니다. 실거주 목적이라면 신중하게 검토하세요.",
+    policyDriven:     "정책 변수(재개발·용도변경 등)가 가격에 영향을 주는 단지입니다.",
+    lowData:          "거래 데이터가 부족해 분석 신뢰도가 낮습니다. KB시세를 입력하면 정확도가 높아집니다.",
+    abnormalInput:    "입력값이 시세와 크게 차이납니다. 현재가를 다시 확인해 주세요.",
+  };
+  const [label, wrapCls, tagCls] = MAP[mc.specialMarketType] || MAP.normal;
+  const desc = DESC[mc.specialMarketType] || DESC.normal;
   return (
-    <div className={`rounded-2xl p-4 ring-1 ${strong ? "bg-orange-50 ring-orange-200" : mc.specialMarketType === "semiPremium" ? "bg-amber-50 ring-amber-100" : "bg-white ring-slate-100"}`}>
+    <div className={`rounded-2xl p-4 ring-1 ${wrapCls}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className={`rounded-lg px-2.5 py-1 text-sm font-bold ${cls}`}>{label}</span>
-        {mc.specialMarketType !== "lowData" && mc.specialMarketType !== "abnormalInput" && <span className="text-xs text-slate-500">프리미엄 {mc.premiumScore}점 · {mc.premiumLevel}</span>}
+        <span className={`rounded-lg px-2.5 py-1 text-sm font-bold ${tagCls}`}>{label}</span>
       </div>
-      <ul className="mt-2 space-y-1 text-xs leading-relaxed text-slate-600">{mc.classificationReasons.map((t, i) => <li key={i}>· {t}</li>)}</ul>
+      <p className="mt-2 text-xs leading-relaxed text-slate-500">{desc}</p>
       {mc.warnings.length > 0 && <p className="mt-2 rounded-lg bg-orange-100/60 px-2.5 py-1.5 text-xs font-medium leading-relaxed text-orange-800">⚠ {mc.warnings[0]}</p>}
     </div>
   );
@@ -4824,21 +4842,23 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
       {/* ── 백테스트 v3: 핵심 지표 4개 카드 ── */}
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">전세 시세</p>
+          <p className="text-[11px] text-slate-400">분석 기준 전세 시세</p>
           <p className="mt-1 text-base font-bold text-slate-800">
             {r.jeonseUsed > 0 && r.basis?.jeonse?.value ? won(r.basis.jeonse.value) : "—"}
           </p>
-          <p className="text-[10px] text-slate-400">{r.jeonseUsed}건 사용</p>
+          <p className="text-[10px] text-slate-400">{r.jeonseUsed}건 기준</p>
+          <p className="mt-1 text-[10px] leading-tight text-slate-400">최근 전세 거래의 평균 시세입니다.</p>
         </div>
         <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">매매 시세</p>
+          <p className="text-[11px] text-slate-400">분석 기준 매매 시세</p>
           <p className="mt-1 text-base font-bold text-slate-800">
             {r.saleFair ? won(r.saleFair) : "—"}
           </p>
-          <p className="text-[10px] text-slate-400">{r.saleUsed}건 사용</p>
+          <p className="text-[10px] text-slate-400">{r.saleUsed}건 기준</p>
+          <p className="mt-1 text-[10px] leading-tight text-slate-400">최근 매매 거래의 평균 시세입니다.</p>
         </div>
         <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">전세가율</p>
+          <p className="text-[11px] text-slate-400">적용 전세가율</p>
           <p className={`mt-1 text-base font-bold ${
             r.actualRatio == null ? "text-slate-400" :
             r.ratioWarn ? "text-orange-500" :
@@ -4850,9 +4870,11 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
               : "계산불가"}
           </p>
           <p className="text-[10px] text-slate-400">
-            {r.dynamicRatio ? "동적 적용" :
-             r.usedRatio ? `fallback ${(r.usedRatio*100).toFixed(0)}%` : "—"}
+            {r.actualRatio != null
+              ? (r.actualRatio >= 0.55 ? "실수요 견고" : r.actualRatio >= 0.45 ? "보통 수준" : "낮음 — 투자수요")
+              : "—"}
           </p>
+          <p className="mt-1 text-[10px] leading-tight text-slate-400">매매가 대비 전세가 비율입니다.</p>
         </div>
         <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
           <p className="text-[11px] text-slate-400">적정가 산출 방식</p>
@@ -4862,9 +4884,11 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
              r.engineMode === "blend"  ? "전세·매매 혼합" :
              r.engineMode === "sale"   ? "매매 시세 중심" : "보류"}
           </p>
-          <p className="text-[10px] text-slate-400">
-            {r.isPremium ? "단지 특성 반영" :
-             r.usedRatio ? `전세가율 ${(r.usedRatio*100).toFixed(1)}%` : "—"}
+          <p className="mt-1 text-[10px] leading-tight text-slate-400">
+            {r.isPremium ? "단지 특성 추가 반영" :
+             r.engineMode === "jeonse" ? "전세 거래 중심으로 계산했습니다." :
+             r.engineMode === "blend"  ? "전세·매매 혼합으로 계산했습니다." :
+             r.engineMode === "sale"   ? "매매 거래 중심으로 계산했습니다." : "—"}
           </p>
         </div>
       </div>
