@@ -1185,6 +1185,15 @@ function computeDataTrust(r, deals = [], saleDeals = []) {
 }
 
 // ── 등급 기준 팝업 컴포넌트 ──
+// ── AI 참고 안내 공통 컴포넌트 ──
+function AiNotice() {
+  return (
+    <p className="mb-3 rounded-xl bg-slate-50 px-4 py-2.5 text-[11px] leading-relaxed text-slate-400 ring-1 ring-slate-100">
+      ℹ️ 이 결과는 최근 실거래 데이터를 기반으로 AI가 분석한 참고 의견입니다.
+    </p>
+  );
+}
+
 function GradeInfoPopup() {
   const [open, setOpen] = React.useState(false);
   const GRADES = [
@@ -4832,6 +4841,9 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
         </div>
       </div>
 
+      {/* ── AI 참고 안내 ── */}
+      <AiNotice />
+
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
@@ -5390,6 +5402,9 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
           </div>
         </div>
       )}
+
+      {/* ── AI 참고 안내 ── */}
+      <AiNotice />
 
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
@@ -6562,12 +6577,12 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
       {!sd.provisional && (() => {
         const checks = [];
         const gapPct = Math.abs(sd.gapVsRef * 100).toFixed(1);
-        if (sd.gapVsRef > 0.05)       checks.push({ ok: null,  text: `호가가 적정가 대비 ${gapPct}% 높음 — 거래 가능성 확인 필요` });
-        else if (sd.gapVsRef < -0.05) checks.push({ ok: true,  text: `호가가 적정가 대비 ${gapPct}% 낮음 — 거래 유리` });
-        else                           checks.push({ ok: true,  text: `호가가 적정가 수준 — 적정 호가` });
+        if (sd.gapVsRef > 0.05)       checks.push({ ok: null,  text: `호가가 AI 적정가 대비 ${gapPct}% 높음 — 거래 가능성 확인 필요` });
+        else if (sd.gapVsRef < -0.05) checks.push({ ok: true,  text: `호가가 AI 적정가 대비 ${gapPct}% 낮음 — 거래 유리` });
+        else                           checks.push({ ok: true,  text: `호가가 AI 적정가 수준 — 적정 호가` });
         checks.push(
           sd.holdingVsSellingResult === "매도 쪽 우세"
-            ? { ok: null,  text: `매도 우세 — ${sd.holdingVsSellingNote || "현재 여건상 매도 검토 가능"}` }
+            ? { ok: null,  text: `매도 요인이 다소 우세 — ${sd.holdingVsSellingNote || "현재 여건상 매도 검토 가능"}` }
             : sd.holdingVsSellingResult === "보유 쪽 우세"
               ? { ok: true,  text: `보유 우세 — ${sd.holdingVsSellingNote || "보유 관점이 우세한 것으로 분석됩니다"}` }
               : { ok: null,  text: "보유·매도 중립 — 목적에 따라 판단" }
@@ -6577,7 +6592,7 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
         const riskOk = !["높음","매우높음"].includes(sd.marketRiskLevel);
         checks.push({ ok: riskOk ? true : false, text: `시장 환경 ${sd.marketRiskLevel}` });
         if (!sd.provisional && sd.tax)
-          checks.push({ ok: true, text: `세후 실수령 약 ${won(sd.netProceeds)}` });
+          checks.push({ ok: true, text: `예상 세후 실수령액 약 ${won(sd.netProceeds)}` });
         return (
           <div className="mb-4 rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-slate-100">
             <p className="mb-3 text-sm font-bold text-slate-700">왜 이런 결과가 나왔나요?</p>
@@ -6599,6 +6614,9 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
           </div>
         );
       })()}
+
+      {/* ── AI 참고 안내 ── */}
+      <AiNotice />
 
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
