@@ -4484,9 +4484,19 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
               <p className="text-sm font-bold text-slate-700">현재 매물가 입력</p>
               {!listingPriceInput && <p className="text-xs text-slate-400">호가 또는 실거래가 (만원)</p>}
             </div>
-            <input type="text" inputMode="numeric" pattern="[0-9]*" value={listingPriceInput} placeholder="예: 50000  (= 5억원)"
-              onChange={(e) => setListingPriceInput(e.target.value.replace(/[^0-9]/g, ""))}
-              className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
+            <div className="relative">
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={listingPriceInput} placeholder="예: 50000"
+                onChange={(e) => setListingPriceInput(e.target.value.replace(/[^0-9]/g, ""))}
+                className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3 text-base font-semibold outline-none focus:border-slate-500" />
+              {listingPriceInput && (() => {
+                const v = Number(listingPriceInput);
+                if (!v) return null;
+                const eok = Math.floor(v / 10000);
+                const man = v % 10000;
+                const txt = eok > 0 ? (man > 0 ? `${eok}억 ${man.toLocaleString()}만원` : `${eok}억원`) : `${man.toLocaleString()}만원`;
+                return <p className="mt-1.5 text-center text-sm font-bold text-emerald-600">= {txt}</p>;
+              })()}
+            </div>
           </div>
         )}
 
@@ -5182,8 +5192,9 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
           <div className="mt-2 flex items-center justify-between">
             <div>
               <p className="text-[11px] text-slate-400">적정가 판단</p>
-              <p className="text-xl font-extrabold">{provisional ? "판단 보류" : r.gradeLabel}</p>
-              {!provisional && <p className="text-[11px] text-slate-400">ValueLens {r.buyGrade}등급</p>}
+              <p className="text-xl font-extrabold">{provisional ? "⚠️ 데이터 부족 — 분석 어려움" : r.gradeLabel}</p>
+              {provisional && <p className="mt-1 text-xs text-slate-300">{r.holdReason}</p>}
+              {!provisional && <p className="text-[11px] text-slate-400">ValueLens {r.buyGrade}등급 · {{ A:"적정가 대비 크게 낮음", B:"적정가 대비 낮음", C:"적정가 수준", D:"적정가 대비 높은 편", E:"적정가 대비 크게 높음" }[r.buyGrade] || ""}</p>}
             </div>
             {!provisional && (
               <div className="flex flex-col items-end gap-1">
@@ -5212,6 +5223,17 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
             </p>
           </div>
         </div>
+        {/* 한줄 결론 배너 */}
+        {!provisional && (
+          <div className={`border-t border-slate-100 px-5 py-2.5 text-sm font-semibold ${r.gapRatio < -0.05 ? "bg-emerald-50 text-emerald-800" : r.gapRatio > 0.05 ? "bg-red-50 text-red-800" : "bg-slate-50 text-slate-700"}`}>
+            {r.headline}
+          </div>
+        )}
+        {provisional && (
+          <div className="border-t border-amber-100 bg-amber-50 px-5 py-2.5 text-sm font-semibold text-amber-800">
+            데이터 부족으로 신뢰도 있는 분석이 어렵습니다
+          </div>
+        )}
       </div>
 
       {/* ── AI 참고 안내 ── */}
@@ -5224,6 +5246,18 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       <InputWarnings r={r} f={f} />
       <div className="mb-4"><MarketTypeBadge mc={mc} /></div>
 
+      {/* ── 상세 분석 접기/펼치기 ── */}
+      {(() => {
+        const [detailOpen, setDetailOpen] = React.useState(false);
+        return (
+          <>
+            <button onClick={() => setDetailOpen(v => !v)}
+              className="mb-3 flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100">
+              <span className="text-xs font-semibold text-slate-600">📊 상세 분석 보기 (전세가율 · 산출방식 · 적정가 범위)</span>
+              <span className="text-xs text-slate-400">{detailOpen ? "접기 ▲" : "펼치기 ▼"}</span>
+            </button>
+            {detailOpen && (
+              <>
       {/* ── 백테스트 v3: 핵심 지표 4개 카드 ── */}
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
@@ -5290,11 +5324,17 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
         <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
           <div className="px-6 py-6 text-white" style={{ backgroundColor: NAVY }}>
             <p className="text-sm text-slate-300">{f.complexName} · {f.dong} {Number(f.areaExclusive) > 0 ? (() => { const opt=(areaOptions||[]).find(o=>String(o.areaSqm)===String(f.areaExclusive)); const {mainLabel}=areaButtonLabel(f.areaExclusive, opt?.supplySqm); return `${mainLabel} (전용 ${f.areaExclusive}㎡)`; })() : (f.pyeong ? `${f.pyeong}평형` : "")}</p>
-            <h1 className="mt-2 text-xl font-bold">{isAbnormal ? "입력값 확인 필요 — 판단 보류" : "데이터 부족 — 참고가"}</h1>
-            <p className="mt-2 text-sm text-slate-200">{isAbnormal ? "현재가가 정제 시세와 크게 차이납니다. 값 확인 후 다시 분석하세요." : "표본이 부족해 적정가를 확정하지 않습니다. 아래 값은 참고용입니다."}</p>
+            <h1 className="mt-2 text-xl font-bold">{isAbnormal ? "입력값 확인 필요" : "데이터 부족으로 신뢰도 있는 분석이 어렵습니다"}</h1>
+            <p className="mt-1.5 text-sm text-amber-300">{isAbnormal ? "현재가가 정제 시세와 크게 차이납니다. 값 확인 후 다시 분석하세요." : r.holdReason}</p>
+            {!isAbnormal && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-lg bg-white/15 px-2.5 py-1.5 text-xs text-slate-200">💡 다른 면적 선택</span>
+                <span className="rounded-lg bg-white/15 px-2.5 py-1.5 text-xs text-slate-200">💡 KB시세 직접 입력</span>
+              </div>
+            )}
           </div>
           <div className="px-6 py-5 text-center">
-            <p className="text-xs text-slate-400">참고가 (확정 아님)</p>
+            <p className="text-xs text-slate-400">참고가 (신뢰도 낮음 · 확정 아님)</p>
             <p className="mt-1 text-3xl font-extrabold text-slate-700">{won(r.fairPrice)}</p>
           </div>
         </section>
@@ -5406,6 +5446,11 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       </div>
 
       <p className="mt-5 px-2 text-[11px] leading-relaxed text-slate-400">시장 위험도는 계산 오류를 의미하지 않습니다. 재건축, 정책, 공급, 프리미엄 등에 따른 가격 변동성 위험을 의미합니다. 본 적정가는 공개 데이터와 입력값 기반 참고용 계산이며, 집 자체의 가치 평가에 한정됩니다. 매수 판단·자금·대출·세금은 매수 탭에서 확인하세요.</p>
+              </>
+            )}
+          </>
+        );
+      })()}
 
       {/* ── PDF 리포트 저장 ── */}
       <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
@@ -5683,7 +5728,14 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
             {!hold0 && <GradeInfoPopup />}
           </div>
           {hold0 ? (
-            <p className="mt-3 text-xl font-extrabold">판단 보류</p>
+            <div className="mt-3">
+              <p className="text-lg font-extrabold text-amber-300">⚠️ 데이터 부족 — 분석 어려움</p>
+              <p className="mt-1 text-xs text-slate-300">{r.holdReason}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="rounded-lg bg-white/15 px-2.5 py-1 text-[11px] text-slate-200">💡 다른 면적 선택</span>
+                <span className="rounded-lg bg-white/15 px-2.5 py-1 text-[11px] text-slate-200">💡 KB시세 직접 입력</span>
+              </div>
+            </div>
           ) : (
             <>
               {/* 가격 판단 최우선 표시 */}
@@ -5750,8 +5802,12 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
       )}
       {hold0 && (
         <div className="mb-4 rounded-2xl bg-slate-50 px-5 py-4 ring-1 ring-slate-200">
-          <p className="text-sm font-bold text-slate-700">현재 데이터로는 정확한 판단이 어렵습니다.</p>
-          <p className="mt-1 text-xs text-slate-500">실거래 데이터를 보강 후 다시 분석하세요.</p>
+          <p className="text-sm font-bold text-slate-700">⚠️ 데이터 부족으로 신뢰도 있는 분석이 어렵습니다</p>
+          <p className="mt-1 text-xs text-slate-500">{r.holdReason}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <span className="rounded-lg bg-slate-200 px-2.5 py-1 text-[11px] text-slate-600">💡 다른 면적 선택</span>
+            <span className="rounded-lg bg-slate-200 px-2.5 py-1 text-[11px] text-slate-600">💡 KB시세 직접 입력</span>
+          </div>
         </div>
       )}
 
