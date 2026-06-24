@@ -1252,6 +1252,74 @@ function computeDataTrust(r, deals = [], saleDeals = []) {
 }
 
 // ── 등급 기준 팝업 컴포넌트 ──
+// ── 저장 버튼 컴포넌트 (적정가 / 매수 / 매도) ──
+function SaveBtn({ label, desc, onBack, backLabel = "← 다시 분석", extra }) {
+  const [savedId, setSavedId] = useState(null);
+  return (
+    <div className="mb-4 flex items-center justify-between">
+      <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">{backLabel}</button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => { saveAnalysis(desc); setSavedId(true); }}
+          disabled={!!savedId}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+          {savedId ? "✓ 저장됨" : "저장"}
+        </button>
+        {extra}
+      </div>
+    </div>
+  );
+}
+
+function FairSaveBtn({ r, f, onBack }) {
+  return <SaveBtn onBack={onBack} desc={{
+    id: `fair_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
+    type: "fairValue", complexName: f.complexName,
+    area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+    region: f.region, savedAt: new Date().toISOString(),
+    currentPrice: Number(f.currentPrice) || 0, aiFairPrice: r.fairPrice || 0,
+    gradeLabel: r.gradeLabel || "",
+    summary: `${r.gradeLabel || ""} · AI 적정가 ${won(r.fairPrice)}`,
+    resultSnapshot: { fairPrice: r.fairPrice, safetyPrice: r.safetyPrice, buyGrade: r.buyGrade,
+      gradeLabel: r.gradeLabel, gapRatio: r.gapRatio, currentPrice: Number(f.currentPrice) || 0 },
+  }} />;
+}
+
+function BuySaveBtn({ r, f, bd, onBack, onSave, saved }) {
+  return <SaveBtn onBack={onBack} desc={{
+    id: `buy_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
+    type: "buy", complexName: f.complexName,
+    area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+    region: f.region, savedAt: new Date().toISOString(),
+    currentPrice: Number(f.currentPrice) || 0, aiFairPrice: r.fairPrice || 0,
+    gradeLabel: r.gradeLabel || "",
+    summary: `${r.gradeLabel || ""} · AI 적정가 ${won(r.fairPrice)} · ${bd.finalLabel}`,
+    resultSnapshot: { fairPrice: r.fairPrice, safetyPrice: r.safetyPrice, buyGrade: r.buyGrade,
+      gradeLabel: r.gradeLabel, gapRatio: r.gapRatio, finalLabel: bd.finalLabel,
+      currentPrice: Number(f.currentPrice) || 0 },
+  }} extra={
+    <button onClick={onSave} disabled={saved}
+      className={`rounded-lg px-3 py-1.5 text-sm font-medium ${saved ? "bg-slate-100 text-slate-400" : "text-white"}`}
+      style={saved ? {} : { backgroundColor: NAVY }}>
+      {saved ? "★ 관심단지" : "☆ 관심단지"}
+    </button>
+  } />;
+}
+
+function SellSaveBtn({ r, f, sd, onBack }) {
+  return <SaveBtn onBack={onBack} backLabel="← 다시 평가" desc={{
+    id: `sell_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
+    type: "sell", complexName: f.complexName,
+    area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+    region: f.region, savedAt: new Date().toISOString(),
+    currentPrice: Number(f.currentPrice) || 0, aiFairPrice: r.fairPrice || 0,
+    gradeLabel: sd.finalSellDecision || "",
+    summary: `${sd.finalSellDecision} · AI 적정가 ${won(r.fairPrice)} · 희망가 ${won(sd.desired)}`,
+    resultSnapshot: { fairPrice: r.fairPrice, finalSellDecision: sd.finalSellDecision,
+      gapVsRef: sd.gapVsRef, askingLevel: sd.askingLevel, currentPrice: Number(f.currentPrice) || 0 },
+  }} />;
+}
+
 // ── AI 참고 안내 공통 컴포넌트 ──
 function AiNotice() {
   return (
@@ -5006,35 +5074,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
-      {(() => {
-        const [savedId, setSavedId] = React.useState(null);
-        const handleSave = () => {
-          const id = `fair_${f.complexName}_${f.areaExclusive}_${Date.now()}`;
-          saveAnalysis({
-            id, type: "fairValue",
-            complexName: f.complexName, area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
-            region: f.region, savedAt: new Date().toISOString(),
-            currentPrice: Number(f.currentPrice) || 0,
-            aiFairPrice: r.fairPrice || 0,
-            gradeLabel: r.gradeLabel || "",
-            summary: `${r.gradeLabel || ""} · AI 적정가 ${won(r.fairPrice)}`,
-            resultSnapshot: { fairPrice: r.fairPrice, safetyPrice: r.safetyPrice, buyGrade: r.buyGrade,
-              gradeLabel: r.gradeLabel, gapRatio: r.gapRatio, engineMode: r.engineMode,
-              jeonseUsed: r.jeonseUsed, saleUsed: r.saleUsed, dataConfLabel: r.dataConfLabel,
-              currentPrice: Number(f.currentPrice) || 0 },
-          });
-          setSavedId(id);
-        };
-        return (
-          <div className="mb-4 flex items-center justify-between">
-            <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 분석</button>
-            <button onClick={handleSave} disabled={!!savedId}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-              {savedId ? "✓ 저장됨" : "저장"}
-            </button>
-          </div>
-        );
-      })()}
+      <FairSaveBtn r={r} f={f} onBack={onBack} />
       <InputWarnings r={r} f={f} />
       <div className="mb-4"><MarketTypeBadge mc={mc} /></div>
 
@@ -5596,42 +5636,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
-      {(() => {
-        const [savedId, setSavedId] = React.useState(null);
-        const handleSave = () => {
-          const id = `buy_${f.complexName}_${f.areaExclusive}_${Date.now()}`;
-          saveAnalysis({
-            id, type: "buy",
-            complexName: f.complexName, area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
-            region: f.region, savedAt: new Date().toISOString(),
-            currentPrice: Number(f.currentPrice) || 0,
-            aiFairPrice: r.fairPrice || 0,
-            gradeLabel: r.gradeLabel || "",
-            summary: `${r.gradeLabel || ""} · AI 적정가 ${won(r.fairPrice)} · ${bd.finalLabel}`,
-            resultSnapshot: { fairPrice: r.fairPrice, safetyPrice: r.safetyPrice, buyGrade: r.buyGrade,
-              gradeLabel: r.gradeLabel, gapRatio: r.gapRatio, finalLabel: bd.finalLabel,
-              engineMode: r.engineMode, jeonseUsed: r.jeonseUsed, saleUsed: r.saleUsed,
-              dataConfLabel: r.dataConfLabel, currentPrice: Number(f.currentPrice) || 0 },
-          });
-          setSavedId(id);
-        };
-        return (
-          <div className="mb-4 flex items-center justify-between">
-            <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 분석</button>
-            <div className="flex items-center gap-2">
-              <button onClick={handleSave} disabled={!!savedId}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-                {savedId ? "✓ 저장됨" : "저장"}
-              </button>
-              <button onClick={onSave} disabled={saved}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${saved ? "bg-slate-100 text-slate-400" : "text-white"}`}
-                style={saved ? {} : { backgroundColor: NAVY }}>
-                {saved ? "★ 관심단지 추가됨" : "☆ 관심단지 추가"}
-              </button>
-            </div>
-          </div>
-        );
-      })()}
+      <BuySaveBtn r={r} f={f} bd={bd} onBack={onBack} onSave={onSave} saved={saved} />
 
       <InputWarnings r={r} f={f} />
 
@@ -6840,34 +6845,7 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
-      {(() => {
-        const [savedId, setSavedId] = React.useState(null);
-        const handleSave = () => {
-          const id = `sell_${f.complexName}_${f.areaExclusive}_${Date.now()}`;
-          saveAnalysis({
-            id, type: "sell",
-            complexName: f.complexName, area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
-            region: f.region, savedAt: new Date().toISOString(),
-            currentPrice: Number(f.currentPrice) || 0,
-            aiFairPrice: r.fairPrice || 0,
-            gradeLabel: sd.finalSellDecision || "",
-            summary: `${sd.finalSellDecision} · AI 적정가 ${won(r.fairPrice)} · 희망가 ${won(sd.desired)}`,
-            resultSnapshot: { fairPrice: r.fairPrice, finalSellDecision: sd.finalSellDecision,
-              sellScore: sd.sellScore, gapVsRef: sd.gapVsRef, askingLevel: sd.askingLevel,
-              netProceeds: sd.netProceeds || 0, currentPrice: Number(f.currentPrice) || 0 },
-          });
-          setSavedId(id);
-        };
-        return (
-          <div className="mb-4 flex items-center justify-between">
-            <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 평가</button>
-            <button onClick={handleSave} disabled={!!savedId}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-              {savedId ? "✓ 저장됨" : "저장"}
-            </button>
-          </div>
-        );
-      })()}
+      <SellSaveBtn r={r} f={f} sd={sd} onBack={onBack} />
       <InputWarnings r={r} f={f} />
       <div className="mb-4"><MarketTypeBadge mc={mc} /></div>
 
