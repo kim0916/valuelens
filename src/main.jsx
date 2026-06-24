@@ -1924,7 +1924,7 @@ function analyzeBuyerDecision(r, f) {
     finalLabel = buyerScore >= 68 ? "가격 검토 가능" : buyerScore >= 52 ? "신중 접근" : "가격 부담 큼";
     action = finalLabel === "가격 부담 큼" ? "실사용가치 대비 프리미엄·리스크가 큽니다. 신중한 접근이 필요합니다" : "실사용가치와 시장가치를 분리해 가격 적정성을 판단하세요";
   }
-  else if (shortfallCash > 0) { finalLabel = "자금 보강 필요"; action = `입력한 자금 기준으로 약 ${won(shortfallCash)}의 추가 자금이 필요합니다 (취득세·부대비용 포함)`; }
+  else if (shortfallCash > 0 && (income > 0 || cash > 0)) { finalLabel = "자금 보강 필요"; action = `입력한 자금 기준으로 약 ${won(shortfallCash)}의 추가 자금이 필요합니다 (취득세·부대비용 포함)`; }
   else if (mr != null && mr > 45) { finalLabel = "자금 부담 큼"; action = `월상환 부담 ${mr}% (45% 초과) — 자금 여건 보강이 필요합니다`; }
   else if (mr != null && mr >= 30) { finalLabel = "가격 협상 후 검토"; action = `월상환 부담 ${mr}% — 가격 협상으로 부담을 낮춘 뒤 검토하세요`; }
   else if (buyerScore >= 75) { finalLabel = "가격 조건 양호"; action = "적정가·자금·보유 여건 양호 — 가격 적정성 기준 매수를 검토해볼 수 있습니다"; }
@@ -1953,7 +1953,8 @@ function analyzeBuyerDecision(r, f) {
   const reasons = [];
   if (isSpecial && premiumRatio > 0) reasons.push(`[가격] 실사용 ${won(intrinsicFairPrice)} vs 시장 ${won(marketReferencePrice)} — 프리미엄 ${(premiumRatio * 100).toFixed(0)}% 반영`);
   else reasons.push(gap < 0 ? `[가격] 적정가 대비 ${(Math.abs(gap) * 100).toFixed(1)}% 저평가 (현재 ${won(cur)} / 적정 ${won(finalFairPrice)})` : `[가격] 적정가 대비 ${(gap * 100).toFixed(1)}% ${gap > 0 ? "고평가" : "수준"} (현재 ${won(cur)} / 적정 ${won(finalFairPrice)})`);
-  if (income || cash) reasons.push(shortfallCash > 0 ? `[자금] 추가 자금 약 ${won(shortfallCash)} 필요 (총 매입비용 ${won(totalBuyCost)}, 취득세·부대비용 포함)` : `[자금] 월상환 ${won(monthlyPayment)} · 소득대비 ${mr != null ? mr : "—"}% (${fundRisk})`);
+  if ((income || cash) && shortfallCash > 0) reasons.push(`[자금] 추가 자금 약 ${won(shortfallCash)} 필요 (총 매입비용 ${won(totalBuyCost)}, 취득세·부대비용 포함)`);
+  else if (income || cash) reasons.push(`[자금] 월상환 ${won(monthlyPayment)} · 소득대비 ${mr != null ? mr : "—"}% (${fundRisk})`);
   else reasons.push("[자금] 자금 정보 미입력 — 가격 위주 판단 (자금 입력 시 정밀화)");
   reasons.push(`[보유·금리] 월 보유비용 ${won(monthlyHoldingCost)}${income ? ` · 금리 +2%p 시 부담 ${rateShockRisk}` : " · 자금 입력 시 금리 시뮬 제공"}`);
   reasons.push(`[시장 위험] 시장 위험도 ${marketRisk.level} · 공급 ${supplyRisk.level}·정책 ${policyRisk.level} (데이터 신뢰도 ${r.dataConfLabel}·분석 적합도 ${fitLabel})${isSpecial && mc.reconstructionStage !== "none" ? ` · 재건축 ${RECON[mc.reconstructionStage].label}` : ""}`);
