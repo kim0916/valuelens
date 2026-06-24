@@ -1271,53 +1271,119 @@ function SaveBtn({ label, desc, onBack, backLabel = "← 다시 분석", extra }
   );
 }
 
-function FairSaveBtn({ r, f, onBack }) {
-  return <SaveBtn onBack={onBack} desc={{
-    id: `fair_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
-    type: "fairValue", complexName: f.complexName,
-    area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
-    region: f.region, savedAt: new Date().toISOString(),
-    currentPrice: Number(f.currentPrice) || 0, aiFairPrice: r.fairPrice || 0,
-    gradeLabel: r.gradeLabel || "",
-    summary: `${r.gradeLabel || ""} · AI 적정가 ${won(r.fairPrice)}`,
-    resultSnapshot: { fairPrice: r.fairPrice, safetyPrice: r.safetyPrice, buyGrade: r.buyGrade,
-      gradeLabel: r.gradeLabel, gapRatio: r.gapRatio, currentPrice: Number(f.currentPrice) || 0 },
-  }} />;
+function FairSaveBtn({ r, f, onBack, showFull }) {
+  const [savedId, setSavedId] = useState(null);
+  const handleSave = () => {
+    saveAnalysis({
+      id: `fair_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
+      type: "fairValue", complexName: f.complexName,
+      area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+      region: f.region, savedAt: new Date().toISOString(),
+      currentPrice: Number(f.currentPrice) || 0, aiFairPrice: r.fairPrice || 0,
+      gradeLabel: r.gradeLabel || "",
+      summary: `${r.gradeLabel || ""} · AI 적정가 ${won(r.fairPrice)}`,
+      resultSnapshot: { fairPrice: r.fairPrice, safetyPrice: r.safetyPrice, buyGrade: r.buyGrade,
+        gradeLabel: r.gradeLabel, gapRatio: r.gapRatio, currentPrice: Number(f.currentPrice) || 0 },
+    });
+    setSavedId(true);
+  };
+  if (showFull) {
+    return (
+      <button onClick={handleSave} disabled={!!savedId}
+        className={`w-full rounded-2xl py-4 text-sm font-bold transition-colors ${savedId ? "bg-emerald-100 text-emerald-700" : "bg-emerald-600 text-white active:bg-emerald-700"}`}>
+        {savedId ? "✓ 이 분석 저장됨" : "💾 이 분석 저장하기"}
+      </button>
+    );
+  }
+  return (
+    <div className="mb-4 flex items-center justify-between">
+      <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 분석</button>
+      <button onClick={handleSave} disabled={!!savedId}
+        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+        {savedId ? "✓ 저장됨" : "저장"}
+      </button>
+    </div>
+  );
 }
 
-function BuySaveBtn({ r, f, bd, onBack, onSave, saved }) {
-  return <SaveBtn onBack={onBack} desc={{
-    id: `buy_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
-    type: "buy", complexName: f.complexName,
-    area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
-    region: f.region, savedAt: new Date().toISOString(),
-    currentPrice: Number(f.currentPrice) || 0, aiFairPrice: r.fairPrice || 0,
-    gradeLabel: r.gradeLabel || "",
-    summary: `${r.gradeLabel || ""} · AI 적정가 ${won(r.fairPrice)} · ${bd.finalLabel}`,
-    resultSnapshot: { fairPrice: r.fairPrice, safetyPrice: r.safetyPrice, buyGrade: r.buyGrade,
-      gradeLabel: r.gradeLabel, gapRatio: r.gapRatio, finalLabel: bd.finalLabel,
-      currentPrice: Number(f.currentPrice) || 0 },
-  }} extra={
-    <button onClick={onSave} disabled={saved}
-      className={`rounded-lg px-3 py-1.5 text-sm font-medium ${saved ? "bg-slate-100 text-slate-400" : "text-white"}`}
-      style={saved ? {} : { backgroundColor: NAVY }}>
-      {saved ? "★ 관심단지" : "☆ 관심단지"}
-    </button>
-  } />;
+function BuySaveBtn({ r, f, bd, onBack, onSave, saved, showFull }) {
+  const [savedId, setSavedId] = useState(null);
+  const handleSave = () => {
+    saveAnalysis({
+      id: `buy_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
+      type: "buy", complexName: f.complexName,
+      area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+      region: f.region, savedAt: new Date().toISOString(),
+      currentPrice: Number(f.currentPrice) || 0, aiFairPrice: r.fairPrice || 0,
+      gradeLabel: r.gradeLabel || "",
+      summary: `${r.gradeLabel || ""} · AI 적정가 ${won(r.fairPrice)} · ${bd.finalLabel}`,
+      resultSnapshot: { fairPrice: r.fairPrice, safetyPrice: r.safetyPrice, buyGrade: r.buyGrade,
+        gradeLabel: r.gradeLabel, gapRatio: r.gapRatio, finalLabel: bd.finalLabel,
+        currentPrice: Number(f.currentPrice) || 0 },
+    });
+    setSavedId(true);
+  };
+
+  if (showFull) {
+    return (
+      <button onClick={handleSave} disabled={!!savedId}
+        className={`mb-3 w-full rounded-2xl py-4 text-sm font-bold transition-colors ${savedId ? "bg-emerald-100 text-emerald-700" : "bg-emerald-600 text-white active:bg-emerald-700"}`}>
+        {savedId ? "✓ 이 분석 저장됨" : "💾 이 분석 저장하기"}
+      </button>
+    );
+  }
+
+  return (
+    <div className="mb-4 flex items-center justify-between">
+      <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 분석</button>
+      <div className="flex items-center gap-2">
+        <button onClick={handleSave} disabled={!!savedId}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+          {savedId ? "✓ 저장됨" : "저장"}
+        </button>
+        <button onClick={onSave} disabled={saved}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium ${saved ? "bg-slate-100 text-slate-400" : "text-white"}`}
+          style={saved ? {} : { backgroundColor: NAVY }}>
+          {saved ? "★ 관심단지" : "☆ 관심단지"}
+        </button>
+      </div>
+    </div>
+  );
 }
 
-function SellSaveBtn({ r, f, sd, onBack }) {
-  return <SaveBtn onBack={onBack} backLabel="← 다시 평가" desc={{
-    id: `sell_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
-    type: "sell", complexName: f.complexName,
-    area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
-    region: f.region, savedAt: new Date().toISOString(),
-    currentPrice: Number(f.currentPrice) || 0, aiFairPrice: r.fairPrice || 0,
-    gradeLabel: sd.finalSellDecision || "",
-    summary: `${sd.finalSellDecision} · AI 적정가 ${won(r.fairPrice)} · 희망가 ${won(sd.desired)}`,
-    resultSnapshot: { fairPrice: r.fairPrice, finalSellDecision: sd.finalSellDecision,
-      gapVsRef: sd.gapVsRef, askingLevel: sd.askingLevel, currentPrice: Number(f.currentPrice) || 0 },
-  }} />;
+function SellSaveBtn({ r, f, sd, onBack, showFull }) {
+  const [savedId, setSavedId] = useState(null);
+  const handleSave = () => {
+    saveAnalysis({
+      id: `sell_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
+      type: "sell", complexName: f.complexName,
+      area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+      region: f.region, savedAt: new Date().toISOString(),
+      currentPrice: Number(f.currentPrice) || 0, aiFairPrice: r.fairPrice || 0,
+      gradeLabel: sd.finalSellDecision || "",
+      summary: `${sd.finalSellDecision} · AI 적정가 ${won(r.fairPrice)} · 희망가 ${won(sd.desired)}`,
+      resultSnapshot: { fairPrice: r.fairPrice, finalSellDecision: sd.finalSellDecision,
+        gapVsRef: sd.gapVsRef, askingLevel: sd.askingLevel, currentPrice: Number(f.currentPrice) || 0 },
+    });
+    setSavedId(true);
+  };
+  if (showFull) {
+    return (
+      <button onClick={handleSave} disabled={!!savedId}
+        className={`w-full rounded-2xl py-4 text-sm font-bold transition-colors ${savedId ? "bg-emerald-100 text-emerald-700" : "bg-emerald-600 text-white active:bg-emerald-700"}`}>
+        {savedId ? "✓ 이 분석 저장됨" : "💾 이 분석 저장하기"}
+      </button>
+    );
+  }
+  return (
+    <div className="mb-4 flex items-center justify-between">
+      <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 평가</button>
+      <button onClick={handleSave} disabled={!!savedId}
+        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+        {savedId ? "✓ 저장됨" : "저장"}
+      </button>
+    </div>
+  );
 }
 
 // ── AI 참고 안내 공통 컴포넌트 ──
@@ -5348,6 +5414,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
 
       {/* ── 하단 네비게이션 CTA ── */}
       <div className="mt-6 space-y-3">
+        <FairSaveBtn r={r} f={f} onBack={onBack} showFull />
         <div className="grid grid-cols-2 gap-3">
           <button onClick={onBack}
             className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 active:bg-slate-50">
@@ -6086,7 +6153,8 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
               ))}
             </div>
           </div>
-        )}
+        )}\n        {/* 저장 버튼 */}
+        <BuySaveBtn r={r} f={f} bd={bd} onBack={onBack} onSave={onSave} saved={saved} showFull />
         {/* 2×2 네비 버튼 */}
         <div className="grid grid-cols-2 gap-3">
           <button onClick={onBack}
@@ -7046,6 +7114,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
             </div>
           </div>
         )}
+        <SellSaveBtn r={r} f={f} sd={sd} onBack={onBack} showFull />
         <div className="grid grid-cols-2 gap-3">
           <button onClick={onBack}
             className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 active:bg-slate-50">
