@@ -4174,6 +4174,15 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
   const age = edit.buildYear ? new Date().getFullYear() - Number(edit.buildYear) : null;
   const isSell = mode === "sell";
 
+  // ── 진입 경로 판별 ──
+  // fromAI: 이미지 캡처 → AI 인식 경로 (_aiFilled=true, blockReason 없음)
+  // fromData: 검색 후 데이터 부족 경로 (blockReason 있거나 데이터 소스가 supabase/molit)
+  const fromAI = !!(edit._aiFilled && !p.blockReason);
+  const fromData = !fromAI;
+
+  // 항목별 인식 상태 판별 (AI 경로에서만 사용)
+  const fieldStatus = (val) => val ? "auto" : "missing"; // auto=자동인식, missing=확인필요
+
   // 수정된 값으로 jeonseCalc·saleCalc 재계산
   const hasDeals = (edit.deals || []).some((d) => d.price && d.ym);
   const jeonseCalc = hasDeals
@@ -4205,22 +4214,74 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
 
   const inp2 = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-600";
 
+  // 항목 상태 뱃지
+  const AutoBadge = () => <span className="ml-1.5 rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">✓ 자동 인식됨</span>;
+  const MissingBadge = () => <span className="ml-1.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">확인 필요</span>;
+  const OkBadge = () => <span className="ml-1.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">확인됨</span>;
+  const NeedBadge = () => <span className="ml-1.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">직접 입력 필요</span>;
+
+  const StatusBadge = ({ val }) => {
+    if (fromAI) return fieldStatus(val) === "auto" ? <AutoBadge /> : <MissingBadge />;
+    return val ? <OkBadge /> : <NeedBadge />;
+  };
+
   return (
     <>
       {/* 헤더 */}
       <div className="mb-5 flex items-center gap-3">
         <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 수정</button>
-        <h1 className="text-lg font-bold text-slate-900">AI 조회값 확인</h1>
+        <h1 className="text-lg font-bold text-slate-900">
+          {fromAI ? "AI 인식 결과 확인" : "AI 조회값 확인"}
+        </h1>
         {onBackToTop && <button onClick={onBackToTop} className="ml-auto text-xs text-slate-400 hover:text-slate-600">🏠 처음으로</button>}
       </div>
 
-      {/* 안내문 */}
-      <div className="mb-4 rounded-2xl bg-blue-50 px-4 py-3 ring-1 ring-blue-100">
-        <p className="text-sm font-semibold text-blue-800">AI가 자동으로 조회한 데이터입니다.</p>
-        <p className="mt-0.5 text-xs text-blue-600">실제 정보와 다를 경우 아래에서 수정 후 분석하세요. 부동산은 고가 의사결정이므로 주요 수치를 꼭 확인하세요.</p>
+      {/* 안내문 — 경로별 분기 */}
+      <div className={`mb-4 rounded-2xl px-4 py-3 ring-1 ${fromAI ? "bg-blue-50 ring-blue-100" : "bg-blue-50 ring-blue-100"}`}>
+        {fromAI ? (
+          <>
+            <p className="text-sm font-semibold text-blue-800">📷 사진에서 인식한 정보를 확인해 주세요.</p>
+            <p className="mt-0.5 text-xs text-blue-600">틀린 항목만 수정하면 됩니다. 부동산은 고가 의사결정이므로 주요 수치를 꼭 확인하세요.</p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-semibold text-blue-800">AI가 자동으로 조회한 데이터입니다.</p>
+            <p className="mt-0.5 text-xs text-blue-600">실제 정보와 다를 경우 아래에서 수정 후 분석하세요. 부동산은 고가 의사결정이므로 주요 수치를 꼭 확인하세요.</p>
+          </>
+        )}
       </div>
 
-      {/* 경고 메시지 */}
+      {/* AI 인식 요약 카드 — fromAI 경로에서만 표시 */}
+      {fromAI && (
+        <div className="mb-4 rounded-2xl bg-slate-50 ring-1 ring-slate-200 overflow-hidden">
+          <div className="bg-slate-800 px-4 py-2.5">
+            <p className="text-xs font-semibold text-slate-300">📋 AI 인식 항목 요약</p>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {[
+              { label: "시/도", val: edit.sido || edit.region?.split(" ")[0] },
+              { label: "구/군", val: edit.region },
+              { label: "동", val: edit.dong },
+              { label: "단지명", val: edit.complexName },
+              { label: "면적", val: Number(edit.areaExclusive) > 0 ? `${edit.areaExclusive}㎡` : null },
+              { label: "현재 매물가", val: edit.currentPrice ? won(Number(edit.currentPrice)) : null },
+              { label: "KB시세 (전세)", val: edit.kbJeonse ? won(Number(edit.kbJeonse)) : null },
+            ].map(({ label, val }) => (
+              <div key={label} className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-xs text-slate-500">{label}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-xs font-semibold ${val ? "text-slate-800" : "text-slate-400"}`}>
+                    {val || "—"}
+                  </span>
+                  <StatusBadge val={val} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 경고 메시지 — 데이터 부족 경로 */}
       {p.blockReason && (() => {
         const isDataShort = p.blockReason.includes("실거래 데이터가 부족") || p.blockReason.includes("불러오지 못했습니다");
         return (
@@ -4312,7 +4373,9 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
             <span className="mb-1.5 block text-xs font-semibold text-slate-600">
               {isSell ? "희망 매도가 (만원)" : "현재 매물가 (만원)"}
               <span className="ml-1 font-normal text-red-500">*필수</span>
+              <StatusBadge val={edit.currentPrice} />
             </span>
+            {fromAI && <p className="mb-1 text-[10px] text-slate-400">틀린 경우 직접 수정해 주세요. 예: 370000 = 37억</p>}
             <input type="number" className={inp2} value={edit.currentPrice} placeholder="예: 58000"
               onChange={(e) => setE("currentPrice", e.target.value)} />
           </label>
@@ -4392,7 +4455,9 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
             <span className="mb-1.5 block text-xs font-semibold text-slate-600">
               기준 전세가 (만원)
               <span className="ml-1 font-normal text-red-500">*필수</span>
+              <StatusBadge val={jeonseCalc?.value || edit.baseJeonse || edit.kbJeonse} />
             </span>
+            {fromAI && <p className="mb-1 text-[10px] text-slate-400">KB시세 캡처 시 자동 입력됩니다. 인식 안 되면 직접 입력해 주세요.</p>}
             <input type="number" className={inp2}
               value={jeonseCalc && jeonseCalc.value ? jeonseCalc.value : (edit.baseJeonse || edit.kbJeonse || "")}
               placeholder="예: 34000"
@@ -4532,7 +4597,9 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
           className="w-full rounded-2xl py-4 text-lg font-extrabold text-white"
           style={{ backgroundColor: NAVY }}
         >
-          {isSell ? "이 가격에 팔아도 될까? — 매도 분석" : mode === "fair" ? "현재 아파트 적정가격은? — AI 적정가 판단" : "이 집 사도 될까? — AI 매수판단"}
+          {fromAI
+            ? (isSell ? "확인 완료 · AI 매도 분석 시작" : mode === "fair" ? "확인 완료 · AI 적정가 분석 시작" : "확인 완료 · AI 매수판단 시작")
+            : (isSell ? "추가 정보 입력 완료 · 분석 시작" : mode === "fair" ? "추가 정보 입력 완료 · 분석 시작" : "추가 정보 입력 완료 · 분석 시작")}
         </button>
         <div className="grid grid-cols-2 gap-3">
           <button onClick={onBack} className="rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600">← 수정</button>
