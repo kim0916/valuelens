@@ -263,37 +263,38 @@ function ComplexAutocomplete({ dong, value, onChange, placeholder, className }) 
 const NAVY = "#0f1f3d";
 
 // ── 최근 분석 localStorage 유틸 ──
-const LS_KEY = "valuelens_recent_analysis";
+// localStorage 키 — userId 기반 분리 (다른 계정 데이터 격리)
+const LS_KEY = (uid) => uid ? `valuelens_recent_analysis_${uid}` : "valuelens_recent_analysis_guest";
 const LS_MAX = 20;
 
-function loadRecentAnalysis() {
+function loadRecentAnalysis(uid) {
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw = localStorage.getItem(LS_KEY(uid));
     return raw ? JSON.parse(raw) : [];
   } catch { return []; }
 }
 
-function saveRecentAnalysis(item) {
+function saveRecentAnalysis(item, uid) {
   try {
-    const prev = loadRecentAnalysis();
+    const prev = loadRecentAnalysis(uid);
     // 같은 단지+면적+타입 중복 제거
     const deduped = prev.filter(p =>
       !(p.complexName === item.complexName && p.area === item.area && p.analysisType === item.analysisType)
     );
     const next = [item, ...deduped].slice(0, LS_MAX);
-    localStorage.setItem(LS_KEY, JSON.stringify(next));
+    localStorage.setItem(LS_KEY(uid), JSON.stringify(next));
   } catch {}
 }
 
 // ── 내 저장함 (valuelens_saved_items) ──
 // 구조: { analyses: [], favorites: [], candidates: [], assets: [] }
 // 이번 1차 구현: analyses만 사용
-const SI_KEY = "valuelens_saved_items";
+const SI_KEY = (uid) => uid ? `valuelens_saved_items_${uid}` : "valuelens_saved_items_guest";
 const SI_MAX = 50; // TODO: 유료 등급별 제한 시 { free:3, basic:20, pro:50 }[userTier] 로 교체
 
-function _loadSavedStore() {
+function _loadSavedStore(uid) {
   try {
-    const raw = localStorage.getItem(SI_KEY);
+    const raw = localStorage.getItem(SI_KEY(uid));
     const parsed = raw ? JSON.parse(raw) : {};
     return {
       analyses:   parsed.analyses   || [],
@@ -304,29 +305,31 @@ function _loadSavedStore() {
   } catch { return { analyses: [], favorites: [], candidates: [], assets: [] }; }
 }
 
-function _writeSavedStore(store) {
-  try { localStorage.setItem(SI_KEY, JSON.stringify(store)); } catch {}
+function _writeSavedStore(store, uid) {
+  try { localStorage.setItem(SI_KEY(uid), JSON.stringify(store)); } catch {}
 }
 
 /** 분석 결과 저장 */
-function saveAnalysis(item) {
-  const store = _loadSavedStore();
+function saveAnalysis(item, uid) {
+  const effectiveUid = uid || item._uid || null;
+  const store = _loadSavedStore(effectiveUid);
   // 같은 id 중복 방지
-  const deduped = store.analyses.filter(a => a.id !== item.id);
-  store.analyses = [item, ...deduped].slice(0, SI_MAX);
-  _writeSavedStore(store);
+  const { _uid: _, ...cleanItem } = item; // _uid 제거 후 저장
+  const deduped = store.analyses.filter(a => a.id !== cleanItem.id);
+  store.analyses = [cleanItem, ...deduped].slice(0, SI_MAX);
+  _writeSavedStore(store, effectiveUid);
 }
 
 /** 저장된 분석 목록 (최신순) */
-function getSavedAnalyses() {
-  return _loadSavedStore().analyses;
+function getSavedAnalyses(uid) {
+  return _loadSavedStore(uid).analyses;
 }
 
 /** 분석 삭제 */
-function deleteSavedAnalysis(id) {
-  const store = _loadSavedStore();
+function deleteSavedAnalysis(id, uid) {
+  const store = _loadSavedStore(uid);
   store.analyses = store.analyses.filter(a => a.id !== id);
-  _writeSavedStore(store);
+  _writeSavedStore(store, uid);
 }
 // ══════════════════════════════════════════════════════════
 // 백테스트 v3 기반 엔진 상수 및 헬퍼 함수
@@ -1260,7 +1263,7 @@ function SaveBtn({ label, desc, onBack, backLabel = "← 다시 분석", extra }
       <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">{backLabel}</button>
       <div className="flex items-center gap-2">
         <button
-          onClick={() => { saveAnalysis(desc); setSavedId(true); }}
+          onClick={() => { saveAnalysis(desc, currentUserId); setSavedId(true); }}
           disabled={!!savedId}
           className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
           {savedId ? "✓ 저장됨" : "저장"}
@@ -1271,10 +1274,11 @@ function SaveBtn({ label, desc, onBack, backLabel = "← 다시 분석", extra }
   );
 }
 
-function FairSaveBtn({ r, f, onBack, showFull }) {
+function FairSaveBtn({ r, f, onBack, showFull, uid }) {
   const [savedId, setSavedId] = useState(null);
   const handleSave = () => {
     saveAnalysis({
+      _uid: uid,
       id: `fair_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
       type: "fairValue", complexName: f.complexName,
       area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
@@ -1306,10 +1310,11 @@ function FairSaveBtn({ r, f, onBack, showFull }) {
   );
 }
 
-function BuySaveBtn({ r, f, bd, onBack, onSave, saved, showFull }) {
+function BuySaveBtn({ r, f, bd, onBack, onSave, saved, showFull, uid }) {
   const [savedId, setSavedId] = useState(null);
   const handleSave = () => {
     saveAnalysis({
+      _uid: uid,
       id: `buy_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
       type: "buy", complexName: f.complexName,
       area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
@@ -1351,10 +1356,11 @@ function BuySaveBtn({ r, f, bd, onBack, onSave, saved, showFull }) {
   );
 }
 
-function SellSaveBtn({ r, f, sd, onBack, showFull }) {
+function SellSaveBtn({ r, f, sd, onBack, showFull, uid }) {
   const [savedId, setSavedId] = useState(null);
   const handleSave = () => {
     saveAnalysis({
+      _uid: uid,
       id: `sell_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
       type: "sell", complexName: f.complexName,
       area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
@@ -2405,13 +2411,13 @@ function AdvancedView({ watch, setWatch, history, finProfile, onReanalyze }) {
   const recent = (history || []).slice(0, 5);
   const fp = finProfile;
   const won2 = (a) => (a ? won(Number(a) * 10000) : "—");
-  const [savedList, setSavedList] = React.useState(() => getSavedAnalyses());
+  const [savedList, setSavedList] = React.useState(() => getSavedAnalyses(currentUserId));
   const typeLabel = { fairValue: "적정가", buy: "매수", sell: "매도" };
   const typeColor = { fairValue: "bg-blue-100 text-blue-700", buy: "bg-emerald-100 text-emerald-700", sell: "bg-amber-100 text-amber-700" };
 
   const handleDelete = (id) => {
-    deleteSavedAnalysis(id);
-    setSavedList(getSavedAnalyses());
+    deleteSavedAnalysis(id, currentUserId);
+    setSavedList(getSavedAnalyses(currentUserId));
   };
 
   return (
@@ -2499,7 +2505,7 @@ function AppInner() {
   const [ptype, setPtype] = useState("apartment");   // 상위 카테고리
   const [aptTab, setAptTab] = useState("fair");       // 아파트 내부 메뉴 (기본: 적정가)
   const [roomTab, setRoomTab] = useState("search");   // 원룸 내부 메뉴
-  const [history, setHistory] = useState(() => loadRecentAnalysis());
+  const [history, setHistory] = useState(() => loadRecentAnalysis(null));
   const [watch, setWatch] = useState([]);
   const [finProfile, setFinProfile] = useState(null);  // 추천후보 탭 「내 조건」 → 내 자산 재무 프로필 공유
   const [buyCtx, setBuyCtx] = useState(null);         // 매수 입력값 → 매수세금 자동 반영용
@@ -2542,7 +2548,7 @@ function AppInner() {
       </nav>
       <main className="mx-auto max-w-2xl px-4 py-8">
         {ptype === "apartment" && (<>
-          <div style={{display: (aptTab === "fair" || aptTab === "buy") ? "block" : "none"}}><BuyView mode={aptTab === "fair" ? "fair" : "buy"} onSaveHistory={(h) => { saveRecentAnalysis(h); setHistory((p) => { const deduped = p.filter(x => !(x.complexName === h.complexName && x.area === h.area && x.analysisType === h.analysisType)); return [h, ...deduped].slice(0, LS_MAX); }); }} onAddWatch={(w) => setWatch((p) => [w, ...p.filter((x) => x.key !== w.key)])} onContext={(c) => setBuyCtx(c)} /></div>
+          <div style={{display: (aptTab === "fair" || aptTab === "buy") ? "block" : "none"}}><BuyView mode={aptTab === "fair" ? "fair" : "buy"} onSaveHistory={(h) => { saveRecentAnalysis(h, currentUserId); setHistory((p) => { const deduped = p.filter(x => !(x.complexName === h.complexName && x.area === h.area && x.analysisType === h.analysisType)); return [h, ...deduped].slice(0, LS_MAX); }); }} onAddWatch={(w) => setWatch((p) => [w, ...p.filter((x) => x.key !== w.key)])} onContext={(c) => setBuyCtx(c)} /></div>
           <div style={{display: aptTab === "sell" ? "block" : "none"}}><SellView onContext={(c) => setSellCtx(c)} /></div>
           {aptTab === "tax" && <TaxView buyCtx={buyCtx} sellCtx={sellCtx} />}
           {aptTab === "logs" && <LogsView />}
@@ -4229,14 +4235,14 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     ? <FairValueResult r={r} f={f} onBack={() => setR(null)}
         onNewSearch={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
         onHome={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
-        areaOptions={areaOptions}
+        areaOptions={areaOptions} currentUserId={currentUserId}
       />
     : <BuyResult r={r} f={f} onBack={() => setR(null)} saved={saved}
         onSave={() => { onAddWatch({ key: `${f.complexName}-${f.dong}`, complex: f.complexName, dong: f.dong, fairPrice: r.fairPrice, currentPrice: Number(f.currentPrice), target: "" }); setSaved(true); }}
         onNewSearch={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
         onChangeArea={() => { setR(null); }}
         onHome={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
-        areaOptions={areaOptions} currentArea={f.areaExclusive}
+        areaOptions={areaOptions} currentArea={f.areaExclusive} currentUserId={currentUserId}
         onSelectArea={async (area) => {
           // 면적 변경 → 데이터 재조회 → 자동 분석까지 실행
           setR(null);
@@ -4282,7 +4288,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     <>
       {/* ── 최근 분석한 단지 ── */}
       {(() => {
-        const recents = loadRecentAnalysis().filter(h => {
+        const recents = loadRecentAnalysis(currentUserId).filter(h => {
           const t = h.analysisType;
           return mode === "fair" ? t === "적정가" : t === "매수";
         }).slice(0, 5);
@@ -5091,7 +5097,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
 }
 
 // 적정가 화면 — 집 자체의 가치평가 전용 (매수판단·자금·대출·월상환 표시 안 함)
-function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }) {
+function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId }) {
   const mc = classifyApartmentMarket(f, r);
   const hold = r.engineMode === "hold";
   const isLowData = mc.specialMarketType === "lowData";
@@ -5163,7 +5169,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
-      <FairSaveBtn r={r} f={f} onBack={onBack} />
+      <FairSaveBtn r={r} f={f} onBack={onBack} uid={currentUserId} />
       <InputWarnings r={r} f={f} />
       <div className="mb-4"><MarketTypeBadge mc={mc} /></div>
 
@@ -5437,7 +5443,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
 
       {/* ── 하단 네비게이션 CTA ── */}
       <div className="mt-6 space-y-3">
-        <FairSaveBtn r={r} f={f} onBack={onBack} showFull />
+        <FairSaveBtn r={r} f={f} onBack={onBack} showFull uid={currentUserId} />
         <div className="grid grid-cols-2 gap-3">
           <button onClick={onBack}
             className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 active:bg-slate-50">
@@ -5457,7 +5463,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
   );
 }
 
-function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onHome, areaOptions, currentArea, onSelectArea }) {
+function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onHome, areaOptions, currentArea, onSelectArea, currentUserId }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const s = GS[r.buyGrade], cheap = r.gapRatio < 0;
   const tone = (sc) => (sc >= 80 ? "text-emerald-600" : sc >= 60 ? "text-amber-600" : "text-orange-600");
@@ -5726,7 +5732,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
-      <BuySaveBtn r={r} f={f} bd={bd} onBack={onBack} onSave={onSave} saved={saved} />
+      <BuySaveBtn r={r} f={f} bd={bd} onBack={onBack} onSave={onSave} saved={saved} uid={currentUserId} />
 
       <InputWarnings r={r} f={f} />
 
@@ -6188,7 +6194,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
             🔄 다른 단지 분석
           </button>
         </div>
-        <BuySaveBtn r={r} f={f} bd={bd} onBack={onBack} onSave={onSave} saved={saved} showFull />
+        <BuySaveBtn r={r} f={f} bd={bd} onBack={onBack} onSave={onSave} saved={saved} showFull uid={currentUserId} />
         <button onClick={onHome}
           className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white active:bg-slate-700">
           🏠 처음으로
@@ -6475,7 +6481,7 @@ function SellView({ onContext }) {
     onNewSearch={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
     onChangeArea={() => { setR(null); }}
     onHome={() => { setR(null); setF({...EMPTY}); setAreaOptions([]); rawMolitRef.current = null; setAiMsg(null); setListingPriceInput(""); }}
-    areaOptions={areaOptions} currentArea={f.areaExclusive}
+    areaOptions={areaOptions} currentArea={f.areaExclusive} currentUserId={currentUserId}
     onSelectArea={async (area) => {
       setR(null);
       setPending(null);
@@ -6799,7 +6805,7 @@ function SellView({ onContext }) {
   );
 }
 
-function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptions, currentArea, onSelectArea }) {
+function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptions, currentArea, onSelectArea, currentUserId }) {
   const sd = analyzeSellerDecision(f, r);
   const mc = sd.mc;
   const TONE =
@@ -6940,7 +6946,7 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
-      <SellSaveBtn r={r} f={f} sd={sd} onBack={onBack} />
+      <SellSaveBtn r={r} f={f} sd={sd} onBack={onBack} uid={currentUserId} />
       <InputWarnings r={r} f={f} />
       <div className="mb-4"><MarketTypeBadge mc={mc} /></div>
 
@@ -7141,7 +7147,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
             </div>
           </div>
         )}
-        <SellSaveBtn r={r} f={f} sd={sd} onBack={onBack} showFull />
+        <SellSaveBtn r={r} f={f} sd={sd} onBack={onBack} showFull uid={currentUserId} />
         <div className="grid grid-cols-2 gap-3">
           <button onClick={onBack}
             className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 active:bg-slate-50">
