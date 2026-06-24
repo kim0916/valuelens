@@ -4221,10 +4221,18 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
       </div>
 
       {/* 경고 메시지 */}
-      {p.blockReason && (
+      {p.blockReason && (() => {
+        const isDataShort = p.blockReason.includes("실거래 데이터가 부족") || p.blockReason.includes("불러오지 못했습니다");
+        return (
         <div className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
-          <p className="text-sm font-semibold text-amber-800">📝 추가 입력이 필요합니다</p>
-          <p className="mt-0.5 text-xs text-amber-700">{p.blockReason}</p>
+          <p className="text-sm font-semibold text-amber-800">
+            {isDataShort ? "⚠️ 최근 실거래 데이터가 부족합니다" : "📝 추가 입력이 필요합니다"}
+          </p>
+          <p className="mt-0.5 text-xs text-amber-700">
+            {isDataShort
+              ? "최근 12개월 동안 해당 면적의 실거래가 확인되지 않았습니다.\nKB시세 또는 직접 확인한 시세를 입력하면 더 정확한 분석이 가능합니다."
+              : p.blockReason}
+          </p>
           {Array.isArray(edit._aiAreaOptions) && edit._aiAreaOptions.length > 0 ? (
             <div className="mt-2">
               <p className="mb-1.5 text-xs font-medium text-amber-700">다른 면적으로 분석하려면 선택하세요:</p>
@@ -4246,7 +4254,8 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
             <p className="mt-1 text-xs text-red-500">아래에서 값을 직접 수정한 뒤 분석을 실행하세요.</p>
           )}
         </div>
-      )}
+        );
+      })()}
       {/* 면적 변경 안내 */}
       {edit._areaChangedMsg && (
         <div className="mb-3 rounded-xl bg-blue-50 px-4 py-3 ring-1 ring-blue-200">
