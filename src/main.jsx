@@ -1184,6 +1184,55 @@ function computeDataTrust(r, deals = [], saleDeals = []) {
   };
 }
 
+// ── 등급 기준 팝업 컴포넌트 ──
+function GradeInfoPopup() {
+  const [open, setOpen] = React.useState(false);
+  const GRADES = [
+    { g: "A", label: "매우 저평가", desc: "AI 적정가 대비 15% 이상 낮음",     color: "bg-emerald-600" },
+    { g: "B", label: "저평가",     desc: "AI 적정가 대비 5~15% 낮음",         color: "bg-emerald-500" },
+    { g: "C", label: "적정 가격",  desc: "AI 적정가 ±5% 이내",               color: "bg-amber-400"   },
+    { g: "D", label: "고평가 주의", desc: "AI 적정가 대비 5~15% 높음",        color: "bg-orange-500"  },
+    { g: "E", label: "고평가",     desc: "AI 적정가 대비 15% 이상 높음",      color: "bg-red-600"     },
+  ];
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-500 hover:bg-slate-200 active:bg-slate-300"
+      >
+        ⓘ 등급 기준
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-6" onClick={() => setOpen(false)}>
+          <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: NAVY }}>
+              <p className="text-sm font-bold text-white">등급 기준 안내</p>
+              <button onClick={() => setOpen(false)} className="text-slate-300 hover:text-white text-lg leading-none">✕</button>
+            </div>
+            <div className="px-5 py-4">
+              <p className="mb-3 text-xs text-slate-500">AI 적정가 대비 현재 시세 위치로 산출됩니다.</p>
+              <div className="space-y-2">
+                {GRADES.map(({ g, label, desc, color }) => (
+                  <div key={g} className="flex items-center gap-3">
+                    <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-extrabold text-white ${color}`}>{g}</span>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{label}</p>
+                      <p className="text-xs text-slate-400">{desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 rounded-xl bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-500">
+                등급은 가격 적정성 참고용이며 실제 매수 결정은<br />자금·시장 상황·현장 확인을 종합적으로 고려하세요.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function DataTrustBadge({ trust }) {
   if (!trust) return null;
   return (
@@ -4730,12 +4779,16 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
           <div className="mt-2 flex items-center justify-between">
             <div>
               <p className="text-[11px] text-slate-400">적정가 판단</p>
-              <p className="text-xl font-extrabold">{provisional ? "판단 보류" : `${r.buyGrade}등급 · ${r.gradeLabel}`}</p>
+              <p className="text-xl font-extrabold">{provisional ? "판단 보류" : r.gradeLabel}</p>
+              {!provisional && <p className="text-[11px] text-slate-400">ValueLens {r.buyGrade}등급</p>}
             </div>
             {!provisional && (
-              <div className="text-right">
-                <p className="text-[11px] text-slate-400">AI 적정가</p>
-                <p className="text-xl font-extrabold text-emerald-400">{won(r.fairPrice)}</p>
+              <div className="flex flex-col items-end gap-1">
+                <GradeInfoPopup />
+                <div className="text-right">
+                  <p className="text-[11px] text-slate-400">AI 적정가</p>
+                  <p className="text-xl font-extrabold text-emerald-400">{won(r.fairPrice)}</p>
+                </div>
               </div>
             )}
           </div>
@@ -5203,10 +5256,13 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
                 r.buyGrade === "E" ? `AI 적정가보다 ${gp}% 높습니다. 가격 부담이 큰 구간입니다.` : "";
               return (
                 <div className="text-right max-w-[160px]">
-                  <p className="text-[11px] text-slate-400">가격 평가</p>
-                  <p className={`text-xl font-extrabold ${r.buyGrade === 'A' || r.buyGrade === 'B' ? 'text-emerald-400' : r.buyGrade === 'D' || r.buyGrade === 'E' ? 'text-red-400' : 'text-amber-300'}`}>
-                    {r.buyGrade}등급 · {r.gradeLabel}
+                  <div className="flex items-center justify-end gap-1.5">
+                    <GradeInfoPopup />
+                  </div>
+                  <p className={`mt-1 text-xl font-extrabold ${r.buyGrade === 'A' || r.buyGrade === 'B' ? 'text-emerald-400' : r.buyGrade === 'D' || r.buyGrade === 'E' ? 'text-red-400' : 'text-amber-300'}`}>
+                    {r.gradeLabel}
                   </p>
+                  <p className="text-[11px] text-slate-400">ValueLens {r.buyGrade}등급</p>
                   {gradeDesc && <p className="mt-0.5 text-[10px] leading-tight text-slate-300">{gradeDesc}</p>}
                 </div>
               );
@@ -5294,9 +5350,12 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
       {/* ── Hero: 가격 평가 등급 + 핵심 4개 ── */}
       <div className="mb-4 overflow-hidden rounded-3xl shadow-lg">
         <div className={`px-6 py-6 text-white ${gradeHero.bg}`}>
-          <p className="text-xs font-medium text-white/70">{f.complexName} · {f.dong} {Number(f.areaExclusive) > 0 ? `전용 ${f.areaExclusive}㎡` : ""}</p>
-          <p className="mt-2 text-4xl font-extrabold">{gradeHero.label}</p>
-          <p className="mt-1 text-sm text-white/80">{gradeHero.sub}</p>
+          <div className="flex items-start justify-between">
+            <p className="text-xs font-medium text-white/70">{f.complexName} · {f.dong} {Number(f.areaExclusive) > 0 ? `전용 ${f.areaExclusive}㎡` : ""}</p>
+            <GradeInfoPopup />
+          </div>
+          <p className="mt-2 text-4xl font-extrabold">{r.gradeLabel}</p>
+          <p className="mt-0.5 text-sm text-white/60">ValueLens {r.buyGrade}등급 · {gradeHero.sub}</p>
         </div>
         <div className="grid grid-cols-2 divide-x divide-y divide-slate-100 bg-white">
           <div className="px-4 py-4 text-center">
@@ -6288,9 +6347,12 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
               <p className="text-[11px] text-white/70">매도 판단</p>
               <p className="text-xl font-extrabold">{sd.finalSellDecision}</p>
             </div>
-            <div className="text-right">
-              <p className="text-[11px] text-white/70">희망 매도가</p>
-              <p className="text-xl font-extrabold">{won(sd.desired)}</p>
+            <div className="flex flex-col items-end gap-1">
+              <GradeInfoPopup />
+              <div className="text-right">
+                <p className="text-[11px] text-white/70">희망 매도가</p>
+                <p className="text-xl font-extrabold">{won(sd.desired)}</p>
+              </div>
             </div>
           </div>
         </div>
