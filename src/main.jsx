@@ -4293,6 +4293,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
                       gapRatio: h.currentPrice && h.fairPrice ? (h.currentPrice - h.fairPrice) / h.fairPrice : 0,
                       engineMode: "jeonse", modeName: "전세 시세 중심",
                       jeonseUsed: 0, saleUsed: 0, dataConf: 50, dataConfLabel: "보통",
+                      shock: { level: "보통", lag: 3 },
                       headline: h.headline || "", _restored: true,
                     };
                     setF(prev => ({
@@ -5447,7 +5448,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
   const s = GS[r.buyGrade], cheap = r.gapRatio < 0;
   const tone = (sc) => (sc >= 80 ? "text-emerald-600" : sc >= 60 ? "text-amber-600" : "text-orange-600");
   const mrTone2 = (lv) => lv === "매우높음" ? "text-red-600" : lv === "높음" ? "text-orange-600" : lv === "보통" ? "text-amber-600" : lv === "평가 불가" ? "text-slate-500" : "text-emerald-600";
-  const shockTone = { 낮음: "text-emerald-600", 보통: "text-amber-600", 높음: "text-orange-600", 매우높음: "text-red-600" }[r.shock.level];
+  const shockTone = { 낮음: "text-emerald-600", 보통: "text-amber-600", 높음: "text-orange-600", 매우높음: "text-red-600" }[r.shock?.level ?? "보통"];
   const hold0 = r.engineMode === "hold";
   const living = calculateLivingScore(f), supply = calculateSupplyRisk(f), pos = calculatePositiveFactors(f), neg = calculateNegativeFactors(f);
   const sp = scorePool({ fair: r.fairPrice, cur: Number(f.currentPrice) || r.fairPrice, jr: r.actualRatio || 0.5, redev: r.saleType === "redev", conf: r.confLabel });
@@ -6029,7 +6030,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
             {/* 시장충격 */}
             <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm">
               <span className="text-slate-500">시장충격 위험도</span>
-              <span className={`font-bold ${shockTone}`}>{r.shock.level} <span className="text-xs font-normal text-slate-400">(지연 약 {r.shock.lag}개월)</span></span>
+              <span className={`font-bold ${shockTone}`}>{r.shock?.level ?? "보통"} <span className="text-xs font-normal text-slate-400">(지연 약 {r.shock?.lag ?? 3}개월)</span></span>
             </div>
 
           </div>
