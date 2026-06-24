@@ -284,6 +284,50 @@ function saveRecentAnalysis(item) {
     localStorage.setItem(LS_KEY, JSON.stringify(next));
   } catch {}
 }
+
+// ── 내 저장함 (valuelens_saved_items) ──
+// 구조: { analyses: [], favorites: [], candidates: [], assets: [] }
+// 이번 1차 구현: analyses만 사용
+const SI_KEY = "valuelens_saved_items";
+const SI_MAX = 50; // TODO: 유료 등급별 제한 시 { free:3, basic:20, pro:50 }[userTier] 로 교체
+
+function _loadSavedStore() {
+  try {
+    const raw = localStorage.getItem(SI_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      analyses:   parsed.analyses   || [],
+      favorites:  parsed.favorites  || [],
+      candidates: parsed.candidates || [],
+      assets:     parsed.assets     || [],
+    };
+  } catch { return { analyses: [], favorites: [], candidates: [], assets: [] }; }
+}
+
+function _writeSavedStore(store) {
+  try { localStorage.setItem(SI_KEY, JSON.stringify(store)); } catch {}
+}
+
+/** 분석 결과 저장 */
+function saveAnalysis(item) {
+  const store = _loadSavedStore();
+  // 같은 id 중복 방지
+  const deduped = store.analyses.filter(a => a.id !== item.id);
+  store.analyses = [item, ...deduped].slice(0, SI_MAX);
+  _writeSavedStore(store);
+}
+
+/** 저장된 분석 목록 (최신순) */
+function getSavedAnalyses() {
+  return _loadSavedStore().analyses;
+}
+
+/** 분석 삭제 */
+function deleteSavedAnalysis(id) {
+  const store = _loadSavedStore();
+  store.analyses = store.analyses.filter(a => a.id !== id);
+  _writeSavedStore(store);
+}
 // ══════════════════════════════════════════════════════════
 // 백테스트 v3 기반 엔진 상수 및 헬퍼 함수
 // ══════════════════════════════════════════════════════════
@@ -2222,31 +2266,58 @@ function runCase(c) {
   return { c, r, bd, predicted, actual, errorRate };
 }
 // 고급 기능 — 관심단지·분석이력·백테스트 (메인에서 분리)
-// 내 자산 — 관심단지 · 최근 분석 단지(다시 분석) · 재무 프로필 · 최근 본 단지
-// 과거 분석 전체 이력·점수 히스토리·백테스트·저장 목록은 상용화 단순화로 제외
-// TODO(API): 웹앱 전환 시 알림 트래킹 추가 — 관심단지 변화 감지 / 적정가 변화 / 매수판단 변화 / 시장위험 변화
+// 내 자산 — 관심단지 · 내 저장함 · 재무 프로필
 function AdvancedView({ watch, setWatch, history, finProfile, onReanalyze }) {
-  const recent = (history || []).slice(0, 5);
   const fp = finProfile;
   const won2 = (a) => (a ? won(Number(a) * 10000) : "—");
+  const [savedList, setSavedList] = React.useState(() => getSavedAnalyses());
+  const typeLabel = { fairValue: "적정가", buy: "매수", sell: "매도" };
+  const typeColor = { fairValue: "bg-blue-100 text-blue-700", buy: "bg-emerald-100 text-emerald-700", sell: "bg-amber-100 text-amber-700" };
+
+  const handleDelete = (id) => {
+    deleteSavedAnalysis(id);
+    setSavedList(getSavedAnalyses());
+  };
+
   return (
     <>
-      <header className="mb-5 text-center"><h1 className="text-2xl font-bold text-slate-900">내 자산</h1><p className="mt-2 text-sm text-slate-500">관심단지·최근 분석·재무 프로필을 한 곳에서 봅니다.</p></header>
+      <header className="mb-5 text-center"><h1 className="text-2xl font-bold text-slate-900">내 자산</h1><p className="mt-2 text-sm text-slate-500">관심단지·내 저장함·재무 프로필을 한 곳에서 봅니다.</p></header>
 
       {/* 1. 관심단지 */}
       <section className="mb-6"><WatchView watch={watch} setWatch={setWatch} /></section>
 
-      {/* 2. 최근 분석 단지 + 다시 분석 */}
+      {/* 2. 내 저장함 */}
       <section className="mb-6">
-        <h2 className="mb-2 text-xl font-bold text-slate-900">최근 분석 단지</h2>
-        {recent.length === 0 ? (
-          <Empty title="최근 분석한 단지가 없습니다" desc="적정가/매수 분석을 한 번 실행하면 여기에 표시됩니다." />
+        <h2 className="mb-2 text-xl font-bold text-slate-900">내 저장함</h2>
+        <p className="mb-3 text-xs text-slate-400">결과 화면에서 [저장] 버튼을 누르면 여기에 저장됩니다. (최대 {SI_MAX}개)</p>
+        {savedList.length === 0 ? (
+          <Empty title="저장된 분석이 없습니다" desc="적정가·매수·매도 결과 화면에서 [저장] 버튼을 누르세요." />
         ) : (
           <div className="space-y-3">
-            {recent.map((h, i) => (
-              <div key={i} className={`${card} flex items-center justify-between`}>
-                <div><p className="font-semibold text-slate-900">{h.complex} <span className="text-xs font-normal text-slate-400">{h.dong} {h.area}</span></p><p className="mt-1 text-xs text-slate-400">{h.date} · 매물가 {won(h.currentPrice)} · 엔진 산출 적정가 {won(h.fairPrice)}</p></div>
-                <div className="flex items-center gap-2">{h.grade && GS[h.grade] && <span className={`grid h-9 w-9 place-items-center rounded-xl text-sm font-bold text-white ${GS[h.grade].solid}`}>{h.grade}</span>}<button onClick={() => onReanalyze && onReanalyze()} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white" style={{ backgroundColor: NAVY }}>다시 분석</button></div>
+            {savedList.map((item) => (
+              <div key={item.id} className={`${card}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${typeColor[item.type] || "bg-slate-100 text-slate-600"}`}>
+                        {typeLabel[item.type] || item.type}
+                      </span>
+                      <p className="font-semibold text-slate-900 truncate">{item.complexName}</p>
+                      <span className="text-xs text-slate-400">{item.area}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">{item.summary}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-400">
+                      저장일 {new Date(item.savedAt).toLocaleDateString("ko-KR")} · AI 적정가 {won(item.aiFairPrice)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="flex-shrink-0 rounded-lg px-2 py-1 text-[11px] text-slate-400 hover:bg-red-50 hover:text-red-400"
+                  >삭제</button>
+                </div>
+                <p className="mt-2 text-[11px] text-slate-400">
+                  ※ 저장된 요약 정보입니다. 재조회 없이 이전 결과를 확인할 수 있습니다.
+                </p>
               </div>
             ))}
           </div>
@@ -4934,7 +5005,35 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
-      <div className="mb-4"><button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 분석</button></div>
+      {(() => {
+        const [savedId, setSavedId] = React.useState(null);
+        const handleSave = () => {
+          const id = `fair_${f.complexName}_${f.areaExclusive}_${Date.now()}`;
+          saveAnalysis({
+            id, type: "fairValue",
+            complexName: f.complexName, area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+            region: f.region, savedAt: new Date().toISOString(),
+            currentPrice: Number(f.currentPrice) || 0,
+            aiFairPrice: r.fairPrice || 0,
+            gradeLabel: r.gradeLabel || "",
+            summary: `${r.gradeLabel || ""} · AI 적정가 ${won(r.fairPrice)}`,
+            resultSnapshot: { fairPrice: r.fairPrice, safetyPrice: r.safetyPrice, buyGrade: r.buyGrade,
+              gradeLabel: r.gradeLabel, gapRatio: r.gapRatio, engineMode: r.engineMode,
+              jeonseUsed: r.jeonseUsed, saleUsed: r.saleUsed, dataConfLabel: r.dataConfLabel,
+              currentPrice: Number(f.currentPrice) || 0 },
+          });
+          setSavedId(id);
+        };
+        return (
+          <div className="mb-4 flex items-center justify-between">
+            <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 분석</button>
+            <button onClick={handleSave} disabled={!!savedId}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+              {savedId ? "✓ 저장됨" : "저장"}
+            </button>
+          </div>
+        );
+      })()}
       <InputWarnings r={r} f={f} />
       <div className="mb-4"><MarketTypeBadge mc={mc} /></div>
 
@@ -5496,10 +5595,42 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
-      <div className="mb-4 flex items-center justify-between">
-        <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 분석</button>
-        <button onClick={onSave} disabled={saved} className={`rounded-lg px-3 py-1.5 text-sm font-medium ${saved ? "bg-slate-100 text-slate-400" : "text-white"}`} style={saved ? {} : { backgroundColor: NAVY }}>{saved ? "★ 관심단지 추가됨" : "☆ 관심단지 추가"}</button>
-      </div>
+      {(() => {
+        const [savedId, setSavedId] = React.useState(null);
+        const handleSave = () => {
+          const id = `buy_${f.complexName}_${f.areaExclusive}_${Date.now()}`;
+          saveAnalysis({
+            id, type: "buy",
+            complexName: f.complexName, area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+            region: f.region, savedAt: new Date().toISOString(),
+            currentPrice: Number(f.currentPrice) || 0,
+            aiFairPrice: r.fairPrice || 0,
+            gradeLabel: r.gradeLabel || "",
+            summary: `${r.gradeLabel || ""} · AI 적정가 ${won(r.fairPrice)} · ${bd.finalLabel}`,
+            resultSnapshot: { fairPrice: r.fairPrice, safetyPrice: r.safetyPrice, buyGrade: r.buyGrade,
+              gradeLabel: r.gradeLabel, gapRatio: r.gapRatio, finalLabel: bd.finalLabel,
+              engineMode: r.engineMode, jeonseUsed: r.jeonseUsed, saleUsed: r.saleUsed,
+              dataConfLabel: r.dataConfLabel, currentPrice: Number(f.currentPrice) || 0 },
+          });
+          setSavedId(id);
+        };
+        return (
+          <div className="mb-4 flex items-center justify-between">
+            <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 분석</button>
+            <div className="flex items-center gap-2">
+              <button onClick={handleSave} disabled={!!savedId}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+                {savedId ? "✓ 저장됨" : "저장"}
+              </button>
+              <button onClick={onSave} disabled={saved}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${saved ? "bg-slate-100 text-slate-400" : "text-white"}`}
+                style={saved ? {} : { backgroundColor: NAVY }}>
+                {saved ? "★ 관심단지 추가됨" : "☆ 관심단지 추가"}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       <InputWarnings r={r} f={f} />
 
@@ -6708,7 +6839,34 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
       {/* ── 데이터 신뢰도 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
-      <div className="mb-4"><button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 평가</button></div>
+      {(() => {
+        const [savedId, setSavedId] = React.useState(null);
+        const handleSave = () => {
+          const id = `sell_${f.complexName}_${f.areaExclusive}_${Date.now()}`;
+          saveAnalysis({
+            id, type: "sell",
+            complexName: f.complexName, area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+            region: f.region, savedAt: new Date().toISOString(),
+            currentPrice: Number(f.currentPrice) || 0,
+            aiFairPrice: r.fairPrice || 0,
+            gradeLabel: sd.finalSellDecision || "",
+            summary: `${sd.finalSellDecision} · AI 적정가 ${won(r.fairPrice)} · 희망가 ${won(sd.desired)}`,
+            resultSnapshot: { fairPrice: r.fairPrice, finalSellDecision: sd.finalSellDecision,
+              sellScore: sd.sellScore, gapVsRef: sd.gapVsRef, askingLevel: sd.askingLevel,
+              netProceeds: sd.netProceeds || 0, currentPrice: Number(f.currentPrice) || 0 },
+          });
+          setSavedId(id);
+        };
+        return (
+          <div className="mb-4 flex items-center justify-between">
+            <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 평가</button>
+            <button onClick={handleSave} disabled={!!savedId}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+              {savedId ? "✓ 저장됨" : "저장"}
+            </button>
+          </div>
+        );
+      })()}
       <InputWarnings r={r} f={f} />
       <div className="mb-4"><MarketTypeBadge mc={mc} /></div>
 
