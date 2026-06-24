@@ -4145,7 +4145,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
     return data;
   }
 
-  function _processRawData(rawData, ff, overrideArea, exclusiveAreas) {
+  async function _processRawData(rawData, ff, overrideArea, exclusiveAreas) {
     const rawDataWithUserInput = {
       ...rawData,
       // 면적 변경 시 KB시세/현재가는 이전 값 유지 — 사용자가 입력한 값이 우선
@@ -6501,7 +6501,7 @@ function SellView({ onContext, currentUserId, currentUserEmail }) {
     return data;
   }
 
-  function _processRawData(rawData, ff, overrideArea, exclusiveAreas) {
+  async function _processRawData(rawData, ff, overrideArea, exclusiveAreas) {
     const rawWithInput = {
       ...rawData,
       currentPrice: Number(ff.currentPrice) || rawData.currentPrice || 0,
