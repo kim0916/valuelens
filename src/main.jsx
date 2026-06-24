@@ -2553,8 +2553,8 @@ function AppInner() {
       </nav>
       <main className="mx-auto max-w-2xl px-4 py-8">
         {ptype === "apartment" && (<>
-          <div style={{display: (aptTab === "fair" || aptTab === "buy") ? "block" : "none"}}><BuyView mode={aptTab === "fair" ? "fair" : "buy"} onSaveHistory={(h) => { saveRecentAnalysis(h, currentUserId); setHistory((p) => { const deduped = p.filter(x => !(x.complexName === h.complexName && x.area === h.area && x.analysisType === h.analysisType)); return [h, ...deduped].slice(0, LS_MAX); }); }} onAddWatch={(w) => setWatch((p) => [w, ...p.filter((x) => x.key !== w.key)])} onContext={(c) => setBuyCtx(c)} /></div>
-          <div style={{display: aptTab === "sell" ? "block" : "none"}}><SellView onContext={(c) => setSellCtx(c)} /></div>
+          <div style={{display: (aptTab === "fair" || aptTab === "buy") ? "block" : "none"}}><BuyView mode={aptTab === "fair" ? "fair" : "buy"} currentUserId={currentUserId} currentUserEmail={currentUserEmail} onSaveHistory={(h) => { saveRecentAnalysis(h, currentUserId); setHistory((p) => { const deduped = p.filter(x => !(x.complexName === h.complexName && x.area === h.area && x.analysisType === h.analysisType)); return [h, ...deduped].slice(0, LS_MAX); }); }} onAddWatch={(w) => setWatch((p) => [w, ...p.filter((x) => x.key !== w.key)])} onContext={(c) => setBuyCtx(c)} /></div>
+          <div style={{display: aptTab === "sell" ? "block" : "none"}}><SellView onContext={(c) => setSellCtx(c)} currentUserId={currentUserId} currentUserEmail={currentUserEmail} /></div>
           {aptTab === "tax" && <TaxView buyCtx={buyCtx} sellCtx={sellCtx} />}
           {aptTab === "logs" && <LogsView />}
           {aptTab === "reco" && <BudgetView onProfile={(p) => setFinProfile(p)} />}
@@ -3756,7 +3756,7 @@ function LocationPicker({ onComplete }) {
   );
 }
 
-function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
+function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUserId, currentUserEmail }) {
   const [f, setF] = useState(EMPTY);
   const [r, setR] = useState(null);
   const [saved, setSaved] = useState(false);
@@ -6210,7 +6210,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
   );
 }
 
-function SellView({ onContext }) {
+function SellView({ onContext, currentUserId, currentUserEmail }) {
   // ── BuyView와 동일한 아키텍처 ──
   // · LocationPicker → Supabase 검색 → MOLIT fallback
   // · AI 웹검색 제거: fetchApartmentData() 재사용
