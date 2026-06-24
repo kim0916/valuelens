@@ -4671,7 +4671,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
         ) : (
           <>
             <p className="text-sm font-semibold text-blue-800">⚠️ 최근 실거래 데이터가 부족합니다</p>
-            <p className="mt-0.5 text-xs text-blue-600">최근 12개월 동안 해당 면적의 실거래가 부족합니다.<br />KB시세 또는 직접 확인한 시세를 입력하면 더 정확한 분석이 가능합니다.</p>
+            <p className="mt-0.5 text-xs text-blue-600">최근 12개월 동안 해당 면적의 실거래가 부족합니다.<br />주상복합 또는 거래량이 적은 단지는 분석에 필요한 표본 수가 확보되지 않을 수 있습니다.<br />KB시세 또는 직접 확인한 시세를 입력하면 더 정확한 분석이 가능합니다.</p>
           </>
         )}
       </div>
@@ -4716,7 +4716,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
           </p>
           <p className="mt-0.5 text-xs text-amber-700">
             {isDataShort
-              ? "최근 12개월 동안 해당 면적의 실거래가 확인되지 않았습니다.\nKB시세 또는 직접 확인한 시세를 입력하면 더 정확한 분석이 가능합니다."
+              ? "최근 12개월 동안 해당 면적의 실거래가 확인되지 않았습니다.\n주상복합 또는 거래량이 적은 단지는 분석에 필요한 표본 수가 확보되지 않을 수 있습니다.\nKB시세 또는 직접 확인한 시세를 입력하면 더 정확한 분석이 가능합니다."
               : p.blockReason}
           </p>
           {Array.isArray(edit._aiAreaOptions) && edit._aiAreaOptions.length > 0 ? (
