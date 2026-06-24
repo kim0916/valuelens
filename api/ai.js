@@ -1,51 +1,50 @@
 // api/ai.js — Anthropic API 프록시 + 일일 사용 제한
-// 일반 유저: 하루 1회 / 관리자(is_admin=true): 무제한
+// AI_LIMIT_ENABLED=true/false
+// AI_LIMIT_BYPASS_EMAILS=email1,email2 (쉼표 구분)
 
 const DAILY_LIMIT = 1;
 const SERVICE = 'valuelens-realestate';
 
-async function getSupabase() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
-  return { url, key };
+function isLimitEnabled() {
+  return process.env.AI_LIMIT_ENABLED === 'true';
 }
 
-// 오늘 AI 호출 횟수 조회
-async function getTodayCount(url, key, userId) {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  const from  = today + 'T00:00:00.000Z';
-  const to    = today + 'T23:59:59.999Z';
-  const qs = `?user_id=eq.${userId}&service=eq.${SERVICE}&created_at=gte.${from}&created_at=lte.${to}&select=id`;
-  const res = await fetch(`${url}/rest/v1/ai_calls${qs}`, {
-    headers: { apikey: key, Authorization: `Bearer ${key}`, Prefer: 'count=exact' },
+function isBypassEmail(email) {
+  if (!email) return false;
+  const bypasses = (process.env.AI_LIMIT_BYPASS_EMAILS || '')
+    .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+  return bypasses.includes(email.toLowerCase());
+}
+
+async function getTodayCount(supabaseUrl, supabaseKey, userId) {
+  const today = new Date().toISOString().slice(0, 10);
+  const from  = `${today}T00:00:00.000Z`;
+  const to    = `${today}T23:59:59.999Z`;
+  const qs = `?user_id=eq.${encodeURIComponent(userId)}&service=eq.${SERVICE}&created_at=gte.${from}&created_at=lte.${to}&select=id`;
+  const res = await fetch(`${supabaseUrl}/rest/v1/ai_calls${qs}`, {
+    headers: {
+      apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
+      Prefer: 'count=exact',
+    },
   });
-  const countHeader = res.headers.get('content-range'); // "0-N/total"
-  if (countHeader) {
-    const total = parseInt(countHeader.split('/')[1] || '0', 10);
+  // Content-Range: 0-0/3 형식
+  const cr = res.headers.get('content-range');
+  if (cr) {
+    const total = parseInt(cr.split('/')[1] || '0', 10);
     return isNaN(total) ? 0 : total;
   }
   const data = await res.json();
   return Array.isArray(data) ? data.length : 0;
 }
 
-// 관리자 여부 조회
-async function isAdmin(url, key, userId) {
-  const res = await fetch(
-    `${url}/rest/v1/users?id=eq.${userId}&select=is_admin&limit=1`,
-    { headers: { apikey: key, Authorization: `Bearer ${key}` } }
-  );
-  const data = await res.json();
-  return Array.isArray(data) && data[0]?.is_admin === true;
-}
-
-// AI 호출 기록
-async function recordCall(url, key, userId) {
-  await fetch(`${url}/rest/v1/ai_calls`, {
+async function recordCall(supabaseUrl, supabaseKey, userId) {
+  await fetch(`${supabaseUrl}/rest/v1/ai_calls`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      apikey: key,
-      Authorization: `Bearer ${key}`,
+      apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
       Prefer: 'return=minimal',
     },
     body: JSON.stringify({ user_id: userId, service: SERVICE }),
@@ -65,25 +64,28 @@ export default async function handler(req, res) {
   }
 
   // ── 사용 제한 체크 ──
-  const userId = req.headers['x-user-id'] || null;
-  if (userId) {
+  const userId    = req.headers['x-user-id']    || null;
+  const userEmail = req.headers['x-user-email'] || null;
+
+  if (isLimitEnabled() && userId) {
     try {
-      const { url, key } = await getSupabase();
-      if (url && key) {
-        const [admin, count] = await Promise.all([
-          isAdmin(url, key, userId),
-          getTodayCount(url, key, userId),
-        ]);
-        if (!admin && count >= DAILY_LIMIT) {
-          res.status(429).json({
-            error: 'limit_exceeded',
-            message: '오늘 무료 AI 분석 횟수를 모두 사용했습니다.\n내일 다시 이용하거나 저장된 분석 결과를 확인해주세요.',
-          });
-          return;
+      // 1. 우회 이메일이면 제한 없음
+      if (!isBypassEmail(userEmail)) {
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+        if (supabaseUrl && supabaseKey) {
+          const count = await getTodayCount(supabaseUrl, supabaseKey, userId);
+          if (count >= DAILY_LIMIT) {
+            res.status(429).json({
+              error: 'limit_exceeded',
+              message: '오늘 무료 AI 분석 횟수를 모두 사용했습니다.\n내일 다시 이용하거나 저장된 분석 결과를 확인해주세요.',
+            });
+            return;
+          }
         }
       }
     } catch (e) {
-      // 제한 체크 실패 시 통과 (서비스 중단 방지)
       console.warn('[ai.js] 제한 체크 실패 (통과):', e?.message);
     }
   }
@@ -102,11 +104,12 @@ export default async function handler(req, res) {
     });
     const text = await upstream.text();
 
-    // ── 성공 시에만 호출 기록 ──
-    if (upstream.status === 200 && userId) {
+    // ── 성공 시 + 제한 활성화 + 우회 아닌 유저만 기록 ──
+    if (upstream.status === 200 && isLimitEnabled() && userId && !isBypassEmail(userEmail)) {
       try {
-        const { url, key } = await getSupabase();
-        if (url && key) await recordCall(url, key, userId);
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_ANON_KEY;
+        if (supabaseUrl && supabaseKey) await recordCall(supabaseUrl, supabaseKey, userId);
       } catch (e) {
         console.warn('[ai.js] 호출 기록 실패:', e?.message);
       }
