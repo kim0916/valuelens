@@ -1875,7 +1875,7 @@ function analyzeBuyerDecision(r, f) {
     finalLabel = buyerScore >= 68 ? "가격 검토 가능" : buyerScore >= 52 ? "신중 접근" : "가격 부담 큼";
     action = finalLabel === "가격 부담 큼" ? "실사용가치 대비 프리미엄·리스크가 큽니다. 신중한 접근이 필요합니다" : "실사용가치와 시장가치를 분리해 가격 적정성을 판단하세요";
   }
-  else if (shortfallCash > 0) { finalLabel = "자금 보강 필요"; action = `현금 ${won(shortfallCash)} 부족 — 자금 보강 후 검토하세요`; }
+  else if (shortfallCash > 0) { finalLabel = "자금 보강 필요"; action = `입력한 자금 기준으로 약 ${won(shortfallCash)}의 추가 자금이 필요합니다 (취득세·부대비용 포함)`; }
   else if (mr != null && mr > 45) { finalLabel = "자금 부담 큼"; action = `월상환 부담 ${mr}% (45% 초과) — 자금 여건 보강이 필요합니다`; }
   else if (mr != null && mr >= 30) { finalLabel = "가격 협상 후 검토"; action = `월상환 부담 ${mr}% — 가격 협상으로 부담을 낮춘 뒤 검토하세요`; }
   else if (buyerScore >= 75) { finalLabel = "가격 조건 양호"; action = "적정가·자금·보유 여건 양호 — 가격 적정성 기준 매수를 검토해볼 수 있습니다"; }
@@ -1904,7 +1904,7 @@ function analyzeBuyerDecision(r, f) {
   const reasons = [];
   if (isSpecial && premiumRatio > 0) reasons.push(`[가격] 실사용 ${won(intrinsicFairPrice)} vs 시장 ${won(marketReferencePrice)} — 프리미엄 ${(premiumRatio * 100).toFixed(0)}% 반영`);
   else reasons.push(gap < 0 ? `[가격] 적정가 대비 ${(Math.abs(gap) * 100).toFixed(1)}% 저평가 (현재 ${won(cur)} / 적정 ${won(finalFairPrice)})` : `[가격] 적정가 대비 ${(gap * 100).toFixed(1)}% ${gap > 0 ? "고평가" : "수준"} (현재 ${won(cur)} / 적정 ${won(finalFairPrice)})`);
-  if (income || cash) reasons.push(shortfallCash > 0 ? `[자금] 현금 ${won(shortfallCash)} 부족 (총 매입비용 ${won(totalBuyCost)})` : `[자금] 월상환 ${won(monthlyPayment)} · 소득대비 ${mr != null ? mr : "—"}% (${fundRisk})`);
+  if (income || cash) reasons.push(shortfallCash > 0 ? `[자금] 추가 자금 약 ${won(shortfallCash)} 필요 (총 매입비용 ${won(totalBuyCost)}, 취득세·부대비용 포함)` : `[자금] 월상환 ${won(monthlyPayment)} · 소득대비 ${mr != null ? mr : "—"}% (${fundRisk})`);
   else reasons.push("[자금] 자금 정보 미입력 — 가격 위주 판단 (자금 입력 시 정밀화)");
   reasons.push(`[보유·금리] 월 보유비용 ${won(monthlyHoldingCost)}${income ? ` · 금리 +2%p 시 부담 ${rateShockRisk}` : " · 자금 입력 시 금리 시뮬 제공"}`);
   reasons.push(`[시장 위험] 시장 위험도 ${marketRisk.level} · 공급 ${supplyRisk.level}·정책 ${policyRisk.level} (데이터 신뢰도 ${r.dataConfLabel}·분석 적합도 ${fitLabel})${isSpecial && mc.reconstructionStage !== "none" ? ` · 재건축 ${RECON[mc.reconstructionStage].label}` : ""}`);
@@ -2005,7 +2005,7 @@ function BuyerDecisionCard({ bd, r, f }) {
               <div>
                 <p className="mb-2 text-xs font-bold text-slate-600">자금 상세</p>
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  {[["필요 현금", won(a.neededCash)], ["부족 현금", a.shortfallCash > 0 ? won(a.shortfallCash) : "없음"], ["월 상환액", a.monthlyPayment ? won(a.monthlyPayment) : "—"], ["월상환 부담", a.monthlyRatio != null ? `${a.monthlyRatio}%` : "—"]].map(([l, v]) => (
+                  {[["필요 현금", won(a.neededCash)], ["추가 필요 자금", a.shortfallCash > 0 ? won(a.shortfallCash) : "없음"], ["월 상환액", a.monthlyPayment ? won(a.monthlyPayment) : "—"], ["월상환 부담", a.monthlyRatio != null ? `${a.monthlyRatio}%` : "—"]].map(([l, v]) => (
                     <div key={l} className="rounded-lg bg-slate-50 px-3 py-2 flex justify-between">
                       <span className="text-slate-400">{l}</span><span className="font-semibold text-slate-700">{v}</span>
                     </div>
@@ -5193,12 +5193,24 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
               <p className="text-[11px] text-slate-400">매수 판단</p>
               <p className="text-xl font-extrabold">{hold0 ? "판단 보류" : bd.finalLabel}</p>
             </div>
-            {!hold0 && (
-              <div className="text-right">
-                <p className="text-[11px] text-slate-400">가격 평가</p>
-                <p className={`text-2xl font-extrabold ${r.buyGrade === 'A' || r.buyGrade === 'B' ? 'text-emerald-400' : r.buyGrade === 'D' || r.buyGrade === 'E' ? 'text-red-400' : 'text-amber-300'}`}>{r.buyGrade}등급</p>
-              </div>
-            )}
+            {!hold0 && (() => {
+              const gp = Math.abs(r.gapRatio * 100).toFixed(1);
+              const gradeDesc =
+                r.buyGrade === "A" ? `AI 적정가보다 ${gp}% 낮습니다. 가격 메리트가 큽니다.` :
+                r.buyGrade === "B" ? `AI 적정가보다 ${gp}% 낮습니다. 매수 검토가 가능한 가격대입니다.` :
+                r.buyGrade === "C" ? `AI 적정가 수준입니다. 협상을 통한 접근이 적절합니다.` :
+                r.buyGrade === "D" ? `AI 적정가보다 ${gp}% 높습니다. 지금 가격엔 부담이 있는 구간입니다.` :
+                r.buyGrade === "E" ? `AI 적정가보다 ${gp}% 높습니다. 가격 부담이 큰 구간입니다.` : "";
+              return (
+                <div className="text-right max-w-[160px]">
+                  <p className="text-[11px] text-slate-400">가격 평가</p>
+                  <p className={`text-xl font-extrabold ${r.buyGrade === 'A' || r.buyGrade === 'B' ? 'text-emerald-400' : r.buyGrade === 'D' || r.buyGrade === 'E' ? 'text-red-400' : 'text-amber-300'}`}>
+                    {r.buyGrade}등급 · {r.gradeLabel}
+                  </p>
+                  {gradeDesc && <p className="mt-0.5 text-[10px] leading-tight text-slate-300">{gradeDesc}</p>}
+                </div>
+              );
+            })()}
           </div>
         </div>
         <div className="grid grid-cols-3 divide-x divide-slate-100 bg-white">
