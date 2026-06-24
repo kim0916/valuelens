@@ -1107,7 +1107,7 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse", periodMonths = 2
   const excludeText = rs.length ? rs.join(", ") + " 제외" : "";
   const kbNote = kbWeight > 0 ? `KB시세 ${Math.round(kbWeight*100)}% 가중` : "";
   const fallbackNote = isFallback ? "정제 후 0건 → 원본 참고값 사용" : "";
-  const strictNote = !strictMode && total > 0 ? `표본 부족(${total}건)으로 저층·급매 포함` : "";
+  const strictNote = !strictMode && total > 0 && hasNonFloor1 ? `표본 부족(${total}건) — 급매 포함` : (!strictMode && !hasNonFloor1 && total > 0 ? `표본 부족(${total}건) — 1층만 존재, KB시세 입력 권장` : "");
   const periodNote = usedPeriod > 6 ? `${usedPeriod}개월 확장 사용` : "";
   const parts = [`${total}건(${usedPeriod}개월)`];
   if (excludeText) parts.push(excludeText);
@@ -1118,7 +1118,9 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse", periodMonths = 2
   if (kbNote) parts.push(kbNote);
   const reasonText = parts.join(" · ");
 
-  return { value, used, excluded: total-used, total, confidence: conf, confLabel, kbWeight, reasonText, usedPeriod, isFallback, strictMode };
+  // floor1Included: 1층이 제외되지 못하고 포함된 경우 (표본이 1층뿐인 경우)
+  const floor1Included = !hasNonFloor1 && within.some(d => d.floor === 1);
+  return { value, used, excluded: total-used, total, confidence: conf, confLabel, kbWeight, reasonText, usedPeriod, isFallback, strictMode, floor1Included };
 }
 
 
@@ -4434,7 +4436,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
                     {calc.excluded > 0 && <span className="text-amber-600"> · {calc.excluded}건 제외</span>})
                   </p>
                   {calc.isFallback && <span className="rounded px-1 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-700">참고값</span>}
-                  {!calc.strictMode && !calc.isFallback && <span className="rounded px-1 py-0.5 text-[9px] font-bold bg-blue-100 text-blue-700">저층포함</span>}
+                  {calc.floor1Included && !calc.isFallback && <span className="rounded px-1 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-700">1층포함</span>}
                   {calc.usedPeriod > 6 && <span className="rounded px-1 py-0.5 text-[9px] font-bold bg-slate-200 text-slate-600">{calc.usedPeriod}개월</span>}
                 </div>
                 {calc.reasonText && (
