@@ -2879,7 +2879,7 @@ async function fetchApartmentData(query) {
       tradeStatus = { code: "NAME_NO_MATCH", msg: `단지명 매칭 실패 — "${qComplexName}"을(를) 찾을 수 없습니다${sampleNames ? ` (조회된 단지명: ${sampleNames})` : ""}. 전체 단지명을 정확히 입력하세요.`, pipeline };
     } else if (d.complexNoTrade) {
       // 원인 2: DB/기간 내 거래 없음 (단지 자체가 없거나 기간 내 거래 0)
-      tradeStatus = { code: "PERIOD_NO_TRADE", msg: `DB 적재기간 내 "${qComplexName}" 거래 없음 — KB시세를 직접 입력하세요.`, pipeline };
+      tradeStatus = { code: "PERIOD_NO_TRADE", msg: `최근 1년 실거래 데이터가 부족합니다. 직접 확인한 가격을 입력해 주세요.`, pipeline };
     } else if (d.areaNoMatch) {
       // 원인 3: 면적 매칭 실패
       const areaSamples = (pipeline.sale?.areaSamples || []).slice(0,5).join(", ");
@@ -2890,9 +2890,9 @@ async function fetchApartmentData(query) {
       const expandNote = (d.saleExpanded || d.rentExpanded) ? " · 인접 면적 보조 데이터 포함" : "";
       if (!sc.canAnalyze && !jc.canAnalyze) {
         // 원인 4: 기간 내 거래 있지만 너무 적음 (참고값만)
-        tradeStatus = { code: "TOO_FEW", msg: `거래 건수 부족 (매매 ${saleOut.length}건·전세 ${jeonseOut.length}건) — 참고용으로만 표시됩니다${expandNote}`, saleConf: sc, rentConf: jc, pipeline };
+        tradeStatus = { code: "TOO_FEW", msg: `거래 건수 부족 (매매 ${sale.length}건·전세 ${jeonse.length}건) — 참고용으로만 표시됩니다${expandNote}`, saleConf: sc, rentConf: jc, pipeline };
       } else if (sc.level === "낮음" || jc.level === "낮음") {
-        tradeStatus = { code: "LOW_DATA", msg: `거래 부족 — 참고용 분석 (매매 ${saleOut.length}건·전세 ${jeonseOut.length}건)${expandNote}`, saleConf: sc, rentConf: jc, pipeline };
+        tradeStatus = { code: "LOW_DATA", msg: `거래 부족 — 참고용 분석 (매매 ${sale.length}건·전세 ${jeonse.length}건)${expandNote}`, saleConf: sc, rentConf: jc, pipeline };
       } else if (d.jeonseAreaShort && d.jeonseExistsOtherArea) {
         tradeStatus = { code: "JEONSE_AREA_SHORT", msg: `전세 실거래 부족 — 다른 평형에 전세 거래 있음${expandNote}`, saleConf: sc, rentConf: jc, canExpand: true, pipeline };
       } else if (d.jeonseAreaShort) {
@@ -2903,7 +2903,7 @@ async function fetchApartmentData(query) {
     }
   } catch(e) {
     console.error("국토부 API 조회 실패:", e);
-    throw new Error("국토부 API 호출 실패: " + e.message);
+    throw new Error("실거래 데이터를 불러오지 못했습니다. 잠시 후 다시 시도하거나 직접 입력해 주세요.");
   }
 
   // ── 6. 면적 그룹핑 — 매매 우선, 없으면 전세 보완 ──
@@ -3570,14 +3570,17 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
 
     } catch (e) {
       console.error("fetchApartmentData 오류:", e);
-      setAiMsg(`조회 실패: ${e.message} — 아래에서 값을 직접 입력하세요.`);
+      const userMsg = e.message && !e.message.includes("undefined") && !e.message.includes("serviceKey") && !e.message.includes("API 호출")
+        ? e.message
+        : "실거래 데이터를 불러오지 못했습니다. 잠시 후 다시 시도하거나 직접 입력해 주세요.";
+      setAiMsg(`${userMsg}`);
       const fallbackFf = {
         ...ff, currentPrice: Number(ff.currentPrice) || 0,
         baseJeonse: Number(ff.kbJeonse) || 0, kbSalePrice: Number(ff.kbSalePrice) || 0,
         jeonseUsed: 0, saleUsed: 0, jeonseCalc: null, saleCalc: null, dataSource: "manual",
       };
       setPending({ ff: fallbackFf, jeonseCalc: null, saleCalc: null,
-        blockReason: e.message || "조회 실패 — 아래에서 값을 직접 입력하세요." });
+        blockReason: userMsg });
     } finally { setAiLoading(false); }
   }
 
@@ -3668,7 +3671,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         sale: [], jeonse: [], areaOptions: complexInfo.area_list
           ? JSON.parse(complexInfo.area_list).map(a => ({ areaSqm: a, pyeong: Math.round(a / 3.3058) })) : [],
         buildYear: complexInfo.build_year || null, lawdCd: null,
-        tradeStatus: { code: "PERIOD_NO_TRADE", msg: `DB 적재기간 내 "${ff.complexName}" 거래 없음 — KB시세를 직접 입력하세요.`, pipeline: { source: "supabase" } },
+        tradeStatus: { code: "PERIOD_NO_TRADE", msg: `최근 1년 실거래 데이터가 부족합니다. 직접 확인한 가격을 입력해 주세요.`, pipeline: { source: "supabase" } },
         dataSource: "supabase",
       };
     }
@@ -5620,7 +5623,7 @@ function SellView({ onContext }) {
         areaOptions: complexInfo.area_list
           ? JSON.parse(complexInfo.area_list).map(a => ({ areaSqm: a, pyeong: Math.round(a / 3.3058) })) : [],
         buildYear: complexInfo.build_year || null, lawdCd: null,
-        tradeStatus: { code: "PERIOD_NO_TRADE", msg: `DB 적재기간 내 "${ff.complexName}" 거래 없음 — 희망 매도가를 직접 입력하세요.`, pipeline: { source: "supabase" } },
+        tradeStatus: { code: "PERIOD_NO_TRADE", msg: `최근 1년 실거래 데이터가 부족합니다. 직접 확인한 가격을 입력해 주세요.`, pipeline: { source: "supabase" } },
         dataSource: "supabase",
       };
     }
