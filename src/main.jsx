@@ -1052,6 +1052,9 @@ function computeTrimmedMean(rawDeals, kbPrice, kind = "jeonse", periodMonths = 2
     if (d.banjiha || d.floor < 0) { reasons.banjiha++; return false; }
     // 1층: 항상 제외 (표본 수 무관) — 단, 1층 제외 시 0건이 되면 포함
     if (d.floor === 1 && hasNonFloor1) { reasons.floor1++; return false; }
+    // 최상층 제외: 단지 총 층수(topFloor) 데이터가 있을 때만 적용
+    // 현재 DB에 건물 최고층 정보 없음 → 실질적으로 비활성 상태
+    // TODO: 건축물대장 API 연동 후 complexes 테이블에 max_floor 추가 시 활성화
     if (d.topFloor && d.floor >= d.topFloor) { reasons.top++; return false; }
     if (strictMode && d.urgent) { reasons.urgent++; return false; }
     if (strictMode && d.related) { reasons.related++; return false; }
