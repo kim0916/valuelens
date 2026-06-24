@@ -55,6 +55,21 @@ export default async function handler(req, res) {
         '헤링턴': '해링턴',  // DB에 헤링턴 없음 → 단순 변환
         '더샾':   '더샵',    // DB에 더샾 없음 → 단순 변환
       };
+      // 단지 전체명 표기 불일치 매핑 (사용자 입력 → DB 실제명)
+      // 추가 시: 왼쪽=사용자가 입력할 법한 표기, 오른쪽=DB 실제 complex_name
+      const COMPLEX_ALIAS = {
+        '범어e편한세상':           'e편한세상범어',
+        '범어이편한세상':           'e편한세상범어',
+        '다산자이아이비플렉스':     '다산자이아이비플레이스',
+        '탄현마을10단지신도브래뉴': '탄현마을풍림',
+        '탄현마을신도브래뉴':       '탄현마을풍림',
+        '검단신도시우미린에듀':     '우미린에듀파크2단지',
+        '두산위브더제니스':         '두산위브지웰시티2차',  // 대구 청주 등 구분 필요 시 sigungu로 처리
+        '중동롯데1단지':           '중동롯데캐슬',          // 부천 중동
+        '구월롯데':                '구월동롯데',
+        '부평삼성래미안':          '삼성래미안부평',
+        '래미안온천2단지':         '온천래미안2단지',
+      };
 
       // 단순 변환 (DB에 원본 표기 없는 경우)
       let normalizedName = name;
@@ -62,6 +77,18 @@ export default async function handler(req, res) {
         if (normalizedName.includes(from)) {
           normalizedName = normalizedName.split(from).join(to);
           console.log(`[search] 브랜드 변환: "${name}" → "${normalizedName}" (${from}→${to})`);
+        }
+      }
+
+      // 단지 전체명 alias 변환 (BRAND_ALIAS보다 우선)
+      const nameNoSpaceForAlias = normalizedName.replace(/\s/g, '');
+      for (const [from, to] of Object.entries(COMPLEX_ALIAS)) {
+        if (nameNoSpaceForAlias === from.replace(/\s/g, '') ||
+            normalizedName === from ||
+            normalizedName.includes(from)) {
+          console.log(`[search] 단지명 alias 변환: "${normalizedName}" → "${to}"`);
+          normalizedName = to;
+          break;
         }
       }
 
@@ -162,8 +189,43 @@ export default async function handler(req, res) {
       if (sigungu) query = query.ilike('sigungu', `%${sigungu}%`);
       if (dong)    query = query.ilike('legal_dong', `%${dong}%`);
 
-      const { data, error } = await query;
+      let { data, error } = await query;
       if (error) throw error;
+
+      // ── fallback 1: 결과 없으면 sigungu 제거 후 재검색 ──
+      if ((!data || data.length === 0) && sigungu) {
+        console.log(`[search] fallback: sigungu 제거 후 재검색 "${normalizedName}"`);
+        let fbQuery = supabase
+          .from('realestate_complexes')
+          .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
+          .order('sale_cnt', { ascending: false })
+          .limit(limit);
+        const fbNoSpace = normalizedName.replace(/\s/g, '');
+        fbQuery = fbQuery.ilike('complex_name', `%${fbNoSpace}%`);
+        const { data: fbData, error: fbErr } = await fbQuery;
+        if (!fbErr && fbData && fbData.length > 0) {
+          data = fbData;
+          console.log(`[search] fallback 성공: ${fbData.length}건`);
+        }
+      }
+
+      // ── fallback 2: 여전히 없으면 앞 4글자 부분검색 ──
+      if ((!data || data.length === 0) && normalizedName.length >= 4) {
+        const short = normalizedName.replace(/\s/g, '').slice(0, 5);
+        console.log(`[search] fallback2: 부분검색 "${short}"`);
+        let fb2Query = supabase
+          .from('realestate_complexes')
+          .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
+          .ilike('complex_name', `%${short}%`)
+          .order('sale_cnt', { ascending: false })
+          .limit(Math.min(limit, 5));
+        if (sigungu) fb2Query = fb2Query.ilike('sigungu', `%${sigungu}%`);
+        const { data: fb2Data, error: fb2Err } = await fb2Query;
+        if (!fb2Err && fb2Data && fb2Data.length > 0) {
+          data = fb2Data;
+          console.log(`[search] fallback2 성공: ${fb2Data.length}건`);
+        }
+      }
 
       res.setHeader('Cache-Control', 's-maxage=3600');
       res.status(200).json({ complexes: data || [], aliasMatch, total: (data || []).length });
