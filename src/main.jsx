@@ -329,8 +329,8 @@ function supplyAreaInfo(exclusiveSqm, supplySqm) {
     const supply = Math.round(Number(supplySqm));
     return { supply, pyeong: Math.round(supply / 3.3058), estimated: false };
   }
-  // 공급면적 모르면 전용 × 1.35 추정
-  const supply = excl > 0 ? Math.round(excl * 1.35) : 0;
+  // 공급면적 모르면 전용 ÷ 0.77 추정 (전용률 77% 가정 → 33평 정확)
+  const supply = excl > 0 ? Math.round(excl / 0.77) : 0;
   return { supply, pyeong: supply > 0 ? Math.round(supply / 3.3058) : 0, estimated: true };
 }
 
@@ -346,7 +346,7 @@ function areaButtonLabel(exclusiveSqm, supplySqm) {
     };
   }
   // 공급면적 없으면 전용 × 1.35 추정
-  const estSupply = excl > 0 ? Math.round(excl * 1.35) : 0;
+  const estSupply = excl > 0 ? Math.round(excl / 0.77) : 0;
   const estPyeong = estSupply > 0 ? Math.round(estSupply / 3.3058) : 0;
   return {
     mainLabel: estSupply > 0 ? `${estSupply}㎡ (${estPyeong}평, 추정)` : `전용 ${excl}㎡`,
@@ -4654,7 +4654,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome }) {
       {provisional ? (
         <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
           <div className="px-6 py-6 text-white" style={{ backgroundColor: NAVY }}>
-            <p className="text-sm text-slate-300">{f.complexName} · {f.dong} {Number(f.areaExclusive) > 0 ? `전용 ${f.areaExclusive}㎡ · 약 ${typicalPyeong(f.areaExclusive)}평형` : (f.pyeong ? `${f.pyeong}평형` : "")}</p>
+            <p className="text-sm text-slate-300">{f.complexName} · {f.dong} {Number(f.areaExclusive) > 0 ? (() => { const opt=(areaOptions||[]).find(o=>String(o.areaSqm)===String(f.areaExclusive)); const {mainLabel}=areaButtonLabel(f.areaExclusive, opt?.supplySqm); return `${mainLabel} (전용 ${f.areaExclusive}㎡)`; })() : (f.pyeong ? `${f.pyeong}평형` : "")}</p>
             <h1 className="mt-2 text-xl font-bold">{isAbnormal ? "입력값 확인 필요 — 판단 보류" : "데이터 부족 — 참고가"}</h1>
             <p className="mt-2 text-sm text-slate-200">{isAbnormal ? "현재가가 정제 시세와 크게 차이납니다. 값 확인 후 다시 분석하세요." : "표본이 부족해 적정가를 확정하지 않습니다. 아래 값은 참고용입니다."}</p>
           </div>
@@ -4667,7 +4667,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome }) {
         <>
           <section className="overflow-hidden rounded-3xl shadow-lg ring-1 ring-orange-200">
             <div className="px-6 py-5 text-white" style={{ backgroundColor: NAVY }}>
-              <p className="text-sm text-slate-300">{f.complexName} · {f.dong} {Number(f.areaExclusive) > 0 ? `전용 ${f.areaExclusive}㎡ · 약 ${typicalPyeong(f.areaExclusive)}평형` : (f.pyeong ? `${f.pyeong}평형` : "")}</p>
+              <p className="text-sm text-slate-300">{f.complexName} · {f.dong} {Number(f.areaExclusive) > 0 ? (() => { const opt=(areaOptions||[]).find(o=>String(o.areaSqm)===String(f.areaExclusive)); const {mainLabel}=areaButtonLabel(f.areaExclusive, opt?.supplySqm); return `${mainLabel} (전용 ${f.areaExclusive}㎡)`; })() : (f.pyeong ? `${f.pyeong}평형` : "")}</p>
               <h1 className="mt-1 text-lg font-bold">특수시장 — 가격 4분리 표시</h1>
             </div>
             <div className="grid grid-cols-2 gap-px bg-orange-100">
@@ -4683,7 +4683,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome }) {
       ) : (
         <section className="overflow-hidden rounded-3xl bg-white shadow-lg ring-1 ring-slate-200">
           <div className="px-6 py-6 text-white" style={{ backgroundColor: NAVY }}>
-            <p className="text-sm text-slate-300">{f.complexName} · {f.dong} {Number(f.areaExclusive) > 0 ? `전용 ${f.areaExclusive}㎡ · 약 ${typicalPyeong(f.areaExclusive)}평형` : (f.pyeong ? `${f.pyeong}평형` : "")}</p>
+            <p className="text-sm text-slate-300">{f.complexName} · {f.dong} {Number(f.areaExclusive) > 0 ? (() => { const opt=(areaOptions||[]).find(o=>String(o.areaSqm)===String(f.areaExclusive)); const {mainLabel}=areaButtonLabel(f.areaExclusive, opt?.supplySqm); return `${mainLabel} (전용 ${f.areaExclusive}㎡)`; })() : (f.pyeong ? `${f.pyeong}평형` : "")}</p>
             <p className="mt-2 text-xs text-slate-300">엔진 산출 적정가</p>
             <p className="text-3xl font-extrabold">{won(r.fairPrice)}</p>
             <span className="mt-2 inline-block rounded-md bg-white/10 px-2 py-0.5 text-xs text-slate-200">{r.modeName}</span>
