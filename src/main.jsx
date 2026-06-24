@@ -628,7 +628,7 @@ function analyze(f) {
   return {
     engineMode, modeName, holdReason, fairPrice, jeonseFair, saleFair, conservativePrice, actualRatio, dynamicRatio, usedRatio, isPremium, ratioWarn, dataWarnings,
     jLevel, sLevel, mainLevel, jeonseUsed, saleUsed, age, saleType, saleNote, safetyPrice, gapRatio, buyGrade, gradeLabel, headline, bubbleIndex,
-    confidenceScore: conf, confLabel, dataConf, dataConfLabel, modelConf, modelConfLabel, reasons, basis, ratioNote, negotiation, priceHealthScore, shock: { level: f.shockLevel, lag: sh.lag }, explain,
+    confidenceScore: conf, confLabel, dataConf, dataConfLabel, modelConf, modelConfLabel, reasons, basis, ratioNote, negotiation, priceHealthScore, shock: { level: f.shockLevel || "보통", lag: sh.lag }, explain,
   };
 }
 // 매도 모드: 백테스트 v3 — 시장 방향성 필터 적용
@@ -4294,6 +4294,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
                       engineMode: "jeonse", modeName: "전세 시세 중심",
                       jeonseUsed: 0, saleUsed: 0, dataConf: 50, dataConfLabel: "보통",
                       shock: { level: "보통", lag: 3 },
+                      explain: { valuation: "", review: "", negotiation: "" },
                       headline: h.headline || "", _restored: true,
                     };
                     setF(prev => ({
@@ -4633,6 +4634,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
       jeonseUsed: jeonseCalc ? jeonseCalc.used : 0,
       saleUsed: saleCalc ? saleCalc.used : 0,
       jeonseCalc, saleCalc,
+      shockLevel: edit.shockLevel || "보통",
       dataSource: edit._aiFilled ? "ai" : "manual",
     };
     onConfirm({ ff, jeonseCalc, saleCalc });
@@ -6040,7 +6042,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
       <div className="mt-5 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
         <div className="mb-3 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-lg text-xs font-bold text-white" style={{ backgroundColor: NAVY }}>AI</span><h3 className="text-base font-semibold text-slate-800">AI 분석 설명</h3></div>
         <p className="text-base font-medium text-slate-900">{r.engineMode === "hold" ? `${r.headline} (등급 보류)` : isSpec ? `이 단지는 특수시장(${bd.premiumLevel})으로 분류되어 가격 등급(${r.buyGrade})은 참고용이며, 최종 판단은 상단 매수판단 카드를 따릅니다.` : `${r.headline} 매수등급은 ${r.buyGrade}(${r.gradeLabel})입니다.`}</p>
-        <div className="mt-4 space-y-3 text-sm leading-relaxed text-slate-600"><p>{r.explain.valuation}</p><p>{r.explain.review}</p></div>
+        <div className="mt-4 space-y-3 text-sm leading-relaxed text-slate-600"><p>{r.explain?.valuation}</p><p>{r.explain?.review}</p></div>
         <div className="mt-5 rounded-xl bg-slate-50 p-4"><p className="mb-2 text-xs font-semibold text-slate-500">매수 시 주의할 점</p><ul className="space-y-1.5 text-sm text-slate-600"><li>· 입력한 KB시세·전세가의 정확도가 결과에 직접 영향을 줍니다.</li><li>· 동일 단지라도 층·향·동·수리 상태에 따라 실제 가격은 달라질 수 있습니다.</li><li>· 본 결과는 참고용이며 최종 판단은 현장 확인 후 본인이 내려야 합니다.</li></ul></div>
       </div>
 
