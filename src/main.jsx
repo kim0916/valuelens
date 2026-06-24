@@ -4855,16 +4855,16 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
           </p>
         </div>
         <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">분석 모드</p>
+          <p className="text-[11px] text-slate-400">적정가 산출 방식</p>
           <p className="mt-1 text-sm font-bold text-slate-800">
-            {r.isPremium ? "프리미엄" :
-             r.engineMode === "jeonse" ? "전세 중심" :
-             r.engineMode === "blend"  ? "혼합" :
-             r.engineMode === "sale"   ? "매매기반" : "보류"}
+            {r.isPremium ? "프리미엄 반영" :
+             r.engineMode === "jeonse" ? "전세 시세 중심" :
+             r.engineMode === "blend"  ? "전세·매매 혼합" :
+             r.engineMode === "sale"   ? "매매 시세 중심" : "보류"}
           </p>
           <p className="text-[10px] text-slate-400">
-            {r.isPremium ? "재건축/프리미엄" :
-             r.usedRatio ? `전세율 ${(r.usedRatio*100).toFixed(1)}%` : "—"}
+            {r.isPremium ? "단지 특성 반영" :
+             r.usedRatio ? `전세가율 ${(r.usedRatio*100).toFixed(1)}%` : "—"}
           </p>
         </div>
       </div>
@@ -4956,21 +4956,44 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
 
       {/* 적정가 산출 근거 */}
       <div className="mt-5 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
-        <div className="px-4 py-3" style={{ backgroundColor: "#f1f5f9" }}><p className="text-sm font-bold text-slate-700">적정가 산출 근거</p></div>
-        <Row l="사용 엔진" v={r.modeName} />
-        <Row l="전세 정제평균" v={r.jeonseFair ? won(r.jeonseFair) : "—"} />
-        <Row l="매매 정제평균" v={r.saleFair ? won(r.saleFair) : "—"} />
-        <Row l="적용 전세가율" v={r.basis && r.basis.ratioUsed ? `${r.basis.ratioUsed} (${r.basis.ratioKind})` : "—"} />
-        <Row l="적용 전세가율" v={r.usedRatio ? `${(r.usedRatio*100).toFixed(1)}% (${r.dynamicRatio ? "실측 동적" : "보수 fallback"})` : "—"} />
-        <Row l="동적 전세가율(실측)" v={r.dynamicRatio != null ? `${(r.dynamicRatio*100).toFixed(1)}%` : "미적용"} />
-        <Row l="특수 단지 유형" v={r.isPremium ? "재건축·학군·희소성 영향" : "일반"} />
-        <Row l="사용 거래 수 (전세/매매)" v={`${jb.used ?? 0} / ${sb.used ?? 0} 건`} />
-        <Row l="제외 거래 수 (전세/매매)" v={`${jb.excluded ?? 0} / ${sb.excluded ?? 0} 건`} />
-        <Row l="KB시세 가중치 (전세/매매)" v={`${jkb != null ? Math.round(jkb * 100) + "%" : "—"} / ${skb != null ? Math.round(skb * 100) + "%" : "—"}`} />
+        <div className="px-4 py-3" style={{ backgroundColor: "#f1f5f9" }}>
+          <p className="text-sm font-bold text-slate-700">적정가 산출 근거</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">AI가 실거래 데이터를 분석해 산출한 기준값입니다.</p>
+        </div>
+
+        {/* ── 핵심 4개 기본 노출 ── */}
+        <Row l="분석 기준 전세 시세" v={r.jeonseFair ? `${won(r.jeonseFair)} (${r.jeonseUsed}건)` : "—"} />
+        <Row l="분석 기준 매매 시세" v={r.saleFair ? `${won(r.saleFair)} (${r.saleUsed}건)` : "—"} />
+        <Row l="적용 전세가율" v={r.usedRatio ? `${(r.usedRatio*100).toFixed(1)}% (${r.dynamicRatio ? "실측값" : "기준값"})` : "—"} />
         <Row l="데이터 신뢰도" v={r.dataConfLabel} />
-        <Row l="분석 적합도" v={(() => { const fl = { redevelopment: 65, primePremium: 70, investmentPremium: 65, policyDriven: 65, semiPremium: 70 }[mc.specialMarketType]; const fs = fl != null ? Math.max(r.modelConf, fl) : r.modelConf; return `${fs} · ${fs >= 80 ? "높음" : fs >= 60 ? "보통" : fs >= 40 ? "낮음" : "매우낮음"}`; })()} />
-        <Row l="시장 위험도" v={(isLowData || isAbnormal) ? "평가 불가" : mc.specialMarketType === "investmentPremium" ? "매우높음" : isSpecial ? "높음" : mc.specialMarketType === "semiPremium" ? "보통" : "낮음"} />
-        {kbHeavy && <div className="bg-amber-50 px-4 py-2 text-xs text-amber-700">⚠ 실거래 표본이 적어 KB시세 의존도가 높습니다 — 신뢰도를 보수적으로 해석하세요.</div>}
+
+        {/* ── 상세 분석 접힘 ── */}
+        {(() => {
+          const [open, setOpen] = React.useState(false);
+          const fs = (() => { const fl = { redevelopment: 65, primePremium: 70, investmentPremium: 65, policyDriven: 65, semiPremium: 70 }[mc.specialMarketType]; return fl != null ? Math.max(r.modelConf, fl) : r.modelConf; })();
+          const mrLevel = (isLowData || isAbnormal) ? "평가 불가" : mc.specialMarketType === "investmentPremium" ? "매우높음" : isSpecial ? "높음" : mc.specialMarketType === "semiPremium" ? "보통" : "낮음";
+          return (
+            <>
+              <button onClick={() => setOpen(v => !v)}
+                className="flex w-full items-center justify-between border-t border-slate-100 px-4 py-3 text-left">
+                <span className="text-xs font-semibold text-slate-500">상세 분석 보기</span>
+                <span className="text-xs text-slate-400">{open ? "접기 ▲" : "펼치기 ▼"}</span>
+              </button>
+              {open && (
+                <div className="border-t border-slate-100">
+                  <Row l="적정가 산출 방식" v={r.isPremium ? "프리미엄 반영" : r.engineMode === "jeonse" ? "전세 시세 중심" : r.engineMode === "blend" ? "전세·매매 혼합" : r.engineMode === "sale" ? "매매 시세 중심" : "—"} />
+                  <Row l="사용 거래 수 (전세/매매)" v={`${jb.used ?? 0} / ${sb.used ?? 0} 건`} />
+                  <Row l="제외 거래 수 (전세/매매)" v={`${jb.excluded ?? 0} / ${sb.excluded ?? 0} 건`} />
+                  <Row l="KB시세 가중치 (전세/매매)" v={`${jkb != null ? Math.round(jkb * 100) + "%" : "—"} / ${skb != null ? Math.round(skb * 100) + "%" : "—"}`} />
+                  <Row l="분석 적합도" v={`${fs} · ${fs >= 80 ? "높음" : fs >= 60 ? "보통" : fs >= 40 ? "낮음" : "매우낮음"}`} />
+                  <Row l="시장 위험도" v={mrLevel} />
+                  <Row l="단지 특성" v={r.isPremium ? "재건축·학군·희소성 영향" : "일반"} />
+                  {kbHeavy && <div className="bg-amber-50 px-4 py-2 text-xs text-amber-700">⚠ 실거래 표본이 적어 KB시세 의존도가 높습니다 — 신뢰도를 보수적으로 해석하세요.</div>}
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       <p className="mt-5 px-2 text-[11px] leading-relaxed text-slate-400">시장 위험도는 계산 오류를 의미하지 않습니다. 재건축, 정책, 공급, 프리미엄 등에 따른 가격 변동성 위험을 의미합니다. 본 적정가는 공개 데이터와 입력값 기반 참고용 계산이며, 집 자체의 가치 평가에 한정됩니다. 매수 판단·자금·대출·세금은 매수 탭에서 확인하세요.</p>
