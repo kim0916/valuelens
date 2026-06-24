@@ -5216,15 +5216,17 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
   // ── 위험요인 ──
   function buildRiskItems() {
     const risks = [];
-    if (r.jeonseUsed < 3) risks.push("거래 표본 부족 — 적정가 신뢰도 낮음");
-    if (supply.level === "높음") risks.push("입주물량 부담 — 공급 과잉 구간");
-    if (r.saleType === "redev") risks.push("재건축 기대가 반영 — 사업 지연·분담금 리스크");
-    if (r.actualRatio != null && r.actualRatio < 0.4) risks.push("전세가율 낮음 — 실수요 대비 투자수요 의존");
-    if (r.shock?.level === "높음" || r.shock?.level === "매우높음") risks.push(`시장충격 ${r.shock.level} — 가격 반영 지연 가능`);
-    if (bd.marketRisk?.level === "높음" || bd.marketRisk?.level === "매우높음") risks.push(`시장 위험도 ${bd.marketRisk.level}`);
-    if (r.dataConf < 50) risks.push("데이터 신뢰도 낮음 — 표본 보강 권장");
-    if (neg.list?.[0]) risks.push(neg.list[0]);
-    return risks.slice(0, 5);
+    if (r.jeonseUsed < 3) risks.push({ label: "거래 표본 부족", desc: "최근 거래가 적어 분석 오차가 커질 수 있습니다. 참고용으로 활용하세요." });
+    if (supply.level === "높음") risks.push({ label: "입주 물량 영향", desc: "향후 입주 예정 물량에 따라 가격 변동 가능성이 있습니다." });
+    if (r.saleType === "redev") risks.push({ label: "재건축 단지 특성", desc: "재건축 기대가 반영된 단지입니다. 사업 지연·분담금 리스크를 함께 고려하세요." });
+    if (r.actualRatio != null && r.actualRatio < 0.4) risks.push({ label: "전세가율 낮음", desc: "실거주 수요보다 투자 수요 비중이 높은 단지입니다." });
+    if (r.shock?.level === "높음" || r.shock?.level === "매우높음") risks.push({ label: "시장 변동성 주의", desc: "현재 시장 상황에 따라 가격 반영이 지연될 수 있습니다." });
+    if (bd.marketRisk?.level === "높음" || bd.marketRisk?.level === "매우높음") risks.push({ label: "시장 위험도 높음", desc: "프리미엄·공급·정책 등 복합 요인으로 가격 변동 가능성이 있습니다." });
+    if (r.dataConf < 50) risks.push({ label: "거래 표본 부족", desc: "데이터가 적어 분석 신뢰도가 낮습니다. 표본 보강 후 재분석을 권장합니다." });
+    if (neg.list?.[0]) risks.push({ label: "지역 특성 참고", desc: neg.list[0] });
+    // 중복 label 제거
+    const seen = new Set();
+    return risks.filter(r => { if (seen.has(r.label)) return false; seen.add(r.label); return true; }).slice(0, 4);
   }
   const riskItems = buildRiskItems();
 
@@ -5492,12 +5494,15 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
       {/* ── [5] 위험요인 ── */}
       {riskItems.length > 0 && (
         <div className="mb-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-          <p className="mb-3 text-sm font-bold text-slate-700">확인이 필요한 위험요인</p>
-          <div className="space-y-2">
-            {riskItems.map((r, i) => (
-              <div key={i} className="flex items-start gap-2 text-sm text-slate-600">
+          <p className="mb-3 text-sm font-bold text-slate-700">확인이 필요한 사항</p>
+          <div className="space-y-3">
+            {riskItems.map((item, i) => (
+              <div key={i} className="flex items-start gap-2.5">
                 <span className="mt-0.5 flex-shrink-0 text-amber-400">⚠</span>
-                <span>{r}</span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">{item.label}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{item.desc}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -5505,22 +5510,75 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
       )}
 
       {/* ── [6] 실거주 · 투자 점수 ── */}
-      <div className="mb-4 grid grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 text-center">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* 실거주 적합도 */}
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
           <p className="text-xs text-slate-400">실거주 적합도</p>
-          <p className={`mt-2 text-2xl font-extrabold ${living.total >= 75 ? "text-emerald-600" : living.total >= 60 ? "text-amber-600" : "text-red-500"}`}>{living.total}<span className="text-sm font-normal text-slate-400"> / 100</span></p>
-          <span className={`mt-1 inline-block rounded-md px-2 py-0.5 text-[10px] font-semibold ${living.total >= 75 ? "bg-emerald-50 text-emerald-600" : living.total >= 60 ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-500"}`}>
+          {/* 평가 먼저 */}
+          <p className={`mt-1 text-lg font-extrabold ${living.total >= 75 ? "text-emerald-600" : living.total >= 60 ? "text-amber-600" : "text-red-500"}`}>
             {living.total >= 75 ? "좋음" : living.total >= 60 ? "보통" : "주의"}
-          </span>
-          <p className="mt-1 text-xs text-slate-500">교통·학군·상권·연식 종합</p>
+          </p>
+          <p className="text-xs text-slate-400">{living.total}점 / 100</p>
+          {/* 항목별 이유 */}
+          <div className="mt-2 space-y-1">
+            {[
+              { label: "대중교통", score: living.items.교통 },
+              { label: "학군",     score: living.items.학군 },
+              { label: "생활편의", score: living.items.상권 },
+              { label: "건물 연식", score: living.items.연식 },
+            ].map(({ label, score }) => (
+              <div key={label} className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">{label}</span>
+                <span className={`font-semibold ${score >= 80 ? "text-emerald-600" : score >= 65 ? "text-amber-600" : "text-red-400"}`}>
+                  {score >= 80 ? "양호" : score >= 65 ? "보통" : "낮음"}
+                </span>
+              </div>
+            ))}
+          </div>
+          {/* 한줄 결론 */}
+          <p className={`mt-2 text-[11px] leading-relaxed ${living.total >= 75 ? "text-emerald-600" : living.total >= 60 ? "text-amber-600" : "text-slate-400"}`}>
+            → {living.total >= 75 ? "실거주 환경이 전반적으로 양호합니다." : living.total >= 60 ? "실거주에는 무난한 수준입니다." : "실거주 환경이 다소 아쉬운 편입니다."}
+          </p>
         </div>
-        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 text-center">
+        {/* 가격 매력도 */}
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
           <p className="text-xs text-slate-400">가격 매력도</p>
-          <p className={`mt-2 text-2xl font-extrabold ${sp.up >= 65 ? "text-emerald-600" : sp.up >= 40 ? "text-amber-600" : "text-red-500"}`}>{sp.up}<span className="text-sm font-normal text-slate-400"> / 100</span></p>
-          <span className={`mt-1 inline-block rounded-md px-2 py-0.5 text-[10px] font-semibold ${sp.up >= 65 ? "bg-emerald-50 text-emerald-600" : sp.up >= 40 ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-500"}`}>
+          {/* 평가 먼저 */}
+          <p className={`mt-1 text-lg font-extrabold ${sp.up >= 65 ? "text-emerald-600" : sp.up >= 40 ? "text-amber-600" : "text-red-500"}`}>
             {sp.up >= 65 ? "좋음" : sp.up >= 40 ? "보통" : "주의"}
-          </span>
-          <p className="mt-1 text-xs text-slate-500">전세가율·저평가 기반</p>
+          </p>
+          <p className="text-xs text-slate-400">{sp.up}점 / 100</p>
+          {/* 항목별 이유 */}
+          <div className="mt-2 space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">가격 위치</span>
+              <span className={`font-semibold ${sp.undervalue > 0.03 ? "text-emerald-600" : sp.undervalue < -0.03 ? "text-red-400" : "text-amber-600"}`}>
+                {sp.undervalue > 0.03 ? "저평가" : sp.undervalue < -0.03 ? "고평가" : "적정"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">전세가율</span>
+              <span className={`font-semibold ${(r.actualRatio ?? 0) >= 0.55 ? "text-emerald-600" : (r.actualRatio ?? 0) >= 0.4 ? "text-amber-600" : "text-red-400"}`}>
+                {r.actualRatio != null ? `${(r.actualRatio * 100).toFixed(0)}%` : "—"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">최근 거래</span>
+              <span className={`font-semibold ${r.jeonseUsed >= 5 ? "text-emerald-600" : r.jeonseUsed >= 3 ? "text-amber-600" : "text-red-400"}`}>
+                {r.jeonseUsed >= 5 ? "충분" : r.jeonseUsed >= 3 ? "보통" : "부족"} ({r.jeonseUsed}건)
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">하락 위험</span>
+              <span className={`font-semibold ${sp.down < 40 ? "text-emerald-600" : sp.down < 65 ? "text-amber-600" : "text-red-400"}`}>
+                {sp.down < 40 ? "낮음" : sp.down < 65 ? "보통" : "높음"}
+              </span>
+            </div>
+          </div>
+          {/* 한줄 결론 */}
+          <p className={`mt-2 text-[11px] leading-relaxed ${sp.up >= 65 ? "text-emerald-600" : sp.up >= 40 ? "text-amber-600" : "text-slate-400"}`}>
+            → {sp.up >= 65 ? "가격 경쟁력이 높은 편입니다." : sp.up >= 40 ? "가격 메리트는 보통 수준입니다." : "현재 가격에는 부담이 있습니다."}
+          </p>
         </div>
       </div>
 
