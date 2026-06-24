@@ -1256,14 +1256,14 @@ function computeDataTrust(r, deals = [], saleDeals = []) {
 
 // ── 등급 기준 팝업 컴포넌트 ──
 // ── 저장 버튼 컴포넌트 (적정가 / 매수 / 매도) ──
-function SaveBtn({ label, desc, onBack, backLabel = "← 다시 분석", extra }) {
+function SaveBtn({ label, desc, onBack, backLabel = "← 다시 분석", extra, uid }) {
   const [savedId, setSavedId] = useState(null);
   return (
     <div className="mb-4 flex items-center justify-between">
       <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">{backLabel}</button>
       <div className="flex items-center gap-2">
         <button
-          onClick={() => { saveAnalysis(desc, currentUserId); setSavedId(true); }}
+          onClick={() => { saveAnalysis(desc, uid); setSavedId(true); }}
           disabled={!!savedId}
           className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
           {savedId ? "✓ 저장됨" : "저장"}
@@ -2407,17 +2407,17 @@ function runCase(c) {
 }
 // 고급 기능 — 관심단지·분석이력·백테스트 (메인에서 분리)
 // 내 자산 — 관심단지 · 내 저장함 · 재무 프로필
-function AdvancedView({ watch, setWatch, history, finProfile, onReanalyze }) {
+function AdvancedView({ watch, setWatch, history, finProfile, onReanalyze, uid }) {
   const recent = (history || []).slice(0, 5);
   const fp = finProfile;
   const won2 = (a) => (a ? won(Number(a) * 10000) : "—");
-  const [savedList, setSavedList] = React.useState(() => getSavedAnalyses(currentUserId));
+  const [savedList, setSavedList] = React.useState(() => getSavedAnalyses(uid));
   const typeLabel = { fairValue: "적정가", buy: "매수", sell: "매도" };
   const typeColor = { fairValue: "bg-blue-100 text-blue-700", buy: "bg-emerald-100 text-emerald-700", sell: "bg-amber-100 text-amber-700" };
 
   const handleDelete = (id) => {
-    deleteSavedAnalysis(id, currentUserId);
-    setSavedList(getSavedAnalyses(currentUserId));
+    deleteSavedAnalysis(id, uid);
+    setSavedList(getSavedAnalyses(uid));
   };
 
   return (
@@ -2553,7 +2553,7 @@ function AppInner() {
           {aptTab === "tax" && <TaxView buyCtx={buyCtx} sellCtx={sellCtx} />}
           {aptTab === "logs" && <LogsView />}
           {aptTab === "reco" && <BudgetView onProfile={(p) => setFinProfile(p)} />}
-          {aptTab === "adv" && <AdvancedView watch={watch} setWatch={setWatch} history={history} finProfile={finProfile} onReanalyze={() => setAptTab("fair")} />}
+          {aptTab === "adv" && <AdvancedView watch={watch} setWatch={setWatch} history={history} finProfile={finProfile} onReanalyze={() => setAptTab("fair")} uid={currentUserId} />}
         </>)}
         {ptype === "oneRoom" && <OneRoomView tab={roomTab} />}
         {ptype === "multiFamily" && <ComingSoon title="다가구 주택 분석" desc="호별 임대수익 환원법으로 다가구의 적정 매입가·수익가치를 평가합니다." />}
