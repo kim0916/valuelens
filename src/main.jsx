@@ -3413,9 +3413,9 @@ function LocationPicker({ onComplete }) {
           )}
           {!loading && complexQ.length >= 2 && complexList.length === 0 && !candidateMode && (
             <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
-              <p className="font-semibold text-slate-600">검색 결과가 없습니다.</p>
-              <p className="mt-1">단지명 또는 동 이름을 다시 확인해 주세요.</p>
-              <p className="mt-0.5">① 단지명 전체(예: 더샵파크애비뉴)를 입력하거나</p>
+              <p className="font-semibold text-slate-600">단지를 찾지 못했습니다.</p>
+              <p className="mt-1 text-slate-500">DB에 등록되지 않았거나 단지명이 다를 수 있습니다.</p>
+              <p className="mt-1">① 단지명 전체(예: 더샵파크애비뉴)를 다시 입력하거나</p>
               <p>② 면적을 직접 입력 후 KB시세를 넣어 분석하세요.</p>
             </div>
           )}
@@ -4155,19 +4155,41 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
         {aiLoading && <button onClick={() => { if (abortRef.current) abortRef.current.abort(); setAiLoading(false); setAiMsg("조회가 취소되었습니다."); }} className="mt-2 w-full rounded-2xl border border-red-200 py-2.5 text-sm font-medium text-red-500">⬛ 조회 취소</button>}
 
         {/* 조회 실패 메시지 */}
-        {aiMsg && (
-          <div className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800 ring-1 ring-amber-100">
-            {aiMsg}
-            <button
-              onClick={() => {
-                const ff = { ...f, currentPrice: Number(f.currentPrice)||0, baseJeonse: Number(f.kbJeonse)||0, kbSalePrice: Number(f.kbSalePrice)||0, jeonseUsed:0, saleUsed:0, jeonseCalc:null, saleCalc:null, dataSource:"manual" };
-                setPending({ ff, jeonseCalc:null, saleCalc:null, blockReason: null });
-              }}
-              className="mt-2 block w-full rounded-lg bg-amber-700 py-2 text-center text-xs font-bold text-white">
-              ✏️ 수기로 직접 입력하기
-            </button>
-          </div>
-        )}
+        {aiMsg && (() => {
+          const isDataShort = aiMsg.includes("실거래가 없습니다") || aiMsg.includes("실거래 데이터가 부족") || aiMsg.includes("실거래를 불러오지 못");
+          if (isDataShort) {
+            return (
+              <div className="mt-3 rounded-2xl bg-blue-50 px-4 py-4 ring-1 ring-blue-200">
+                <p className="text-sm font-bold text-blue-800">🏢 아파트는 찾았습니다.</p>
+                <p className="mt-1 text-xs leading-relaxed text-blue-700">
+                  하지만 최근 12개월간 분석에 필요한 실거래 데이터가 부족합니다.<br />
+                  확인한 시세 또는 KB시세를 입력하면 분석을 계속 진행할 수 있습니다.
+                </p>
+                <button
+                  onClick={() => {
+                    const ff = { ...f, currentPrice: Number(f.currentPrice)||0, baseJeonse: Number(f.kbJeonse)||0, kbSalePrice: Number(f.kbSalePrice)||0, jeonseUsed:0, saleUsed:0, jeonseCalc:null, saleCalc:null, dataSource:"manual" };
+                    setPending({ ff, jeonseCalc:null, saleCalc:null, blockReason: "최근 1년 실거래 데이터가 부족합니다. 직접 확인한 가격을 입력해 주세요." });
+                  }}
+                  className="mt-3 block w-full rounded-xl bg-blue-600 py-2.5 text-center text-xs font-bold text-white active:bg-blue-700">
+                  시세 직접 입력 →
+                </button>
+              </div>
+            );
+          }
+          return (
+            <div className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800 ring-1 ring-amber-100">
+              {aiMsg}
+              <button
+                onClick={() => {
+                  const ff = { ...f, currentPrice: Number(f.currentPrice)||0, baseJeonse: Number(f.kbJeonse)||0, kbSalePrice: Number(f.kbSalePrice)||0, jeonseUsed:0, saleUsed:0, jeonseCalc:null, saleCalc:null, dataSource:"manual" };
+                  setPending({ ff, jeonseCalc:null, saleCalc:null, blockReason: null });
+                }}
+                className="mt-2 block w-full rounded-lg bg-amber-700 py-2 text-center text-xs font-bold text-white">
+                ✏️ 수기로 직접 입력하기
+              </button>
+            </div>
+          );
+        })()}
 
         {/* 샘플 */}
         <div className="mt-4 flex flex-wrap items-center gap-1.5">
@@ -6106,11 +6128,33 @@ function SellView({ onContext }) {
             ⬛ 조회 취소
           </button>
         )}
-        {aiMsg && (
-          <div className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800 ring-1 ring-amber-100">
-            {aiMsg}
-          </div>
-        )}
+        {aiMsg && (() => {
+          const isDataShort = aiMsg.includes("실거래가 없습니다") || aiMsg.includes("실거래 데이터가 부족") || aiMsg.includes("실거래를 불러오지 못");
+          if (isDataShort) {
+            return (
+              <div className="mt-3 rounded-2xl bg-blue-50 px-4 py-4 ring-1 ring-blue-200">
+                <p className="text-sm font-bold text-blue-800">🏢 아파트는 찾았습니다.</p>
+                <p className="mt-1 text-xs leading-relaxed text-blue-700">
+                  하지만 최근 12개월간 분석에 필요한 실거래 데이터가 부족합니다.<br />
+                  확인한 시세 또는 KB시세를 입력하면 분석을 계속 진행할 수 있습니다.
+                </p>
+                <button
+                  onClick={() => {
+                    const ff = { ...f, currentPrice: Number(f.currentPrice)||0, baseJeonse: Number(f.kbJeonse)||0, kbSalePrice: Number(f.kbSalePrice)||0, jeonseUsed:0, saleUsed:0, jeonseCalc:null, saleCalc:null, dataSource:"manual" };
+                    setPending({ ff, jeonseCalc:null, saleCalc:null, blockReason: "최근 1년 실거래 데이터가 부족합니다. 직접 확인한 가격을 입력해 주세요." });
+                  }}
+                  className="mt-3 block w-full rounded-xl bg-blue-600 py-2.5 text-center text-xs font-bold text-white active:bg-blue-700">
+                  시세 직접 입력 →
+                </button>
+              </div>
+            );
+          }
+          return (
+            <div className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800 ring-1 ring-amber-100">
+              {aiMsg}
+            </div>
+          );
+        })()}
 
         {/* 매도 전용 추가 정보 (접기) */}
         {f.complexName && (
