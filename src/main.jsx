@@ -427,7 +427,7 @@ function analyze(f) {
   } else if (isPremium && jeonseReliable && actualRatio != null) {
     engineMode = "jeonse"; mainPrice = jeonseFair;
   } else if (isPremium) {
-    engineMode = "hold"; holdReason = "프리미엄 단지 — 매매·전세 실거래 부족으로 판단 보류";
+    engineMode = "hold"; holdReason = "재건축·학군·희소성 영향 단지 — 매매·전세 실거래 부족으로 판단 보류";
   } else if (actualRatio == null) {
     if (jeonseReliable) { engineMode = "jeonse"; mainPrice = jeonseFair; }
     else { engineMode = "hold"; holdReason = "전세 실거래 표본 부족 — 하단에서 실거래 직접 입력하거나 KB전세시세를 확인하세요"; }
@@ -1541,7 +1541,7 @@ ${"=".repeat(40)}
 [엔진 주의사항]
 본 리포트는 국토부 실거래 및 입력 데이터를 바탕으로 한 참고용 분석입니다.
 ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
-특히 데이터 부족, 전세가율 이상치, 재건축·신축 프리미엄 단지는
+특히 데이터 부족, 전세가율 이상치, 재건축·학군·희소성 영향 단지는
 분석 신뢰도가 낮을 수 있습니다.
 
 ━━━━━━━━━━━━━━━━━━
@@ -1565,7 +1565,7 @@ Powered by ValueLens
 본 리포트는 국토부 실거래 및 입력 데이터를 바탕으로 한 참고용 분석입니다.
 ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
 매수·매도 결정은 사용자의 최종 판단과 전문가 상담을 통해 진행해야 합니다.
-특히 데이터 부족, 전세가율 이상치, 재건축·신축 프리미엄 단지는
+특히 데이터 부족, 전세가율 이상치, 재건축·학군·희소성 영향 단지는
 분석 신뢰도가 낮을 수 있습니다.`;
             const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
             const url = URL.createObjectURL(blob);
@@ -4960,7 +4960,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
         <Row l="적용 전세가율" v={r.basis && r.basis.ratioUsed ? `${r.basis.ratioUsed} (${r.basis.ratioKind})` : "—"} />
         <Row l="적용 전세가율" v={r.usedRatio ? `${(r.usedRatio*100).toFixed(1)}% (${r.dynamicRatio ? "실측 동적" : "보수 fallback"})` : "—"} />
         <Row l="동적 전세가율(실측)" v={r.dynamicRatio != null ? `${(r.dynamicRatio*100).toFixed(1)}%` : "미적용"} />
-        <Row l="프리미엄 단지" v={r.isPremium ? "예 (재건축/강남/투자수요)" : "아니오"} />
+        <Row l="특수 단지 유형" v={r.isPremium ? "재건축·학군·희소성 영향" : "일반"} />
         <Row l="사용 거래 수 (전세/매매)" v={`${jb.used ?? 0} / ${sb.used ?? 0} 건`} />
         <Row l="제외 거래 수 (전세/매매)" v={`${jb.excluded ?? 0} / ${sb.excluded ?? 0} 건`} />
         <Row l="KB시세 가중치 (전세/매매)" v={`${jkb != null ? Math.round(jkb * 100) + "%" : "—"} / ${skb != null ? Math.round(skb * 100) + "%" : "—"}`} />
@@ -5037,7 +5037,7 @@ Powered by ValueLens
 본 리포트는 국토부 실거래 및 입력 데이터를 바탕으로 한 참고용 분석입니다.
 ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
 매수·매도 결정은 사용자의 최종 판단과 전문가 상담을 통해 진행해야 합니다.
-특히 데이터 부족, 전세가율 이상치, 재건축·신축 프리미엄 단지는
+특히 데이터 부족, 전세가율 이상치, 재건축·학군·희소성 영향 단지는
 분석 신뢰도가 낮을 수 있습니다.`;
             const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
             const url = URL.createObjectURL(blob);
@@ -5310,17 +5310,22 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
         </div>
       )}
 
-      {/* ── 판단 이유 요약 박스 ── */}
+      {/* ── 왜 이런 결과가 나왔나요? ── */}
       {!hold0 && (
         <div className="mb-4 rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-slate-100">
-          <p className="mb-2.5 text-sm font-bold text-slate-700">판단 이유</p>
-          <div className="space-y-1.5">
+          <p className="mb-3 text-sm font-bold text-slate-700">왜 이런 결과가 나왔나요?</p>
+          <div className="space-y-2">
             {reasonChecks.map((c, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm">
-                <span className={`flex-shrink-0 font-bold ${c.ok === true ? "text-emerald-500" : c.ok === false ? "text-red-400" : "text-amber-400"}`}>
+              <div key={i} className="flex items-start gap-2.5">
+                <span className={`mt-0.5 flex-shrink-0 text-base font-bold ${c.ok === true ? "text-emerald-500" : c.ok === false ? "text-red-400" : "text-amber-400"}`}>
                   {c.ok === true ? "✓" : c.ok === false ? "✗" : "△"}
                 </span>
-                <span className={c.ok === false ? "text-slate-400" : "text-slate-700"}>{c.text}</span>
+                <div>
+                  <span className={`text-sm ${c.ok === false ? "text-slate-400" : "text-slate-700"}`}>{c.text}</span>
+                  {c.ok === true && <span className="ml-1.5 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">좋음</span>}
+                  {c.ok === null && <span className="ml-1.5 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600">보통</span>}
+                  {c.ok === false && <span className="ml-1.5 rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-500">주의</span>}
+                </div>
               </div>
             ))}
           </div>
@@ -5380,7 +5385,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
       {/* ── [1] 프리미엄 설명 (특수시장만) ── */}
       {isSpec && premiumDesc() && (
         <div className="mb-4 rounded-2xl bg-amber-50 px-5 py-4 ring-1 ring-amber-200">
-          <p className="text-xs font-bold text-amber-800 mb-1">프리미엄 단지 안내</p>
+          <p className="text-xs font-bold text-amber-800 mb-1">재건축·학군·희소성 영향 단지 안내</p>
           <p className="text-xs leading-relaxed text-amber-700">
             재건축 기대감 또는 희소성으로 인해 매매가가 전세가보다 높게 형성된 단지입니다.<br />
             현재 분석은 프리미엄 요인을 반영하여 계산되었습니다.
@@ -5471,11 +5476,17 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
         <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 text-center">
           <p className="text-xs text-slate-400">실거주 적합도</p>
           <p className={`mt-2 text-2xl font-extrabold ${living.total >= 75 ? "text-emerald-600" : living.total >= 60 ? "text-amber-600" : "text-red-500"}`}>{living.total}<span className="text-sm font-normal text-slate-400"> / 100</span></p>
+          <span className={`mt-1 inline-block rounded-md px-2 py-0.5 text-[10px] font-semibold ${living.total >= 75 ? "bg-emerald-50 text-emerald-600" : living.total >= 60 ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-500"}`}>
+            {living.total >= 75 ? "좋음" : living.total >= 60 ? "보통" : "주의"}
+          </span>
           <p className="mt-1 text-xs text-slate-500">교통·학군·상권·연식 종합</p>
         </div>
         <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 text-center">
           <p className="text-xs text-slate-400">가격 매력도</p>
           <p className={`mt-2 text-2xl font-extrabold ${sp.up >= 65 ? "text-emerald-600" : sp.up >= 40 ? "text-amber-600" : "text-red-500"}`}>{sp.up}<span className="text-sm font-normal text-slate-400"> / 100</span></p>
+          <span className={`mt-1 inline-block rounded-md px-2 py-0.5 text-[10px] font-semibold ${sp.up >= 65 ? "bg-emerald-50 text-emerald-600" : sp.up >= 40 ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-500"}`}>
+            {sp.up >= 65 ? "좋음" : sp.up >= 40 ? "보통" : "주의"}
+          </span>
           <p className="mt-1 text-xs text-slate-500">전세가율·저평가 기반</p>
         </div>
       </div>
@@ -5655,7 +5666,7 @@ Powered by ValueLens
 본 리포트는 국토부 실거래 및 입력 데이터를 바탕으로 한 참고용 분석입니다.
 ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
 매수·매도 결정은 사용자의 최종 판단과 전문가 상담을 통해 진행해야 합니다.
-특히 데이터 부족, 전세가율 이상치, 재건축·신축 프리미엄 단지는
+특히 데이터 부족, 전세가율 이상치, 재건축·학군·희소성 영향 단지는
 분석 신뢰도가 낮을 수 있습니다.`;
             const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
             const url = URL.createObjectURL(blob);
@@ -6425,14 +6436,19 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
           checks.push({ ok: true, text: `세후 실수령 약 ${won(sd.netProceeds)}` });
         return (
           <div className="mb-4 rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-slate-100">
-            <p className="mb-2.5 text-sm font-bold text-slate-700">판단 이유</p>
-            <div className="space-y-1.5">
+            <p className="mb-3 text-sm font-bold text-slate-700">왜 이런 결과가 나왔나요?</p>
+            <div className="space-y-2">
               {checks.map((c, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm">
-                  <span className={`flex-shrink-0 font-bold ${c.ok === true ? "text-emerald-500" : c.ok === false ? "text-red-400" : "text-amber-400"}`}>
+                <div key={i} className="flex items-start gap-2.5">
+                  <span className={`mt-0.5 flex-shrink-0 text-base font-bold ${c.ok === true ? "text-emerald-500" : c.ok === false ? "text-red-400" : "text-amber-400"}`}>
                     {c.ok === true ? "✓" : c.ok === false ? "✗" : "△"}
                   </span>
-                  <span className={c.ok === false ? "text-slate-400" : "text-slate-700"}>{c.text}</span>
+                  <div>
+                    <span className={`text-sm ${c.ok === false ? "text-slate-400" : "text-slate-700"}`}>{c.text}</span>
+                    {c.ok === true && <span className="ml-1.5 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">좋음</span>}
+                    {c.ok === null && <span className="ml-1.5 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600">보통</span>}
+                    {c.ok === false && <span className="ml-1.5 rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-500">주의</span>}
+                  </div>
                 </div>
               ))}
             </div>
@@ -6518,7 +6534,7 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
       {sd.isSpecial && (
         <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-orange-200">
           <div className="px-4 py-2.5" style={{ backgroundColor: "#fff7ed" }}>
-            <p className="text-sm font-bold text-orange-700">프리미엄 단지 안내</p>
+            <p className="text-sm font-bold text-orange-700">재건축·학군·희소성 영향 단지 안내</p>
             <p className="mt-0.5 text-xs text-orange-600">재건축 기대감 또는 희소성으로 인해 매매가가 전세가보다 높게 형성된 단지입니다. 현재 분석은 프리미엄 요인을 반영하여 계산되었습니다.</p>
           </div>
           <div className="grid grid-cols-2 gap-px bg-orange-100">
@@ -6605,7 +6621,7 @@ Powered by ValueLens
 본 리포트는 국토부 실거래 및 입력 데이터를 바탕으로 한 참고용 분석입니다.
 ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
 매수·매도 결정은 사용자의 최종 판단과 전문가 상담을 통해 진행해야 합니다.
-특히 데이터 부족, 전세가율 이상치, 재건축·신축 프리미엄 단지는
+특히 데이터 부족, 전세가율 이상치, 재건축·학군·희소성 영향 단지는
 분석 신뢰도가 낮을 수 있습니다.`;
             const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
             const url = URL.createObjectURL(blob);
