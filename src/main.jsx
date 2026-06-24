@@ -317,7 +317,7 @@ const GS = {
   E: { solid: "bg-red-600", text: "text-red-700" },
   보류: { solid: "bg-slate-400", text: "text-slate-600" },
 };
-const won = (m) => (m >= 10000 ? (Math.round((m / 10000) * 100) / 100).toLocaleString() + "억" : Number(m).toLocaleString() + "만원");
+const won = (m) => { if (!m || isNaN(Number(m)) || Number(m) === 0) return "—"; return m >= 10000 ? (Math.round((m / 10000) * 100) / 100).toLocaleString() + "억" : Number(m).toLocaleString() + "만원"; };
 const pct = (r) => (r > 0 ? "+" : "") + (r * 100).toFixed(1) + "%";
 // 전용면적(㎡) → 통상 분양평형 추정 (한국 분양 관행 매핑). 못 구하면 0.
 const typicalPyeong = (sqm) => { sqm = Number(sqm) || 0; if (sqm <= 0) return 0; return Math.round(sqm / 3.3058); };
@@ -1190,10 +1190,9 @@ function DataTrustBadge({ trust }) {
     <div className={`rounded-2xl border p-4 ${trust.gradeColor}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-extrabold">{trust.grade}등급</span>
-          <span className="text-sm font-semibold">{trust.gradeLabel}</span>
+          <span className="text-sm font-extrabold">{trust.gradeLabel}</span>
         </div>
-        <span className="text-xs text-slate-500">신뢰도 {trust.score}/100</span>
+        <span className="text-xs text-slate-500">총 {trust.totalUsed}건 · 점수 {trust.score}/100</span>
       </div>
       <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
         <div>
@@ -4582,7 +4581,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
         <div className="grid grid-cols-3 divide-x divide-slate-100 bg-white">
           <div className="px-3 py-3 text-center">
             <p className="text-[11px] text-slate-400">현재가</p>
-            <p className="mt-0.5 text-sm font-extrabold text-slate-900">{won(Number(f.currentPrice) || 0)}</p>
+            <p className="mt-0.5 text-sm font-extrabold text-slate-900">{won(Number(f.currentPrice))}</p>
           </div>
           <div className="px-3 py-3 text-center">
             <p className="text-[11px] text-slate-400">AI 적정가</p>
@@ -4698,7 +4697,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [] }
             <span className="mt-2 inline-block rounded-md bg-white/10 px-2 py-0.5 text-xs text-slate-200">{r.modeName}</span>
           </div>
           <div className="grid grid-cols-3 divide-x divide-slate-100">
-            <div className="px-4 py-4 text-center"><p className="text-xs text-slate-400">현재 매물가</p><p className="mt-1 text-base font-bold text-slate-800">{won(Number(f.currentPrice) || 0)}</p></div>
+            <div className="px-4 py-4 text-center"><p className="text-xs text-slate-400">현재 매물가</p><p className="mt-1 text-base font-bold text-slate-800">{won(Number(f.currentPrice))}</p></div>
             <div className="px-4 py-4 text-center"><p className="text-xs text-slate-400">안전마진가</p><p className="mt-1 text-base font-bold text-slate-800">{won(r.safetyPrice)}</p></div>
             <div className="px-4 py-4 text-center"><p className="text-xs text-slate-400">적정가 대비</p><p className={`mt-1 text-base font-bold ${r.gapRatio > 0 ? "text-red-600" : "text-emerald-600"}`}>{pct(r.gapRatio)}</p></div>
           </div>
@@ -4772,7 +4771,7 @@ ${"=".repeat(40)}
 
 [적정가 평가 결과]
   가격 평가 등급: ${r.buyGrade}등급 · ${gradeLabel}
-  현재 매물가: ${won(Number(f.currentPrice) || 0)}
+  현재 매물가: ${won(Number(f.currentPrice))}
   AI 적정가: ${r.engineMode === "hold" ? "판단 보류" : won(r.fairPrice)}
   ${r.gapRatio < 0 ? "저평가율" : "고평가율"}: ${r.engineMode === "hold" ? "보류" : gp}
   안전 매수가: ${r.safetyPrice ? won(r.safetyPrice) : "—"}
@@ -5043,7 +5042,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
         <div className="grid grid-cols-3 divide-x divide-slate-100 bg-white">
           <div className="px-3 py-3 text-center">
             <p className="text-[11px] text-slate-400">현재가</p>
-            <p className="mt-0.5 text-sm font-extrabold text-slate-900">{won(Number(f.currentPrice) || 0)}</p>
+            <p className="mt-0.5 text-sm font-extrabold text-slate-900">{won(Number(f.currentPrice))}</p>
           </div>
           <div className="px-3 py-3 text-center">
             <p className="text-[11px] text-slate-400">AI 적정가</p>
@@ -5097,7 +5096,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
           </div>
           <div className="px-4 py-4 text-center">
             <p className="text-xs text-slate-400">현재 매물가</p>
-            <p className="mt-1 text-xl font-extrabold text-slate-900">{won(Number(f.currentPrice) || 0)}</p>
+            <p className="mt-1 text-xl font-extrabold text-slate-900">{won(Number(f.currentPrice))}</p>
           </div>
           <div className="px-4 py-4 text-center">
             <p className="text-xs text-slate-400">{cheap ? "저평가율" : "고평가율"}</p>
@@ -5353,7 +5352,7 @@ ${"=".repeat(40)}
 
 [가격 평가 결과]
   가격 평가 등급: ${r.buyGrade}등급 · ${gradeLabel}
-  현재 매물가: ${won(Number(f.currentPrice) || 0)}
+  현재 매물가: ${won(Number(f.currentPrice))}
   AI 적정가: ${r.engineMode === "hold" ? "판단 보류" : won(r.fairPrice)}
   ${cheap ? "저평가율" : "고평가율"}: ${r.engineMode === "hold" ? "보류" : `${gp}%`}
   추천 협상가: ${r.engineMode === "hold" ? "—" : won(r.negotiation.start)}
@@ -6203,7 +6202,7 @@ ${"=".repeat(40)}
 
 [매도 평가 결과]
   매도 판단: ${sd.finalSellDecision}
-  희망 매도가: ${won(Number(f.currentPrice) || 0)}
+  희망 매도가: ${won(Number(f.currentPrice))}
   AI 적정가: ${won(sd.refPrice)}
   가격 위치: ${sd.askingLevel} (적정가 대비 ${sd.gapVsRef >= 0 ? "+" : ""}${gapPct}%)
   세후 실수령 개략: ${!sd.provisional && sd.tax ? won(sd.netProceeds) : "—"}

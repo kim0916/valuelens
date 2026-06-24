@@ -47,6 +47,8 @@ export default async function handler(req, res) {
         '헤링턴': '해링턴',   // Harrington: 국토부는 "해링턴" 표기
         '더샾':   '더샵',     // The Sharp: 국토부는 "더샵" 표기
         '레미안': '래미안',   // Raemian: 일부 지역 "래미안" 표기
+        '이편한세상': 'e편한세상', // 국토부는 "e편한세상" 표기
+        'XI':     '자이',     // GS건설 브랜드: 국토부는 "자이" 한글 표기
       };
       let normalizedName = name;
       for (const [from, to] of Object.entries(BRAND_ALIAS)) {
