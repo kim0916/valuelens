@@ -112,13 +112,45 @@ export default async function handler(req, res) {
         .order('sale_cnt', { ascending: false })
         .limit(limit);
 
+      // OR variant 있을 때: 두 표기 각각 별도 쿼리 후 병합
+      // → sale_cnt 정렬 시 한쪽 표기가 limit 안에서 밀리는 문제 방지
+      // 예: 레미안(9건) + 래미안(218건) → 각각 상위 N/2건씩 뽑아 합침
+      if (orVariant && !hasSpecial) {
+        const half = Math.ceil(limit / 2);
+        const varNoSpace = orVariant.replace(/\s/g, '');
+
+        const buildQ = (keyword) => {
+          let q = supabase
+            .from('realestate_complexes')
+            .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
+            .order('sale_cnt', { ascending: false })
+            .limit(half);
+          q = q.ilike('complex_name', `%${keyword}%`);
+          if (sigungu) q = q.ilike('sigungu', `%${sigungu}%`);
+          if (dong)    q = q.ilike('legal_dong', `%${dong}%`);
+          return q;
+        };
+
+        const [r1, r2] = await Promise.all([buildQ(nameNoSpace), buildQ(varNoSpace)]);
+        if (r1.error) throw r1.error;
+        if (r2.error) throw r2.error;
+
+        // 중복 제거 후 sale_cnt 내림차순 병합
+        const seen = new Set();
+        const merged = [];
+        for (const item of [...(r1.data||[]), ...(r2.data||[])]) {
+          if (!seen.has(item.id)) { seen.add(item.id); merged.push(item); }
+        }
+        merged.sort((a, b) => (b.sale_cnt||0) - (a.sale_cnt||0));
+
+        res.setHeader('Cache-Control', 's-maxage=3600');
+        res.status(200).json({ complexes: merged, aliasMatch, total: merged.length });
+        return;
+      }
+
       if (hasSpecial) {
         // 특수문자 포함: .ilike() 직접 사용
         query = query.ilike('complex_name', `%${nameOrig}%`);
-      } else if (orVariant) {
-        // 브랜드 양쪽 표기 OR 검색
-        const varNoSpace = orVariant.replace(/\s/g, '');
-        query = query.or(`complex_name.ilike.%${nameNoSpace}%,complex_name.ilike.%${varNoSpace}%`);
       } else if (hasSpace) {
         // 공백 포함: 공백제거+원본 OR
         query = query.or(`complex_name.ilike.%${nameNoSpace}%,complex_name.ilike.%${nameOrig}%`);
