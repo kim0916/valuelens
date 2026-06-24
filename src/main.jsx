@@ -1290,8 +1290,8 @@ function FairSaveBtn({ r, f, onBack, showFull }) {
   if (showFull) {
     return (
       <button onClick={handleSave} disabled={!!savedId}
-        className={`w-full rounded-2xl py-4 text-sm font-bold transition-colors ${savedId ? "bg-emerald-100 text-emerald-700" : "bg-emerald-600 text-white active:bg-emerald-700"}`}>
-        {savedId ? "✓ 이 분석 저장됨" : "💾 이 분석 저장하기"}
+        className={`w-full rounded-2xl py-3 text-sm font-semibold transition-colors ${savedId ? "bg-slate-100 text-slate-400" : "border border-emerald-200 bg-emerald-50 text-emerald-700 active:bg-emerald-100"}`}>
+        {savedId ? "✓ 저장됨" : "💾 이 분석 저장하기"}
       </button>
     );
   }
@@ -1327,8 +1327,8 @@ function BuySaveBtn({ r, f, bd, onBack, onSave, saved, showFull }) {
   if (showFull) {
     return (
       <button onClick={handleSave} disabled={!!savedId}
-        className={`mb-3 w-full rounded-2xl py-4 text-sm font-bold transition-colors ${savedId ? "bg-emerald-100 text-emerald-700" : "bg-emerald-600 text-white active:bg-emerald-700"}`}>
-        {savedId ? "✓ 이 분석 저장됨" : "💾 이 분석 저장하기"}
+        className={`w-full rounded-2xl py-3 text-sm font-semibold transition-colors ${savedId ? "bg-slate-100 text-slate-400" : "border border-emerald-200 bg-emerald-50 text-emerald-700 active:bg-emerald-100"}`}>
+        {savedId ? "✓ 저장됨" : "💾 이 분석 저장하기"}
       </button>
     );
   }
@@ -1370,8 +1370,8 @@ function SellSaveBtn({ r, f, sd, onBack, showFull }) {
   if (showFull) {
     return (
       <button onClick={handleSave} disabled={!!savedId}
-        className={`w-full rounded-2xl py-4 text-sm font-bold transition-colors ${savedId ? "bg-emerald-100 text-emerald-700" : "bg-emerald-600 text-white active:bg-emerald-700"}`}>
-        {savedId ? "✓ 이 분석 저장됨" : "💾 이 분석 저장하기"}
+        className={`w-full rounded-2xl py-3 text-sm font-semibold transition-colors ${savedId ? "bg-slate-100 text-slate-400" : "border border-emerald-200 bg-emerald-50 text-emerald-700 active:bg-emerald-100"}`}>
+        {savedId ? "✓ 저장됨" : "💾 이 분석 저장하기"}
       </button>
     );
   }
@@ -5467,8 +5467,8 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
       : `현재 가격은 적정가 대비 ${gp}% 높은 수준입니다.`;
     let line2;
     if (isSpec && r.saleType === "redev") line2 = "재건축 기대가 반영된 단지로, 실사용 가치와의 괴리를 고려하세요.";
-    else if (r.buyGrade === "A" || r.buyGrade === "B") line2 = `${won(r.negotiation.start)} 이하에서 협상 시 가격 메리트가 있습니다.`;
-    else if (r.buyGrade === "C") line2 = `협상을 통해 ${won(r.negotiation.start)} 수준을 검토해볼 수 있습니다.`;
+    else if (r.buyGrade === "A" || r.buyGrade === "B") line2 = `${won(r.negotiation?.start || 0)} 이하에서 협상 시 가격 메리트가 있습니다.`;
+    else if (r.buyGrade === "C") line2 = `협상을 통해 ${won(r.negotiation?.start || 0)} 수준을 검토해볼 수 있습니다.`;
     else if (r.buyGrade === "D") {
       const _ris = isRisingMarket(f.region || "기타");
       const _tr  = getRegionTrend(f.region || "기타");
@@ -5742,7 +5742,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
           </div>
           <div className="px-4 py-4 text-center">
             <p className="text-xs text-slate-400">추천 협상가</p>
-            <p className="mt-1 text-base font-extrabold text-slate-900">{hold0 ? "—" : won(r.negotiation.start)}</p>
+            <p className="mt-1 text-base font-extrabold text-slate-900">{hold0 ? "—" : won(r.negotiation?.start || 0)}</p>
           </div>
         </div>
       </div>
@@ -6071,11 +6071,11 @@ ${"=".repeat(40)}
   현재 매물가: ${won(Number(f.currentPrice))}
   AI 적정가: ${r.engineMode === "hold" ? "판단 보류" : won(r.fairPrice)}
   ${cheap ? "저평가율" : "고평가율"}: ${r.engineMode === "hold" ? "보류" : `${gp}%`}
-  추천 협상가: ${r.engineMode === "hold" ? "—" : won(r.negotiation.start)}
+  추천 협상가: ${r.engineMode === "hold" ? "—" : won(r.negotiation?.start || 0)}
 
 [AI 의견]
   ${cheap ? `현재 가격은 적정가 대비 ${gp}% 낮은 수준입니다.` : `현재 가격은 적정가 대비 ${gp}% 높은 수준입니다.`}
-  ${r.buyGrade === "A" || r.buyGrade === "B" ? `${won(r.negotiation.start)} 이하에서 협상 시 가격 메리트가 있습니다.` : r.buyGrade === "C" ? `협상을 통해 ${won(r.negotiation.start)} 수준을 검토해볼 수 있습니다.` : `가격 조정 후 재검토를 고려해볼 수 있습니다.`}
+  ${r.buyGrade === "A" || r.buyGrade === "B" ? `${won(r.negotiation?.start || 0)} 이하에서 협상 시 가격 메리트가 있습니다.` : r.buyGrade === "C" ? `협상을 통해 ${won(r.negotiation?.start || 0)} 수준을 검토해볼 수 있습니다.` : `가격 조정 후 재검토를 고려해볼 수 있습니다.`}
 
 [가격별 평가 시나리오]
 ${scenarioLines}
@@ -6154,7 +6154,6 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
             </div>
           </div>
         )}\n        {/* 저장 버튼 */}
-        <BuySaveBtn r={r} f={f} bd={bd} onBack={onBack} onSave={onSave} saved={saved} showFull />
         {/* 2×2 네비 버튼 */}
         <div className="grid grid-cols-2 gap-3">
           <button onClick={onBack}
@@ -6165,11 +6164,12 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
             className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 active:bg-blue-100">
             🔄 다른 단지 분석
           </button>
-          <button onClick={onHome}
-            className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white active:bg-slate-700">
-            🏠 처음으로
-          </button>
         </div>
+        <BuySaveBtn r={r} f={f} bd={bd} onBack={onBack} onSave={onSave} saved={saved} showFull />
+        <button onClick={onHome}
+          className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white active:bg-slate-700">
+          🏠 처음으로
+        </button>
       </div>
 
     </>
