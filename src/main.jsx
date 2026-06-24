@@ -261,6 +261,29 @@ function ComplexAutocomplete({ dong, value, onChange, placeholder, className }) 
 // 결제 시스템을 연결해야 합니다. 프론트에는 계산식이 노출되지 않게 해야 합니다.
 // ============================================================================
 const NAVY = "#0f1f3d";
+
+// ── 최근 분석 localStorage 유틸 ──
+const LS_KEY = "valuelens_recent_analysis";
+const LS_MAX = 20;
+
+function loadRecentAnalysis() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveRecentAnalysis(item) {
+  try {
+    const prev = loadRecentAnalysis();
+    // 같은 단지+면적+타입 중복 제거
+    const deduped = prev.filter(p =>
+      !(p.complexName === item.complexName && p.area === item.area && p.analysisType === item.analysisType)
+    );
+    const next = [item, ...deduped].slice(0, LS_MAX);
+    localStorage.setItem(LS_KEY, JSON.stringify(next));
+  } catch {}
+}
 // ══════════════════════════════════════════════════════════
 // 백테스트 v3 기반 엔진 상수 및 헬퍼 함수
 // ══════════════════════════════════════════════════════════
@@ -2270,7 +2293,7 @@ function AppInner() {
   const [ptype, setPtype] = useState("apartment");   // 상위 카테고리
   const [aptTab, setAptTab] = useState("fair");       // 아파트 내부 메뉴 (기본: 적정가)
   const [roomTab, setRoomTab] = useState("search");   // 원룸 내부 메뉴
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState(() => loadRecentAnalysis());
   const [watch, setWatch] = useState([]);
   const [finProfile, setFinProfile] = useState(null);  // 추천후보 탭 「내 조건」 → 내 자산 재무 프로필 공유
   const [buyCtx, setBuyCtx] = useState(null);         // 매수 입력값 → 매수세금 자동 반영용
@@ -2303,7 +2326,7 @@ function AppInner() {
       </nav>
       <main className="mx-auto max-w-2xl px-4 py-8">
         {ptype === "apartment" && (<>
-          <div style={{display: (aptTab === "fair" || aptTab === "buy") ? "block" : "none"}}><BuyView mode={aptTab === "fair" ? "fair" : "buy"} onSaveHistory={(h) => setHistory((p) => [h, ...p])} onAddWatch={(w) => setWatch((p) => [w, ...p.filter((x) => x.key !== w.key)])} onContext={(c) => setBuyCtx(c)} /></div>
+          <div style={{display: (aptTab === "fair" || aptTab === "buy") ? "block" : "none"}}><BuyView mode={aptTab === "fair" ? "fair" : "buy"} onSaveHistory={(h) => { saveRecentAnalysis(h); setHistory((p) => { const deduped = p.filter(x => !(x.complexName === h.complexName && x.area === h.area && x.analysisType === h.analysisType)); return [h, ...deduped].slice(0, LS_MAX); }); }} onAddWatch={(w) => setWatch((p) => [w, ...p.filter((x) => x.key !== w.key)])} onContext={(c) => setBuyCtx(c)} /></div>
           <div style={{display: aptTab === "sell" ? "block" : "none"}}><SellView onContext={(c) => setSellCtx(c)} /></div>
           {aptTab === "tax" && <TaxView buyCtx={buyCtx} sellCtx={sellCtx} />}
           {aptTab === "logs" && <LogsView />}
@@ -3910,9 +3933,16 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       if (onContext) onContext({ price: autoFf.currentPrice, area: Number(autoFf.areaExclusive) || 0 });
       if (mode !== "fair") {
         onSaveHistory({ date: new Date().toISOString().slice(0,10), complex: autoFf.complexName, dong: autoFf.dong,
-          area: autoFf.areaExclusive ? `전용 ${autoFf.areaExclusive}㎡` : "",
+          complexName: autoFf.complexName, area: autoFf.areaExclusive ? `전용 ${autoFf.areaExclusive}㎡` : "",
           currentPrice: autoFf.currentPrice, fairPrice: res.fairPrice, safetyPrice: res.safetyPrice,
-          grade: res.buyGrade, headline: res.headline });
+          grade: res.buyGrade, headline: res.headline, analysisType: mode === "buy" ? "매수" : "적정가",
+          gradeLabel: res.gradeLabel || "" });
+      } else {
+        onSaveHistory({ date: new Date().toISOString().slice(0,10), complex: autoFf.complexName, dong: autoFf.dong,
+          complexName: autoFf.complexName, area: autoFf.areaExclusive ? `전용 ${autoFf.areaExclusive}㎡` : "",
+          currentPrice: autoFf.currentPrice, fairPrice: res.fairPrice, safetyPrice: res.safetyPrice,
+          grade: res.buyGrade, headline: res.headline, analysisType: "적정가",
+          gradeLabel: res.gradeLabel || "" });
       }
     } else {
       // 데이터 부족 or 현재가 없음 → ConfirmStep 표시
@@ -3965,7 +3995,11 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     res.jeonseCalc = jeonseCalc; res.saleCalc = saleCalc;
     setR(res); setSaved(false); setPending(null);
     if (onContext) onContext({ price: ff.currentPrice, area: Number(ff.areaExclusive) || 0 });
-    onSaveHistory({ date: new Date().toISOString().slice(0, 10), complex: ff.complexName, dong: ff.dong, area: ff.areaExclusive ? `전용 ${ff.areaExclusive}㎡` : "", currentPrice: ff.currentPrice, fairPrice: res.fairPrice, safetyPrice: res.safetyPrice, grade: res.buyGrade, headline: res.headline });
+    onSaveHistory({ date: new Date().toISOString().slice(0, 10), complex: ff.complexName, dong: ff.dong,
+      complexName: ff.complexName, area: ff.areaExclusive ? `전용 ${ff.areaExclusive}㎡` : "",
+      currentPrice: ff.currentPrice, fairPrice: res.fairPrice, safetyPrice: res.safetyPrice,
+      grade: res.buyGrade, headline: res.headline, analysisType: mode === "buy" ? "매수" : "적정가",
+      gradeLabel: res.gradeLabel || "" });
   }
   if (r) return mode === "fair"
     ? <FairValueResult r={r} f={f} onBack={() => setR(null)}
@@ -4022,6 +4056,59 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
   if (pending) return <ConfirmStep p={pending} f={f} onBack={() => setPending(null)} onConfirm={doAnalyze} mode={mode} onRefetch={(area) => { setF(prev => ({...prev, areaExclusive: String(area)})); quickSearch(area, null, null, true); }} onBackToTop={() => { setPending(null); setR(null); setF({...EMPTY}); setUploadedImages([]); setCaptureMsg(null); setAiMsg(null); }} />;
   return (
     <>
+      {/* ── 최근 분석한 단지 ── */}
+      {(() => {
+        const recents = loadRecentAnalysis().filter(h => {
+          const t = h.analysisType;
+          return mode === "fair" ? t === "적정가" : t === "매수";
+        }).slice(0, 5);
+        if (recents.length === 0) return null;
+        return (
+          <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+            <p className="mb-2 text-xs font-bold text-slate-500">최근 분석한 단지</p>
+            <div className="space-y-1.5">
+              {recents.map((h, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    // 저장된 결과 바로 재오픈 (재조회 없이)
+                    const restored = {
+                      fairPrice: h.fairPrice || 0,
+                      safetyPrice: h.safetyPrice || 0,
+                      buyGrade: h.grade || "C",
+                      gradeLabel: h.gradeLabel || "",
+                      gapRatio: h.currentPrice && h.fairPrice ? (h.currentPrice - h.fairPrice) / h.fairPrice : 0,
+                      engineMode: "jeonse", modeName: "전세 시세 중심",
+                      jeonseUsed: 0, saleUsed: 0, dataConf: 50, dataConfLabel: "보통",
+                      headline: h.headline || "", _restored: true,
+                    };
+                    setF(prev => ({
+                      ...prev,
+                      complexName: h.complexName || h.complex || "",
+                      dong: h.dong || "",
+                      areaExclusive: h.area ? h.area.replace("전용 ", "").replace("㎡", "") : "",
+                      currentPrice: h.currentPrice || 0,
+                    }));
+                    setR(restored);
+                  }}
+                  className="flex w-full items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-left hover:bg-slate-100 active:bg-slate-200"
+                >
+                  <div>
+                    <span className="text-xs font-semibold text-slate-800">{h.complexName || h.complex}</span>
+                    <span className="ml-1.5 text-[11px] text-slate-400">{h.area}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-slate-500">AI 적정가 {won(h.fairPrice)}</span>
+                    {h.grade && GS[h.grade] && (
+                      <span className={`rounded-lg px-1.5 py-0.5 text-[10px] font-bold text-white ${GS[h.grade].solid}`}>{h.grade}</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
         {/* 진입 안내 — 단지 미선택 시만 표시 */}
         {!f.complexName && (
