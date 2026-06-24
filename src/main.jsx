@@ -4000,7 +4000,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
       // MOLIT도 없으면 "DB 적재기간 내 거래 없음" 명확히 표시
       return {
         sale: [], jeonse: [], areaOptions: complexInfo.area_list
-          ? JSON.parse(complexInfo.area_list).map(a => ({ areaSqm: a, pyeong: Math.round(a / 3.3058) })) : [],
+          ? groupAreasByPyeong(JSON.parse(complexInfo.area_list))
+              .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: Math.round(g.rep / 3.3058) })) : [],
         buildYear: complexInfo.build_year || null, lawdCd: null,
         tradeStatus: { code: "PERIOD_NO_TRADE", msg: `최근 1년 실거래 데이터가 부족합니다. 직접 확인한 가격을 입력해 주세요.`, pipeline: { source: "supabase" } },
         dataSource: "supabase",
@@ -4040,7 +4041,8 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy" }) {
     const data = {
       sale, jeonse,
       areaOptions: complexInfo.area_list
-        ? JSON.parse(complexInfo.area_list).map(a => ({ areaSqm: a, pyeong: Math.round(a / 3.3058) }))
+        ? groupAreasByPyeong(JSON.parse(complexInfo.area_list))
+            .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: Math.round(g.rep / 3.3058) }))
         : [],
       buildYear:    complexInfo.build_year || null,
       lawdCd:       null,
@@ -6338,7 +6340,8 @@ function SellView({ onContext }) {
       return {
         sale: [], jeonse: [],
         areaOptions: complexInfo.area_list
-          ? JSON.parse(complexInfo.area_list).map(a => ({ areaSqm: a, pyeong: Math.round(a / 3.3058) })) : [],
+          ? groupAreasByPyeong(JSON.parse(complexInfo.area_list))
+              .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: Math.round(g.rep / 3.3058) })) : [],
         buildYear: complexInfo.build_year || null, lawdCd: null,
         tradeStatus: { code: "PERIOD_NO_TRADE", msg: `최근 1년 실거래 데이터가 부족합니다. 직접 확인한 가격을 입력해 주세요.`, pipeline: { source: "supabase" } },
         dataSource: "supabase",
@@ -6363,7 +6366,8 @@ function SellView({ onContext }) {
     const data = {
       sale, jeonse, dataSource: "supabase",
       areaOptions: complexInfo.area_list
-        ? JSON.parse(complexInfo.area_list).map(a => ({ areaSqm: a, pyeong: Math.round(a / 3.3058) })) : [],
+        ? groupAreasByPyeong(JSON.parse(complexInfo.area_list))
+            .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: Math.round(g.rep / 3.3058) })) : [],
       buildYear: complexInfo.build_year || null, lawdCd: null,
       tradeStatus: sbStatus,
     };
