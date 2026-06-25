@@ -1862,6 +1862,9 @@ function MaintenanceScreen() {
   );
 }
 
+const apartmentTabsDef = [["fair", "적정가"], ["buy", "매수"], ["sell", "매도"], ["tax", "세금"], ["reco", "추천 후보"], ["adv", "내 자산"], ["logs", "🔍 로그"]];
+const oneRoomTabsDef = [["search", "원룸 찾기"], ["manage", "원룸 관리"], ["yield", "원룸 수익률"]];
+
 function AppInner() {
   const [ptype, setPtype] = useState("apartment");
   const [aptTab, setAptTab] = useState("home");
