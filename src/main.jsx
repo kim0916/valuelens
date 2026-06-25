@@ -2625,7 +2625,719 @@ function parseIntent(raw) {
 }
 // ─────────────────────────────────────────────────────────────────────
 
-function HomeView({ onNavigate, history }) {
+// ─────────────────────────────────────────────────────────────────────
+// AIChatView — ValueLens AI 채팅 인터페이스
+// ─────────────────────────────────────────────────────────────────────
+function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, currentUserEmail }) {
+
+  // ── 아이콘 ──
+  const CI = ({ d, s = 16, color = "currentColor", sw = 1.35 }) => (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {d==="send"    && <><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>}
+      {d==="mic"     && <><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></>}
+      {d==="clip"    && <><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></>}
+      {d==="search"  && <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>}
+      {d==="chevron" && <polyline points="6 9 12 15 18 9"/>}
+      {d==="right"   && <polyline points="9 18 15 12 9 6"/>}
+      {d==="x"       && <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>}
+      {d==="home"    && <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>}
+      {d==="star"    && <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>}
+      {d==="alert"   && <><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>}
+    </svg>
+  );
+
+  // ── 메시지 타입 ──
+  // { id, role: 'user'|'ai', type: 'text'|'thinking'|'result'|'candidates'|'clarify'|'error', content, data }
+
+  const WELCOME = {
+    id: "welcome", role: "ai", type: "text",
+    content: "안녕하세요. 부동산에 대해 무엇이든 물어보세요.\n단지명·지역·평형·가격을 자유롭게 말씀하시면 분석해드립니다.",
+  };
+
+  const [msgs, setMsgs]           = React.useState([WELCOME]);
+  const [input, setInput]         = React.useState("");
+  const [listening, setListening] = React.useState(false);
+  const [advOpen, setAdvOpen]     = React.useState(false);  // 고급 검색 접기
+  const [pendingIntent, setPendingIntent] = React.useState(null); // 후보 선택 대기
+
+  const bottomRef  = React.useRef(null);
+  const inputRef   = React.useRef(null);
+  const fileRef    = React.useRef(null);
+
+  // placeholder 순환
+  const PHS = [
+    "공릉동 동부 25평 얼마야?",
+    "잠실 리센츠 지금 사도 돼?",
+    "내 집 9억에 팔까?",
+    "7억으로 노원구 추천해줘",
+    "대치 래미안 84㎡ 적정가",
+  ];
+  const [phIdx, setPhIdx] = React.useState(0);
+  React.useEffect(() => {
+    const t = setInterval(() => setPhIdx(i => (i+1) % PHS.length), 3500);
+    return () => clearInterval(t);
+  }, []);
+
+  // 스크롤 하단 유지
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [msgs]);
+
+  // ── 메시지 추가 헬퍼 ──
+  function addMsg(msg) {
+    setMsgs(prev => [...prev, { id: Date.now() + Math.random(), ...msg }]);
+  }
+  function replaceLastAI(msg) {
+    setMsgs(prev => {
+      const copy = [...prev];
+      for (let i = copy.length - 1; i >= 0; i--) {
+        if (copy[i].role === "ai") { copy[i] = { ...copy[i], ...msg }; break; }
+      }
+      return copy;
+    });
+  }
+
+  // ── 메인 핸들러 ──
+  async function handleSend(txt) {
+    const text = (txt || input).trim();
+    if (!text) return;
+    setInput("");
+    setPendingIntent(null);
+
+    // 1. 사용자 메시지 추가
+    addMsg({ role: "user", type: "text", content: text });
+
+    // 2. 파싱
+    const intent = parseIntent(text);
+
+    // 3. thinking 표시
+    addMsg({ role: "ai", type: "thinking", content: "분석 중..." });
+
+    // 4. 단지 검색
+    await routeIntent(intent, text);
+  }
+
+  async function routeIntent(intent, rawText) {
+    try {
+      // ── 후보 검색 ──
+      const tokens = rawText.replace(/\s/g,"").split("").join(""); // 공백 제거
+      let complexes = [];
+
+      if (intent.complexName) {
+        const kw = intent.complexName;
+        const tokens2 = kw.trim().split(/\s+/);
+        let pool = [];
+        if (tokens2.length >= 2) {
+          const combined1 = tokens2.join("");
+          const combined2 = [...tokens2.slice(1), tokens2[0]].join("");
+          const [r1, r2] = await Promise.all([
+            searchComplexFromSupabase(combined1, "", ""),
+            searchComplexFromSupabase(combined2, "", ""),
+          ]);
+          const seen = new Set();
+          for (const r of [r1, r2]) {
+            if (r.fromSupabase) for (const c of r.complexes) {
+              if (!seen.has(c.id)) { seen.add(c.id); pool.push(c); }
+            }
+          }
+        }
+        if (pool.length === 0) {
+          const r = await searchComplexFromSupabase(kw, intent.region || "", intent.dong || "");
+          if (r.fromSupabase) pool = r.complexes;
+        }
+        complexes = pool.slice(0, 8);
+      }
+
+      // ── 단지 0개 → clarify ──
+      if (complexes.length === 0) {
+        replaceLastAI({
+          type: "clarify",
+          content: intent.complexName
+            ? `"${intent.complexName}" 단지를 DB에서 찾지 못했습니다.\n단지명을 더 구체적으로 입력하거나, 아래 검색을 이용해주세요.`
+            : "단지명이나 지역을 함께 입력해주세요.\n예: \"공릉동 동부 25평\" 또는 \"잠실 리센츠\"",
+          onSearch: () => {
+            onNavigate("fair", { searchQuery: rawText });
+          },
+        });
+        return;
+      }
+
+      // ── 단지 1개 → 바로 분석 ──
+      if (complexes.length === 1) {
+        await runAnalysis(complexes[0], intent);
+        return;
+      }
+
+      // ── 단지 복수 → 후보 선택 ──
+      replaceLastAI({
+        type: "candidates",
+        content: `"${intent.complexName || rawText}"에 해당하는 단지가 여러 개입니다. 분석할 단지를 선택해주세요.`,
+        data: complexes,
+        intent,
+      });
+      setPendingIntent(intent);
+
+    } catch(e) {
+      console.error('[routeIntent]', e);
+      replaceLastAI({ type: "error", content: "분석 중 오류가 발생했습니다. 다시 시도해주세요." });
+    }
+  }
+
+  // ── 단지 선택 후 분석 실행 ──
+  async function runAnalysis(complex, intent) {
+    // thinking 재표시
+    replaceLastAI({ type: "thinking", content: "데이터 조회 중..." });
+
+    try {
+      const sigungu   = complex.sigungu    || "";
+      const dong      = complex.legal_dong || "";
+      const sido      = complex.sido       || "";
+      const complexId = complex.id         || null;
+      const name      = complex.complex_name;
+      const areaListRaw = complex.area_list ? JSON.parse(complex.area_list) : [];
+
+      // 면적 결정 — intent.areaSqm 우선, 없으면 대표면적
+      let targetArea = intent.areaSqm || null;
+      if (!targetArea && intent.pyeong) targetArea = Math.round(intent.pyeong * 3.305785);
+      if (!targetArea && areaListRaw.length > 0) {
+        // 가장 거래 많을 것 같은 중간값
+        const sorted = [...areaListRaw].sort((a,b)=>a-b);
+        targetArea = sorted[Math.floor(sorted.length / 2)];
+      }
+
+      // Supabase deals 조회
+      const sbRes = await fetch('/api/supabase', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'deals', complex_id: complexId, complex_name: name, sigungu }),
+      });
+      const sbData = await sbRes.json();
+      const rawDeals = sbData.deals || [];
+
+      // 거래 필터링 (12개월, ±3㎡)
+      const cutoff = (() => {
+        const d = new Date(); d.setMonth(d.getMonth() - 12);
+        return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}`;
+      })();
+
+      const saleDeals = rawDeals.filter(d =>
+        d.deal_type === 'sale' &&
+        d.contract_ym >= cutoff &&
+        (!targetArea || Math.abs(Number(d.area_excl) - targetArea) <= 3)
+      ).map(d => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deal_amount_man)||0, ym: d.contract_ym||"", floor: d.floor||0 }))
+       .filter(d => d.price > 0 && d.areaSqm > 0);
+
+      const jeonseDeals = rawDeals.filter(d =>
+        d.deal_type === 'rent' && d.monthly_man === '0' &&
+        d.contract_ym >= cutoff &&
+        (!targetArea || Math.abs(Number(d.area_excl) - targetArea) <= 3)
+      ).map(d => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deposit_man)||0, ym: d.contract_ym||"" }))
+       .filter(d => d.price > 0 && d.areaSqm > 0);
+
+      // 거래 부족
+      if (saleDeals.length < 3) {
+        replaceLastAI({
+          type: "clarify",
+          content: `${name} (${targetArea ? Math.round(targetArea)+'㎡' : ''}) 최근 12개월 실거래가 ${saleDeals.length}건으로 부족합니다.\n다른 면적이나 단지를 시도해보시거나, 상세 검색을 이용해주세요.`,
+          onSearch: () => onNavigate("fair", { searchQuery: name }),
+        });
+        return;
+      }
+
+      // analyze() 호출 — 기존 엔진 그대로
+      const ff = {
+        ...EMPTY,
+        region: sigungu, dong, sido,
+        complexName: name, exactAptNm: name, complexId,
+        areaExclusive: String(Math.round(targetArea || 0)),
+        buildYear: complex.build_year || "",
+      };
+
+      const engineResult = analyze({
+        ...ff,
+        deals: { sale: saleDeals, jeonse: jeonseDeals },
+      });
+
+      // 결과 카드 표시
+      replaceLastAI({
+        type: "result",
+        content: "",
+        data: {
+          complex: { name, sigungu, dong, areaExclusive: Math.round(targetArea || 0), buildYear: complex.build_year },
+          intent,
+          engine: engineResult,
+          ff,
+          saleDeals,
+          jeonseDeals,
+        },
+      });
+
+      // 히스토리 저장
+      if (onSaveHistory && engineResult) {
+        try {
+          onSaveHistory({
+            complexName: name, area: targetArea ? `${Math.round(targetArea)}㎡` : "",
+            analysisType: { fair:"적정가", buy:"매수", sell:"매도" }[intent.intent] || "적정가",
+            grade: engineResult.fairGrade || engineResult.buyGrade || "",
+            headline: engineResult.headline || "",
+          });
+        } catch(_) {}
+      }
+
+    } catch(e) {
+      console.error('[runAnalysis]', e);
+      replaceLastAI({ type: "error", content: "분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." });
+    }
+  }
+
+  // ── 음성 입력 ──
+  function handleVoice() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { addMsg({ role:"ai", type:"text", content:"이 브라우저는 음성 입력을 지원하지 않습니다." }); return; }
+    const rec = new SR();
+    rec.lang = "ko-KR"; rec.interimResults = false;
+    rec.onstart  = () => setListening(true);
+    rec.onend    = () => setListening(false);
+    rec.onerror  = () => { setListening(false); };
+    rec.onresult = (e) => {
+      const txt = e.results[0][0].transcript;
+      setInput(txt);
+      setTimeout(() => handleSend(txt), 80);
+    };
+    rec.start();
+  }
+
+  // ── 첨부 ──
+  function handleAttach() {
+    fileRef.current?.click();
+  }
+  function handleFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (['jpg','jpeg','png','webp','heic'].includes(ext)) {
+      addMsg({ role:"user", type:"text", content:`📷 사진 첨부: ${file.name}` });
+      addMsg({ role:"ai",   type:"text", content:"사진 분석 기능은 준비 중입니다.\n단지명·주소를 텍스트로 입력해주시면 바로 분석해드립니다." });
+    } else if (['pdf'].includes(ext)) {
+      addMsg({ role:"user", type:"text", content:`📄 문서 첨부: ${file.name}` });
+      addMsg({ role:"ai",   type:"text", content:"문서 분석 기능은 준비 중입니다.\n등기부등본·계약서 분석은 곧 지원될 예정입니다." });
+    } else {
+      addMsg({ role:"ai", type:"text", content:"지원하지 않는 파일 형식입니다.\n사진(JPG·PNG) 또는 PDF를 첨부해주세요." });
+    }
+    e.target.value = "";
+  }
+
+  // ── 결과 카드 컴포넌트 ──
+  function ResultCard({ data, intent }) {
+    const { complex, engine } = data;
+    if (!engine) return null;
+
+    const grade    = engine.fairGrade || engine.buyGrade || "C";
+    const GC       = GRADE_COLOR[grade] || "#44403c";
+    const GB       = GRADE_BG[grade]    || "#fafaf8";
+    const GBR      = GRADE_BR[grade]    || BRAND_BORDER;
+
+    const fairPrice  = engine.fairPrice  ? Math.round(engine.fairPrice  / 10000 * 10) / 10 : null;
+    const saleMedian = engine.saleMedian ? Math.round(engine.saleMedian / 10000 * 10) / 10 : null;
+    const jeonseRatio = engine.jeonseRatio ? Math.round(engine.jeonseRatio * 100) : null;
+
+    const INTENT_TAB = { fair:"fair", buy:"buy", sell:"sell", recommend:"reco" };
+
+    return (
+      <div style={{
+        background: "#fff", borderRadius: 16,
+        border: `0.5px solid ${BRAND_BORDER}`,
+        boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+        overflow: "hidden", marginTop: 4,
+      }}>
+        {/* 상단 헤더 */}
+        <div style={{ padding: "14px 16px 10px", borderBottom: `0.5px solid ${BRAND_BORDER}` }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+            <div style={{ minWidth:0 }}>
+              <p style={{ fontSize:15, fontWeight:600, color:BRAND, margin:0, letterSpacing:"-0.012em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {complex.name}
+              </p>
+              <p style={{ fontSize:11, color:BRAND_MUTED, margin:"3px 0 0" }}>
+                {complex.sigungu?.split(" ").slice(-1)[0]} · {complex.areaExclusive ? `${complex.areaExclusive}㎡` : ""}{complex.buildYear ? ` · ${complex.buildYear}년` : ""}
+              </p>
+            </div>
+            <span style={{ fontSize:18, fontWeight:700, color:GC, background:GB, border:`0.5px solid ${GBR}`, borderRadius:10, padding:"4px 12px", flexShrink:0 }}>
+              {grade}
+            </span>
+          </div>
+        </div>
+
+        {/* 수치 */}
+        <div style={{ padding:"12px 16px", display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px 16px" }}>
+          {saleMedian && (
+            <div>
+              <p style={{ fontSize:10, color:BRAND_MUTED, margin:0, letterSpacing:"0.04em", textTransform:"uppercase" }}>실거래 중간값</p>
+              <p style={{ fontSize:16, fontWeight:600, color:BRAND, margin:"3px 0 0" }}>{saleMedian}억</p>
+            </div>
+          )}
+          {fairPrice && (
+            <div>
+              <p style={{ fontSize:10, color:BRAND_MUTED, margin:0, letterSpacing:"0.04em", textTransform:"uppercase" }}>AI 적정가</p>
+              <p style={{ fontSize:16, fontWeight:600, color:BRAND_GREEN, margin:"3px 0 0" }}>{fairPrice}억</p>
+            </div>
+          )}
+          {jeonseRatio && (
+            <div>
+              <p style={{ fontSize:10, color:BRAND_MUTED, margin:0, letterSpacing:"0.04em", textTransform:"uppercase" }}>전세가율</p>
+              <p style={{ fontSize:16, fontWeight:600, color:BRAND, margin:"3px 0 0" }}>{jeonseRatio}%</p>
+            </div>
+          )}
+          {engine.saleCount && (
+            <div>
+              <p style={{ fontSize:10, color:BRAND_MUTED, margin:0, letterSpacing:"0.04em", textTransform:"uppercase" }}>12개월 거래</p>
+              <p style={{ fontSize:16, fontWeight:600, color:BRAND, margin:"3px 0 0" }}>{engine.saleCount}건</p>
+            </div>
+          )}
+        </div>
+
+        {/* 한줄 요약 */}
+        {engine.headline && (
+          <div style={{ padding:"0 16px 12px" }}>
+            <p style={{ fontSize:12, color:BRAND_MID, margin:0, lineHeight:1.6, letterSpacing:"-0.008em" }}>
+              {engine.headline}
+            </p>
+          </div>
+        )}
+
+        {/* 상세 보기 버튼 */}
+        <div style={{ padding:"0 16px 14px" }}>
+          <button
+            onClick={() => onNavigate(INTENT_TAB[intent?.intent] || "fair", {
+              complexName: complex.name,
+              region: complex.sigungu,
+              dong: complex.dong,
+              areaSqm: complex.areaExclusive,
+            })}
+            style={{
+              width:"100%", height:38, borderRadius:10,
+              background:BRAND, color:"#fff", border:"none", cursor:"pointer",
+              fontSize:13, fontWeight:500, letterSpacing:"-0.01em",
+              display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+              transition:"opacity 0.12s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity="0.85"}
+            onMouseLeave={e => e.currentTarget.style.opacity="1"}
+          >
+            상세 분석 보기
+            <CI d="right" s={12} color="#fff" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── 메시지 렌더 ──
+  function renderMsg(msg) {
+    const isUser = msg.role === "user";
+
+    if (msg.type === "thinking") {
+      return (
+        <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
+          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <CI d="star" s={13} color="#fff" />
+          </div>
+          <div style={{ paddingTop:4 }}>
+            <div style={{ display:"flex", gap:4, alignItems:"center" }}>
+              {[0,1,2].map(i => (
+                <div key={i} style={{
+                  width:6, height:6, borderRadius:"50%", background:BRAND_MUTED,
+                  animation:"vlDot 1.2s ease-in-out infinite",
+                  animationDelay:`${i*0.2}s`,
+                }}/>
+              ))}
+            </div>
+            <p style={{ fontSize:11, color:BRAND_MUTED, margin:"4px 0 0" }}>{msg.content}</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (msg.type === "candidates") {
+      return (
+        <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
+          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
+            <CI d="star" s={13} color="#fff" />
+          </div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <p style={{ fontSize:14, color:BRAND, margin:"0 0 10px", lineHeight:1.55, letterSpacing:"-0.01em" }}>
+              {msg.content}
+            </p>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {(msg.data||[]).map((c, i) => (
+                <button key={i}
+                  onClick={() => {
+                    addMsg({ role:"user", type:"text", content: c.complex_name });
+                    addMsg({ role:"ai", type:"thinking", content:"분석 중..." });
+                    runAnalysis(c, msg.intent || {intent:"fair"});
+                  }}
+                  style={{
+                    background:"#fff", border:`0.5px solid ${BRAND_BORDER}`,
+                    borderRadius:12, padding:"10px 14px",
+                    display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10,
+                    cursor:"pointer", textAlign:"left", transition:"background 0.1s",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background="#fafaf8"}
+                  onMouseLeave={e => e.currentTarget.style.background="#fff"}
+                >
+                  <div style={{ minWidth:0 }}>
+                    <p style={{ fontSize:13, fontWeight:500, color:BRAND, margin:0, letterSpacing:"-0.01em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {c.complex_name}
+                    </p>
+                    <p style={{ fontSize:11, color:BRAND_MUTED, margin:"3px 0 0" }}>
+                      {c.sigungu?.split(" ").slice(-2).join(" ")}{c.legal_dong ? ` · ${c.legal_dong}` : ""}{c.build_year ? ` · ${c.build_year}년` : ""}
+                    </p>
+                  </div>
+                  <CI d="right" s={13} color={BRAND_MUTED} />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (msg.type === "result") {
+      return (
+        <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
+          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
+            <CI d="star" s={13} color="#fff" />
+          </div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <ResultCard data={msg.data} intent={msg.data?.intent} />
+          </div>
+        </div>
+      );
+    }
+
+    if (msg.type === "clarify" || msg.type === "error") {
+      return (
+        <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
+          <div style={{ width:28, height:28, borderRadius:"50%", background: msg.type==="error" ? "#dc2626" : BRAND_GREEN, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
+            <CI d={msg.type==="error" ? "alert" : "star"} s={13} color="#fff" />
+          </div>
+          <div style={{ flex:1 }}>
+            <p style={{ fontSize:14, color:BRAND, margin:0, lineHeight:1.6, letterSpacing:"-0.01em", whiteSpace:"pre-line" }}>
+              {msg.content}
+            </p>
+            {msg.onSearch && (
+              <button onClick={msg.onSearch}
+                style={{ marginTop:10, height:34, paddingLeft:14, paddingRight:14, borderRadius:9, border:`0.5px solid ${BRAND_BORDER}`, background:"#fff", cursor:"pointer", fontSize:12, color:BRAND_MID, display:"flex", alignItems:"center", gap:6, transition:"background 0.1s" }}
+                onMouseEnter={e => e.currentTarget.style.background="#fafaf8"}
+                onMouseLeave={e => e.currentTarget.style.background="#fff"}
+              >
+                <CI d="search" s={12} color={BRAND_MUTED} />
+                단지 직접 검색
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // text (user / ai)
+    return (
+      <div key={msg.id} style={{
+        display:"flex", gap:10, padding:"4px 0",
+        flexDirection: isUser ? "row-reverse" : "row",
+      }}>
+        {!isUser && (
+          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
+            <CI d="star" s={13} color="#fff" />
+          </div>
+        )}
+        <div style={{
+          maxWidth:"80%",
+          padding:"10px 14px",
+          borderRadius: isUser ? "18px 18px 4px 18px" : "4px 18px 18px 18px",
+          background: isUser ? BRAND : "#fff",
+          border: isUser ? "none" : `0.5px solid ${BRAND_BORDER}`,
+          boxShadow: isUser ? "none" : "0 1px 4px rgba(0,0,0,0.05)",
+        }}>
+          <p style={{ fontSize:14, color: isUser ? "#fff" : BRAND, margin:0, lineHeight:1.6, letterSpacing:"-0.01em", whiteSpace:"pre-line" }}>
+            {msg.content}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── 최근 분석 칩 ──
+  const recent = (history||[]).slice(0,4);
+
+  return (
+    <div style={{ maxWidth:480, margin:"0 auto", background:BRAND_BG, minHeight:"100dvh", display:"flex", flexDirection:"column" }}>
+
+      {/* ── dot 애니메이션 CSS ── */}
+      <style>{`
+        @keyframes vlDot {
+          0%,80%,100%{ opacity:.25; transform:scale(.8) }
+          40%{ opacity:1; transform:scale(1) }
+        }
+      `}</style>
+
+      {/* ── 상단 헤더 ── */}
+      <div style={{ padding:"20px 24px 12px", borderBottom:`0.5px solid ${BRAND_BORDER}`, background:BRAND_BG, flexShrink:0 }}>
+        <p style={{ fontSize:10, fontWeight:600, letterSpacing:"0.13em", color:BRAND_GREEN, textTransform:"uppercase", margin:"0 0 1px" }}>
+          ValueLens AI
+        </p>
+        <p style={{ fontSize:10, fontWeight:400, letterSpacing:"0.09em", color:BRAND_MUTED, textTransform:"uppercase", margin:0 }}>
+          부동산 AI 에이전트
+        </p>
+      </div>
+
+      {/* ── 메시지 영역 ── */}
+      <div style={{ flex:1, overflowY:"auto", padding:"20px 20px 8px" }}>
+
+        {/* 메시지 목록 */}
+        {msgs.map(m => renderMsg(m))}
+
+        {/* 빈 상태 — 최근 분석 칩 */}
+        {msgs.length <= 1 && recent.length > 0 && (
+          <div style={{ marginTop:20 }}>
+            <p style={{ fontSize:10, fontWeight:500, letterSpacing:"0.07em", color:BRAND_MUTED, textTransform:"uppercase", marginBottom:8 }}>
+              최근 분석
+            </p>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
+              {recent.map((h,i) => (
+                <button key={i}
+                  onClick={() => handleSend(h.complexName || h.complex || "")}
+                  style={{ padding:"6px 12px", borderRadius:20, border:`0.5px solid ${BRAND_BORDER}`, background:"#fff", fontSize:12, color:BRAND_MID, cursor:"pointer", letterSpacing:"-0.008em", transition:"background 0.1s" }}
+                  onMouseEnter={e => e.currentTarget.style.background="#f5f5f3"}
+                  onMouseLeave={e => e.currentTarget.style.background="#fff"}
+                >
+                  {h.complexName || h.complex}
+                  {h.area ? ` · ${h.area}` : ""}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 빈 상태 — 예시 질문 */}
+        {msgs.length <= 1 && (
+          <div style={{ marginTop:20 }}>
+            <p style={{ fontSize:10, fontWeight:500, letterSpacing:"0.07em", color:BRAND_MUTED, textTransform:"uppercase", marginBottom:8 }}>
+              질문 예시
+            </p>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {[
+                "공릉동 동부 25평 얼마야?",
+                "잠실 리센츠 34평 지금 사도 돼?",
+                "7억으로 노원구 추천해줘",
+              ].map((ex,i) => (
+                <button key={i} onClick={() => handleSend(ex)}
+                  style={{ padding:"10px 14px", borderRadius:12, border:`0.5px solid ${BRAND_BORDER}`, background:"#fff", fontSize:13, color:BRAND_MID, cursor:"pointer", textAlign:"left", letterSpacing:"-0.008em", transition:"background 0.1s" }}
+                  onMouseEnter={e => e.currentTarget.style.background="#f5f5f3"}
+                  onMouseLeave={e => e.currentTarget.style.background="#fff"}
+                >
+                  {ex}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 고급 검색 접기 */}
+        <div style={{ marginTop:24 }}>
+          <button onClick={() => setAdvOpen(v=>!v)}
+            style={{ display:"flex", alignItems:"center", gap:5, background:"none", border:"none", cursor:"pointer", color:BRAND_MUTED, fontSize:11, padding:0, letterSpacing:"0.02em" }}>
+            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+              style={{ transition:"transform 0.2s", transform: advOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+            지역으로 찾기
+          </button>
+          {advOpen && (
+            <div style={{ marginTop:10, padding:16, borderRadius:13, border:`0.5px solid ${BRAND_BORDER}`, background:"#fff" }}>
+              <LocationPicker initialQuery="" onComplete={({ sido, sigungu, dong, complexName, exactAptNm, complexId, buildYear, areaList }) => {
+                setAdvOpen(false);
+                onNavigate("fair", { complexName, region: sigungu, dong, searchQuery: complexName });
+              }} />
+            </div>
+          )}
+        </div>
+
+        <div ref={bottomRef} style={{ height:8 }} />
+      </div>
+
+      {/* ── 입력창 ── */}
+      <div style={{ padding:"10px 16px 20px", borderTop:`0.5px solid ${BRAND_BORDER}`, background:BRAND_BG, flexShrink:0 }}>
+        {/* 숨겨진 파일 input */}
+        <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display:"none" }} onChange={handleFileChange} />
+
+        <div style={{
+          display:"flex", alignItems:"flex-end", gap:8,
+          background:"#fff", borderRadius:16,
+          border:`1px solid ${BRAND_BORDER}`,
+          boxShadow:"0 2px 12px rgba(0,0,0,0.06)",
+          padding:"8px 8px 8px 14px",
+        }}>
+          {/* textarea */}
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            placeholder={PHS[phIdx]}
+            rows={1}
+            style={{
+              flex:1, border:"none", outline:"none", resize:"none",
+              fontSize:15, lineHeight:1.5, color:BRAND, background:"transparent",
+              letterSpacing:"-0.01em", fontFamily:"inherit", paddingTop:4,
+              maxHeight:120, overflowY:"auto",
+            }}
+            onInput={e => {
+              e.target.style.height = "auto";
+              e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+            }}
+          />
+
+          {/* 첨부 버튼 */}
+          <button onClick={handleAttach}
+            style={{ width:34, height:34, borderRadius:9, border:"none", background:BRAND_LIGHT, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"background 0.12s" }}
+            onMouseEnter={e => e.currentTarget.style.background="#e8e8e6"}
+            onMouseLeave={e => e.currentTarget.style.background=BRAND_LIGHT}
+            title="사진·문서 첨부"
+          >
+            <CI d="clip" s={14} color={BRAND_MUTED} />
+          </button>
+
+          {/* 마이크 버튼 */}
+          <button onClick={handleVoice}
+            style={{ width:34, height:34, borderRadius:9, border:"none", background: listening ? BRAND_GREEN : BRAND_LIGHT, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"background 0.15s" }}
+            onMouseEnter={e => { if(!listening) e.currentTarget.style.background="#e8e8e6"; }}
+            onMouseLeave={e => { if(!listening) e.currentTarget.style.background=BRAND_LIGHT; }}
+            title="음성 입력"
+          >
+            <CI d="mic" s={14} color={listening ? "#fff" : BRAND_MUTED} />
+          </button>
+
+          {/* 전송 버튼 */}
+          <button onClick={() => handleSend()}
+            disabled={!input.trim()}
+            style={{ width:34, height:34, borderRadius:9, border:"none", background: input.trim() ? BRAND : BRAND_LIGHT, cursor: input.trim() ? "pointer" : "default", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"background 0.15s" }}
+          >
+            <CI d="send" s={13} color={input.trim() ? "#fff" : BRAND_MUTED} />
+          </button>
+        </div>
+
+        <p style={{ fontSize:10, color:BRAND_MUTED, textAlign:"center", margin:"8px 0 0", letterSpacing:"-0.005em" }}>
+          Enter로 전송 · Shift+Enter 줄바꿈 · 결과는 검증된 실거래 데이터 기반
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── 기존 HomeView는 AIChatView로 대체됨 (하위 호환용 alias) ──
+function HomeView({ onNavigate, history, onSaveHistory, currentUserId, currentUserEmail }) {
+  return <AIChatView onNavigate={onNavigate} history={history} onSaveHistory={onSaveHistory} currentUserId={currentUserId} currentUserEmail={currentUserEmail} />;
+}
   const recent = (history || []).slice(0, 3);
   const [menuOpen,   setMenuOpen]   = React.useState(false);
   const [recentOpen, setRecentOpen] = React.useState(false);
@@ -3184,6 +3896,15 @@ function AppInner() {
           {aptTab === "home" && (
             <HomeView
               history={history}
+              currentUserId={currentUserId}
+              currentUserEmail={currentUserEmail}
+              onSaveHistory={(h) => {
+                saveRecentAnalysis(h, currentUserId);
+                setHistory(p => {
+                  const deduped = p.filter(x => !(x.complexName===h.complexName && x.area===h.area && x.analysisType===h.analysisType));
+                  return [h, ...deduped].slice(0, LS_MAX);
+                });
+              }}
               onNavigate={(tab, intentData) => {
                 window.scrollTo({ top: 0, behavior: "smooth" });
 
