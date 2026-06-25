@@ -10,6 +10,7 @@ import { analyze } from '../engine/analyze.js';
 import { groupAreasByPyeong } from '../search/utils.js';
 import { buildAnalysisInput } from '../search/input.js';
 import { searchComplexFromSupabase } from '../search/supabase.js';
+import { LocationPicker } from './LocationPicker.jsx';
 
 // ── parseIntent (AIChatView 전용) ──
 function parseIntent(raw) {
