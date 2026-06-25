@@ -1,6 +1,9 @@
 // ValueLens Search — 분석 입력 빌더 (buildAnalysisInput)
 // ★ 계산 로직 수정 금지
 
+import { computeTrimmedMean } from '../engine/stats.js';
+import { typicalPyeong } from '../constants/grades.js';
+
 function buildAnalysisInput(rawData, baseForm, askedArea) {
   // rawData   : fetchApartmentData 반환값 (ApartmentRawData JSON)
   // baseForm  : 사용자가 입력한 현재 폼 상태 (dong, complexName 등 보정용)
