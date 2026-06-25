@@ -3513,21 +3513,17 @@ function AppInner() {
 
     async function checkMaintenance(email) {
       try {
-        const { data, error } = await supabase
-          .from("app_config")
-          .select("value")
-          .eq("key", "maintenance_mode")
-          .single();
-
-        if (error) {
-          console.warn("[Maintenance] 조회 실패:", error.message);
-          setMaintenanceMode(false);
-        } else {
-          console.log("[Maintenance] 현재값:", data?.value, "/ email:", email);
-          const isOn = data?.value === "true";
-          const admin = ADMIN_EMAILS.includes(email);
-          setMaintenanceMode(isOn && !admin);
-        }
+        // RealEstatagent DB의 app_config 조회 (/api/supabase 경유)
+        const res = await fetch('/api/supabase', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'maintenance' }),
+        });
+        const data = await res.json();
+        const isOn = data?.value === "true";
+        const admin = ADMIN_EMAILS.includes(email);
+        console.log("[Maintenance]", isOn ? "점검중" : "정상", "/ admin:", admin, "/ email:", email);
+        setMaintenanceMode(isOn && !admin);
       } catch (_) {
         setMaintenanceMode(false);
       } finally {
