@@ -37,6 +37,7 @@ import { getOrCreateDeviceId } from './utils/device.js';
 
 
 import React, { useState, useRef, useEffect } from "react";
+import ReactDOM from 'react-dom/client';
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -1552,11 +1553,11 @@ function LocationPicker({ onComplete, initialQuery = "" }) {
 function Empty({ title, desc }) {
   return <div className="rounded-2xl bg-white p-10 text-center shadow-sm ring-1 ring-slate-100"><p className="font-semibold text-slate-700">{title}</p><p className="mt-1 text-sm text-slate-400">{desc}</p></div>;
 }
-import ReactDOM from 'react-dom/client';
+
+
+
+
+
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-
-
-
-
 
 export default function App() { return <AuthGate><AppInner /></AuthGate>; }
