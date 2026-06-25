@@ -2543,7 +2543,7 @@ function parseIntent(raw) {
   const n = t.replace(/\s/g, "").toLowerCase();
 
   // ── intent 판별 ──
-  let intent = "fair"; // 기본값
+  let intent = "fair";
   if (/팔까|매도|팔려고|팔아야|호가|내집|내가산|내꺼|팔면|팔것|팔지/.test(n)) intent = "sell";
   else if (/추천|예산|살곳|어디살|뭐살|뭐사|어디사|골라|골라줘|찾아줘|찾아|예산으로|안에서|이하로|이내로/.test(n)) intent = "recommend";
   else if (/사도돼|사도될까|살만해|살만한가|살까|매수|지금사|살지|살래|살수있나|사볼까/.test(n)) intent = "buy";
@@ -2553,77 +2553,93 @@ function parseIntent(raw) {
   const pyeongMatch = t.match(/(\d+)\s*평/);
   if (pyeongMatch) pyeong = parseInt(pyeongMatch[1]);
 
-  // 전용면적 추출 (㎡, m², 제곱미터)
+  // 전용면적 추출
   let areaSqm = null;
   const sqmMatch = t.match(/(\d+(?:\.\d+)?)\s*(?:㎡|m²|제곱미터)/);
   if (sqmMatch) areaSqm = parseFloat(sqmMatch[1]);
-  // 평 → ㎡ 변환 (areaSqm 없을 때)
   if (pyeong && !areaSqm) areaSqm = Math.round(pyeong * 3.305785);
 
   // ── 가격 추출 ──
-  let price = null;
-  let budget = null;
-  // "9억", "9억5천", "9억5000", "9억5", "19억", "9.5억" 형태
+  let price = null, budget = null;
   const priceMatch = t.match(/(\d+(?:\.\d+)?)\s*억\s*(?:(\d+)\s*(?:천만?)?)?/);
   if (priceMatch) {
     let val = parseFloat(priceMatch[1]) * 10000;
-    if (priceMatch[2]) {
-      const sub = parseInt(priceMatch[2]);
-      val += sub >= 1000 ? sub : sub * 1000; // 5000만 or 5천
-    }
+    if (priceMatch[2]) { const sub = parseInt(priceMatch[2]); val += sub >= 1000 ? sub : sub * 1000; }
     price = val;
     if (intent === "recommend") budget = val;
   }
 
   // ── 지역·단지명 추출 ──
-  // 알려진 브랜드/단지 패턴
-  const BRANDS = ["래미안","자이","푸르지오","힐스테이트","더샵","e편한세상","이편한세상",
-    "아이파크","롯데캐슬","sk뷰","sk뷰","리센츠","헬리오시티","은마","잠실엘스",
-    "트리지움","송파파크하비오","둔촌주공","상계주공","노원","동부","우성","풍림",
-    "태릉","공릉","중계","하계","창동","도봉","수락","의정부","분당","판교","광교",
-    "마포","용산","동대문","강남","서초","송파","강동","강서","양천","영등포",
-    "대치","반포","잠실","압구정","청담","도곡","개포","수서","문정","가락"];
+  let complexName = null, region = null, dong = null;
 
-  let complexName = null;
-  let region      = null;
-  let dong        = null;
+  // 제거할 패턴들 (지역어, 의도어, 수식어)
+  const NOISE = [
+    // 의도어
+    /얼마야|얼마에요|얼마임|어때|어때요|사도돼|사도될까|살만해|팔까|팔려고|알려줘|알려주세요|분석해줘|봐줘|적정가|시세|가격은|가격이|지금|현재|요즘|이번에|한번|좀/g,
+    // 수량/면적
+    /\d+평|\d+㎡|\d+억[^\s]*/g,
+    // 지역 광역시도
+    /서울|경기|인천|부산|대구|광주|대전|울산|세종|충북|충남|전북|전남|경북|경남|제주/g,
+    // 조사/어미
+    /은|는|이|가|을|를|에서|에|의|로|으로|랑|이랑|과|와|도/g,
+  ];
 
-  // 단지 직접 언급 체크 — 단지명 + 동 조합
-  // "공릉동 동부", "대치 래미안", "잠실 리센츠" 등
-  // recommend intent면 단지명 추출 안 함 (지역만)
-  const dongPattern = t.match(/([가-힣]{2,6}동)\s+([가-힣a-zA-Z0-9\s]{2,12})/);
-  if (dongPattern && intent !== "recommend") {
-    dong        = dongPattern[1];
-    complexName = dongPattern[2].trim();
-    region      = dong;
-  } else if (dongPattern) {
-    dong   = dongPattern[1];
-    region = dong;
-  }
-
-  // 구 단위 지역 추출 "노원구", "강남구" 등
-  const guMatch = t.match(/([가-힣]{2,4}[구시군])/);
+  // 구/시/군 추출 — 2글자 이상 지역명만 ("헬리오시" 같은 오인 방지)
+  const guMatch = t.match(/([가-힣]{2,5}(?:특별시|광역시|특별자치시|도|시|구|군))(?!\w)/);
   if (guMatch) region = guMatch[1];
 
-  // 단지명만 있는 경우 (동 없이) — 브랜드 매칭 (recommend 제외)
-  if (!complexName && intent !== "recommend") {
-    for (const b of BRANDS) {
-      if (n.includes(b)) {
-        // 브랜드 앞에 붙은 단어 포함해서 추출
-        const bIdx = t.toLowerCase().indexOf(b);
-        const before = t.slice(Math.max(0, bIdx - 4), bIdx).replace(/[가-힣]+동\s*/, "").trim();
-        complexName = (before ? before + " " : "") + b;
-        break;
+  // 동 추출
+  const dongMatch = t.match(/([가-힣]{2,5}동)/);
+  if (dongMatch) dong = dongMatch[1];
+
+  // recommend가 아닐 때만 complexName 추출
+  if (intent !== "recommend") {
+    // 노이즈 제거 후 남은 한글+영문 덩어리가 complexName 후보
+    let cleaned = t
+      .replace(/\d+억\d*(?:천만?)?/g, " ")   // 가격
+      .replace(/\d+평/g, " ")                 // 평형
+      .replace(/\d+㎡/g, " ")                 // 면적
+      .replace(/[서울|경기|인천|부산|대구|광주|대전|울산|세종|충북|충남|전북|전남|경북|경남|제주]/g, " ")
+      .replace(/얼마야|얼마에요|어때요?|사도돼|사도될까|팔까|알려줘|분석해줘|봐줘|지금|현재|적정가|시세/g, " ")
+      .replace(/\s+/g, " ").trim();
+
+    // "구/시/군" 다음에 오는 단어 = 단지명 후보
+    // "동" 다음에 오는 단어 = 단지명 후보
+    // 또는 가장 긴 명사 덩어리 선택
+    const dongAfter = t.match(/[가-힣]{2,5}동\s+([가-힣a-zA-Z0-9]+(?:\s+[가-힣a-zA-Z0-9]+)?)/);
+    const guAfter   = t.match(/[가-힣]{2,5}[구시군]\s+([가-힣a-zA-Z0-9]+(?:\s+[가-힣a-zA-Z0-9]+)?)/);
+
+    if (dongAfter && !dongAfter[1].match(/얼마|어때|사도|팔까|추천/)) {
+      complexName = dongAfter[1].trim().replace(/\s*\d+평.*$/, "").replace(/\s*\d+㎡.*$/, "").trim();
+      dong = t.match(/([가-힣]{2,5}동)/)?.[1] || dong;
+    } else if (guAfter && !guAfter[1].match(/얼마|어때|사도|팔까|추천/)) {
+      complexName = guAfter[1].trim().replace(/\s*\d+평.*$/, "").replace(/\s*\d+㎡.*$/, "").trim();
+    } else {
+      // fallback: cleaned 텍스트에서 가장 긴 한글+영문 토큰
+      const tokens = cleaned.split(/\s+/).filter(tok =>
+        tok.length >= 2 &&
+        !tok.match(/^(서울|경기|인천|부산|대구|광주|대전|울산|은|는|이|가|을|를|에|의|로|도)$/) &&
+        !tok.match(/[구시군]$/) &&
+        tok !== dong
+      );
+      if (tokens.length > 0) {
+        // 가장 긴 것 선택 (보통 단지명이 가장 길다)
+        complexName = tokens.sort((a,b) => b.length - a.length)[0];
       }
+    }
+
+    // complexName이 지역어/의도어만인 경우 무효화
+    if (complexName && complexName.match(/^(얼마|어때|사도|팔까|지금|현재|적정|시세|얼마야|추천)$/)) {
+      complexName = null;
     }
   }
 
   // 목적 추출
   let purpose = "live";
   if (/투자|임대|전세끼|갭투자|갭/.test(n)) purpose = "invest";
-  else if (/학군|학교|교육/.test(n))          purpose = "school";
-  else if (/재건축|재개발/.test(n))            purpose = "rebuild";
-  else if (/교통|역세권|지하철/.test(n))        purpose = "transport";
+  else if (/학군|학교|교육/.test(n))         purpose = "school";
+  else if (/재건축|재개발/.test(n))           purpose = "rebuild";
+  else if (/교통|역세권|지하철/.test(n))       purpose = "transport";
 
   return { intent, complexName, region, dong, pyeong, areaSqm, price, budget, purpose, raw: t };
 }
