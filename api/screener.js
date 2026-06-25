@@ -290,6 +290,7 @@ export default async function handler(req, res) {
       .select('*')
       .gte('sale_avg_man', effectiveBudget * 0.35)
       .lte('sale_avg_man', effectiveBudget * 1.05)
+      .order('sale_cnt', { ascending: false })   // 거래 많은 단지 우선
       .order('period_ym_end', { ascending: false })
       .limit(500);
 
@@ -340,13 +341,31 @@ export default async function handler(req, res) {
       const saleAvg = extractSaleAvg(row);
       if (!saleAvg || saleAvg <= 0) return false; // 가격 없으면 제외
 
-      // 평형 필터
+      // 평형 필터 (±5평)
       if (pyeong) {
         const pye = toPyeong(row.area_excl);
-        if (Math.abs(pye - Number(pyeong)) > 7) return false;
+        if (Math.abs(pye - Number(pyeong)) > 5) return false;
       }
       return true;
-    }).slice(0, 100); // 점수 산출 대상 최대 100개
+    });
+
+  // 중복 제거: 같은 complex_name에서 면적이 가장 가까운 것만 1개 유지
+  // (price_summary에 동일 단지 여러 면적이 있을 수 있음)
+  if (pyeong) {
+    const seen = new Map();
+    filtered = filtered.filter(row => {
+      const name = row.complex_name || '';
+      const pye  = toPyeong(row.area_excl);
+      const diff = Math.abs(pye - Number(pyeong));
+      if (!seen.has(name) || seen.get(name).diff > diff) {
+        seen.set(name, { diff });
+        return true;
+      }
+      return false;
+    });
+  }
+
+  filtered = filtered.slice(0, 100); // 점수 산출 대상 최대 100개
 
     // ── STEP 4: AI 적합도 점수 산출 ──
     const scored = filtered.map(row => {
@@ -399,10 +418,22 @@ export default async function handler(req, res) {
       };
     });
 
-    // ── STEP 5: 정렬 → 상위 limit개 반환 ──
-    const candidates = scored
-      .sort((a, b) => b.ai_score - a.ai_score)
-      .slice(0, Math.min(limit, 20)); // 최대 20개
+    // ── STEP 5: 정렬 → 단지명 중복 최종 제거 → 상위 limit개 반환 ──
+    // 동점 시 sale_cnt 많은 것 우선, 이후 period_ym_end 최신 우선
+    const sorted = scored.sort((a, b) => {
+      if (b.ai_score !== a.ai_score) return b.ai_score - a.ai_score;
+      if (b.sale_cnt !== a.sale_cnt)  return b.sale_cnt - a.sale_cnt;
+      return (b.period_ym_end || '').localeCompare(a.period_ym_end || '');
+    });
+
+    // 최종 중복 제거 (지역·단지명 동일한 것)
+    const seenFinal = new Set();
+    const candidates = sorted.filter(c => {
+      const key = `${c.complex_name}|${c.sigungu}`;
+      if (seenFinal.has(key)) return false;
+      seenFinal.add(key);
+      return true;
+    }).slice(0, Math.min(limit, 20)); // 최대 20개
 
     res.setHeader('Cache-Control', 's-maxage=300'); // 5분 CDN 캐시
     res.status(200).json({
