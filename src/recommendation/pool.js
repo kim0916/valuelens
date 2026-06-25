@@ -42,5 +42,8 @@ const areaInfo = (region) => AREA_DB[region] || AREA_DB.default;
 // 1. 실거주 점수 (학군/교통/상권/병원/공원/주차/연식)
 // TODO(상용화): 학교알리미·교통·상권·공원·의료 공공데이터 연동
 function calculateLivingScore(f) {
+  // 본문 미완성 — score.js의 완전한 버전을 사용할 것
+  // 이 함수는 삭제 예정 (중복 제거 단계에서)
+}
 
 export { POOL, AREA_DB };
