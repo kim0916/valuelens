@@ -304,17 +304,17 @@ export default async function handler(req, res) {
   // ── 4. 실거래 원본 조회 ──
   // months 파라미터 제거 — DB 적재 전체 범위 반환 (cutoff 없음)
 
-  // ── maintenance 상태 조회 (v3) ──
+  // ── maintenance 상태 조회 (v4) ──
   if (type === 'maintenance') {
     try {
       const { data, error } = await supabase
         .from('app_config')
         .select('value')
         .eq('key', 'maintenance_mode')
-        .single();
-      console.log('[maintenance] url:', ENV.url?.slice(0,40), 'data:', data, 'error:', error?.message);
-      if (error) { res.json({ value: 'false', debug_error: error.message, debug_url: ENV.url?.slice(0,40) }); return; }
-      res.json({ value: data?.value || 'false' });
+        .limit(1);
+      if (error) { res.json({ value: 'false' }); return; }
+      const row = Array.isArray(data) ? data[0] : data;
+      res.json({ value: row?.value || 'false' });
     } catch(e) {
       res.json({ value: 'false' });
     }
