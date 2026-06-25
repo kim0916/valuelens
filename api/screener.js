@@ -285,10 +285,13 @@ export default async function handler(req, res) {
     return;
   }
 
-  const budgetNum     = Number(budget);
-  const equityNum     = Number(equity);
-  const maxLoanNum    = Number(maxLoan);
-  const totalBudget   = equityNum + maxLoanNum; // 실질 구매력 상한
+  // ── 입력값 정수화 (소수점 부동소수점 오차 방지) ──
+  const budgetNum     = Math.round(Number(budget)  || 0);
+  const equityNum     = Math.round(Number(equity)  || 0);
+  const maxLoanNum    = Math.round(Number(maxLoan) || 0);
+  const incomeNum     = Math.round(Number(income)  || 0);
+  const pyeongNum     = Math.round(Number(pyeong)  || 0);
+  const totalBudget   = equityNum + maxLoanNum;
   const effectiveBudget = budgetNum || totalBudget;
 
   if (!effectiveBudget) {
@@ -302,8 +305,8 @@ export default async function handler(req, res) {
     let q = supabase
       .from('realestate_price_summary')
       .select('*')
-      .gte('sale_avg_man', effectiveBudget * 0.35)
-      .lte('sale_avg_man', effectiveBudget * 1.05)
+      .gte('sale_avg_man', Math.floor(effectiveBudget * 0.35))
+      .lte('sale_avg_man', Math.ceil(effectiveBudget * 1.05))
       .order('sale_cnt', { ascending: false })   // 거래 많은 단지 우선
       .order('period_ym_end', { ascending: false })
       .limit(500);
@@ -334,8 +337,13 @@ export default async function handler(req, res) {
     }
 
     // ── STEP 2: complexes 정보 조인 (complex_id 기준) ──
+    // complex_id: DB에서 float로 올 수 있음 → 반드시 Math.round 정수화
+    // (14200.0 → JS 부동소수점 오차 → 14199.999... → integer 컬럼 오류 방지)
     const complexIds = [...new Set(
-      summaryRows.filter(r => r.complex_id).map(r => r.complex_id)
+      summaryRows
+        .filter(r => r.complex_id != null)
+        .map(r => Math.round(Number(r.complex_id)))
+        .filter(id => Number.isFinite(id) && id > 0)
     )];
 
     let complexMap = {};
@@ -356,21 +364,21 @@ export default async function handler(req, res) {
       if (!saleAvg || saleAvg <= 0) return false; // 가격 없으면 제외
 
       // 평형 필터 (±5평)
-      if (pyeong) {
+      if (pyeongNum) {
         const pye = toPyeong(row.area_excl);
-        if (Math.abs(pye - Number(pyeong)) > 5) return false;
+        if (Math.abs(pye - pyeongNum) > 5) return false;
       }
       return true;
     });
 
   // 중복 제거: 같은 complex_name에서 면적이 가장 가까운 것만 1개 유지
   // (price_summary에 동일 단지 여러 면적이 있을 수 있음)
-  if (pyeong) {
+  if (pyeongNum) {
     const seen = new Map();
     filtered = filtered.filter(row => {
       const name = row.complex_name || '';
       const pye  = toPyeong(row.area_excl);
-      const diff = Math.abs(pye - Number(pyeong));
+      const diff = Math.abs(pye - pyeongNum);
       if (!seen.has(name) || seen.get(name).diff > diff) {
         seen.set(name, { diff });
         return true;
@@ -457,6 +465,13 @@ export default async function handler(req, res) {
         filtered:   filtered.length,
         returned:   candidates.length,
         region, budget: effectiveBudget, purpose,
+        query_params: {
+          budget_floor: Math.floor(effectiveBudget * 0.35),
+          budget_ceil:  Math.ceil(effectiveBudget * 1.05),
+          pyeong: pyeongNum,
+          region: region || '(전국)',
+          total_budget: totalBudget,
+        },
       },
     });
 
