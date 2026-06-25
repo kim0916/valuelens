@@ -2632,23 +2632,25 @@ function HomeView({ onNavigate, history }) {
         </p>
       </div>
 
-      {/* ── 메인 CTA ── */}
+      {/* ── 메인 CTA — 사진 분석 준비 중 ── */}
       <div style={{ padding: `0 ${PX}px 16px` }}>
         <button
-          onClick={() => onNavigate("photo")}
+          onClick={() => showToast("구동 준비 중입니다.")}
           style={{
             width: "100%", height: 54, borderRadius: 14,
-            background: BRAND, color: "#fff",
+            background: BRAND_LIGHT, color: BRAND_MUTED,
             display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-            border: "none", cursor: "pointer",
+            border: `0.5px dashed ${BRAND_BORDER}`, cursor: "default",
             fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em",
-            transition: "opacity 0.15s",
           }}
-          onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
-          onMouseLeave={e => e.currentTarget.style.opacity = "1"}
         >
           <I d="camera" s={19} />
           사진으로 분석하기
+          <span style={{
+            fontSize: 10, fontWeight: 500, color: BRAND_MUTED,
+            background: "#fff", border: `0.5px solid ${BRAND_BORDER}`,
+            borderRadius: 4, padding: "2px 7px", marginLeft: 2,
+          }}>구동 준비 중</span>
         </button>
       </div>
 
