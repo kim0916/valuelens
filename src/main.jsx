@@ -2812,13 +2812,15 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       const dong      = complex.legal_dong || "";
       const name      = complex.complex_name;
       const complexId = complex.id || null;
-      const areaListRaw = complex.area_list ? JSON.parse(complex.area_list) : [];
+      const areaListRaw = complex.area_list
+        ? (typeof complex.area_list === "string" ? JSON.parse(complex.area_list) : complex.area_list)
+        : [];
 
       // 면적 결정
       let targetArea = intent.areaSqm || null;
       if (!targetArea && intent.pyeong) targetArea = Math.round(intent.pyeong * 3.305785);
       if (!targetArea && areaListRaw.length > 0) {
-        const sorted = [...areaListRaw].sort((a,b) => a - b);
+        const sorted = [...areaListRaw].map(Number).filter(Boolean).sort((a,b) => a-b);
         targetArea = sorted[Math.floor(sorted.length / 2)];
       }
 
@@ -2839,7 +2841,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         : arr;
 
       const saleFiltered = filterArea(saleDealsRaw);
-      const rentFiltered = filterArea(rentDealsRaw).filter(d => !d.monthly_man || d.monthly_man === '0');
+      const rentFiltered = filterArea(rentDealsRaw).filter(d => !d.monthly_man || Number(d.monthly_man) === 0);
 
       // buildAnalysisInput이 요구하는 형식으로 변환
       // { ym, price, floor, areaSqm } — norm() 함수가 ym/price/floor 읽음
@@ -2886,7 +2888,10 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       };
 
       const baseForm = { region: sigungu, dong, complexName: name };
-      const { ff: builtFf, jeonseCalc, saleCalc } = buildAnalysisInput(rawData, baseForm, targetArea || 0);
+      const built = buildAnalysisInput(rawData, baseForm, targetArea ? Math.round(targetArea) : 0);
+      const builtFf    = built?.ff    || null;
+      const jeonseCalc = built?.jeonseCalc || null;
+      const saleCalc   = built?.saleCalc   || null;
 
       if (!builtFf) {
         replaceLastAI({
@@ -2938,7 +2943,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
     } catch(e) {
       console.error('[runAnalysis]', e);
-      replaceLastAI({ type: "error", content: "분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." });
+      replaceLastAI({ type: "error", content: `분석 중 오류: ${e.message || "알 수 없는 오류"}. 잠시 후 다시 시도해주세요.` });
     }
   }
 
