@@ -3516,9 +3516,10 @@ function AppInner() {
           .single();
 
         if (error) {
-          // 테이블 없거나 조회 실패 → 점검모드 해제 (안전한 방향)
+          console.warn("[Maintenance] app_config 조회 실패:", error.message, error.code);
           setMaintenanceMode(false);
         } else {
+          console.log("[Maintenance] 현재값:", data?.value);
           setMaintenanceMode(data?.value === "true");
         }
       } catch (_) {
