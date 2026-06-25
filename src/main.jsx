@@ -18,6 +18,7 @@ import { POOL, AREA_DB } from './recommendation/pool.js';
 import { recommendByBudget } from './recommendation/recommend.js';
 import { card } from './constants/styles.js';
 import { WatchView } from './views/WatchView.jsx';
+import { SI_MAX, saveAnalysis, getSavedAnalyses, deleteSavedAnalysis } from './services/storage/analysis.js';
 import { LogsView } from './views/LogsView.jsx';
 import { BudgetView } from './views/BudgetView.jsx';
 
@@ -333,48 +334,7 @@ function saveRecentAnalysis(item, uid) {
 // ── 내 저장함 (valuelens_saved_items) ──
 // 구조: { analyses: [], favorites: [], candidates: [], assets: [] }
 // 이번 1차 구현: analyses만 사용
-const SI_KEY = (uid) => uid ? `valuelens_saved_items_${uid}` : "valuelens_saved_items_guest";
-const SI_MAX = 50; // TODO: 유료 등급별 제한 시 { free:3, basic:20, pro:50 }[userTier] 로 교체
 
-function _loadSavedStore(uid) {
-  try {
-    const raw = localStorage.getItem(SI_KEY(uid));
-    const parsed = raw ? JSON.parse(raw) : {};
-    return {
-      analyses:   parsed.analyses   || [],
-      favorites:  parsed.favorites  || [],
-      candidates: parsed.candidates || [],
-      assets:     parsed.assets     || [],
-    };
-  } catch { return { analyses: [], favorites: [], candidates: [], assets: [] }; }
-}
-
-function _writeSavedStore(store, uid) {
-  try { localStorage.setItem(SI_KEY(uid), JSON.stringify(store)); } catch {}
-}
-
-/** 분석 결과 저장 */
-function saveAnalysis(item, uid) {
-  const effectiveUid = uid || item._uid || null;
-  const store = _loadSavedStore(effectiveUid);
-  // 같은 id 중복 방지
-  const { _uid: _, ...cleanItem } = item; // _uid 제거 후 저장
-  const deduped = store.analyses.filter(a => a.id !== cleanItem.id);
-  store.analyses = [cleanItem, ...deduped].slice(0, SI_MAX);
-  _writeSavedStore(store, effectiveUid);
-}
-
-/** 저장된 분석 목록 (최신순) */
-function getSavedAnalyses(uid) {
-  return _loadSavedStore(uid).analyses;
-}
-
-/** 분석 삭제 */
-function deleteSavedAnalysis(id, uid) {
-  const store = _loadSavedStore(uid);
-  store.analyses = store.analyses.filter(a => a.id !== id);
-  _writeSavedStore(store, uid);
-}
 // ══════════════════════════════════════════════════════════
 // 백테스트 v3 기반 엔진 상수 및 헬퍼 함수
 // ══════════════════════════════════════════════════════════
@@ -384,6 +344,154 @@ function deleteSavedAnalysis(id, uid) {
 // ════════ SELL DECISION ENGINE ════════ (적정가 결과 r을 참고만 함 — 적정가 계산식 불변)
 // sellVerdict는 '호가 적정성'만 판단하는 보조 함수로 격하. 최종 매도 판단은 analyzeSellerDecision이 담당.
 // [Phase 1-D] market engine → imported from ./engine/market.js
+
+function SellSaveBtn({ r, f, sd, onBack, showFull, uid }) {
+  const [savedId, setSavedId] = useState(null);
+  const handleSave = () => {
+    saveAnalysis({
+      _uid: uid,
+      id: `sell_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
+      type: "sell", complexName: f.complexName,
+      area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+      region: f.region, savedAt: new Date().toISOString(),
+      currentPrice: Number(f.currentPrice) || 0, aiFairPrice: r.fairPrice || 0,
+      gradeLabel: sd.finalSellDecision || "",
+      summary: `${sd.finalSellDecision} · AI 적정가 ${won(r.fairPrice)} · 희망가 ${won(sd.desired)}`,
+      resultSnapshot: { fairPrice: r.fairPrice, finalSellDecision: sd.finalSellDecision,
+        gapVsRef: sd.gapVsRef, askingLevel: sd.askingLevel, currentPrice: Number(f.currentPrice) || 0 },
+    });
+    setSavedId(true);
+  };
+  if (showFull) {
+    return (
+      <button onClick={handleSave} disabled={!!savedId}
+        className={`w-full rounded-2xl py-3 text-sm font-semibold transition-colors ${savedId ? "bg-slate-100 text-slate-400" : "border border-emerald-200 bg-emerald-50 text-emerald-700 active:bg-emerald-100"}`}>
+        {savedId ? "✓ 저장됨" : "💾 이 분석 저장하기"}
+      </button>
+    );
+  }
+  return (
+    <div className="mb-4 flex items-center justify-between">
+      <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 평가</button>
+      <button onClick={handleSave} disabled={!!savedId}
+        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+        {savedId ? "✓ 저장됨" : "저장"}
+      </button>
+    </div>
+  );
+}
+
+function AiNotice() {
+  return (
+    <p className="mb-3 rounded-xl bg-slate-50 px-4 py-2.5 text-[11px] leading-relaxed text-slate-400 ring-1 ring-slate-100">
+      ℹ️ 이 결과는 최근 실거래 데이터를 기반으로 AI가 분석한 참고 의견입니다.
+    </p>
+  );
+}
+
+function GradeInfoPopup() {
+  const [open, setOpen] = React.useState(false);
+  const GRADES = [
+    { g: "A", label: "매우 저평가", desc: "AI 적정가 대비 15% 이상 낮음",     color: "bg-emerald-600" },
+    { g: "B", label: "저평가",     desc: "AI 적정가 대비 5~15% 낮음",         color: "bg-emerald-500" },
+    { g: "C", label: "적정 가격",  desc: "AI 적정가 ±5% 이내",               color: "bg-amber-400"   },
+    { g: "D", label: "고평가 주의", desc: "AI 적정가 대비 5~15% 높음",        color: "bg-orange-500"  },
+    { g: "E", label: "고평가",     desc: "AI 적정가 대비 15% 이상 높음",      color: "bg-red-600"     },
+  ];
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-500 hover:bg-slate-200 active:bg-slate-300"
+      >
+        ⓘ 등급 기준
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-6" onClick={() => setOpen(false)}>
+          <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: NAVY }}>
+              <p className="text-sm font-bold text-white">등급 기준 안내</p>
+              <button onClick={() => setOpen(false)} className="text-slate-300 hover:text-white text-lg leading-none">✕</button>
+            </div>
+            <div className="px-5 py-4">
+              <p className="mb-3 text-xs text-slate-500">AI 적정가 대비 현재 시세 위치로 산출됩니다.</p>
+              <div className="space-y-2">
+                {GRADES.map(({ g, label, desc, color }) => (
+                  <div key={g} className="flex items-center gap-3">
+                    <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-extrabold text-white ${color}`}>{g}</span>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{label}</p>
+                      <p className="text-xs text-slate-400">{desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 rounded-xl bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-500">
+                등급은 가격 적정성 참고용이며 실제 매수 결정은<br />자금·시장 상황·현장 확인을 종합적으로 고려하세요.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+async function writeSearchLog(payload) {
+  try {
+    await fetch('/api/search_logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'write', ...payload }),
+    });
+  } catch(e) {
+    // 로그 실패는 무시
+  }
+}
+
+function DataTrustBadge({ trust }) {
+  if (!trust) return null;
+  return (
+    <div className={`rounded-2xl border p-4 ${trust.gradeColor}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-extrabold">{trust.gradeLabel}</span>
+        </div>
+        <span className="text-xs text-slate-500">총 {trust.totalUsed}건 · 점수 {trust.score}/100</span>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+        <div>
+          <p className="text-slate-400">매매 표본</p>
+          <p className="font-bold">{trust.saleUsed}건</p>
+        </div>
+        <div>
+          <p className="text-slate-400">전세 표본</p>
+          <p className="font-bold">{trust.jeonseUsed}건</p>
+        </div>
+        <div>
+          <p className="text-slate-400">최근 거래</p>
+          <p className="font-bold">{trust.latestYm && trust.monthsAgo != null && !isNaN(trust.monthsAgo) ? (trust.monthsAgo === 0 ? '이번 달' : `${trust.monthsAgo}개월 전`) : trust.latestYm ? trust.latestYm : '—'}</p>
+        </div>
+      </div>
+      <p className="mt-2 text-[11px]">{trust.gradeDesc}</p>
+      {!trust.sufficient && (
+        <p className="mt-1 text-[11px] font-semibold">⚠ 데이터가 충분하지 않아 결과를 참고용으로만 활용하세요.</p>
+      )}
+    </div>
+  );
+}
+
+function InputWarnings({ r, f }) {
+  const w = inputWarnings(r, f);
+  if (!w.length) return null;
+  return (
+    <div className="mb-4 space-y-2">
+      {w.map((x, i) => (
+        <div key={i} className={`rounded-2xl border px-4 py-2.5 text-[12px] leading-relaxed ${x.tone === "red" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>⚠️ {x.msg}</div>
+      ))}
+    </div>
+  );
+}
 
 function MarketTypeBadge({ mc }) {
   const MAP = {
