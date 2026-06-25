@@ -13,6 +13,9 @@ import { fetchMolitData } from './search/molit.js';
 import { fetchApartmentData } from './search/apartment.js';
 import { buildAnalysisInput } from './search/input.js';
 import { _extractRegionToken, makeRelatedSuggestions, searchComplexFromSupabase, getPriceSummaryFromSupabase } from './search/supabase.js';
+import { scorePool, calculateLivingScore, calculateSupplyRisk, calculatePositiveFactors, calculateNegativeFactors } from './recommendation/score.js';
+import { POOL, AREA_DB } from './recommendation/pool.js';
+import { recommendByBudget } from './recommendation/recommend.js';
 
 
 
