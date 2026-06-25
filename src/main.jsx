@@ -1605,7 +1605,7 @@ const propertyTypes = [
   { key: "commercial", label: "상가", ready: false },
   { key: "oneRoom", label: "원룸", ready: true },
 ];
-const apartmentTabsDef = [["fair", "적정가"], ["buy", "매수"], ["sell", "매도"], ["tax", "세금"], ["reco", "추천 후보"], ["adv", "내 자산"], ["logs", "🔍 로그"]];
+const apartmentTabsDef = [["fair", "적정가"], ["buy", "매수"], ["sell", "매도"], ["tax", "세금"], ["reco", "AI 검토 후보"], ["adv", "내 자산"], ["logs", "🔍 로그"]];
 const oneRoomTabsDef = [["search", "원룸 찾기"], ["manage", "원룸 관리"], ["yield", "원룸 수익률"]];
 
 function ComingSoon({ title, desc }) {
@@ -1663,7 +1663,7 @@ function TaxView({ buyCtx, sellCtx }) {
                 <Row l="지방교육세" v={won(acq.edu)} /><Row l="농어촌특별세 (85㎡ 초과)" v={won(acq.farm)} />
                 <Row l="중개수수료 (개략 0.4%)" v={won(buyBrok)} /><Row l="기타 비용 개략 (법무·등기 등)" v={won(ETC)} />
                 <Row l="총 필요 현금 개략 추정" v={won(buyTotalCash)} strong />
-                <p className="bg-slate-50 px-4 py-2 text-[11px] text-slate-400">중개수수료는 0.4% 개략입니다. TODO(API/정책): 실제 중개보수 상한요율표로 교체 예정. · 총 필요 현금은 추천후보 탭 「내 조건」의 보유 현금·대출 가능액 개략 추정과 함께 해석하세요(보유 현금 + 대출 가능액 ≥ 총 필요 현금 여부).</p>
+                <p className="bg-slate-50 px-4 py-2 text-[11px] text-slate-400">중개수수료는 0.4% 개략입니다. TODO(API/정책): 실제 중개보수 상한요율표로 교체 예정. · 총 필요 현금은 AI 후보 찾기 탭 「내 조건」의 보유 현금·대출 가능 금액 개략 추정과 함께 해석하세요(보유 현금 + 대출 가능 금액 ≥ 총 필요 현금 여부).</p>
               </div>
             )}
           </>
@@ -2496,10 +2496,10 @@ function AdvancedView({ watch, setWatch, history, finProfile, onReanalyze, uid }
               <div><p className="text-xs text-slate-400">주택 상태</p><p className="font-bold text-slate-800">{fp.noHouse ? "무주택" : "유주택"}{fp.firstHome ? "·생애최초" : ""}{fp.newlywed ? "·신혼" : ""}</p></div>
               <div><p className="text-xs text-slate-400">총 예산</p><p className="font-bold text-slate-800">{won2(fp.budget)}</p></div>
             </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-slate-400">추천 후보 탭 「내 조건」에서 입력한 값입니다. 대출 가능액·월상환은 개략 추정이며 실제 승인금리·한도는 신용점수·소득증빙·DSR·담보평가·금융사 심사에 따라 달라질 수 있습니다.</p>
+            <p className="mt-3 text-[11px] leading-relaxed text-slate-400">AI 후보 찾기 탭 「내 조건」에서 입력한 값입니다. 대출 가능액·월상환은 개략 추정이며 실제 승인금리·한도는 신용점수·소득증빙·DSR·담보평가·금융사 심사에 따라 달라질 수 있습니다.</p>
           </div>
         ) : (
-          <Empty title="재무 프로필이 없습니다" desc="추천 후보 탭의 「내 조건」을 입력하고 후보를 찾으면 여기에 저장됩니다." />
+          <Empty title="재무 프로필이 없습니다" desc="AI 후보 찾기 탭의 「내 조건」을 입력하고 후보를 찾으면 여기에 저장됩니다." />
         )}
       </section>
 
@@ -2525,7 +2525,7 @@ function AppInner() {
   const [roomTab, setRoomTab] = useState("search");   // 원룸 내부 메뉴
   const [history, setHistory] = useState(() => loadRecentAnalysis(null));
   const [watch, setWatch] = useState([]);
-  const [finProfile, setFinProfile] = useState(null);  // 추천후보 탭 「내 조건」 → 내 자산 재무 프로필 공유
+  const [finProfile, setFinProfile] = useState(null);  // AI 후보 찾기 탭 「내 조건」 → 내 자산 재무 프로필 공유
   const [buyCtx, setBuyCtx] = useState(null);         // 매수 입력값 → 매수세금 자동 반영용
   const [sellCtx, setSellCtx] = useState(null);       // 매도 입력값 → 매도세금 자동 반영용
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -7504,28 +7504,45 @@ function BudgetView({ onProfile }) {
   const riskTone = { 낮음: "text-emerald-600", 보통: "text-amber-600", 높음: "text-red-500", 매우높음: "text-red-600" };
   const Metric = ({ l, v, tone }) => <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-center"><p className="text-[10px] text-slate-400">{l}</p><p className={`text-xs font-bold ${tone || "text-slate-700"}`}>{v}</p></div>;
 
-  const Card = ({ c, caution }) => (
+  const Card = ({ c, caution, idx = 0 }) => (
     <div className={`overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ${caution ? "ring-orange-200" : "ring-slate-200"}`}>
       <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: caution ? "#fff7ed" : "#f8fafc" }}>
-        <div><p className="text-base font-bold text-slate-800">{c.name} <span className="text-xs font-normal text-slate-400">{c.pyeong}평 · {c.age}년차{c.redev ? " · 재건축권" : ""}</span></p><p className="text-xs text-slate-400">{c.region} {c.dong}{c.isPremium ? ` · ${c.marketType} 검토 후보` : ""}</p></div>
-        <div className="text-right"><p className="text-lg font-bold text-slate-900">{won(c.cur)}</p><p className={`text-xs ${c.undervalue > 0 ? "text-emerald-600" : c.undervalue < 0 ? "text-red-500" : "text-slate-400"}`}>적정가 {won(c.fair)} 대비 {c.gapPos} {pct(-c.undervalue)}</p></div>
+        <div>
+          <p className="mb-0.5 text-[10px] font-semibold text-slate-400">후보 {idx + 1}</p>
+          <p className="text-base font-bold text-slate-800">{c.name} <span className="text-xs font-normal text-slate-400">{c.pyeong}평 · {c.age}년차{c.redev ? " · 재건축권" : ""}</span></p>
+          <p className="text-xs text-slate-400">{c.region} {c.dong}{c.isPremium ? ` · ${c.marketType}` : ""}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-bold text-slate-900">{won(c.cur)}</p>
+          <p className={`text-xs ${c.undervalue > 0 ? "text-emerald-600" : c.undervalue < 0 ? "text-red-500" : "text-slate-400"}`}>AI 적정가 {won(c.fair)} 대비 {c.gapPos} {pct(-c.undervalue)}</p>
+        </div>
       </div>
       <div className="px-5 py-4">
         <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
-          <Metric l="후보 점수" v={`${c.ranking}`} tone="text-slate-900" />
-          <Metric l="예산 적합도" v={`${c.budgetFit}`} />
+          <Metric l="AI 적합도" v={`${c.ranking}점`} tone="text-slate-900" />
+          <Metric l="예산 적합도" v={`${c.budgetFit}점`} />
           <Metric l="가격 위치" v={c.gapPos} tone={c.gapPos === "저평가" ? "text-emerald-600" : c.gapPos === "고평가" ? "text-red-500" : "text-slate-700"} />
-          <Metric l="매수 판단" v={c.buyLabel} tone={c.buyGrade === "A" || c.buyGrade === "B" ? "text-emerald-600" : c.buyGrade === "C" ? "text-slate-700" : c.buyGrade === "D" ? "text-amber-600" : "text-red-500"} />
+          <Metric l="AI 검토 단계" v={caution ? "🟠 신중 검토" : c.ranking >= 75 ? "🟢 우선 검토" : "🟡 비교 검토"} tone={caution ? "text-orange-600" : c.ranking >= 75 ? "text-emerald-600" : "text-amber-600"} />
           <Metric l="시장 위험" v={c.mrLevel} tone={riskTone[c.mrLevel]} />
           <Metric l="공급 위험" v={c.supply.level} tone={riskTone[c.supply.level]} />
         </div>
-        <div className="mt-3">
-          <p className="text-xs font-bold text-emerald-700">조건 적합 이유</p>
-          <ol className="mt-1 space-y-1">{c.reasons.map((t, k) => <li key={k} className="flex gap-2 text-sm leading-relaxed text-slate-600"><span className="text-slate-400">{k + 1}.</span><span>{t}</span></li>)}</ol>
+        <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5">
+          <p className="mb-1.5 text-[10px] font-semibold text-slate-500">AI 적합도 산출 기준</p>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+            <div className="flex items-center justify-between"><span className="text-slate-500">예산 적합</span><span>{["★","★","★","★","★"].map((_,i) => <span key={i} className={i < Math.round(c.budgetFit/20) ? "text-amber-400" : "text-slate-200"}>★</span>)}</span></div>
+            <div className="flex items-center justify-between"><span className="text-slate-500">가격 매력도</span><span>{["★","★","★","★","★"].map((_,i) => <span key={i} className={i < Math.round(c.priceAttract/20) ? "text-amber-400" : "text-slate-200"}>★</span>)}</span></div>
+            <div className="flex items-center justify-between"><span className="text-slate-500">거래 안정성</span><span>{["★","★","★","★","★"].map((_,i) => <span key={i} className={i < (c.mrLevel === "낮음" ? 5 : c.mrLevel === "보통" ? 3 : 2) ? "text-amber-400" : "text-slate-200"}>★</span>)}</span></div>
+            <div className="flex items-center justify-between"><span className="text-slate-500">데이터 신뢰도</span><span>{["★","★","★","★","★"].map((_,i) => <span key={i} className={i < Math.round(c.dataConf/20) ? "text-amber-400" : "text-slate-200"}>★</span>)}</span></div>
+            <div className="flex items-center justify-between"><span className="text-slate-500">실거주 적합성</span><span>{["★","★","★","★","★"].map((_,i) => <span key={i} className={i < Math.round(c.living.total/20) ? "text-amber-400" : "text-slate-200"}>★</span>)}</span></div>
+          </div>
         </div>
         <div className="mt-3">
-          <p className="text-xs font-bold text-orange-600">주의 이유</p>
-          <ul className="mt-1 space-y-1">{c.cautions.map((t, k) => <li key={k} className="flex gap-2 text-sm leading-relaxed text-slate-500"><span className="text-orange-400">·</span><span>{t}</span></li>)}</ul>
+          <p className="text-xs font-bold text-emerald-700">AI 선정 이유</p>
+          <ul className="mt-1 space-y-1">{c.reasons.map((t, k) => <li key={k} className="flex gap-2 text-sm leading-relaxed text-slate-600"><span className="text-emerald-500 font-bold">✓</span><span>{t}</span></li>)}</ul>
+        </div>
+        <div className="mt-3">
+          <p className="text-xs font-bold text-orange-600">AI 검토 포인트</p>
+          <ul className="mt-1 space-y-1">{c.cautions.map((t, k) => <li key={k} className="flex gap-2 text-sm leading-relaxed text-slate-500"><span className="text-orange-400 font-bold">•</span><span>{t}</span></li>)}</ul>
         </div>
         <div className="mt-3 rounded-xl bg-slate-50 p-3">
           <div className="flex items-center justify-between">
@@ -7535,9 +7552,9 @@ function BudgetView({ onProfile }) {
           <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
             <span className={`rounded-md px-2 py-0.5 font-semibold ${c.gapPos === "고평가" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-700"}`}>가격: {c.gapPos}</span>
             <span className={`rounded-md px-2 py-0.5 font-semibold ${c.loan.shortfall > 0 ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-700"}`}>자금: {c.loan.shortfall > 0 ? `부족 ${won(c.loan.shortfall)}` : "가능"}</span>
-            <span className={`rounded-md px-2 py-0.5 font-semibold ${caution ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-600"}`}>분류: {caution ? "주의 후보" : "적합 후보"}</span>
+            <span className={`rounded-md px-2 py-0.5 font-semibold ${caution ? "bg-orange-100 text-orange-700" : c.ranking >= 75 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{caution ? "🟠 신중 검토" : c.ranking >= 75 ? "🟢 우선 검토" : "🟡 비교 검토"}</span>
           </div>
-          {c.finRisky && <p className="mt-1.5 text-[11px] font-semibold text-orange-600">가격은 적합하나 자금 조건상 주의 후보입니다 (보유 현금·대출 가능액 보강 필요).</p>}
+          {c.finRisky && <p className="mt-1.5 text-[11px] font-semibold text-orange-600">• 가격 조건은 충족하나 자금 여력 확인이 필요합니다 (보유 현금 또는 대출 가능 금액 보강 검토).</p>}
           <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
             <div><p className="text-slate-400">필요 대출액</p><p className="font-bold text-slate-700">{won(c.loan.need)}</p></div>
             <div><p className="text-slate-400">월상환 개략 추정</p><p className="font-bold text-slate-700">{won(c.loan.best.monthly)}</p></div>
@@ -7554,16 +7571,16 @@ function BudgetView({ onProfile }) {
 
   return (
     <>
-      <header className="mb-6 text-center"><h1 className="text-2xl font-bold text-slate-900">추천 후보 찾기</h1><p className="mt-2 text-sm text-slate-500">예산·목적·선호 조건에 맞는 <b>검토 후보</b>를 보여줍니다. (투자 권유가 아닙니다)</p></header>
+      <header className="mb-6 text-center"><h1 className="text-2xl font-bold text-slate-900">AI 후보 찾기</h1><p className="mt-2 text-sm text-slate-500">예산·목적·선호 조건에 맞는 <b>AI 검토 후보</b>를 확인하세요. 이 결과는 투자 권유가 아닙니다.</p></header>
       <div className="mb-5 rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
         <p className="text-sm font-semibold text-amber-800">⚠ 현재 데모 데이터 기반 예시입니다.</p>
         <p className="mt-0.5 text-xs text-amber-600">실제 단지 DB·국토부 실거래·KB시세 연동 전까지는 참고용 샘플 데이터로 동작합니다. 실제 매수 판단에는 매수 탭의 AI 분석을 이용하세요.</p>
       </div>
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">보유 현금 (억)</span><input type="number" className={inp} value={equity} placeholder="6" onChange={(e) => setEquity(e.target.value)} /></label>
-          <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">연소득 (억)</span><input type="number" step="0.1" className={inp} value={income} placeholder="0.8" onChange={(e) => setIncome(e.target.value)} /></label>
-          <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">희망 대출 (억)</span><input type="number" step="0.1" className={inp} value={plannedLoan} placeholder="8" onChange={(e) => { setPlannedLoan(e.target.value); const tot = (Number(equity) || 0) + (Number(e.target.value) || 0); if (tot) setBudget(String(tot)); }} /></label>
+          <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">보유 가능한 현금 (만원)</span><input type="number" className={inp} value={equity} placeholder="60000" onChange={(e) => setEquity(e.target.value)} />{equity && Number(equity) > 0 && <p className="mt-1 text-[11px] text-slate-400">= {(Number(equity)/10000).toFixed(2)}억원</p>}</label>
+          <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">연소득 (만원)</span><input type="number" className={inp} value={income} placeholder="8000" onChange={(e) => setIncome(e.target.value)} />{income && Number(income) > 0 && <p className="mt-1 text-[11px] text-slate-400">= {(Number(income)/10000).toFixed(2)}억원</p>}</label>
+          <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">대출 가능 금액 (만원)</span><input type="number" className={inp} value={plannedLoan} placeholder="80000" onChange={(e) => { setPlannedLoan(e.target.value); const tot = (Number(equity) || 0) + (Number(e.target.value) || 0); if (tot) setBudget(String(tot)); }} />{plannedLoan && Number(plannedLoan) > 0 && <p className="mt-1 text-[11px] text-slate-400">= {(Number(plannedLoan)/10000).toFixed(2)}억원</p>}</label>
           <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">총 예산 (억)</span><input type="number" className={inp} value={budget} placeholder="14" onChange={(e) => setBudget(e.target.value)} /></label>
           <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">선호 지역 (구·동, 비우면 전체)</span><input type="text" className={inp} value={region} placeholder="공릉동 / 강남구" onChange={(e) => setRegion(e.target.value)} /></label>
           <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">선호 평형 (선택)</span><input type="number" className={inp} value={pyeong} placeholder="34" onChange={(e) => setPyeong(e.target.value)} /></label>
@@ -7586,8 +7603,8 @@ function BudgetView({ onProfile }) {
             <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={newlywed} onChange={(e) => setNewlywed(e.target.checked)} />신혼부부</label>
           </div>
         </div>
-        {(!budget || Number(budget) <= 0) && <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">예산을 입력하면 더 정확한 후보를 확인할 수 있습니다.</p>}
-        <button onClick={run} className="mt-6 w-full rounded-2xl py-4 text-base font-bold text-white" style={{ backgroundColor: NAVY }}>조건에 맞는 후보 찾기</button>
+        {(!budget || Number(budget) <= 0) && <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">예산을 입력하면 더 정확한 AI 검토 후보를 확인할 수 있습니다.</p>}
+        <button onClick={run} className="mt-6 w-full rounded-2xl py-4 text-base font-bold text-white" style={{ backgroundColor: NAVY }}>AI 후보 찾기</button>
         <p className="mt-3 text-xs text-slate-400">※ 후보 단지·금리는 데모 샘플(POOL) 기준입니다. TODO(API): 웹앱 전환 시 실제 단지 DB·국토부 실거래·KB시세·금융상품비교공시 연동으로 실시간 구성.</p>
       </div>
       {res && (
@@ -7596,15 +7613,15 @@ function BudgetView({ onProfile }) {
             <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-100">예산 {won(res.B)} {region ? `· ${region} ` : ""}조건에 맞는 후보가 없습니다. 예산을 높이거나 조건을 완화해보세요.</div>
           ) : (
             <>
-              <p className="text-sm font-bold text-slate-700">조건에 맞는 후보 ({res.fit.length})</p>
-              {res.fit.length ? res.fit.map((c) => <Card key={c.name} c={c} />) : <p className="rounded-2xl bg-white p-4 text-center text-xs text-slate-400 ring-1 ring-slate-100">조건을 충족하는 일반 후보가 없습니다. 아래 주의 후보를 참고하세요.</p>}
+              <p className="text-sm font-bold text-slate-700">AI 검토 후보 ({res.fit.length})</p>
+              {res.fit.length ? res.fit.map((c, i) => <Card key={c.name} c={c} idx={i} />) : <p className="rounded-2xl bg-white p-4 text-center text-xs text-slate-400 ring-1 ring-slate-100">조건을 충족하는 후보가 없습니다. 아래 신중 검토 후보를 참고하세요.</p>}
               {res.caution.length > 0 && (
                 <>
-                  <p className="mt-6 text-sm font-bold text-orange-600">주의 후보 ({res.caution.length}) — 시장·공급 위험이 높아 별도 표시</p>
-                  {res.caution.map((c) => <Card key={c.name} c={c} caution />)}
+                  <p className="mt-6 text-sm font-bold text-orange-600">🟠 신중 검토 후보 ({res.caution.length}) — 시장·공급 위험이 높아 별도 확인 필요</p>
+                  {res.caution.map((c, i) => <Card key={c.name} c={c} caution idx={i} />)}
                 </>
               )}
-              <div className="rounded-2xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-500"><b className="text-slate-600">본 결과는 조건에 맞는 후보를 정리한 참고 자료이며 투자 권유가 아닙니다.</b> 가격 여력·실거주·위험 등급은 펀더멘털 신호를 등급화한 개략 추정입니다. 대출(LTV/DSR)·취득세·금리는 개략 추정이며 정확한 값은 금융기관·세무사 상담이 필요합니다.</div>
+              <div className="rounded-2xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-500"><b className="text-slate-600">본 결과는 사용자가 입력한 조건과 공개 데이터를 기반으로 산출된 AI 분석 결과입니다.</b> 투자 또는 매매를 권유하는 것이 아니며, 최종 의사결정은 이용자의 판단과 책임입니다. AI 적합도·검토 단계는 펀더멘털 신호를 분석한 참고 의견이며, 대출(LTV/DSR)·취득세·금리는 개략 추정값입니다. 정확한 값은 금융기관·세무사 상담을 통해 확인하시기 바랍니다.</div>
             </>
           )}
         </div>
