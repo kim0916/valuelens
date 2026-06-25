@@ -1862,6 +1862,46 @@ function MaintenanceScreen() {
   );
 }
 
+function supplyAreaInfo(exclusiveSqm, supplySqm) {
+  const excl = Number(exclusiveSqm) || 0;
+  if (supplySqm && Number(supplySqm) > 0) {
+    const supply = Math.round(Number(supplySqm));
+    return { supply, pyeong: Math.round(supply / 3.3058), estimated: false };
+  }
+  // 공급면적 모르면 전용 ÷ 0.77 추정 (전용률 77% 가정 → 33평 정확)
+  const supply = excl > 0 ? Math.round(excl / 0.77) : 0;
+  return { supply, pyeong: supply > 0 ? Math.round(supply / 3.3058) : 0, estimated: true };
+}
+
+// 면적 버튼 라벨: 네이버 방식 — 공급면적(109㎡) 기준 + 하단 "전용 84.97㎡"
+function areaButtonLabel(exclusiveSqm, supplySqm) {
+  const excl = Number(exclusiveSqm) || 0;
+  const supply = supplySqm && Number(supplySqm) > 0 ? Math.round(Number(supplySqm)) : null;
+  if (supply) {
+    const supplyPyeong = Math.round(supply / 3.3058);
+    return {
+      mainLabel: `${supply}㎡ (${supplyPyeong}평)`,
+      subLabel: `전용 ${excl}㎡ 기준 분석`,
+    };
+  }
+  // 공급면적 없으면 전용 × 1.35 추정
+  const estSupply = excl > 0 ? Math.round(excl / 0.77) : 0;
+  const estPyeong = estSupply > 0 ? Math.round(estSupply / 3.3058) : 0;
+  return {
+    mainLabel: estSupply > 0 ? `${estSupply}㎡ (${estPyeong}평, 추정)` : `전용 ${excl}㎡`,
+    subLabel: excl > 0 ? `전용 ${excl}㎡ 기준 분석` : "",
+  };
+}
+const exclusivePyeong = (sqm) => { sqm = Number(sqm) || 0; return sqm > 0 ? Math.round((sqm / 3.3058) * 10) / 10 : 0; };
+const areaLabel = (sqm) => { sqm = Number(sqm) || 0; return sqm > 0 ? `전용 ${sqm}㎡ · 통상 약 ${typicalPyeong(sqm)}평형` : "면적 미확인"; };
+const shift = (g, s) => GRADES[Math.max(0, Math.min(4, GRADES.indexOf(g) - s))];
+
+const propertyTypes = [
+  { key: "apartment", label: "아파트", ready: true },
+  { key: "multiFamily", label: "다가구", ready: false },
+  { key: "commercial", label: "상가", ready: false },
+  { key: "oneRoom", label: "원룸", ready: true },
+];
 const apartmentTabsDef = [["fair", "적정가"], ["buy", "매수"], ["sell", "매도"], ["tax", "세금"], ["reco", "추천 후보"], ["adv", "내 자산"], ["logs", "🔍 로그"]];
 const oneRoomTabsDef = [["search", "원룸 찾기"], ["manage", "원룸 관리"], ["yield", "원룸 수익률"]];
 
