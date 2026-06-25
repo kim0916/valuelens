@@ -14,6 +14,8 @@ import { fetchApartmentData } from '../search/apartment.js';
 import { buildAnalysisInput } from '../search/input.js';
 import { groupAreasByPyeong, getDataConfidence } from '../search/utils.js';
 import { getOrCreateDeviceId } from '../utils/device.js';
+import { loadRecentAnalysis } from '../services/storage/recentAnalysis.js';
+import { LocationPicker } from './LocationPicker.jsx';
 import { ConfirmStep } from './ConfirmStep.jsx';
 import { BuyResult } from './BuyResult.jsx';
 import { FairValueResult } from './FairValueResult.jsx';
