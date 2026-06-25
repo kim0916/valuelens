@@ -3501,19 +3501,15 @@ function AppInner() {
   // ── User + Maintenance 동시 체크 ──
   React.useEffect(() => {
     async function init() {
-      // 1. 현재 유저 확인
       const { data: { user } } = await supabase.auth.getUser();
       const email = user?.email ?? null;
       setCurrentUserId(user?.id ?? null);
       setCurrentUserEmail(email);
-
-      // 2. maintenance 확인
       await checkMaintenance(email);
     }
 
     async function checkMaintenance(email) {
       try {
-        // RealEstatagent DB의 app_config 조회 (/api/supabase 경유)
         const res = await fetch('/api/supabase', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3533,12 +3529,24 @@ function AppInner() {
 
     init();
 
-    // 60초마다 갱신 (이메일은 이미 세팅됨)
+    // auth 상태 변화 감지 (로그인/로그아웃 시 재체크)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const email = session?.user?.email ?? null;
+      setCurrentUserId(session?.user?.id ?? null);
+      setCurrentUserEmail(email);
+      await checkMaintenance(email);
+    });
+
+    // 60초마다 갱신
     const interval = setInterval(async () => {
       const { data: { user } } = await supabase.auth.getUser();
       await checkMaintenance(user?.email ?? null);
     }, 60000);
-    return () => clearInterval(interval);
+
+    return () => {
+      subscription.unsubscribe();
+      clearInterval(interval);
+    };
   }, []);
 
   // 점검 중이면 → 점검 화면 (관리자는 checkMaintenance에서 이미 false 처리)
