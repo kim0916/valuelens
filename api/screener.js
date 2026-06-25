@@ -32,14 +32,28 @@ function scoreBudget({ saleAvg, budget, totalBudget }) {
 // ② 가격 매력도 (25점) — ValueLens 핵심: 전세가율 기반
 // price_summary 단계에서는 jeonse_ratio로 실수요 견고도 근사
 // (정밀 fair값은 클릭 후 매수탭 AI 엔진에서 산출)
-function scoreValue({ jeonseRatio, saleAvg, rentAvg }) {
+function scoreValue({ jeonseRatio, saleAvg, rentAvg, budget }) {
   const ratio = jeonseRatio || (rentAvg && saleAvg ? rentAvg / saleAvg : 0);
-  if (!ratio) return 10; // 데이터 없으면 기본
-  if (ratio >= 0.70) return 25;
-  if (ratio >= 0.60) return 21;
-  if (ratio >= 0.50) return 16;
-  if (ratio >= 0.40) return 10;
-  return 5; // 전세가율 낮음 → 투자수요 의존
+
+  // 전세가율 기반 기본 점수
+  let base = 10;
+  if (ratio >= 0.70) base = 25;
+  else if (ratio >= 0.60) base = 21;
+  else if (ratio >= 0.50) base = 16;
+  else if (ratio >= 0.40) base = 10;
+  else if (ratio > 0) base = 5;
+
+  // 예산 활용도 보정: 예산 대비 가격이 너무 낮으면 감점
+  // 예: 8억 예산에 3억짜리 단지 → 예산 활용 37% → 감점
+  if (budget && saleAvg) {
+    const utilRate = saleAvg / budget;
+    if (utilRate < 0.40) base = Math.max(0, base - 8);       // 예산 40% 미만
+    else if (utilRate < 0.55) base = Math.max(0, base - 4);  // 예산 55% 미만
+    else if (utilRate < 0.70) base = Math.max(0, base - 1);  // 예산 70% 미만
+    // 0.70 이상은 감점 없음
+  }
+
+  return Math.min(25, base);
 }
 
 // ③ 거래 안정성 (15점)
