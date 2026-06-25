@@ -304,7 +304,7 @@ export default async function handler(req, res) {
   // ── 4. 실거래 원본 조회 ──
   // months 파라미터 제거 — DB 적재 전체 범위 반환 (cutoff 없음)
 
-  // ── maintenance 상태 조회 ──
+  // ── maintenance 상태 조회 (v2) ──
   if (type === 'maintenance') {
     try {
       const { data, error } = await supabase
