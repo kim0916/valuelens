@@ -540,10 +540,260 @@ function runCase(c) {
 
 
 
-// ── 기존 HomeView는 AIChatView로 대체됨 (하위 호환용 alias) ──
+// ValueLens — New HomeView (Phase 2)
+// UI only — 기존 기능 연결 변경 금지
+
 function HomeView({ onNavigate, history, onSaveHistory, currentUserId, currentUserEmail }) {
-  return <AIChatView onNavigate={onNavigate} history={history} onSaveHistory={onSaveHistory} currentUserId={currentUserId} currentUserEmail={currentUserEmail} />;
+  const [query, setQuery] = React.useState("");
+  const recentList = (history || []).slice(0, 3);
+
+  const quickQuestions = [
+    "4억으로 어디가 좋아?",
+    "이 집 사도 될까?",
+    "사진으로 분석해줘",
+    "계약서 위험한 부분 봐줘",
+  ];
+
+  function handleSubmit() {
+    if (!query.trim()) return;
+    if (onNavigate) onNavigate("ai", { searchQuery: query.trim() });
+  }
+
+  function handleQuick(q) {
+    setQuery(q);
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  }
+
+  const typeLabel = { fairValue: "적정가", buy: "매수", sell: "매도" };
+  const typeColor = {
+    fairValue: { bg: "#eff6ff", text: "#2563eb" },
+    buy:       { bg: "#f0fdf4", text: "#16a34a" },
+    sell:      { bg: "#fff7ed", text: "#ea580c" },
+  };
+
+  return (
+    <div style={{
+      minHeight: "100dvh",
+      background: BRAND_BG,
+      display: "flex",
+      flexDirection: "column",
+      maxWidth: 480,
+      margin: "0 auto",
+      padding: "0 16px 40px",
+    }}>
+
+      {/* ── 헤더 ── */}
+      <div style={{ paddingTop: 52, paddingBottom: 32, textAlign: "center" }}>
+        <div style={{
+          width: 44, height: 44,
+          borderRadius: 14,
+          background: "#111",
+          margin: "0 auto 16px",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <h1 style={{
+          fontSize: 22, fontWeight: 600, color: BRAND,
+          margin: "0 0 6px", letterSpacing: "-0.02em",
+        }}>
+          AI Property Agent
+        </h1>
+        <p style={{ fontSize: 14, color: BRAND_MID, margin: 0, lineHeight: 1.6 }}>
+          질문 하나로 부동산 판단을 시작하세요.
+        </p>
+      </div>
+
+      {/* ── 입력창 ── */}
+      <div style={{
+        background: "#fff",
+        border: "1px solid #e2e0da",
+        borderRadius: 16,
+        padding: "14px 14px 10px",
+        marginBottom: 10,
+        boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+      }}>
+        <textarea
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={"예: 4억으로 어디가 좋아? / 이 집 사도 될까?"}
+          rows={3}
+          style={{
+            width: "100%", border: "none", outline: "none",
+            resize: "none", fontSize: 15, lineHeight: 1.6,
+            color: BRAND, background: "transparent",
+            fontFamily: "inherit",
+          }}
+        />
+        {/* 아이콘 버튼 행 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
+          {/* 사진 */}
+          <button onClick={() => alert("사진 분석 — 준비 중")} style={{
+            display: "flex", alignItems: "center", gap: 5,
+            background: BRAND_LIGHT, border: "none", borderRadius: 8,
+            padding: "6px 10px", fontSize: 12, color: BRAND_MID,
+            cursor: "pointer",
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            사진
+          </button>
+          {/* PDF */}
+          <button onClick={() => alert("PDF 분석 — 준비 중")} style={{
+            display: "flex", alignItems: "center", gap: 5,
+            background: BRAND_LIGHT, border: "none", borderRadius: 8,
+            padding: "6px 10px", fontSize: 12, color: BRAND_MID,
+            cursor: "pointer",
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            PDF
+          </button>
+          {/* 음성 */}
+          <button onClick={() => alert("음성 입력 — 준비 중")} style={{
+            display: "flex", alignItems: "center", gap: 5,
+            background: BRAND_LIGHT, border: "none", borderRadius: 8,
+            padding: "6px 10px", fontSize: 12, color: BRAND_MID,
+            cursor: "pointer",
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            음성
+          </button>
+          {/* 전송 */}
+          <button
+            onClick={handleSubmit}
+            disabled={!query.trim()}
+            style={{
+              marginLeft: "auto",
+              width: 32, height: 32, borderRadius: 10,
+              background: query.trim() ? BRAND : BRAND_LIGHT,
+              border: "none", cursor: query.trim() ? "pointer" : "default",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background 0.15s",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={query.trim() ? "#fff" : BRAND_MUTED} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      {/* ── 빠른 질문 카드 ── */}
+      <div style={{ marginBottom: 28 }}>
+        <p style={{ fontSize: 11, color: BRAND_MUTED, margin: "0 0 8px 2px", letterSpacing: "0.04em" }}>
+          빠른 시작
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {quickQuestions.map((q, i) => (
+            <button
+              key={i}
+              onClick={() => handleQuick(q)}
+              style={{
+                background: "#fff",
+                border: `1px solid ${query === q ? "#111" : "#e2e0da"}`,
+                borderRadius: 10,
+                padding: "10px 12px",
+                textAlign: "left",
+                cursor: "pointer",
+                fontSize: 12,
+                color: query === q ? BRAND : BRAND_MID,
+                lineHeight: 1.5,
+                fontWeight: query === q ? 500 : 400,
+                transition: "all 0.12s",
+              }}
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 최근 분석 ── */}
+      {recentList.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <p style={{ fontSize: 11, color: BRAND_MUTED, margin: "0 0 8px 2px", letterSpacing: "0.04em" }}>
+            최근 분석
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {recentList.map((h, i) => {
+              const tc = typeColor[h.analysisType] || { bg: "#f5f5f3", text: "#57534e" };
+              const tl = typeLabel[h.analysisType] || h.analysisType;
+              return (
+                <button
+                  key={i}
+                  onClick={() => onNavigate && onNavigate(h.analysisType === "sell" ? "sell" : "fair")}
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #e2e0da",
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <span style={{
+                    fontSize: 10, fontWeight: 500,
+                    background: tc.bg, color: tc.text,
+                    borderRadius: 5, padding: "2px 6px",
+                    flexShrink: 0,
+                  }}>{tl}</span>
+                  <span style={{ fontSize: 12, color: BRAND, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {h.complexName} {h.area}
+                  </span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={BRAND_MUTED} strokeWidth="1.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── 하단 보조 메뉴 ── */}
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        gap: 8,
+        marginTop: "auto",
+        paddingTop: 8,
+      }}>
+        {[
+          { label: "매수 분석", tab: "buy" },
+          { label: "매도 분석", tab: "sell" },
+          { label: "적정가",   tab: "fair" },
+          { label: "추천 후보", tab: "reco" },
+        ].map(({ label, tab }) => (
+          <button
+            key={tab}
+            onClick={() => onNavigate && onNavigate(tab)}
+            style={{
+              background: "none",
+              border: "1px solid #e2e0da",
+              borderRadius: 8,
+              padding: "6px 12px",
+              fontSize: 12,
+              color: BRAND_MID,
+              cursor: "pointer",
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+    </div>
+  );
 }
+
 
 
 
