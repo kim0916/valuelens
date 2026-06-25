@@ -2543,51 +2543,44 @@ function HomeView({ onNavigate, history }) {
 
   const showToast = (msg) => {
     setToast(msg);
-    setTimeout(() => setToast(""), 2200);
+    setTimeout(() => setToast(""), 2400);
   };
 
-  // 아이콘 — strokeWidth 1.4 (Heroicons 계열 얇은 라인)
+  // 아이콘 — strokeWidth 1.3 (Heroicons/Lucide 계열 얇은 라인)
   const I = ({ d, s = 16, color = "currentColor" }) => (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none"
-      stroke={color} strokeWidth="1.4"
+      stroke={color} strokeWidth="1.3"
       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {d === "camera"  && <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>}
       {d === "pin"     && <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></>}
       {d === "home"    && <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>}
       {d === "chevron" && <polyline points="6 9 12 15 18 9"/>}
       {d === "right"   && <polyline points="9 18 15 12 9 6"/>}
-      {d === "check"   && <polyline points="20 6 9 17 4 12"/>}
     </svg>
   );
 
-  const PX = 22;
+  const PX = 24;
 
   const menus = [
-    { id:"apt",  label:"아파트 분석",       tab:"fair", ready:true  },
-    { id:"reco", label:"AI 검토 후보",       tab:"reco", ready:true  },
-    { id:"room", label:"원룸 분석",          tab:null,   ready:false },
-    { id:"rev",  label:"수익형 부동산 분석", tab:null,   ready:false },
-    { id:"com",  label:"상가 분석",          tab:null,   ready:false },
-    { id:"land", label:"토지 분석",          tab:null,   ready:false },
-  ];
-
-  const features = [
-    "건물 자동 인식",
-    "실거래 분석",
-    "적정가 분석",
-    "핵심 정보 요약",
-    "거래 위험도 검토",
+    { id:"apt",  label:"아파트 분석",    tab:"fair", ready:true  },
+    { id:"reco", label:"AI 검토 후보",   tab:"reco", ready:true  },
+    { id:"room", label:"원룸 분석",      tab:null,   ready:false },
+    { id:"rev",  label:"수익형 부동산",  tab:null,   ready:false },
+    { id:"land", label:"토지 분석",      tab:null,   ready:false },
+    { id:"mul",  label:"다가구 분석",    tab:null,   ready:false },
+    { id:"com",  label:"상가 분석",      tab:null,   ready:false },
   ];
 
   // 토스트
   const Toast = () => toast ? (
     <div style={{
-      position: "fixed", bottom: 88, left: "50%", transform: "translateX(-50%)",
-      background: "rgba(17,17,17,0.92)", backdropFilter: "blur(8px)",
+      position: "fixed", bottom: 96, left: "50%", transform: "translateX(-50%)",
+      background: "rgba(17,17,17,0.90)", backdropFilter: "blur(10px)",
       color: "#fff", fontSize: 13, fontWeight: 400,
-      padding: "10px 22px", borderRadius: 10, zIndex: 999,
+      padding: "11px 24px", borderRadius: 12, zIndex: 999,
       whiteSpace: "nowrap", pointerEvents: "none",
       letterSpacing: "-0.01em",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
     }}>{toast}</div>
   ) : null;
 
@@ -2599,13 +2592,13 @@ function HomeView({ onNavigate, history }) {
         width: "100%", display: "flex", alignItems: "center",
         justifyContent: "space-between", background: "none",
         border: "none", cursor: "pointer",
-        padding: `13px ${PX}px`,
+        padding: `15px ${PX}px`,
         borderTop: `0.5px solid ${BRAND_BORDER}`,
       }}
     >
       <span style={{
         fontSize: 11, fontWeight: 500,
-        letterSpacing: "0.07em", color: BRAND_MUTED,
+        letterSpacing: "0.08em", color: BRAND_MUTED,
         textTransform: "uppercase",
       }}>
         {label}
@@ -2613,15 +2606,15 @@ function HomeView({ onNavigate, history }) {
       <span style={{
         color: BRAND_MUTED,
         display: "flex",
-        transition: "transform 0.2s ease",
+        transition: "transform 0.22s ease",
         transform: open ? "rotate(180deg)" : "rotate(0deg)",
       }}>
-        <I d="chevron" s={14} />
+        <I d="chevron" s={13} />
       </span>
     </button>
   );
 
-  // 아코디언 본문 — CSS transition용 래퍼
+  // 아코디언 본문 — smooth height + opacity transition
   const AccordionBody = ({ open, children }) => {
     const ref = React.useRef(null);
     const [height, setHeight] = React.useState(0);
@@ -2633,7 +2626,7 @@ function HomeView({ onNavigate, history }) {
         overflow: "hidden",
         maxHeight: open ? height + "px" : "0px",
         opacity: open ? 1 : 0,
-        transition: "max-height 0.2s ease, opacity 0.18s ease",
+        transition: "max-height 0.22s ease, opacity 0.18s ease",
       }}>
         <div ref={ref}>{children}</div>
       </div>
@@ -2644,94 +2637,117 @@ function HomeView({ onNavigate, history }) {
     <div style={{ maxWidth: 480, margin: "0 auto", background: BRAND_BG, minHeight: "100dvh" }}>
       <Toast />
 
-      {/* ── 헤더 ── */}
-      <div style={{ padding: `40px ${PX}px 28px` }}>
-        <p style={{
-          fontSize: 10, fontWeight: 600, letterSpacing: "0.14em",
-          color: BRAND_GREEN, textTransform: "uppercase", marginBottom: 12,
-        }}>
-          YOUR PROPERTY AGENT
-        </p>
+      {/* ── Hero 영역 ── */}
+      <div style={{ padding: `48px ${PX}px 32px` }}>
+        {/* 브랜드 라벨 */}
+        <div style={{ marginBottom: 20 }}>
+          <span style={{
+            fontSize: 10, fontWeight: 600, letterSpacing: "0.13em",
+            color: BRAND_GREEN, textTransform: "uppercase",
+            display: "block", marginBottom: 2,
+          }}>
+            ValueLens
+          </span>
+          <span style={{
+            fontSize: 10, fontWeight: 400, letterSpacing: "0.10em",
+            color: BRAND_MUTED, textTransform: "uppercase",
+          }}>
+            Property Intelligence
+          </span>
+        </div>
+
+        {/* 메인 문구 */}
         <h1 style={{
-          fontSize: 28, fontWeight: 700, lineHeight: 1.22,
-          letterSpacing: "-0.028em", color: BRAND, margin: "0 0 12px",
+          fontSize: 30, fontWeight: 700, lineHeight: 1.2,
+          letterSpacing: "-0.032em", color: BRAND, margin: "0 0 14px",
         }}>
           사진 한 장으로<br />건물을 분석합니다.
         </h1>
+
+        {/* 서브 문구 */}
         <p style={{
-          fontSize: 14, color: BRAND_MID, lineHeight: 1.65,
-          margin: 0, fontWeight: 400,
+          fontSize: 14, color: BRAND_MID, lineHeight: 1.7,
+          margin: 0, fontWeight: 400, letterSpacing: "-0.008em",
         }}>
-          건물 사진, 단지명, 주소를 입력하면<br />필요한 정보를 분석해드립니다.
+          건물 사진 · 명판 · 주소를 입력하면<br />필요한 정보를 분석해드립니다.
         </p>
       </div>
 
       {/* ── 메인 CTA (사진 — 준비 중) ── */}
-      <div style={{ padding: `0 ${PX}px 10px` }}>
+      <div style={{ padding: `0 ${PX}px` }}>
         <button
-          onClick={() => showToast("구동 준비 중입니다.")}
+          onClick={() => showToast("사진 분석 기능은 준비 중입니다.")}
           style={{
-            width: "100%", height: 56, borderRadius: 14,
-            background: BRAND_LIGHT, color: BRAND_MUTED,
+            width: "100%", height: 52, borderRadius: 14,
+            background: BRAND, color: "#fff",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-            border: `0.5px dashed ${BRAND_BORDER}`, cursor: "default",
-            fontSize: 15, fontWeight: 500, letterSpacing: "-0.01em",
+            border: "none", cursor: "pointer",
+            fontSize: 15, fontWeight: 600, letterSpacing: "-0.012em",
+            boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
+            position: "relative",
+            transition: "opacity 0.15s",
           }}
+          onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
+          onMouseLeave={e => e.currentTarget.style.opacity = "1"}
         >
-          <I d="camera" s={18} />
+          <I d="camera" s={17} color="#fff" />
           사진으로 분석하기
+          {/* 준비중 Badge — 버튼 우상단 */}
           <span style={{
-            fontSize: 10, fontWeight: 500, color: BRAND_MUTED,
-            background: "#fff", border: `0.5px solid ${BRAND_BORDER}`,
-            borderRadius: 4, padding: "2px 8px", marginLeft: 2,
-          }}>구동 준비 중</span>
+            position: "absolute", top: -7, right: 12,
+            fontSize: 9, fontWeight: 600, letterSpacing: "0.04em",
+            color: "#fff", background: BRAND_GREEN,
+            borderRadius: 20, padding: "2px 7px",
+            textTransform: "uppercase",
+          }}>Beta</span>
         </button>
+
         {/* 사진 버튼 아래 안내 */}
         <p style={{
           textAlign: "center", fontSize: 11, color: BRAND_MUTED,
-          marginTop: 8, letterSpacing: "-0.005em", fontWeight: 400,
+          marginTop: 10, marginBottom: 0, letterSpacing: "-0.005em", fontWeight: 400,
         }}>
-          건물 사진 · 명판 · 주소 모두 분석 가능합니다.
+          건물 사진 · 명판 · 주소 모두 지원
         </p>
       </div>
 
       {/* ── 보조 CTA (주소 입력) ── */}
-      <div style={{ padding: `10px ${PX}px 0` }}>
+      <div style={{ padding: `12px ${PX}px 0` }}>
         <button
           onClick={() => onNavigate("fair")}
           style={{
-            width: "100%", height: 52, borderRadius: 13,
+            width: "100%", height: 50, borderRadius: 14,
             background: "#fff", color: BRAND,
             display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
             border: `0.5px solid ${BRAND_BORDER}`, cursor: "pointer",
             fontSize: 14, fontWeight: 500, letterSpacing: "-0.01em",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.045)",
             transition: "background 0.15s, box-shadow 0.15s",
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.background = "#f9f9f7";
-            e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.08)";
+            e.currentTarget.style.background = "#f4f4f2";
+            e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.07)";
           }}
           onMouseLeave={e => {
             e.currentTarget.style.background = "#fff";
-            e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.05)";
+            e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.045)";
           }}
         >
-          <I d="pin" s={16} />
+          <I d="pin" s={15} color={BRAND_MID} />
           주소 직접 입력
         </button>
       </div>
 
       {/* ── 분석 메뉴 (아코디언) ── */}
-      <div style={{ marginTop: 20 }}>
+      <div style={{ marginTop: 28 }}>
         <AccordionRow
           label="분석 메뉴"
           open={menuOpen}
           onToggle={() => setMenuOpen(v => !v)}
         />
         <AccordionBody open={menuOpen}>
-          <div style={{ padding: `10px ${PX}px 14px` }}>
-            {menus.map((m) => (
+          <div style={{ padding: `8px ${PX}px 16px` }}>
+            {menus.map((m, idx) => (
               <button
                 key={m.id}
                 onClick={() => {
@@ -2741,34 +2757,33 @@ function HomeView({ onNavigate, history }) {
                 style={{
                   width: "100%", display: "flex", alignItems: "center",
                   justifyContent: "space-between",
-                  padding: "13px 16px", marginBottom: 7,
-                  borderRadius: 11,
-                  background: m.ready ? "#fff" : BRAND_LIGHT,
-                  border: m.ready
-                    ? `0.5px solid ${BRAND_BORDER}`
-                    : `0.5px dashed ${BRAND_BORDER}`,
+                  padding: "14px 4px",
+                  marginBottom: 0,
+                  background: "none", border: "none",
+                  borderBottom: idx < menus.length - 1 ? `0.5px solid ${BRAND_BORDER}` : "none",
                   cursor: m.ready ? "pointer" : "default",
                   textAlign: "left",
-                  transition: "background 0.12s",
-                  boxShadow: m.ready ? "0 1px 4px rgba(0,0,0,0.04)" : "none",
+                  transition: "opacity 0.12s",
                 }}
-                onMouseEnter={e => { if (m.ready) e.currentTarget.style.background = "#f9f9f7"; }}
-                onMouseLeave={e => { if (m.ready) e.currentTarget.style.background = "#fff"; }}
+                onMouseEnter={e => { if (m.ready) e.currentTarget.style.opacity = "0.68"; }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
               >
                 <span style={{
                   fontSize: 14, fontWeight: 400,
                   color: m.ready ? BRAND : BRAND_MUTED,
+                  letterSpacing: "-0.008em",
                 }}>
                   {m.label}
                 </span>
                 {m.ready
-                  ? <I d="right" s={14} color={BRAND_MUTED} />
+                  ? <I d="right" s={13} color={BRAND_MUTED} />
                   : (
                     <span style={{
-                      fontSize: 10, color: BRAND_MUTED,
+                      fontSize: 9, fontWeight: 500, letterSpacing: "0.04em",
+                      color: BRAND_MUTED,
                       border: `0.5px solid ${BRAND_BORDER}`,
-                      borderRadius: 4, padding: "2px 7px",
-                      fontWeight: 400,
+                      borderRadius: 20, padding: "2px 8px",
+                      textTransform: "uppercase",
                     }}>준비 중</span>
                   )
                 }
@@ -2780,14 +2795,14 @@ function HomeView({ onNavigate, history }) {
 
       {/* ── 최근 분석 (아코디언) ── */}
       {recent.length > 0 && (
-        <div>
+        <div style={{ marginTop: 4 }}>
           <AccordionRow
             label="최근 분석"
             open={recentOpen}
             onToggle={() => setRecentOpen(v => !v)}
           />
           <AccordionBody open={recentOpen}>
-            <div style={{ padding: `10px ${PX}px 14px` }}>
+            <div style={{ padding: `8px ${PX}px 16px` }}>
               {recent.map((h, i) => {
                 const typeMap   = { "적정가": "fair", "매수": "buy", "매도": "sell" };
                 const tab       = typeMap[h.analysisType] || "fair";
@@ -2800,17 +2815,17 @@ function HomeView({ onNavigate, history }) {
                     style={{
                       width: "100%", background: "#fff",
                       border: `0.5px solid ${BRAND_BORDER}`,
-                      borderRadius: 11, padding: "12px 16px", marginBottom: 7,
+                      borderRadius: 12, padding: "13px 16px", marginBottom: 8,
                       display: "flex", alignItems: "center", gap: 13,
                       cursor: "pointer", textAlign: "left",
                       boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
                       transition: "background 0.12s",
                     }}
-                    onMouseEnter={e => e.currentTarget.style.background = "#f9f9f7"}
+                    onMouseEnter={e => e.currentTarget.style.background = "#f5f5f3"}
                     onMouseLeave={e => e.currentTarget.style.background = "#fff"}
                   >
                     <div style={{
-                      width: 34, height: 34, borderRadius: 9,
+                      width: 36, height: 36, borderRadius: 10,
                       background: BRAND_LIGHT, border: `0.5px solid ${BRAND_BORDER}`,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexShrink: 0,
@@ -2821,6 +2836,7 @@ function HomeView({ onNavigate, history }) {
                       <p style={{
                         fontSize: 14, fontWeight: 500, color: BRAND,
                         margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        letterSpacing: "-0.01em",
                       }}>
                         {h.complexName || h.complex}
                       </p>
@@ -2847,35 +2863,23 @@ function HomeView({ onNavigate, history }) {
         </div>
       )}
 
-      {/* ── 신뢰도 영역 ── */}
-      <div style={{ padding: `20px ${PX}px 16px` }}>
-        <div style={{
-          padding: "16px 18px",
-          borderRadius: 12,
-          background: "#fff",
-          border: `0.5px solid ${BRAND_BORDER}`,
+      {/* ── 하단 캐치프레이즈 ── */}
+      <div style={{
+        padding: `24px ${PX}px 0`,
+        borderTop: `0.5px solid ${BRAND_BORDER}`,
+        marginTop: 8,
+      }}>
+        <p style={{
+          fontSize: 12, color: BRAND_MUTED, fontWeight: 400,
+          letterSpacing: "-0.008em", lineHeight: 1.7, margin: 0,
+          textAlign: "center",
         }}>
-          <p style={{
-            fontSize: 12, fontWeight: 500, color: BRAND,
-            marginBottom: 10, letterSpacing: "-0.01em",
-          }}>
-            사진만 올리면 제공합니다.
-          </p>
-          {features.map(f => (
-            <div key={f} style={{
-              display: "flex", alignItems: "center", gap: 9, padding: "4px 0",
-            }}>
-              <span style={{ flexShrink: 0 }}>
-                <I d="check" s={13} color={BRAND_GREEN} />
-              </span>
-              <span style={{ fontSize: 12, color: BRAND_MID, fontWeight: 400 }}>{f}</span>
-            </div>
-          ))}
-        </div>
+          건물의 핵심 정보를 빠르게 확인할 수 있습니다.
+        </p>
       </div>
 
-      {/* ── 법적 안내 ── */}
-      <div style={{ padding: `0 ${PX}px 60px` }}>
+      {/* ── 법적 안내 + Safe Area 여백 ── */}
+      <div style={{ padding: `16px ${PX}px 56px` }}>
         <p style={{ fontSize: 10, color: "#c0bbb4", lineHeight: 1.8, margin: 0, fontWeight: 400 }}>
           ValueLens는 분석 지원 도구입니다. 최종 계약, 투자, 세금, 권리관계 판단은 공인중개사·세무사·감정평가사 등 전문가와 함께 검토하시기 바랍니다.
         </p>
