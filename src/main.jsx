@@ -2693,6 +2693,7 @@ function AppInner() {
   const [ptype, setPtype] = useState("apartment");
   const [aptTab, setAptTab] = useState("home");          // home = 새 홈 화면
   const [screenerInitial, setScreenerInitial] = useState(null);
+  const photoTriggerRef = React.useRef(null);
   const [roomTab, setRoomTab] = useState("search");
   const [history, setHistory] = useState(() => loadRecentAnalysis(null));
   const [watch, setWatch] = useState([]);
@@ -2812,18 +2813,22 @@ function AppInner() {
           {aptTab === "home" && (
             <HomeView
               history={history}
-              onNavigate={(tab, hint) => {
+              onNavigate={(tab) => {
+                setAptTab("fair"); // 항상 fair 탭으로 먼저 이동
+                window.scrollTo({ top: 0, behavior: "smooth" });
                 if (tab === "photo") {
-                  setAptTab("fair");  // 사진 분석은 fair 탭으로 (추후 photo 탭 별도 추가)
-                } else {
+                  // 탭 렌더 후 파일 input 자동 클릭
+                  setTimeout(() => {
+                    photoTriggerRef.current?.click();
+                  }, 120);
+                } else if (tab !== "fair") {
                   setAptTab(tab);
                 }
-                window.scrollTo({ top: 0, behavior: "smooth" });
               }}
             />
           )}
           <div style={{display: (aptTab === "fair" || aptTab === "buy") ? "block" : "none"}}>
-            <BuyView mode={aptTab === "fair" ? "fair" : "buy"} screenerInitial={screenerInitial} onClearScreenerInitial={() => setScreenerInitial(null)} currentUserId={currentUserId} currentUserEmail={currentUserEmail} onSaveHistory={(h) => { saveRecentAnalysis(h, currentUserId); setHistory((p) => { const deduped = p.filter(x => !(x.complexName === h.complexName && x.area === h.area && x.analysisType === h.analysisType)); return [h, ...deduped].slice(0, LS_MAX); }); }} onAddWatch={(w) => setWatch((p) => [w, ...p.filter((x) => x.key !== w.key)])} onContext={(c) => setBuyCtx(c)} />
+            <BuyView mode={aptTab === "fair" ? "fair" : "buy"} screenerInitial={screenerInitial} onClearScreenerInitial={() => setScreenerInitial(null)} photoTriggerRef={photoTriggerRef} currentUserId={currentUserId} currentUserEmail={currentUserEmail} onSaveHistory={(h) => { saveRecentAnalysis(h, currentUserId); setHistory((p) => { const deduped = p.filter(x => !(x.complexName === h.complexName && x.area === h.area && x.analysisType === h.analysisType)); return [h, ...deduped].slice(0, LS_MAX); }); }} onAddWatch={(w) => setWatch((p) => [w, ...p.filter((x) => x.key !== w.key)])} onContext={(c) => setBuyCtx(c)} />
           </div>
           <div style={{display: aptTab === "sell" ? "block" : "none"}}>
             <SellView onContext={(c) => setSellCtx(c)} currentUserId={currentUserId} currentUserEmail={currentUserEmail} />
@@ -4030,7 +4035,7 @@ function LocationPicker({ onComplete }) {
   );
 }
 
-function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUserId, currentUserEmail, screenerInitial, onClearScreenerInitial }) {
+function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUserId, currentUserEmail, screenerInitial, onClearScreenerInitial, photoTriggerRef }) {
   const [f, setF] = useState(EMPTY);
   const [r, setR] = useState(null);
   const [saved, setSaved] = useState(false);
@@ -4832,7 +4837,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
           )}
           <label className={`mt-2 block w-full cursor-pointer rounded-xl py-2 text-center text-xs font-bold text-white ${aiLoading ? "opacity-50" : ""}`} style={{ backgroundColor: NAVY }}>
             {aiLoading ? "인식 중…" : uploadedImages.length > 0 ? "추가 캡처" : "캡처 업로드"}
-            <input type="file" accept="image/*" multiple disabled={aiLoading} className="hidden" onChange={async (e) => {
+            <input ref={photoTriggerRef} type="file" accept="image/*" multiple disabled={aiLoading} className="hidden" onChange={async (e) => {
               const files = Array.from(e.target.files || []);
               if (!files.length) return;
               setAiLoading(true); setAiMsg(null);
