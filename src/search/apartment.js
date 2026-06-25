@@ -1,6 +1,10 @@
 // ValueLens Search — 아파트 데이터 통합 조회 (Supabase + MOLIT fallback)
 // ★ 조회 로직 수정 금지
 
+import { getLawdCd } from './location.js';
+import { groupAreasByPyeong } from './utils.js';
+import { fetchMolitData } from './molit.js';
+
 async function fetchApartmentData(query) {
   // query: { complexName, exactAptNm, dong, region, sido, areaExclusive, exclusiveAreas }
 
