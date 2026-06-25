@@ -2743,6 +2743,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         return;
       }
 
+      let complexes = [];
       if (intent.complexName) {
         const kw = intent.complexName;
         const tokens2 = kw.trim().split(/\s+/);
