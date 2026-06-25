@@ -4,6 +4,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { searchComplexFromSupabase, makeRelatedSuggestions } from '../search/supabase.js';
 
+// ── 초성 매칭 헬퍼 ──
+const CHO_RANGES = [
+  ["ㄱ",0xAC00,0xB097],["ㄴ",0xB098,0xB2E3],["ㄷ",0xB2E4,0xB527],
+  ["ㄹ",0xB528,0xB77B],["ㅁ",0xB77C,0xB9C7],["ㅂ",0xB9C8,0xBC13],
+  ["ㅅ",0xBC14,0xBE5F],["ㅇ",0xBE60,0xC0AB],["ㅈ",0xC0AC,0xC2F7],
+  ["ㅊ",0xC2F8,0xC543],["ㅋ",0xC544,0xC78F],["ㅌ",0xC790,0xC9DB],
+  ["ㅍ",0xC9DC,0xCC27],["ㅎ",0xCC28,0xCE73],
+];
+function matchCho(str, cho) {
+  const range = CHO_RANGES.find(([c]) => c === cho);
+  if (!range || !str) return false;
+  const code = str.charCodeAt(0);
+  return code >= range[1] && code < range[2] + 588;
+}
+function fuzzyMatch(text, query) {
+  if (!query) return true;
+  const q = query.trim();
+  const t = (text||"").replace(/\s/g,"");
+  if (q.length === 1 && /[ㄱ-ㅎ]/.test(q)) return matchCho(t, q);
+  return t.toLowerCase().includes(q.replace(/\s/g,"").toLowerCase());
+}
+
 function LocationPicker({ onComplete, initialQuery = "" }) {
   // ── 통합 검색 상태 ──
   const [query, setQuery]           = React.useState(initialQuery); // ← initialQuery 반영
