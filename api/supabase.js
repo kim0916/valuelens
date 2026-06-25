@@ -303,6 +303,23 @@ export default async function handler(req, res) {
 
   // ── 4. 실거래 원본 조회 ──
   // months 파라미터 제거 — DB 적재 전체 범위 반환 (cutoff 없음)
+
+  // ── maintenance 상태 조회 ──
+  if (type === 'maintenance') {
+    try {
+      const { data, error } = await supabase
+        .from('app_config')
+        .select('value')
+        .eq('key', 'maintenance_mode')
+        .single();
+      if (error) { res.json({ value: 'false' }); return; }
+      res.json({ value: data?.value || 'false' });
+    } catch(e) {
+      res.json({ value: 'false' });
+    }
+    return;
+  }
+
   if (type === 'deals') {
     const { complex_id, complex_name, sigungu, area_excl } = req.body;
     const requestedArea = area_excl ? Number(area_excl) : null;
