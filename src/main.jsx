@@ -16,6 +16,7 @@ import { _extractRegionToken, makeRelatedSuggestions, searchComplexFromSupabase,
 import { scorePool, calculateLivingScore, calculateSupplyRisk, calculatePositiveFactors, calculateNegativeFactors } from './recommendation/score.js';
 import { POOL, AREA_DB } from './recommendation/pool.js';
 import { recommendByBudget } from './recommendation/recommend.js';
+import { card } from './constants/styles.js';
 import { WatchView } from './views/WatchView.jsx';
 
 
@@ -1035,7 +1036,6 @@ function parseIntent(raw) {
 // AIChatView — ValueLens AI 채팅 인터페이스
 // ─────────────────────────────────────────────────────────────────────
 const inp = "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-slate-700 focus:bg-white";
-const card = "rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100";
 
 function TaxView({ buyCtx, sellCtx }) {
   const [mode, setMode] = useState("acq");
