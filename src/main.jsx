@@ -18,7 +18,7 @@ import { POOL, AREA_DB } from './recommendation/pool.js';
 import { recommendByBudget } from './recommendation/recommend.js';
 import { card } from './constants/styles.js';
 import { WatchView } from './views/WatchView.jsx';
-import { AiNotice, GradeInfoPopup, DataTrustBadge, InputWarnings, MarketTypeBadge, SellSaveBtn } from './views/shared.jsx';
+import { AiNotice, GradeInfoPopup, DataTrustBadge, InputWarnings, MarketTypeBadge, SellSaveBtn, BuySaveBtn } from './views/shared.jsx';
 import { SI_MAX, saveAnalysis, getSavedAnalyses, deleteSavedAnalysis } from './services/storage/analysis.js';
 import { writeSearchLog } from './services/storage/searchLog.js';
 import { LogsView } from './views/LogsView.jsx';
