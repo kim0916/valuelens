@@ -69,9 +69,7 @@ function AuthGate({ children }) {
     <div style={{ minHeight:"100vh", background:"#0a0a0a", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"sans-serif" }}>
       <div style={{ background:"#111", border:"1px solid #222", borderRadius:"16px", padding:"40px 36px", width:"100%", maxWidth:"380px" }}>
         <div style={{ textAlign:"center", marginBottom:"28px" }}>
-          <div style={{ width:36, height:36, borderRadius:10, background:"#111", display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <span style={{ fontSize:16, fontWeight:700, color:"#fff", letterSpacing:"-0.02em" }}>VL</span>
-        </div>
+          <div style={{ fontSize:"28px" }}>🥝</div>
           <h1 style={{ color:"#fff", fontSize:"22px", fontWeight:"700", margin:"8px 0 4px" }}>ValueLens 부동산</h1>
           <p style={{ color:"#666", fontSize:"13px", margin:0 }}>KiwiLab 계정으로 {mode === "login" ? "로그인" : "회원가입"}하세요</p>
         </div>
@@ -268,10 +266,6 @@ function ComplexAutocomplete({ dong, value, onChange, placeholder, className }) 
 // 결제 시스템을 연결해야 합니다. 프론트에는 계산식이 노출되지 않게 해야 합니다.
 // ============================================================================
 const NAVY = "#0f1f3d";
-const BRAND = "#111111";   // AI Property Agent 브랜드 컬러 (모노)
-const BRAND_MID = "#444441";
-const BRAND_LIGHT = "#f5f5f4";
-const BRAND_BORDER = "rgba(0,0,0,0.1)";
 
 // ── 최근 분석 localStorage 유틸 ──
 // device_id: 비로그인 사용자 식별용 (localStorage)
@@ -1319,7 +1313,7 @@ function FairSaveBtn({ r, f, onBack, showFull, uid }) {
     return (
       <button onClick={handleSave} disabled={!!savedId}
         className={`w-full rounded-2xl py-3 text-sm font-semibold transition-colors ${savedId ? "bg-slate-100 text-slate-400" : "border border-emerald-200 bg-emerald-50 text-emerald-700 active:bg-emerald-100"}`}>
-        {savedId ? "✓ 저장됨" : "이 분석 저장하기"}
+        {savedId ? "✓ 저장됨" : "💾 이 분석 저장하기"}
       </button>
     );
   }
@@ -1357,7 +1351,7 @@ function BuySaveBtn({ r, f, bd, onBack, onSave, saved, showFull, uid }) {
     return (
       <button onClick={handleSave} disabled={!!savedId}
         className={`w-full rounded-2xl py-3 text-sm font-semibold transition-colors ${savedId ? "bg-slate-100 text-slate-400" : "border border-emerald-200 bg-emerald-50 text-emerald-700 active:bg-emerald-100"}`}>
-        {savedId ? "✓ 저장됨" : "이 분석 저장하기"}
+        {savedId ? "✓ 저장됨" : "💾 이 분석 저장하기"}
       </button>
     );
   }
@@ -1373,7 +1367,7 @@ function BuySaveBtn({ r, f, bd, onBack, onSave, saved, showFull, uid }) {
         <button onClick={onSave} disabled={saved}
           className={`rounded-lg px-3 py-1.5 text-sm font-medium ${saved ? "bg-slate-100 text-slate-400" : "text-white"}`}
           style={saved ? {} : { backgroundColor: NAVY }}>
-          {saved ? "관심단지 ★" : "관심단지"}
+          {saved ? "★ 관심단지" : "☆ 관심단지"}
         </button>
       </div>
     </div>
@@ -1401,7 +1395,7 @@ function SellSaveBtn({ r, f, sd, onBack, showFull, uid }) {
     return (
       <button onClick={handleSave} disabled={!!savedId}
         className={`w-full rounded-2xl py-3 text-sm font-semibold transition-colors ${savedId ? "bg-slate-100 text-slate-400" : "border border-emerald-200 bg-emerald-50 text-emerald-700 active:bg-emerald-100"}`}>
-        {savedId ? "✓ 저장됨" : "이 분석 저장하기"}
+        {savedId ? "✓ 저장됨" : "💾 이 분석 저장하기"}
       </button>
     );
   }
@@ -1420,7 +1414,7 @@ function SellSaveBtn({ r, f, sd, onBack, showFull, uid }) {
 function AiNotice() {
   return (
     <p className="mb-3 rounded-xl bg-slate-50 px-4 py-2.5 text-[11px] leading-relaxed text-slate-400 ring-1 ring-slate-100">
-      이 결과는 최근 실거래 데이터를 기반으로 AI가 분석한 참고 의견입니다.
+      ℹ️ 이 결과는 최근 실거래 데이터를 기반으로 AI가 분석한 참고 의견입니다.
     </p>
   );
 }
@@ -1447,7 +1441,7 @@ function GradeInfoPopup() {
           <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: NAVY }}>
               <p className="text-sm font-bold text-white">등급 기준 안내</p>
-              <button onClick={() => setOpen(false)} className="text-slate-300 hover:text-white text-lg leading-none">×</button>
+              <button onClick={() => setOpen(false)} className="text-slate-300 hover:text-white text-lg leading-none">✕</button>
             </div>
             <div className="px-5 py-4">
               <p className="mb-3 text-xs text-slate-500">AI 적정가 대비 현재 시세 위치로 산출됩니다.</p>
@@ -1499,7 +1493,7 @@ function DataTrustBadge({ trust }) {
       </div>
       <p className="mt-2 text-[11px]">{trust.gradeDesc}</p>
       {!trust.sufficient && (
-        <p className="mt-1 text-[11px] font-semibold">데이터가 충분하지 않아 결과를 참고용으로만 활용하세요.</p>
+        <p className="mt-1 text-[11px] font-semibold">⚠ 데이터가 충분하지 않아 결과를 참고용으로만 활용하세요.</p>
       )}
     </div>
   );
@@ -1587,7 +1581,7 @@ function InputWarnings({ r, f }) {
   return (
     <div className="mb-4 space-y-2">
       {w.map((x, i) => (
-        <div key={i} className={`rounded-2xl border px-4 py-2.5 text-[12px] leading-relaxed ${x.tone === "red" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>{x.msg}</div>
+        <div key={i} className={`rounded-2xl border px-4 py-2.5 text-[12px] leading-relaxed ${x.tone === "red" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>⚠️ {x.msg}</div>
       ))}
     </div>
   );
@@ -1611,15 +1605,13 @@ const propertyTypes = [
   { key: "commercial", label: "상가", ready: false },
   { key: "oneRoom", label: "원룸", ready: true },
 ];
-const apartmentTabsDef = [["fair", "AI 적정가"], ["buy", "AI 매수"], ["sell", "AI 매도"], ["tax", "세금"], ["reco", "AI 추천 후보"], ["adv", "내 자산"], ["logs", "로그"]];
+const apartmentTabsDef = [["fair", "적정가"], ["buy", "매수"], ["sell", "매도"], ["tax", "세금"], ["reco", "추천 후보"], ["adv", "내 자산"], ["logs", "🔍 로그"]];
 const oneRoomTabsDef = [["search", "원룸 찾기"], ["manage", "원룸 관리"], ["yield", "원룸 수익률"]];
 
 function ComingSoon({ title, desc }) {
   return (
     <div className="mt-10 rounded-3xl bg-white p-10 text-center shadow-sm ring-1 ring-slate-100">
-      <div style={{ margin: "0 auto 16px", width: 48, height: 48, borderRadius: 12, background: "#f5f5f4", border: "0.5px solid rgba(0,0,0,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#78716c" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-    </div>
+      <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl text-2xl" style={{ backgroundColor: "#eef2ff" }}>🏗️</div>
       <h2 className="text-xl font-bold text-slate-800">{title}</h2>
       <p className="mt-2 text-sm leading-relaxed text-slate-500">{desc}</p>
       <p className="mt-4 text-xs text-slate-400">준비중입니다. 추후 해당 부동산 유형에 맞는 계산식이 추가됩니다.</p>
@@ -1649,7 +1641,7 @@ function TaxView({ buyCtx, sellCtx }) {
         <button onClick={() => setMode("cgt")} className={`flex-1 rounded-2xl py-3 text-sm font-bold ${mode === "cgt" ? "text-white" : "bg-white text-slate-500 ring-1 ring-slate-200"}`} style={mode === "cgt" ? { backgroundColor: NAVY } : {}}>매도 세금 (양도세)</button>
       </div>
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
-        {((Number(price) < 0) || (Number(buyP) < 0) || (Number(sellP) < 0)) && <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-[12px] text-red-700">음수 금액은 계산에 사용할 수 없습니다. (0으로 처리됩니다)</div>}
+        {((Number(price) < 0) || (Number(buyP) < 0) || (Number(sellP) < 0)) && <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-[12px] text-red-700">⚠️ 음수 금액은 계산에 사용할 수 없습니다. (0으로 처리됩니다)</div>}
         {mode === "acq" ? (
           <>
             {buyCtx && buyCtx.price ? <button onClick={() => { setPrice(String(buyCtx.price)); setArea(String(buyCtx.area || "")); }} className="mb-4 w-full rounded-xl bg-indigo-50 py-2.5 text-sm font-semibold text-indigo-700">↓ 매수 화면에서 분석한 값 불러오기 ({won(buyCtx.price)})</button> : null}
@@ -1671,7 +1663,7 @@ function TaxView({ buyCtx, sellCtx }) {
                 <Row l="지방교육세" v={won(acq.edu)} /><Row l="농어촌특별세 (85㎡ 초과)" v={won(acq.farm)} />
                 <Row l="중개수수료 (개략 0.4%)" v={won(buyBrok)} /><Row l="기타 비용 개략 (법무·등기 등)" v={won(ETC)} />
                 <Row l="총 필요 현금 개략 추정" v={won(buyTotalCash)} strong />
-                <p className="bg-slate-50 px-4 py-2 text-[11px] text-slate-400">중개수수료는 0.4% 개략입니다. TODO(API/정책): 실제 중개보수 상한요율표로 교체 예정. · 총 필요 현금은 AI 후보 찾기 탭 「내 조건」의 보유 현금·대출 가능 금액 개략 추정과 함께 해석하세요(보유 현금 + 대출 가능 금액 ≥ 총 필요 현금 여부).</p>
+                <p className="bg-slate-50 px-4 py-2 text-[11px] text-slate-400">중개수수료는 0.4% 개략입니다. TODO(API/정책): 실제 중개보수 상한요율표로 교체 예정. · 총 필요 현금은 추천후보 탭 「내 조건」의 보유 현금·대출 가능액 개략 추정과 함께 해석하세요(보유 현금 + 대출 가능액 ≥ 총 필요 현금 여부).</p>
               </div>
             )}
           </>
@@ -1701,7 +1693,7 @@ function TaxView({ buyCtx, sellCtx }) {
             </div>
             {anyComplex && (
               <div className="mt-3 rounded-2xl border-2 border-red-300 bg-red-50 p-4">
-                <p className="text-sm font-bold text-red-700">복잡 세무 케이스입니다.</p>
+                <p className="text-sm font-bold text-red-700">⚠️ 복잡 세무 케이스입니다.</p>
                 <p className="mt-1 text-xs leading-relaxed text-red-600">본 계산은 일반 1주택·다주택 기준의 <b>단순 개략 추정</b>이며, 체크하신 항목(일시적 2주택·상속/증여·분양권/입주권·임대사업자·법인 등)은 별도 세법이 적용되어 <b>이 추정에 반영되지 않았습니다</b>. 실제 세액은 반드시 <b>세무사 확인을 권장합니다.</b></p>
               </div>
             )}
@@ -1747,7 +1739,7 @@ function TaxView({ buyCtx, sellCtx }) {
             const text = `ValueLens 세금 개략 추정 리포트
 ${"=".repeat(40)}
 발행일: ${date}
-본 리포트의 세금 수치는 개략 추정이며 확정값이 아닙니다.
+⚠ 본 리포트의 세금 수치는 개략 추정이며 확정값이 아닙니다.
    반드시 세무사 확인 후 의사결정 하세요.
 
 ${buyP > 0 ? `[매수 세금 개략]
@@ -1768,7 +1760,7 @@ ${buyP > 0 ? `[매수 세금 개략]
   · 종합부동산세
 
 ${"=".repeat(40)}
-세금은 세무사와 상담하세요
+📋 세금은 반드시 세무사와 상담하세요
 □ 세무사에게 취득세 정확한 세액을 확인했나요?
 □ 양도세는 보유기간·거주요건·주택 수에 따라 크게 달라집니다.
    세무사 상담을 받았나요?
@@ -1820,8 +1812,8 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
           className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-slate-50"
         >
           <div>
-            <p className="text-sm font-bold text-slate-800">세금 개략 추정 리포트 저장</p>
-            <p className="mt-0.5 text-xs text-amber-600">개략 추정값 · 세무사 확인 필요</p>
+            <p className="text-sm font-bold text-slate-800">📄 세금 개략 추정 리포트 저장</p>
+            <p className="mt-0.5 text-xs text-amber-600">⚠ 개략 추정값 · 반드시 세무사 확인 필요</p>
           </div>
           <span className="text-xs text-slate-400">다운로드 ↓</span>
         </button>
@@ -2504,10 +2496,10 @@ function AdvancedView({ watch, setWatch, history, finProfile, onReanalyze, uid }
               <div><p className="text-xs text-slate-400">주택 상태</p><p className="font-bold text-slate-800">{fp.noHouse ? "무주택" : "유주택"}{fp.firstHome ? "·생애최초" : ""}{fp.newlywed ? "·신혼" : ""}</p></div>
               <div><p className="text-xs text-slate-400">총 예산</p><p className="font-bold text-slate-800">{won2(fp.budget)}</p></div>
             </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-slate-400">AI 후보 찾기 탭 「내 조건」에서 입력한 값입니다. 대출 가능액·월상환은 개략 추정이며 실제 승인금리·한도는 신용점수·소득증빙·DSR·담보평가·금융사 심사에 따라 달라질 수 있습니다.</p>
+            <p className="mt-3 text-[11px] leading-relaxed text-slate-400">추천 후보 탭 「내 조건」에서 입력한 값입니다. 대출 가능액·월상환은 개략 추정이며 실제 승인금리·한도는 신용점수·소득증빙·DSR·담보평가·금융사 심사에 따라 달라질 수 있습니다.</p>
           </div>
         ) : (
-          <Empty title="재무 프로필이 없습니다" desc="AI 후보 찾기 탭의 「내 조건」을 입력하고 후보를 찾으면 여기에 저장됩니다." />
+          <Empty title="재무 프로필이 없습니다" desc="추천 후보 탭의 「내 조건」을 입력하고 후보를 찾으면 여기에 저장됩니다." />
         )}
       </section>
 
@@ -2527,181 +2519,19 @@ function AdvancedView({ watch, setWatch, history, finProfile, onReanalyze, uid }
   );
 }
 
-function HomeView({ onNavigate, history }) {
-  const recent = (history || []).slice(0, 3);
-  const typeLabel = { fair: "AI 적정가", buy: "AI 매수", sell: "AI 매도" };
-  const gradeColor = (g) => g === "A" || g === "B" ? "#166534" : g === "D" || g === "E" ? "#991b1b" : "#44403c";
-
-  return (
-    <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 0 80px" }}>
-
-      {/* ── Hero ── */}
-      <div style={{ padding: "48px 24px 40px" }}>
-        <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.1em", color: BRAND_MID, marginBottom: 12, textTransform: "uppercase" }}>
-          AI Property Agent
-        </p>
-        <h1 style={{ fontSize: 30, fontWeight: 600, lineHeight: 1.25, letterSpacing: "-0.025em", color: BRAND, margin: "0 0 12px" }}>
-          사진 한 장으로<br />건물을 분석합니다.
-        </h1>
-        <p style={{ fontSize: 14, color: BRAND_MID, lineHeight: 1.7, margin: 0 }}>
-          사진을 찍거나 주소를 입력하면<br />AI가 건물 정보를 분석합니다.
-        </p>
-      </div>
-
-      {/* ── CTA ── */}
-      <div style={{ padding: "0 24px" }}>
-        {/* Primary CTA */}
-        <button
-          onClick={() => onNavigate("photo")}
-          style={{
-            width: "100%", height: 54, borderRadius: 14,
-            background: BRAND, color: "#fff",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-            border: "none", cursor: "pointer", marginBottom: 10,
-            fontSize: 15, fontWeight: 500, letterSpacing: "-0.01em",
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-            <circle cx="12" cy="13" r="4"/>
-          </svg>
-          사진으로 분석하기
-        </button>
-
-        {/* Secondary CTA */}
-        <button
-          onClick={() => onNavigate("fair")}
-          style={{
-            width: "100%", height: 48, borderRadius: 14,
-            background: "#fff", color: BRAND,
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-            border: `1px solid ${BRAND_BORDER}`, cursor: "pointer", marginBottom: 24,
-            fontSize: 14, fontWeight: 500,
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-            <circle cx="12" cy="10" r="3"/>
-          </svg>
-          건물 주소 직접 입력
-        </button>
-
-        {/* Divider */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-          <div style={{ flex: 1, height: "0.5px", background: BRAND_BORDER }} />
-          <span style={{ fontSize: 12, color: "#a8a29e" }}>또는</span>
-          <div style={{ flex: 1, height: "0.5px", background: BRAND_BORDER }} />
-        </div>
-
-        {/* Tertiary CTA */}
-        <button
-          onClick={() => onNavigate("reco")}
-          style={{
-            width: "100%", height: 44, borderRadius: 12,
-            background: BRAND_LIGHT, color: BRAND_MID,
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            border: `0.5px solid ${BRAND_BORDER}`, cursor: "pointer", marginBottom: 40,
-            fontSize: 13, fontWeight: 500,
-          }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          </svg>
-          AI 추천 후보 찾기
-          <span style={{ fontSize: 12, color: "#a8a29e" }}>→</span>
-        </button>
-      </div>
-
-      {/* ── Feature summary ── */}
-      <div style={{ padding: "0 24px 36px" }}>
-        <div style={{ padding: "20px 0", borderTop: `0.5px solid ${BRAND_BORDER}`, borderBottom: `0.5px solid ${BRAND_BORDER}` }}>
-          {[
-            ["사진만 찍으면 건물 자동 인식", "camera"],
-            ["실거래·적정가 자동 분석", "trending-up"],
-            ["AI가 핵심 정보 요약", "file-text"],
-          ].map(([label, icon]) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0" }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={BRAND} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              <span style={{ fontSize: 13, color: BRAND_MID }}>{label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── 최근 분석 ── */}
-      {recent.length > 0 && (
-        <div style={{ padding: "0 24px" }}>
-          <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.08em", color: "#a8a29e", textTransform: "uppercase", marginBottom: 12 }}>
-            최근 분석
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {recent.map((h, i) => (
-              <button
-                key={i}
-                onClick={() => onNavigate(h.analysisType === "적정가" ? "fair" : h.analysisType === "매수" ? "buy" : "sell", h)}
-                style={{
-                  width: "100%", background: "#fff",
-                  border: `0.5px solid ${BRAND_BORDER}`,
-                  borderRadius: 12, padding: "14px 16px",
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  cursor: "pointer", textAlign: "left",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 9,
-                    background: BRAND_LIGHT, border: `0.5px solid ${BRAND_BORDER}`,
-                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                  }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={BRAND_MID} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                      <polyline points="9 22 9 12 15 12 15 22"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 500, color: BRAND, margin: 0, lineHeight: 1.4 }}>
-                      {h.complexName || h.complex}
-                    </p>
-                    <p style={{ fontSize: 12, color: "#a8a29e", margin: 0, marginTop: 2 }}>
-                      {h.area && `${h.area} · `}{typeLabel[h.analysisType === "적정가" ? "fair" : h.analysisType === "매수" ? "buy" : "sell"] || h.analysisType}
-                    </p>
-                  </div>
-                </div>
-                {h.grade && (
-                  <span style={{
-                    fontSize: 12, fontWeight: 500,
-                    color: gradeColor(h.grade),
-                    background: h.grade === "A" || h.grade === "B" ? "#f0fdf4" : h.grade === "D" || h.grade === "E" ? "#fef2f2" : "#fafaf9",
-                    border: `0.5px solid ${h.grade === "A" || h.grade === "B" ? "#bbf7d0" : h.grade === "D" || h.grade === "E" ? "#fecaca" : BRAND_BORDER}`,
-                    borderRadius: 6, padding: "3px 8px", flexShrink: 0,
-                  }}>
-                    {h.grade}등급
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function AppInner() {
-  const [ptype, setPtype] = useState("apartment");
-  const [aptTab, setAptTab] = useState("home");          // home = 새 홈 화면
-  const [screenerInitial, setScreenerInitial] = useState(null);
-  const [roomTab, setRoomTab] = useState("search");
+  const [ptype, setPtype] = useState("apartment");   // 상위 카테고리
+  const [aptTab, setAptTab] = useState("fair");       // 아파트 내부 메뉴 (기본: 적정가)
+  const [roomTab, setRoomTab] = useState("search");   // 원룸 내부 메뉴
   const [history, setHistory] = useState(() => loadRecentAnalysis(null));
   const [watch, setWatch] = useState([]);
-  const [finProfile, setFinProfile] = useState(null);
-  const [buyCtx, setBuyCtx] = useState(null);
-  const [sellCtx, setSellCtx] = useState(null);
+  const [finProfile, setFinProfile] = useState(null);  // 추천후보 탭 「내 조건」 → 내 자산 재무 프로필 공유
+  const [buyCtx, setBuyCtx] = useState(null);         // 매수 입력값 → 매수세금 자동 반영용
+  const [sellCtx, setSellCtx] = useState(null);       // 매도 입력값 → 매도세금 자동 반영용
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
 
+  // 로그인 유저 ID/이메일 가져오기 (AI 일일 제한용)
   React.useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setCurrentUserId(user?.id ?? null);
@@ -2709,136 +2539,45 @@ function AppInner() {
     });
   }, []);
 
-  // 홈에서 탭으로 이동
-  const goTo = (tab) => {
-    setAptTab(tab);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const isHome = ptype === "apartment" && aptTab === "home";
-
-  // 네비게이션 탭 (홈 제외)
-  const navTabs = apartmentTabsDef;
-  const oneRoomNavTabs = oneRoomTabsDef;
-  const subTabs = ptype === "apartment" ? navTabs : ptype === "oneRoom" ? oneRoomNavTabs : null;
+  const subTabs = ptype === "apartment" ? apartmentTabsDef : ptype === "oneRoom" ? oneRoomTabsDef : null;
   const curSub = ptype === "apartment" ? aptTab : roomTab;
-  const setSub = (k) => {
-    if (ptype === "apartment") setAptTab(k);
-    else setRoomTab(k);
-  };
+  const setSub = ptype === "apartment" ? setAptTab : setRoomTab;
 
   return (
-    <div className="min-h-screen" style={{ background: isHome ? "#fafaf9" : "#f1f0ec" }}>
-
-      {/* ── Nav ── */}
-      <nav style={{
-        position: "sticky", top: 0, zIndex: 10,
-        background: "rgba(250,250,249,0.92)", backdropFilter: "blur(12px)",
-        borderBottom: `0.5px solid ${BRAND_BORDER}`,
-        WebkitBackdropFilter: "blur(12px)",
-      }}>
-        <div style={{ maxWidth: 640, margin: "0 auto", padding: "0 16px" }}>
-
-          {/* Top bar */}
-          <div style={{ height: 52, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button
-              onClick={() => { setPtype("apartment"); setAptTab("home"); }}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
-            >
-              <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.02em", color: BRAND }}>
-                ValueLens
-              </span>
-            </button>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              {/* 상위 타입 탭 */}
-              {propertyTypes.filter(p => p.ready).map((pt) => (
-                <button key={pt.key}
-                  onClick={() => { setPtype(pt.key); if (pt.key === "apartment") setAptTab("home"); }}
-                  style={{
-                    fontSize: 12, fontWeight: 500, padding: "5px 11px",
-                    borderRadius: 8, border: "none", cursor: "pointer",
-                    background: ptype === pt.key ? BRAND : "transparent",
-                    color: ptype === pt.key ? "#fff" : BRAND_MID,
-                    transition: "all 0.15s",
-                  }}
-                >{pt.label}</button>
+    <div className="min-h-screen bg-slate-100">
+      <nav className="sticky top-0 z-10 border-b border-slate-200 bg-white overflow-hidden">
+        <div className="mx-auto max-w-2xl px-3 py-2">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="whitespace-nowrap text-sm font-bold" style={{ color: NAVY }}>이 집 사도 될까?</span>
+            <div className="flex flex-1 gap-1">
+              {propertyTypes.map((pt) => (
+                <button key={pt.key} onClick={() => setPtype(pt.key)} className={`flex-1 whitespace-nowrap rounded-lg py-1.5 text-sm font-bold ${ptype === pt.key ? "text-white" : "bg-slate-100 text-slate-500"}`} style={ptype === pt.key ? { backgroundColor: NAVY } : {}}>{pt.label}</button>
               ))}
             </div>
           </div>
-
-          {/* Sub tabs — 홈이 아닐 때만 */}
-          {!isHome && subTabs && (
-            <div style={{
-              display: "flex", gap: 4, overflowX: "auto", paddingBottom: 10,
-              scrollbarWidth: "none", msOverflowStyle: "none",
-            }}>
-              {/* 홈 버튼 */}
-              {ptype === "apartment" && (
-                <button
-                  onClick={() => setAptTab("home")}
-                  style={{
-                    flexShrink: 0, fontSize: 12, fontWeight: 500,
-                    padding: "5px 10px", borderRadius: 8, border: "none", cursor: "pointer",
-                    background: "transparent", color: BRAND_MID,
-                    display: "flex", alignItems: "center", gap: 4,
-                  }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                    <polyline points="9 22 9 12 15 12 15 22"/>
-                  </svg>
-                </button>
-              )}
+          {subTabs && (
+            <div className="flex items-center gap-1 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {subTabs.map(([k, l]) => (
-                <button key={k} onClick={() => setSub(k)}
-                  style={{
-                    flexShrink: 0, fontSize: 12, fontWeight: 500,
-                    padding: "5px 12px", borderRadius: 8, border: "none", cursor: "pointer",
-                    background: curSub === k ? BRAND : "transparent",
-                    color: curSub === k ? "#fff" : BRAND_MID,
-                    transition: "all 0.15s",
-                  }}
-                >{l}</button>
+                <button key={k} onClick={() => setSub(k)} className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium ${curSub === k ? "text-white" : "text-slate-500 hover:bg-slate-100"}`} style={curSub === k ? { backgroundColor: "#334155" } : {}}>{l}</button>
               ))}
             </div>
           )}
         </div>
       </nav>
-
-      {/* ── Main ── */}
-      <main style={{ maxWidth: 640, margin: "0 auto", padding: isHome ? "0" : "24px 16px" }}>
+      <main className="mx-auto max-w-2xl px-4 py-8">
         {ptype === "apartment" && (<>
-          {aptTab === "home" && (
-            <HomeView
-              history={history}
-              onNavigate={(tab, hint) => {
-                if (tab === "photo") {
-                  setAptTab("fair");  // 사진 분석은 fair 탭으로 (추후 photo 탭 별도 추가)
-                } else {
-                  setAptTab(tab);
-                }
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-            />
-          )}
-          <div style={{display: (aptTab === "fair" || aptTab === "buy") ? "block" : "none"}}>
-            <BuyView mode={aptTab === "fair" ? "fair" : "buy"} screenerInitial={screenerInitial} onClearScreenerInitial={() => setScreenerInitial(null)} currentUserId={currentUserId} currentUserEmail={currentUserEmail} onSaveHistory={(h) => { saveRecentAnalysis(h, currentUserId); setHistory((p) => { const deduped = p.filter(x => !(x.complexName === h.complexName && x.area === h.area && x.analysisType === h.analysisType)); return [h, ...deduped].slice(0, LS_MAX); }); }} onAddWatch={(w) => setWatch((p) => [w, ...p.filter((x) => x.key !== w.key)])} onContext={(c) => setBuyCtx(c)} />
-          </div>
-          <div style={{display: aptTab === "sell" ? "block" : "none"}}>
-            <SellView onContext={(c) => setSellCtx(c)} currentUserId={currentUserId} currentUserEmail={currentUserEmail} />
-          </div>
+          <div style={{display: (aptTab === "fair" || aptTab === "buy") ? "block" : "none"}}><BuyView mode={aptTab === "fair" ? "fair" : "buy"} currentUserId={currentUserId} currentUserEmail={currentUserEmail} onSaveHistory={(h) => { saveRecentAnalysis(h, currentUserId); setHistory((p) => { const deduped = p.filter(x => !(x.complexName === h.complexName && x.area === h.area && x.analysisType === h.analysisType)); return [h, ...deduped].slice(0, LS_MAX); }); }} onAddWatch={(w) => setWatch((p) => [w, ...p.filter((x) => x.key !== w.key)])} onContext={(c) => setBuyCtx(c)} /></div>
+          <div style={{display: aptTab === "sell" ? "block" : "none"}}><SellView onContext={(c) => setSellCtx(c)} currentUserId={currentUserId} currentUserEmail={currentUserEmail} /></div>
           {aptTab === "tax" && <TaxView buyCtx={buyCtx} sellCtx={sellCtx} />}
           {aptTab === "logs" && <LogsView />}
-          {aptTab === "reco" && <BudgetView onProfile={(p) => setFinProfile(p)} onGoToBuy={(init) => { setScreenerInitial(init); setAptTab("buy"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />}
+          {aptTab === "reco" && <BudgetView onProfile={(p) => setFinProfile(p)} />}
           {aptTab === "adv" && <AdvancedView watch={watch} setWatch={setWatch} history={history} finProfile={finProfile} onReanalyze={() => setAptTab("fair")} uid={currentUserId} />}
         </>)}
         {ptype === "oneRoom" && <OneRoomView tab={roomTab} />}
         {ptype === "multiFamily" && <ComingSoon title="다가구 주택 분석" desc="호별 임대수익 환원법으로 다가구의 적정 매입가·수익가치를 평가합니다." />}
         {ptype === "commercial" && <ComingSoon title="상가 분석" desc="임대료·공실률·환원율 기반으로 상가의 수익가치와 입지를 평가합니다." />}
-        {!isHome && (
-          <p style={{ marginTop: 32, padding: "0 8px", fontSize: 11, lineHeight: 1.8, color: "#a8a29e" }}>{LEGAL}</p>
-        )}
+        <p className="mt-6 px-2 text-xs leading-relaxed text-slate-400">{LEGAL}</p>
+        <p className="mt-2 px-2 text-xs text-slate-300">※ 미리보기 버전 — 계산식은 실제 서비스에서 서버에 보관됩니다.</p>
       </main>
     </div>
   );
@@ -3653,11 +3392,11 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
   const warns = [];
   const ts = p.tradeStatus || {};
   // tradeStatus 기반 경고
-  if (ts.code && ts.code !== "OK" && ts.msg) warns.push(`${ts.msg}`);
+  if (ts.code && ts.code !== "OK" && ts.msg) warns.push(`⚠️ ${ts.msg}`);
   // KB 입력 필요 조건: API 실패, 단지 거래 없음, 또는 매매+전세 둘 다 부족
   const needKbInput = ["API_FAIL", "COMPLEX_NO_TRADE", "NAME_NO_MATCH", "PERIOD_NO_TRADE", "TOO_FEW", "AREA_NO_MATCH"].includes(ts.code) ||
     (ts.jeonseShort && !ts.canExpand);
-  if (p.buildYearWarning) warns.push(`${p.buildYearWarning} — 준공연도를 직접 확인 후 입력하세요.`);
+  if (p.buildYearWarning) warns.push(`⚠️ ${p.buildYearWarning} — 준공연도를 직접 확인 후 입력하세요.`);
   if (areaSqm <= 0 && !askedArea) warns.push("전용면적 미확인 — 면적을 직접 확인/입력하세요.");
   const mismatch = areaSqm > 0 && priceArea > 0 && Math.abs(priceArea - areaSqm) > Math.max(3, areaSqm * 0.06);
   if (mismatch) warns.push(`가격은 전용 ${priceArea}㎡ 기준인데 단지 기준면적은 ${areaSqm}㎡로 다릅니다.`);
@@ -3946,7 +3685,7 @@ function LocationPicker({ onComplete }) {
           {/* 브랜드 단독 검색 안내 */}
           {!loading && isBrandOnlySearch(complexQ) && complexList.length > 0 && (
             <div className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700 border border-amber-200">
-              <b>"{complexQ}"</b>은 전국에 여러 단지가 있습니다.
+              ⚠️ <b>"{complexQ}"</b>은 전국에 여러 단지가 있습니다.
               아래에서 원하는 단지를 선택하거나, <b>전체 단지명</b>(예: {complexQ}골드파크1차)을 입력하면 정확도가 올라갑니다.
             </div>
           )}
@@ -4020,7 +3759,7 @@ function LocationPicker({ onComplete }) {
             <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
               <p className="font-semibold text-slate-600">단지를 찾지 못했습니다.</p>
               <p className="mt-1 text-slate-500">DB에 등록되지 않았거나 단지명이 다를 수 있습니다.</p>
-              <p className="mt-1">단지명 전체(예: 더샵파크애비뉴)를 다시 입력하거나</p>
+              <p className="mt-1">① 단지명 전체(예: 더샵파크애비뉴)를 다시 입력하거나</p>
               <p>② 면적을 직접 입력 후 KB시세를 넣어 분석하세요.</p>
             </div>
           )}
@@ -4030,7 +3769,7 @@ function LocationPicker({ onComplete }) {
   );
 }
 
-function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUserId, currentUserEmail, screenerInitial, onClearScreenerInitial }) {
+function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUserId, currentUserEmail }) {
   const [f, setF] = useState(EMPTY);
   const [r, setR] = useState(null);
   const [saved, setSaved] = useState(false);
@@ -4068,25 +3807,6 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
       return true; // 오류 시 통과
     }
   }
-
-  // ── AI 검토 후보에서 넘어온 경우 자동 단지 입력 ──
-  useEffect(() => {
-    if (!screenerInitial) return;
-    const { complexName, region, dong, areaExclusive, complexId } = screenerInitial;
-    setF((prev) => ({
-      ...EMPTY,
-      complexName:   complexName || prev.complexName,
-      region:        region      || prev.region,
-      dong:          dong        || prev.dong,
-      areaExclusive: areaExclusive ? String(areaExclusive) : prev.areaExclusive,
-      complexId:     complexId   || null,
-    }));
-    setR(null);
-    setPending(null);
-    setAreaOptions([]);
-    rawMolitRef.current = null;
-    if (onClearScreenerInitial) onClearScreenerInitial();
-  }, [screenerInitial]);
 
   const [fetchingAreas, setFetchingAreas] = useState(false);
   // 국토부 원본 데이터 보관 — 면적 변경 시 API 재호출 없이 재필터
@@ -4311,7 +4031,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
     }
 
     // ── STEP 4+5: sales_raw + rent_raw 조회 ──
-    // 면적 필터 없이 전체 단지 deals 조회 → rawMolitRef에 전체 저장
+    // ⚠️ 면적 필터 없이 전체 단지 deals 조회 → rawMolitRef에 전체 저장
     // → 뒤로가기 후 다른 면적 선택 시 refilterByArea가 정상 동작
     let saleDealsAll = [], rentDealsAll = [];
     try {
@@ -4678,10 +4398,10 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
           <div className="mb-4 rounded-2xl bg-blue-50 px-4 py-3 ring-1 ring-blue-100">
             <p className="text-sm font-bold text-blue-800">분석 순서</p>
             <div className="mt-2 space-y-1 text-xs text-blue-600">
-              <p>시/도 → 구/군 → 동 → 단지명 순으로 선택</p>
-              <p>면적 선택</p>
-              <p>현재 매물가 입력</p>
-              <p>AI 분석 버튼 클릭</p>
+              <p>① 시/도 → 구/군 → 동 → 단지명 순으로 선택</p>
+              <p>② 면적 선택</p>
+              <p>③ 현재 매물가 입력</p>
+              <p>④ AI 분석 버튼 클릭</p>
             </div>
           </div>
         )}
@@ -4747,7 +4467,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
               {f.areaExclusive && (() => {
                 const sel = areaOptions.find(o => String(o.areaSqm) === String(f.areaExclusive));
                 const { mainLabel } = sel ? areaButtonLabel(sel.areaSqm, sel.supplySqm) : { mainLabel: `전용 ${f.areaExclusive}㎡` };
-                return <p className="mt-1.5 text-xs text-amber-700">분석 기준: 전용 {sel ? sel.areaSqm : f.areaExclusive}㎡ ({Math.round(Number(sel ? sel.areaSqm : f.areaExclusive) / 3.3058)}평)</p>;
+                return <p className="mt-1.5 text-xs text-amber-700">✓ 분석 기준: 전용 {sel ? sel.areaSqm : f.areaExclusive}㎡ ({Math.round(Number(sel ? sel.areaSqm : f.areaExclusive) / 3.3058)}평)</p>;
               })()}
             </div>
           </div>
@@ -4792,11 +4512,11 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
           return (
             <div className={`mt-3 rounded-2xl p-4 ring-1 ${boxColor}`}>
               <p className="text-sm font-bold text-amber-800">
-                {isApiFail ? "API 조회 실패" :
-                 isNoTrade ? "단지 거래 없음" :
-                 ts.code === "JEONSE_AREA_SHORT" || ts.code === "AREA_SHORT_JEONSE_ELSEWHERE" ? "선택 면적 전세 실거래 부족" :
-                 ts.code === "SALE_SHORT" ? "매매 실거래 부족" :
-                 "선택 면적 실거래 부족"}
+                {isApiFail ? "⚠️ API 조회 실패" :
+                 isNoTrade ? "⚠️ 단지 거래 없음" :
+                 ts.code === "JEONSE_AREA_SHORT" || ts.code === "AREA_SHORT_JEONSE_ELSEWHERE" ? "ℹ️ 선택 면적 전세 실거래 부족" :
+                 ts.code === "SALE_SHORT" ? "ℹ️ 매매 실거래 부족" :
+                 "ℹ️ 선택 면적 실거래 부족"}
               </p>
               <p className="mt-0.5 text-xs text-amber-600">{ts.msg}</p>
               {needKb && (
@@ -4819,7 +4539,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
         {/* 캡처 업로드 */}
         <div className="mt-3 rounded-2xl bg-indigo-50 p-3 ring-1 ring-indigo-100">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-indigo-800">네이버 부동산 캡처 → AI 자동 입력</p>
+            <p className="text-xs font-bold text-indigo-800">📷 네이버 부동산 캡처로 AI 자동 입력</p>
             {uploadedImages.length > 0 && <button onClick={() => { setUploadedImages([]); setCaptureMsg(null); }} className="text-[10px] text-indigo-400 underline">초기화</button>}
           </div>
           <p className="mt-0.5 text-[10px] text-indigo-500">매물·시세 화면 캡처 올리면 위 항목 자동 인식</p>
@@ -4831,7 +4551,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
             </div>
           )}
           <label className={`mt-2 block w-full cursor-pointer rounded-xl py-2 text-center text-xs font-bold text-white ${aiLoading ? "opacity-50" : ""}`} style={{ backgroundColor: NAVY }}>
-            {aiLoading ? "인식 중…" : uploadedImages.length > 0 ? "추가 캡처" : "캡처 업로드"}
+            {aiLoading ? "인식 중…" : uploadedImages.length > 0 ? "📷 추가 캡처" : "📷 캡처 업로드"}
             <input type="file" accept="image/*" multiple disabled={aiLoading} className="hidden" onChange={async (e) => {
               const files = Array.from(e.target.files || []);
               if (!files.length) return;
@@ -4888,7 +4608,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
               {aiLoading
                 ? "AI 조회 중… (실거래 데이터 수집 중)"
                 : rawMolitRef.current && rawMolitRef.current.complexName === (f.exactAptNm || f.complexName)
-                  ? (mode === "fair" ? "다시 분석 (면적 변경됨)" : "다시 분석 (면적 변경됨)")
+                  ? (mode === "fair" ? "🔄 다시 분석 (면적 변경됨)" : "🔄 다시 분석 (면적 변경됨)")
                   : (mode === "fair" ? "현재 아파트 적정가격은? — AI 적정가 판단" : "이 집 사도 될까? — AI 매수판단")}
             </button>
           </div>
@@ -4901,7 +4621,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
           if (isDataShort) {
             return (
               <div className="mt-3 rounded-2xl bg-blue-50 px-4 py-4 ring-1 ring-blue-200">
-                <p className="text-sm font-bold text-blue-800">아파트는 찾았습니다.</p>
+                <p className="text-sm font-bold text-blue-800">🏢 아파트는 찾았습니다.</p>
                 <p className="mt-1 text-xs leading-relaxed text-blue-700">
                   하지만 최근 12개월간 분석에 필요한 실거래 데이터가 부족합니다.<br />
                   확인한 시세 또는 KB시세를 입력하면 분석을 계속 진행할 수 있습니다.
@@ -5021,19 +4741,19 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
         <h1 className="text-lg font-bold text-slate-900">
           {fromAI ? "AI 인식 결과 확인" : "최근 실거래 데이터가 부족합니다"}
         </h1>
-        {onBackToTop && <button onClick={onBackToTop} className="ml-auto text-xs text-slate-400 hover:text-slate-600">처음으로</button>}
+        {onBackToTop && <button onClick={onBackToTop} className="ml-auto text-xs text-slate-400 hover:text-slate-600">🏠 처음으로</button>}
       </div>
 
       {/* 안내문 — 경로별 분기 */}
       <div className={`mb-4 rounded-2xl px-4 py-3 ring-1 ${fromAI ? "bg-blue-50 ring-blue-100" : "bg-blue-50 ring-blue-100"}`}>
         {fromAI ? (
           <>
-            <p className="text-sm font-semibold text-blue-800">사진에서 인식한 정보를 확인해 주세요.</p>
+            <p className="text-sm font-semibold text-blue-800">📷 사진에서 인식한 정보를 확인해 주세요.</p>
             <p className="mt-0.5 text-xs text-blue-600">틀린 항목만 수정하면 됩니다. 부동산은 고가 의사결정이므로 주요 수치를 꼭 확인하세요.</p>
           </>
         ) : (
           <>
-            <p className="text-sm font-semibold text-blue-800">최근 실거래 데이터가 부족합니다</p>
+            <p className="text-sm font-semibold text-blue-800">⚠️ 최근 실거래 데이터가 부족합니다</p>
             <p className="mt-0.5 text-xs text-blue-600">최근 12개월 동안 해당 면적의 실거래가 부족합니다.<br />주상복합 또는 거래량이 적은 단지는 분석에 필요한 표본 수가 확보되지 않을 수 있습니다.<br />KB시세 또는 직접 확인한 시세를 입력하면 더 정확한 분석이 가능합니다.</p>
           </>
         )}
@@ -5043,7 +4763,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
       {fromAI && (
         <div className="mb-4 rounded-2xl bg-slate-50 ring-1 ring-slate-200 overflow-hidden">
           <div className="bg-slate-800 px-4 py-2.5">
-            <p className="text-xs font-semibold text-slate-300">AI 인식 항목 요약</p>
+            <p className="text-xs font-semibold text-slate-300">📋 AI 인식 항목 요약</p>
           </div>
           <div className="divide-y divide-slate-100">
             {[
@@ -5075,7 +4795,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
         return (
         <div className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
           <p className="text-sm font-semibold text-amber-800">
-            {isDataShort ? "최근 실거래 데이터가 부족합니다" : "추가 입력이 필요합니다"}
+            {isDataShort ? "⚠️ 최근 실거래 데이터가 부족합니다" : "📝 추가 입력이 필요합니다"}
           </p>
           <p className="mt-0.5 text-xs text-amber-700">
             {isDataShort
@@ -5108,13 +4828,13 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
       {/* 면적 변경 안내 */}
       {edit._areaChangedMsg && (
         <div className="mb-3 rounded-xl bg-blue-50 px-4 py-3 ring-1 ring-blue-200">
-          <p className="text-xs font-semibold text-blue-700">{edit._areaChangedMsg}</p>
+          <p className="text-xs font-semibold text-blue-700">📐 {edit._areaChangedMsg}</p>
         </div>
       )}
       {Array.isArray(edit._aiWarns) && edit._aiWarns.length > 0 && (
         <div className="mb-4 space-y-1">
           {edit._aiWarns.map((w, i) => (
-            <div key={i} className="rounded-xl bg-amber-50 px-4 py-2.5 text-xs text-amber-700 ring-1 ring-amber-100">{w}</div>
+            <div key={i} className="rounded-xl bg-amber-50 px-4 py-2.5 text-xs text-amber-700 ring-1 ring-amber-100">⚠️ {w}</div>
           ))}
         </div>
       )}
@@ -5138,11 +4858,11 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
             <div className="mt-3">
               <div className="flex items-center justify-between rounded-xl bg-slate-700 px-3 py-2.5">
                 <div>
-                  <p className="text-[10px] text-slate-400">AI 추천 면적</p>
+                  <p className="text-[10px] text-slate-400">📐 AI 추천 면적</p>
                   <p className="mt-0.5 text-sm font-bold text-white">{areaButtonLabel(edit.areaExclusive).mainLabel}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">자동 인식됨</span>
+                  <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">🟢 자동 인식됨</span>
                   <button
                     onClick={() => setAreaOpen(v => !v)}
                     className="rounded-lg bg-slate-600 px-2.5 py-1 text-[10px] font-semibold text-slate-300 hover:bg-slate-500">
@@ -5232,11 +4952,11 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
             const isAreaFail = ts.code === "AREA_NO_MATCH";
             const needKb = isApiFail || isNoTrade || ts.code === "JEONSE_SHORT";
             const label =
-              isApiFail ? "API 조회 실패" :
-              isNoTrade ? "단지 거래 없음" :
-              ts.code === "JEONSE_AREA_SHORT" || ts.code === "AREA_SHORT_JEONSE_ELSEWHERE" ? "선택 면적 전세 실거래 부족" :
-              ts.code === "SALE_SHORT" ? "매매 실거래 부족" :
-              "선택 면적 실거래 부족";
+              isApiFail ? "⚠️ API 조회 실패" :
+              isNoTrade ? "⚠️ 단지 거래 없음" :
+              ts.code === "JEONSE_AREA_SHORT" || ts.code === "AREA_SHORT_JEONSE_ELSEWHERE" ? "ℹ️ 선택 면적 전세 실거래 부족" :
+              ts.code === "SALE_SHORT" ? "ℹ️ 매매 실거래 부족" :
+              "ℹ️ 선택 면적 실거래 부족";
             return (
               <label className="block col-span-2">
                 <div className="mb-2 rounded-xl bg-amber-50 px-3 py-2.5 ring-1 ring-amber-200">
@@ -5246,13 +4966,13 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
                     <button type="button"
                       onClick={() => { const q = ((edit.dong||"")+" "+(edit.complexName||"")).trim(); window.open("https://new.land.naver.com/search?keyword="+encodeURIComponent(q), "_blank", "noopener,noreferrer"); }}
                       className="rounded px-2 py-1 text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200">
-                      네이버 KB시세 확인 →
+                      📋 네이버 KB시세 확인 →
                     </button>
                     {ts.canExpand && onRefetch && Number(edit.areaExclusive) > 0 && (
                       <button type="button"
                         onClick={() => onRefetch(Number(edit.areaExclusive))}
                         className="rounded px-2 py-1 text-[10px] font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200">
-                        면적 범위 확장 재조회
+                        🔍 면적 범위 확장 재조회
                       </button>
                     )}
                   </div>
@@ -5303,7 +5023,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
             <input type="number" className={inp2} value={edit.buildYear} placeholder="예: 1999"
               onChange={(e) => setE("buildYear", e.target.value)} />
             {edit.buildYearWarning && (
-              <p className="mt-1 text-[11px] text-amber-600 font-semibold">{edit.buildYearWarning} — 직접 입력하세요</p>
+              <p className="mt-1 text-[11px] text-amber-600 font-semibold">⚠️ {edit.buildYearWarning} — 직접 입력하세요</p>
             )}
             {age !== null && (
               <p className="mt-1 text-[11px] text-slate-400">{age}년차{age >= 28 ? " · 재건축권" : ""}</p>
@@ -5395,7 +5115,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
                 const otherS = edit._otherAreaSale   || [];
                 const allOther = [...new Set([...otherJ, ...otherS].map(d => d.areaSqm))].sort((a,b)=>a-b).slice(0,5);
                 if (!allOther.length) return null;
-                return <p className="text-[10px] text-slate-400 mt-1">다른 평형 거래 있음 (전용 {allOther.join(", ")}㎡) — 선택 평형과 달라 분석 제외</p>;
+                return <p className="text-[10px] text-slate-400 mt-1">ℹ️ 다른 평형 거래 있음 (전용 {allOther.join(", ")}㎡) — 선택 평형과 달라 분석 제외</p>;
               })()}
             </div>
           );
@@ -5429,7 +5149,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
         <div className="grid grid-cols-2 gap-3">
           <button onClick={onBack} className="rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600">← 수정</button>
           {onBackToTop && (
-            <button onClick={onBackToTop} className="rounded-2xl bg-slate-700 py-3 text-sm font-bold text-white">처음으로</button>
+            <button onClick={onBackToTop} className="rounded-2xl bg-slate-700 py-3 text-sm font-bold text-white">🏠 처음으로</button>
           )}
         </div>
       </div>
@@ -5474,7 +5194,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
           <div className="mt-2 flex items-center justify-between">
             <div>
               <p className="text-[11px] text-slate-400">적정가 판단</p>
-              <p className="text-xl font-extrabold">{provisional ? "데이터 부족 — 분석 어려움" : r.gradeLabel}</p>
+              <p className="text-xl font-extrabold">{provisional ? "⚠️ 데이터 부족 — 분석 어려움" : r.gradeLabel}</p>
               {provisional && <p className="mt-1 text-xs text-slate-300">{r.holdReason}</p>}
               {!provisional && <p className="text-[11px] text-slate-400">ValueLens {r.buyGrade}등급 · {{ A:"적정가 대비 크게 낮음", B:"적정가 대비 낮음", C:"적정가 수준", D:"적정가 대비 높은 편", E:"적정가 대비 크게 높음" }[r.buyGrade] || ""}</p>}
             </div>
@@ -5532,7 +5252,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       <>
             <button onClick={() => setDetailOpen(v => !v)}
               className="mb-3 flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100">
-              <span className="text-xs font-semibold text-slate-600">상세 분석 보기 (전세가율 · 산출방식 · 적정가 범위)</span>
+              <span className="text-xs font-semibold text-slate-600">📊 상세 분석 보기 (전세가율 · 산출방식 · 적정가 범위)</span>
               <span className="text-xs text-slate-400">{detailOpen ? "접기 ▲" : "펼치기 ▼"}</span>
             </button>
             {detailOpen && (
@@ -5592,7 +5312,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       </div>
       {r.dataWarnings && r.dataWarnings.length > 0 && (
         <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-sm font-bold text-amber-800">데이터 부족 — 분석 신뢰 낮음</p>
+          <p className="text-sm font-bold text-amber-800">⚠️ 데이터 부족 — 분석 신뢰 낮음</p>
           {r.dataWarnings.map((w, i) => (
             <p key={i} className="mt-1 text-xs text-amber-700">· {w}</p>
           ))}
@@ -5607,8 +5327,8 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
             <p className="mt-1.5 text-sm text-amber-300">{isAbnormal ? "현재가가 정제 시세와 크게 차이납니다. 값 확인 후 다시 분석하세요." : r.holdReason}</p>
             {!isAbnormal && (
               <div className="mt-3 flex flex-wrap gap-2">
-                <span className="rounded-lg bg-white/15 px-2.5 py-1.5 text-xs text-slate-200">다른 면적 선택</span>
-                <span className="rounded-lg bg-white/15 px-2.5 py-1.5 text-xs text-slate-200">KB시세 직접 입력</span>
+                <span className="rounded-lg bg-white/15 px-2.5 py-1.5 text-xs text-slate-200">💡 다른 면적 선택</span>
+                <span className="rounded-lg bg-white/15 px-2.5 py-1.5 text-xs text-slate-200">💡 KB시세 직접 입력</span>
               </div>
             )}
           </div>
@@ -5763,7 +5483,7 @@ ${"=".repeat(40)}
 실제 가격은 층·향·수리상태·시장상황에 따라 다를 수 있습니다.
 최종 의사결정은 현장 확인 후 본인이 내려야 합니다.
 
-이 리포트를 활용하기 전 확인하세요
+📋 이 리포트를 활용하기 전 확인하세요
 ================================
 □ 공인중개사에게 현장 시세를 확인했나요?
 □ 동일 단지 실거래가를 국토부 실거래가 공개시스템에서 직접 확인했나요?
@@ -5806,7 +5526,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
           className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-slate-50"
         >
           <div>
-            <p className="text-sm font-bold text-slate-800">적정가 평가 리포트 저장</p>
+            <p className="text-sm font-bold text-slate-800">📄 적정가 평가 리포트 저장</p>
             <p className="mt-0.5 text-xs text-slate-400">등급·AI 적정가·산출 근거·데이터 현황 포함 · 계산식 제외</p>
           </div>
           <span className="text-xs text-slate-400">다운로드 ↓</span>
@@ -5823,12 +5543,12 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
           </button>
           <button onClick={onNewSearch}
             className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 active:bg-blue-100">
-            다른 단지 분석
+            🔄 다른 단지 분석
           </button>
         </div>
         <button onClick={onHome}
           className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white active:bg-slate-700">
-          처음으로
+          🏠 처음으로
         </button>
       </div>
     </>
@@ -6005,11 +5725,11 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
           </div>
           {hold0 ? (
             <div className="mt-3">
-              <p className="text-lg font-extrabold text-amber-300">데이터 부족 — 분석 어려움</p>
+              <p className="text-lg font-extrabold text-amber-300">⚠️ 데이터 부족 — 분석 어려움</p>
               <p className="mt-1 text-xs text-slate-300">{r.holdReason}</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <span className="rounded-lg bg-white/15 px-2.5 py-1 text-[11px] text-slate-200">다른 면적 선택</span>
-                <span className="rounded-lg bg-white/15 px-2.5 py-1 text-[11px] text-slate-200">KB시세 직접 입력</span>
+                <span className="rounded-lg bg-white/15 px-2.5 py-1 text-[11px] text-slate-200">💡 다른 면적 선택</span>
+                <span className="rounded-lg bg-white/15 px-2.5 py-1 text-[11px] text-slate-200">💡 KB시세 직접 입력</span>
               </div>
             </div>
           ) : (
@@ -6060,7 +5780,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
         {/* 자금 미입력 안내 */}
         {!hold0 && !bd.hasFundInput && (
           <div className="border-t border-slate-100 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
-            자금 정보를 입력하면 구매 가능 여부를 확인할 수 있습니다.
+            💡 자금 정보를 입력하면 구매 가능 여부를 확인할 수 있습니다.
           </div>
         )}
       </div>
@@ -6078,11 +5798,11 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
       )}
       {hold0 && (
         <div className="mb-4 rounded-2xl bg-slate-50 px-5 py-4 ring-1 ring-slate-200">
-          <p className="text-sm font-bold text-slate-700">데이터 부족으로 신뢰도 있는 분석이 어렵습니다</p>
+          <p className="text-sm font-bold text-slate-700">⚠️ 데이터 부족으로 신뢰도 있는 분석이 어렵습니다</p>
           <p className="mt-1 text-xs text-slate-500">{r.holdReason}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <span className="rounded-lg bg-slate-200 px-2.5 py-1 text-[11px] text-slate-600">다른 면적 선택</span>
-            <span className="rounded-lg bg-slate-200 px-2.5 py-1 text-[11px] text-slate-600">KB시세 직접 입력</span>
+            <span className="rounded-lg bg-slate-200 px-2.5 py-1 text-[11px] text-slate-600">💡 다른 면적 선택</span>
+            <span className="rounded-lg bg-slate-200 px-2.5 py-1 text-[11px] text-slate-600">💡 KB시세 직접 입력</span>
           </div>
         </div>
       )}
@@ -6121,7 +5841,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
 
       {r.dataWarnings && r.dataWarnings.length > 0 && (
         <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-sm font-bold text-amber-800">데이터 부족 — 분석 신뢰 낮음</p>
+          <p className="text-sm font-bold text-amber-800">⚠️ 데이터 부족 — 분석 신뢰 낮음</p>
           {r.dataWarnings.map((w, i) => (
             <p key={i} className="mt-1 text-xs text-amber-700">· {w}</p>
           ))}
@@ -6496,7 +6216,7 @@ ${scenarioLines}
 ${riskLines}
 
 ${"=".repeat(40)}
-이 리포트를 활용하기 전 확인하세요
+📋 이 리포트를 활용하기 전 확인하세요
 □ 공인중개사에게 현장 시세·매물 상태를 확인했나요?
 □ 세무사에게 취득세·양도세 상담을 받았나요?
 □ 은행·금융기관에서 실제 대출 가능액을 확인했나요?
@@ -6542,7 +6262,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
           className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-slate-50"
         >
           <div>
-            <p className="text-sm font-bold text-slate-800">가격평가 리포트 저장</p>
+            <p className="text-sm font-bold text-slate-800">📄 가격평가 리포트 저장</p>
             <p className="mt-0.5 text-xs text-slate-400">단지명·등급·AI 적정가·시나리오·위험요인 포함 · 계산식 제외</p>
           </div>
           <span className="text-xs text-slate-400">다운로드 ↓</span>
@@ -6554,7 +6274,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
         {/* 같은 단지 다른 면적 */}
         {areaOptions && areaOptions.length > 1 && (
           <div>
-            <p className="mb-2 text-xs font-semibold text-slate-400">같은 단지 다른 면적</p>
+            <p className="mb-2 text-xs font-semibold text-slate-400">📐 같은 단지 다른 면적</p>
             <div className="flex flex-wrap gap-2">
               {(areaOptions || []).filter(o => o && Number(o.areaSqm) > 0 && String(o.areaSqm) !== String(currentArea)).map((o, i) => (
                 <button key={i}
@@ -6574,13 +6294,13 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
           </button>
           <button onClick={onNewSearch}
             className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 active:bg-blue-100">
-            다른 단지 분석
+            🔄 다른 단지 분석
           </button>
         </div>
         <BuySaveBtn r={r} f={f} bd={bd} onBack={onBack} onSave={onSave} saved={saved} showFull uid={currentUserId} />
         <button onClick={onHome}
           className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white active:bg-slate-700">
-          처음으로
+          🏠 처음으로
         </button>
       </div>
 
@@ -6957,10 +6677,10 @@ function SellView({ onContext, currentUserId, currentUserEmail }) {
           <div className="mb-4 rounded-2xl bg-blue-50 px-4 py-3 ring-1 ring-blue-100">
             <p className="text-sm font-bold text-blue-800">분석 순서</p>
             <div className="mt-2 space-y-1 text-xs text-blue-600">
-              <p>시/도 → 구/군 → 동 → 단지명 순으로 선택</p>
-              <p>면적 선택</p>
+              <p>① 시/도 → 구/군 → 동 → 단지명 순으로 선택</p>
+              <p>② 면적 선택</p>
               <p>③ 희망 매도가 입력</p>
-              <p>AI 분석 버튼 클릭</p>
+              <p>④ AI 분석 버튼 클릭</p>
             </div>
           </div>
         )}
@@ -7026,7 +6746,7 @@ function SellView({ onContext, currentUserId, currentUserEmail }) {
               {f.areaExclusive && (() => {
                 const sel = areaOptions.find(o => String(o.areaSqm) === String(f.areaExclusive));
                 const { mainLabel } = sel ? areaButtonLabel(sel.areaSqm, sel.supplySqm) : { mainLabel: `전용 ${f.areaExclusive}㎡` };
-                return <p className="mt-1.5 text-xs text-amber-700">분석 기준: 전용 {sel ? sel.areaSqm : f.areaExclusive}㎡ ({Math.round(Number(sel ? sel.areaSqm : f.areaExclusive) / 3.3058)}평)</p>;
+                return <p className="mt-1.5 text-xs text-amber-700">✓ 분석 기준: 전용 {sel ? sel.areaSqm : f.areaExclusive}㎡ ({Math.round(Number(sel ? sel.areaSqm : f.areaExclusive) / 3.3058)}평)</p>;
               })()}
             </div>
           </div>
@@ -7061,7 +6781,7 @@ function SellView({ onContext, currentUserId, currentUserEmail }) {
           const boxColor = isNoTrade ? "bg-red-50 ring-red-200" : isLowData ? "bg-amber-50 ring-amber-200" : isAreaFail ? "bg-orange-50 ring-orange-200" : "bg-amber-50 ring-amber-200";
           return (
             <div className={`mt-3 rounded-2xl p-4 ring-1 ${boxColor}`}>
-              <p className="text-sm font-bold text-amber-800">{ts.msg}</p>
+              <p className="text-sm font-bold text-amber-800">ℹ️ {ts.msg}</p>
               {needKb && (
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div>
@@ -7103,7 +6823,7 @@ function SellView({ onContext, currentUserId, currentUserEmail }) {
               {aiLoading
                 ? "조회 중… (실거래 데이터 수집 중)"
                 : rawMolitRef.current && rawMolitRef.current.complexName === (f.exactAptNm || f.complexName)
-                  ? "다시 분석 (면적 변경됨)"
+                  ? "🔄 다시 분석 (면적 변경됨)"
                   : "이 가격에 팔아도 될까? — 매도 분석"}
             </button>
           </div>
@@ -7119,7 +6839,7 @@ function SellView({ onContext, currentUserId, currentUserEmail }) {
           if (isDataShort) {
             return (
               <div className="mt-3 rounded-2xl bg-blue-50 px-4 py-4 ring-1 ring-blue-200">
-                <p className="text-sm font-bold text-blue-800">아파트는 찾았습니다.</p>
+                <p className="text-sm font-bold text-blue-800">🏢 아파트는 찾았습니다.</p>
                 <p className="mt-1 text-xs leading-relaxed text-blue-700">
                   하지만 최근 12개월간 분석에 필요한 실거래 데이터가 부족합니다.<br />
                   확인한 시세 또는 KB시세를 입력하면 분석을 계속 진행할 수 있습니다.
@@ -7368,7 +7088,7 @@ function SellResult({ r, f, onBack, onNewSearch, onChangeArea, onHome, areaOptio
 
       {r.dataWarnings && r.dataWarnings.length > 0 && (
         <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-sm font-bold text-amber-800">데이터 부족 — 분석 신뢰 낮음</p>
+          <p className="text-sm font-bold text-amber-800">⚠️ 데이터 부족 — 분석 신뢰 낮음</p>
           {r.dataWarnings.map((w, i) => (
             <p key={i} className="mt-1 text-xs text-amber-700">· {w}</p>
           ))}
@@ -7494,7 +7214,7 @@ ${"=".repeat(40)}
   ${sd.sellerAction}
 
 ${"=".repeat(40)}
-이 리포트를 활용하기 전 확인하세요
+📋 이 리포트를 활용하기 전 확인하세요
 □ 공인중개사에게 현장 시세·매물 경쟁력을 확인했나요?
 □ 세무사에게 양도세를 상담받았나요?
    (보유기간·거주요건에 따라 세액이 크게 달라집니다)
@@ -7540,7 +7260,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
           className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-slate-50"
         >
           <div>
-            <p className="text-sm font-bold text-slate-800">매도 가격평가 리포트 저장</p>
+            <p className="text-sm font-bold text-slate-800">📄 매도 가격평가 리포트 저장</p>
             <p className="mt-0.5 text-xs text-slate-400">희망가·적정가·거래 가능성·AI 판단 요약 포함 · 계산식 제외</p>
           </div>
           <span className="text-xs text-slate-400">다운로드 ↓</span>
@@ -7551,7 +7271,7 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
       <div className="mt-6 space-y-3">
         {areaOptions && areaOptions.length > 1 && (
           <div>
-            <p className="mb-2 text-xs font-semibold text-slate-400">같은 단지 다른 면적</p>
+            <p className="mb-2 text-xs font-semibold text-slate-400">📐 같은 단지 다른 면적</p>
             <div className="flex flex-wrap gap-2">
               {(areaOptions || []).filter(o => o && Number(o.areaSqm) > 0 && String(o.areaSqm) !== String(currentArea)).map((o, i) => (
                 <button key={i}
@@ -7571,12 +7291,12 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
           </button>
           <button onClick={onNewSearch}
             className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 active:bg-blue-100">
-            다른 단지 분석
+            🔄 다른 단지 분석
           </button>
         </div>
         <button onClick={onHome}
           className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white active:bg-slate-700">
-          처음으로
+          🏠 처음으로
         </button>
       </div>
     </>
@@ -7628,7 +7348,7 @@ function LogsView() {
   return (
     <>
       <header className="mb-5 text-center">
-        <h1 className="text-2xl font-bold text-slate-900">조회 로그</h1>
+        <h1 className="text-2xl font-bold text-slate-900">🔍 조회 로그</h1>
         <p className="mt-1 text-sm text-slate-500">실제 사용자 조회 이력 및 실패 케이스 모니터링</p>
       </header>
 
@@ -7748,329 +7468,143 @@ function LogsView() {
 }
 
 
-function BudgetView({ onProfile, onGoToBuy }) {
-  // ── 입력 상태 ──
-  const [equity, setEquity]       = useState("");   // 보유현금 (만원)
-  const [income, setIncome]       = useState("");   // 연소득 (만원)
-  const [maxLoan, setMaxLoan]     = useState("");   // 대출가능금액 (만원)
-  const [region, setRegion]       = useState("");
-  const [pyeong, setPyeong]       = useState("");
-  const [purpose, setPurpose]     = useState("live");
+function BudgetView({ onProfile }) {
+  const [budget, setBudget] = useState("");
+  const [equity, setEquity] = useState("");
+  const [income, setIncome] = useState("");
+  const [plannedLoan, setPlannedLoan] = useState("");
+  const [existingPay, setExistingPay] = useState("");
+  const [noHouse, setNoHouse] = useState(true);
+  const [loanYears, setLoanYears] = useState("30");
+  const [rateType, setRateType] = useState("fixed");
+  const [region, setRegion] = useState("");
+  const [pyeong, setPyeong] = useState("");
+  const [purpose, setPurpose] = useState("live");
+  const [prefs, setPrefs] = useState([]);
+  const [firstHome, setFirstHome] = useState(false);
+  const [newlywed, setNewlywed] = useState(false);
+  const [res, setRes] = useState(null);
+  const PREFS = ["역세권", "학군", "저평가", "재건축", "신축", "전세가율", "호재"];
+  const togglePref = (p) => setPrefs((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
 
-  // ── 결과 상태 ──
-  const [loading, setLoading]     = useState(false);
-  const [candidates, setCandidates] = useState(null);  // null = 미조회
-  const [meta, setMeta]           = useState(null);
-  const [errMsg, setErrMsg]       = useState("");
-
-  // 총예산 자동계산
-  const totalBudget = (Number(equity) || 0) + (Number(maxLoan) || 0);
-
-  // 억원 표시
-  const toUk = (man) => man > 0 ? `= ${(man / 10000).toFixed(2)}억원` : null;
-
-  const inp = "w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-500";
-
-  // ── 조회 실행 ──
-  async function run() {
-    if (!totalBudget) { setErrMsg("보유현금 또는 대출가능금액을 입력하세요."); return; }
-    setErrMsg("");
-    setLoading(true);
-    setCandidates(null);
-
-    // 재무 프로필 저장
-    if (onProfile) onProfile({ equity, income, maxLoan, totalBudget });
-
-    try {
-      const res = await fetch("/api/screener", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          budget:  totalBudget,
-          equity:  Number(equity)  || 0,
-          maxLoan: Number(maxLoan) || 0,
-          income:  Number(income)  || 0,
-          region:  region.trim(),
-          pyeong:  Number(pyeong)  || 0,
-          purpose,
-          limit: 10,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "조회 실패");
-      setCandidates(json.candidates || []);
-      setMeta(json.meta || null);
-
-      // 컬럼명 확인용 디버그 (개발 중)
-      if (json.meta?.debug) console.warn("[Screener debug]", json.meta.debug);
-    } catch (e) {
-      setErrMsg(e.message || "조회 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
-    }
+  function run() {
+    const B = Number(budget) * 10000, E = Number(equity) * 10000, I = Number(income) * 10000, EP = Number(existingPay) * 10000;
+    if (!B) { alert("예산을 입력하세요 (억 단위)."); return; }
+    const ranked = recommendByBudget({ budget: B, region, pyeong: Number(pyeong) || 0, prefs });
+    const list = ranked.map((c) => {
+      const loan = calculateLoanOptions({ price: c.cur, equity: E, income: I, existingPay: EP, noHouse, firstHome, newlywed, years: Number(loanYears) || 30, rateType });
+      const tax = acqTax(c.cur, c.pyeong > 25, purpose === "invest" ? 2 : 1, c.regulated, firstHome);
+      const finRisky = loan.shortfall > c.cur * 0.05; // 부족자금이 큰 후보 → 주의 분리
+      return { ...c, loan, tax, risky: c.risky || finRisky, finRisky };
+    });
+    setRes({ B, fit: list.filter((c) => !c.risky), caution: list.filter((c) => c.risky) });
+    if (onProfile) onProfile({ equity, income, existingPay, noHouse, firstHome, newlywed, loanYears, rateType, budget });
   }
 
-  // ── 별점 렌더링 ──
-  const Stars = ({ count }) => (
-    <span>
-      {[0,1,2,3,4].map(i => (
-        <span key={i} className={i < count ? "text-amber-400" : "text-slate-200"}>★</span>
-      ))}
-    </span>
+  const riskTone = { 낮음: "text-emerald-600", 보통: "text-amber-600", 높음: "text-red-500", 매우높음: "text-red-600" };
+  const Metric = ({ l, v, tone }) => <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-center"><p className="text-[10px] text-slate-400">{l}</p><p className={`text-xs font-bold ${tone || "text-slate-700"}`}>{v}</p></div>;
+
+  const Card = ({ c, caution }) => (
+    <div className={`overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ${caution ? "ring-orange-200" : "ring-slate-200"}`}>
+      <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: caution ? "#fff7ed" : "#f8fafc" }}>
+        <div><p className="text-base font-bold text-slate-800">{c.name} <span className="text-xs font-normal text-slate-400">{c.pyeong}평 · {c.age}년차{c.redev ? " · 재건축권" : ""}</span></p><p className="text-xs text-slate-400">{c.region} {c.dong}{c.isPremium ? ` · ${c.marketType} 검토 후보` : ""}</p></div>
+        <div className="text-right"><p className="text-lg font-bold text-slate-900">{won(c.cur)}</p><p className={`text-xs ${c.undervalue > 0 ? "text-emerald-600" : c.undervalue < 0 ? "text-red-500" : "text-slate-400"}`}>적정가 {won(c.fair)} 대비 {c.gapPos} {pct(-c.undervalue)}</p></div>
+      </div>
+      <div className="px-5 py-4">
+        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+          <Metric l="후보 점수" v={`${c.ranking}`} tone="text-slate-900" />
+          <Metric l="예산 적합도" v={`${c.budgetFit}`} />
+          <Metric l="가격 위치" v={c.gapPos} tone={c.gapPos === "저평가" ? "text-emerald-600" : c.gapPos === "고평가" ? "text-red-500" : "text-slate-700"} />
+          <Metric l="매수 판단" v={c.buyLabel} tone={c.buyGrade === "A" || c.buyGrade === "B" ? "text-emerald-600" : c.buyGrade === "C" ? "text-slate-700" : c.buyGrade === "D" ? "text-amber-600" : "text-red-500"} />
+          <Metric l="시장 위험" v={c.mrLevel} tone={riskTone[c.mrLevel]} />
+          <Metric l="공급 위험" v={c.supply.level} tone={riskTone[c.supply.level]} />
+        </div>
+        <div className="mt-3">
+          <p className="text-xs font-bold text-emerald-700">조건 적합 이유</p>
+          <ol className="mt-1 space-y-1">{c.reasons.map((t, k) => <li key={k} className="flex gap-2 text-sm leading-relaxed text-slate-600"><span className="text-slate-400">{k + 1}.</span><span>{t}</span></li>)}</ol>
+        </div>
+        <div className="mt-3">
+          <p className="text-xs font-bold text-orange-600">주의 이유</p>
+          <ul className="mt-1 space-y-1">{c.cautions.map((t, k) => <li key={k} className="flex gap-2 text-sm leading-relaxed text-slate-500"><span className="text-orange-400">·</span><span>{t}</span></li>)}</ul>
+        </div>
+        <div className="mt-3 rounded-xl bg-slate-50 p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-slate-600">내 조건 재무 가능성 <span className="font-normal text-slate-400">(보조 지표 · 개략 추정)</span></p>
+            <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${c.loan.ok ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-700"}`}>{c.loan.ok ? "자금 가능 추정" : "자금 부족 추정"}</span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+            <span className={`rounded-md px-2 py-0.5 font-semibold ${c.gapPos === "고평가" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-700"}`}>가격: {c.gapPos}</span>
+            <span className={`rounded-md px-2 py-0.5 font-semibold ${c.loan.shortfall > 0 ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-700"}`}>자금: {c.loan.shortfall > 0 ? `부족 ${won(c.loan.shortfall)}` : "가능"}</span>
+            <span className={`rounded-md px-2 py-0.5 font-semibold ${caution ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-600"}`}>분류: {caution ? "주의 후보" : "적합 후보"}</span>
+          </div>
+          {c.finRisky && <p className="mt-1.5 text-[11px] font-semibold text-orange-600">가격은 적합하나 자금 조건상 주의 후보입니다 (보유 현금·대출 가능액 보강 필요).</p>}
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+            <div><p className="text-slate-400">필요 대출액</p><p className="font-bold text-slate-700">{won(c.loan.need)}</p></div>
+            <div><p className="text-slate-400">월상환 개략 추정</p><p className="font-bold text-slate-700">{won(c.loan.best.monthly)}</p></div>
+            <div><p className="text-slate-400">부족자금</p><p className={`font-bold ${c.loan.shortfall > 0 ? "text-red-500" : "text-emerald-600"}`}>{c.loan.shortfall > 0 ? won(c.loan.shortfall) : "없음"}</p></div>
+            <div><p className="text-slate-400">대출 안정성</p><p className={`font-bold ${c.loan.stabilityLabel === "안정" ? "text-emerald-600" : c.loan.stabilityLabel === "보통" ? "text-amber-600" : "text-red-500"}`}>{c.loan.stabilityLabel} ({c.loan.stability})</p></div>
+            <div><p className="text-slate-400">금리 비교 후보 최저</p><p className="font-bold text-slate-700">{c.loan.best.name} {c.loan.best.rate}%</p></div>
+            <div><p className="text-slate-400">최저 월상환</p><p className="font-bold text-slate-700">월 {won(c.loan.best.monthly)}</p></div>
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-slate-400">‘적합 후보’는 가격·실거주·위험 기준 분류일 뿐 매수 가능을 뜻하지 않습니다. 가격 조건과 자금 조건을 분리해 보세요. 대출 가능액·월상환은 개략 추정이며 실제 승인금리·한도는 신용점수, 소득증빙, DSR, 담보평가, 금융사 심사에 따라 달라질 수 있습니다. · 취득세 개략 {won(c.tax.total)} (세금탭의 매수 총비용과 함께 보세요)</p>
+        </div>
+      </div>
+    </div>
   );
 
-  // ── 후보 카드 ──
-  const Card = ({ c, idx }) => {
-    const isCaution = c.review_label?.includes("신중");
-    return (
-      <div className={`overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ${isCaution ? "ring-orange-200" : "ring-slate-200"}`}>
-        {/* 헤더 */}
-        <div className="px-5 py-4" style={{ backgroundColor: isCaution ? "#fff7ed" : "#f8fafc" }}>
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="mb-0.5 text-[10px] font-semibold text-slate-400">후보 {idx + 1}</p>
-              <p className="text-base font-bold text-slate-800">
-                {c.complex_name}
-                <span className="ml-1.5 text-xs font-normal text-slate-400">
-                  {c.pyeong}평 · {c.age != null ? `${c.age}년차` : "—"}
-                </span>
-              </p>
-              <p className="text-xs text-slate-400">{c.sigungu} {c.legal_dong}</p>
-            </div>
-            <div className="text-right">
-              <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
-                isCaution ? "bg-orange-100 text-orange-700"
-                : c.ai_score >= 75 ? "bg-emerald-50 text-emerald-700"
-                : "bg-amber-50 text-amber-700"
-              }`}>{c.review_label}</span>
-              {c.sale_avg_man && (
-                <p className="mt-1.5 text-lg font-bold text-slate-900">
-                  {c.sale_avg_man >= 10000
-                    ? `${Math.floor(c.sale_avg_man / 10000)}억${c.sale_avg_man % 10000 > 0 ? ` ${(c.sale_avg_man % 10000).toLocaleString()}만` : ""}`
-                    : `${c.sale_avg_man.toLocaleString()}만`}
-                </p>
-              )}
-              {c.jeonse_ratio > 0 && (
-                <p className="text-xs text-slate-400">전세가율 {(c.jeonse_ratio * 100).toFixed(0)}%</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* AI 적합도 + 별점 */}
-        <div className="border-t border-slate-100 px-5 py-4">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-bold text-slate-700">AI 적합도</p>
-            <p className="text-xl font-extrabold text-slate-900">{c.ai_score}점</p>
-          </div>
-          <div className="grid grid-cols-1 gap-1.5 text-[11px]">
-            {[
-              ["예산 적합",    c.stars?.budget,    c.score_breakdown?.budget,    30],
-              ["가격 매력도",  c.stars?.value,     c.score_breakdown?.value,     25],
-              ["거래 안정성",  c.stars?.liquidity, c.score_breakdown?.liquidity, 15],
-              ["데이터 신뢰도",c.stars?.trust,     c.score_breakdown?.trust,     20],
-              ["목적 적합성",  c.stars?.purpose,   c.score_breakdown?.purpose,   10],
-            ].map(([label, stars, raw, max]) => (
-              <div key={label} className="flex items-center justify-between">
-                <span className="text-slate-500">{label}</span>
-                <div className="flex items-center gap-2">
-                  <Stars count={stars ?? 0} />
-                  <span className="w-12 text-right text-slate-400">{raw ?? 0}/{max}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* AI 선정 이유 */}
-        {c.reasons?.length > 0 && (
-          <div className="border-t border-slate-100 px-5 py-3">
-            <p className="mb-1.5 text-xs font-bold text-emerald-700">AI 선정 이유</p>
-            <ul className="space-y-1">
-              {c.reasons.map((r, i) => (
-                <li key={i} className="flex gap-2 text-sm leading-relaxed text-slate-600">
-                  <span className="font-bold text-emerald-500">✓</span>
-                  <span>{r}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* AI 검토 포인트 */}
-        {c.cautions?.length > 0 && (
-          <div className="border-t border-slate-100 px-5 py-3">
-            <p className="mb-1.5 text-xs font-bold text-orange-600">AI 검토 포인트</p>
-            <ul className="space-y-1">
-              {c.cautions.map((ct, i) => (
-                <li key={i} className="flex gap-2 text-sm leading-relaxed text-slate-500">
-                  <span className="font-bold text-orange-400">•</span>
-                  <span>{ct}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* AI 한줄 요약 */}
-        {c.summary && (
-          <div className="border-t border-slate-100 bg-slate-50 px-5 py-3">
-            <p className="mb-0.5 text-[10px] font-semibold text-slate-400">AI 한줄 요약</p>
-            <p className="text-xs text-slate-600">{c.summary}</p>
-          </div>
-        )}
-
-        {/* 데이터 메타 */}
-        <div className="border-t border-slate-100 px-5 py-2 text-[10px] text-slate-400">
-          매매 {c.sale_cnt}건 · 전세 {c.rent_cnt}건
-          {c.period_ym_end && ` · 기준 ${String(c.period_ym_end).slice(0,4)}.${String(c.period_ym_end).slice(4,6)}`}
-          {c.area_excl > 0 && ` · 전용 ${c.area_excl}㎡`}
-        </div>
-
-        {/* 매수탭 이동 버튼 */}
-        <div className="border-t border-slate-100 px-5 py-3">
-          <button
-            onClick={() => {
-              if (onGoToBuy) {
-                onGoToBuy({
-                  complexName:   c.complex_name,
-                  region:        c.sigungu,
-                  dong:          c.legal_dong,
-                  areaExclusive: String(c.area_excl || ""),
-                  complexId:     c.complex_id || null,
-                });
-              }
-            }}
-            className="w-full rounded-xl py-2.5 text-sm font-bold text-white"
-            style={{ backgroundColor: "#334155" }}
-          >
-            AI 적정가 분석하기 →
-          </button>
-          <p className="mt-1.5 text-center text-[10px] text-slate-400">
-            클릭 시 매수탭으로 이동 · 정밀 분석은 매수탭에서 진행합니다
-          </p>
-        </div>
-      </div>
-    );
-  };
-
-  // ── 렌더링 ──
   return (
     <>
-      <header className="mb-6 text-center">
-        <h1 className="text-2xl font-bold text-slate-900">AI 후보 찾기</h1>
-        <p className="mt-2 text-sm text-slate-500">
-          예산·목적·선호 조건에 맞는 <b>AI 검토 후보</b>를 확인하세요.
-          <br />이 결과는 투자 권유가 아닙니다.
-        </p>
-      </header>
-
-      {/* 입력 폼 */}
-      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
-        <p className="mb-4 text-sm font-bold text-slate-700">내 자금 정보</p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-slate-500">보유 가능한 현금 (만원)</span>
-            <input type="number" className={inp} value={equity} placeholder="60000" onChange={(e) => setEquity(e.target.value)} />
-            {equity && Number(equity) > 0 && <p className="mt-1 text-[11px] text-slate-400">{toUk(Number(equity))}</p>}
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-slate-500">연소득 (만원)</span>
-            <input type="number" className={inp} value={income} placeholder="8000" onChange={(e) => setIncome(e.target.value)} />
-            {income && Number(income) > 0 && <p className="mt-1 text-[11px] text-slate-400">{toUk(Number(income))}</p>}
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-slate-500">대출 가능 금액 (만원)</span>
-            <input type="number" className={inp} value={maxLoan} placeholder="80000" onChange={(e) => setMaxLoan(e.target.value)} />
-            {maxLoan && Number(maxLoan) > 0 && <p className="mt-1 text-[11px] text-slate-400">{toUk(Number(maxLoan))}</p>}
-          </label>
-          <div className="flex items-end pb-1">
-            <div className="w-full rounded-xl bg-slate-50 px-4 py-3">
-              <p className="text-[10px] text-slate-400">총 예산 (자동계산)</p>
-              <p className="mt-0.5 text-base font-bold text-slate-800">
-                {totalBudget > 0
-                  ? `${totalBudget.toLocaleString()}만원 (${(totalBudget / 10000).toFixed(2)}억)`
-                  : "—"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-5 grid grid-cols-2 gap-4">
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-slate-500">
-              희망 지역 (구·동)
-              <span className="ml-1 font-normal text-slate-400">— 비우면 전국 검색</span>
-            </span>
-            <input type="text" className={inp} value={region} placeholder="예: 노원구, 공릉동, 송도 (비우면 전국)" onChange={(e) => setRegion(e.target.value)} />
-            {!region && <p className="mt-1 text-[11px] text-slate-400">지역을 비우면 전국에서 AI 검토 후보를 찾습니다.</p>}
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-slate-500">희망 평형 (선택)</span>
-            <input type="number" className={inp} value={pyeong} placeholder="25" onChange={(e) => setPyeong(e.target.value)} />
-          </label>
-        </div>
-
-        <div className="mt-5">
-          <p className="mb-2 text-xs font-medium text-slate-500">매수 목적</p>
-          <div className="flex flex-wrap gap-2">
-            {[["live","실거주"],["invest","투자"],["move","갈아타기"],["jeonse","전세끼고 매수"]].map(([v, l]) => (
-              <button key={v} onClick={() => setPurpose(v)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${purpose === v ? "text-white" : "bg-slate-100 text-slate-600"}`}
-                style={purpose === v ? { backgroundColor: "#334155" } : {}}
-              >{l}</button>
-            ))}
-          </div>
-        </div>
-
-        {errMsg && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{errMsg}</p>}
-
-        <button
-          onClick={run}
-          disabled={loading}
-          className={`mt-6 w-full rounded-2xl py-4 text-base font-bold text-white ${loading ? "opacity-60" : ""}`}
-          style={{ backgroundColor: "#334155" }}
-        >
-          {loading ? "AI 후보 분석 중…" : "AI 후보 찾기"}
-        </button>
+      <header className="mb-6 text-center"><h1 className="text-2xl font-bold text-slate-900">추천 후보 찾기</h1><p className="mt-2 text-sm text-slate-500">예산·목적·선호 조건에 맞는 <b>검토 후보</b>를 보여줍니다. (투자 권유가 아닙니다)</p></header>
+      <div className="mb-5 rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
+        <p className="text-sm font-semibold text-amber-800">⚠ 현재 데모 데이터 기반 예시입니다.</p>
+        <p className="mt-0.5 text-xs text-amber-600">실제 단지 DB·국토부 실거래·KB시세 연동 전까지는 참고용 샘플 데이터로 동작합니다. 실제 매수 판단에는 매수 탭의 AI 분석을 이용하세요.</p>
       </div>
-
-      {/* 결과 */}
-      {candidates !== null && (
-        <div className="mt-6 space-y-4">
-          {candidates.length === 0 ? (
-            <div className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-slate-100">
-              <p className="font-semibold text-slate-700">조건에 맞는 AI 검토 후보가 없습니다.</p>
-              <p className="mt-1 text-sm text-slate-400">
-                예산을 높이거나 지역 조건을 완화해보세요.
-              </p>
-              {meta?.debug && (
-                <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                  {meta.debug.note}<br/>
-                  확인된 컬럼: {meta.debug.availableColumns?.join(", ") || "없음"}
-                </p>
-              )}
-            </div>
+      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">보유 현금 (억)</span><input type="number" className={inp} value={equity} placeholder="6" onChange={(e) => setEquity(e.target.value)} /></label>
+          <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">연소득 (억)</span><input type="number" step="0.1" className={inp} value={income} placeholder="0.8" onChange={(e) => setIncome(e.target.value)} /></label>
+          <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">희망 대출 (억)</span><input type="number" step="0.1" className={inp} value={plannedLoan} placeholder="8" onChange={(e) => { setPlannedLoan(e.target.value); const tot = (Number(equity) || 0) + (Number(e.target.value) || 0); if (tot) setBudget(String(tot)); }} /></label>
+          <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">총 예산 (억)</span><input type="number" className={inp} value={budget} placeholder="14" onChange={(e) => setBudget(e.target.value)} /></label>
+          <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">선호 지역 (구·동, 비우면 전체)</span><input type="text" className={inp} value={region} placeholder="공릉동 / 강남구" onChange={(e) => setRegion(e.target.value)} /></label>
+          <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">선호 평형 (선택)</span><input type="number" className={inp} value={pyeong} placeholder="34" onChange={(e) => setPyeong(e.target.value)} /></label>
+          <label className="block sm:col-span-3"><span className="mb-1.5 block text-xs font-medium text-slate-500">목적</span><select className={inp} value={purpose} onChange={(e) => setPurpose(e.target.value)}><option value="live">실거주</option><option value="invest">투자</option><option value="move">갈아타기</option></select></label>
+        </div>
+        <div className="mt-4">
+          <p className="mb-1.5 text-xs font-medium text-slate-500">선호 조건 (복수 선택) — 학군·역세권·신축·재건축·저평가·전세가율·호재</p>
+          <div className="flex flex-wrap gap-1.5">{PREFS.map((p) => <button key={p} onClick={() => togglePref(p)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${prefs.includes(p) ? "text-white" : "bg-slate-100 text-slate-500"}`} style={prefs.includes(p) ? { backgroundColor: NAVY } : {}}>{p}</button>)}</div>
+        </div>
+        <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+          <p className="text-xs font-bold text-slate-600">내 조건 (재무 프로필) — 대출 가능성·월상환 개략 추정에 사용</p>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">기존 연간 원리금 (억)</span><input type="number" step="0.01" className={inp} value={existingPay} placeholder="0" onChange={(e) => setExistingPay(e.target.value)} /></label>
+            <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">희망 대출기간</span><select className={inp} value={loanYears} onChange={(e) => setLoanYears(e.target.value)}><option value="20">20년</option><option value="30">30년</option><option value="40">40년</option></select></label>
+            <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-500">금리 방식</span><select className={inp} value={rateType} onChange={(e) => setRateType(e.target.value)}><option value="fixed">고정</option><option value="variable">변동</option><option value="mixed">혼합</option></select></label>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={noHouse} onChange={(e) => setNoHouse(e.target.checked)} />무주택</label>
+            <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={firstHome} onChange={(e) => setFirstHome(e.target.checked)} />생애최초</label>
+            <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={newlywed} onChange={(e) => setNewlywed(e.target.checked)} />신혼부부</label>
+          </div>
+        </div>
+        {(!budget || Number(budget) <= 0) && <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">예산을 입력하면 더 정확한 후보를 확인할 수 있습니다.</p>}
+        <button onClick={run} className="mt-6 w-full rounded-2xl py-4 text-base font-bold text-white" style={{ backgroundColor: NAVY }}>조건에 맞는 후보 찾기</button>
+        <p className="mt-3 text-xs text-slate-400">※ 후보 단지·금리는 데모 샘플(POOL) 기준입니다. TODO(API): 웹앱 전환 시 실제 단지 DB·국토부 실거래·KB시세·금융상품비교공시 연동으로 실시간 구성.</p>
+      </div>
+      {res && (
+        <div className="mt-5 space-y-4">
+          {res.fit.length === 0 && res.caution.length === 0 ? (
+            <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-100">예산 {won(res.B)} {region ? `· ${region} ` : ""}조건에 맞는 후보가 없습니다. 예산을 높이거나 조건을 완화해보세요.</div>
           ) : (
             <>
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-bold text-slate-700">
-                  AI 검토 후보 ({candidates.length})
-                </p>
-                {meta && (
-                  <p className="text-[11px] text-slate-400">
-                    {meta.total_pool}개 → {meta.filtered}개 → 상위 {candidates.length}개
-                  </p>
-                )}
-              </div>
-              {candidates.map((c, i) => <Card key={`${c.complex_name || "c"}-${c.area_excl || 0}-${i}`} c={c} idx={i} />)}
-              <div className="rounded-2xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-500">
-                <b className="text-slate-600">
-                  본 결과는 사용자가 입력한 조건과 공개 데이터를 기반으로 산출된 AI 분석 결과입니다.
-                </b>{" "}
-                투자 또는 매매를 권유하는 것이 아니며, 최종 의사결정은 이용자의 판단과 책임입니다.
-                AI 적합도·검토 단계는 공개 데이터를 분석한 참고 의견이며, 정밀 분석은 매수탭에서 확인하시기 바랍니다.
-              </div>
+              <p className="text-sm font-bold text-slate-700">조건에 맞는 후보 ({res.fit.length})</p>
+              {res.fit.length ? res.fit.map((c) => <Card key={c.name} c={c} />) : <p className="rounded-2xl bg-white p-4 text-center text-xs text-slate-400 ring-1 ring-slate-100">조건을 충족하는 일반 후보가 없습니다. 아래 주의 후보를 참고하세요.</p>}
+              {res.caution.length > 0 && (
+                <>
+                  <p className="mt-6 text-sm font-bold text-orange-600">주의 후보 ({res.caution.length}) — 시장·공급 위험이 높아 별도 표시</p>
+                  {res.caution.map((c) => <Card key={c.name} c={c} caution />)}
+                </>
+              )}
+              <div className="rounded-2xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-500"><b className="text-slate-600">본 결과는 조건에 맞는 후보를 정리한 참고 자료이며 투자 권유가 아닙니다.</b> 가격 여력·실거주·위험 등급은 펀더멘털 신호를 등급화한 개략 추정입니다. 대출(LTV/DSR)·취득세·금리는 개략 추정이며 정확한 값은 금융기관·세무사 상담이 필요합니다.</div>
             </>
           )}
         </div>
@@ -8078,7 +7612,6 @@ function BudgetView({ onProfile, onGoToBuy }) {
     </>
   );
 }
-
 
 function WatchView({ watch, setWatch }) {
   if (!watch.length) return <Empty title="관심단지가 없습니다" desc="매수판단 결과에서 ☆ 버튼으로 추가하세요." />;
@@ -8127,7 +7660,7 @@ function DealsEditor({ title = "전세 실거래", deals, setDeals, kind = "jeon
               {flags.map(([k, l]) => (
                 <button key={k} onClick={() => upd(i, k, !d[k])} className={`rounded-md px-2 py-1 text-xs font-medium ${d[k] ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-400"}`}>{l}</button>
               ))}
-              <button onClick={() => del(i)} className="ml-auto px-1 text-xs text-slate-300 hover:text-red-500">×</button>
+              <button onClick={() => del(i)} className="ml-auto px-1 text-xs text-slate-300 hover:text-red-500">✕</button>
             </div>
           ))}
           <button onClick={add} className="w-full rounded-xl border border-dashed border-slate-300 py-2 text-xs font-medium text-slate-500 hover:bg-white">+ 거래 추가</button>
