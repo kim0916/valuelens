@@ -311,8 +311,208 @@ function classifyApartmentMarket(f, r) {
 }
 
 
+function analyzeBuyerDecision(r, f) {
+  const cur = Number(f.currentPrice) || 0;
+  const age = r.age != null ? r.age : (f.buildYear ? new Date().getFullYear() - Number(f.buildYear) : null);
+  const jr = r.actualRatio || 0;
+  // ── RISK LAYER (적정가 무관 — 판단/신뢰도/경고에만) ──
+  const living = calculateLivingScore(f);
+  const supplyRisk = calculateSupplyShock(f);
+  const volumeRisk = calculateVolumeRisk(f);
+  const populationRisk = calculatePopulationRisk(f);
+  const employmentRisk = calculateEmploymentRisk(f);
+  const policyRisk = calculatePolicyRisk(f);
+  const locationRisk = { score: living.total, level: living.total >= 75 ? "낮음" : living.total >= 60 ? "보통" : "높음" };
+  const riskLayer = { supplyRisk, volumeRisk, populationRisk, employmentRisk, locationRisk, policyRisk };
+  const riskLayerScore = Math.round(((100 - supplyRisk.score) + volumeRisk.volumeScore + populationRisk.populationScore + employmentRisk.employmentScore + locationRisk.score + (100 - policyRisk.policyScore)) / 6);
+
+  // ── MARKET CLASSIFIER (최상위 분류 — 모든 판단의 기준) ──
+  const mc = classifyApartmentMarket(f, r);
+  const specialMarketType = mc.specialMarketType;
+  const isSpecial = ["redevelopment", "primePremium", "investmentPremium", "policyDriven"].includes(specialMarketType);
+  const isSemi = specialMarketType === "semiPremium";
+  const premiumScore = mc.premiumScore;
+  const intrinsicFairPrice = mc.intrinsicFairPrice;
+  const marketReferencePrice = mc.marketReferencePrice;
+  const premiumAmount = mc.premiumAmount;
+  const premiumRatio = mc.premiumRatio;
+  const finalFairPrice = Math.round(r.fairPrice || 0);
+  const gap = r.gapRatio || 0;
+  // ── 분석 적합도 (분석 방식이 이 단지에 맞는 정도) — buyerScore/상단표시/scoreBreakdown 공통값 ──
+  const fitFloor = { redevelopment: 65, primePremium: 70, investmentPremium: 65, policyDriven: 65, semiPremium: 70 }[specialMarketType];
+  const fitScore = fitFloor != null ? Math.max(r.modelConf, fitFloor) : r.modelConf;
+  const fitLabel = fitScore >= 80 ? "높음" : fitScore >= 60 ? "보통" : fitScore >= 40 ? "낮음" : "매우낮음";
+
+  // 1) priceScore (가격 적정성) — 적정가 엔진 기반, 쌀수록 높음
+  const priceScore = clamp(Math.round(55 - gap * 250), 5, 98);
+
+  // ── 자금 가능성 ──
+  const acqObj = acqTax(cur, (Number(f.areaExclusive) || 0) > 85, 1, PRIME_REGIONS.includes(f.region));
+  const brokerage = Math.round(cur * 0.004), otherCost = 200; // 기타비용 매수/매도 200만 통일
+  const totalBuyCost = cur + acqObj.total + brokerage + otherCost;
+  const loan = Number(f.plannedLoanAmount) || 0;
+  const cash = Number(f.availableCash) || 0;
+  const income = Number(f.annualIncome) || 0;
+  const existPay = Number(f.existingDebtPayment) || 0;
+  const rate = Number(f.interestRate) || 3.8, years = Number(f.loanYears) || 30;
+  const neededCash = Math.max(0, totalBuyCost - loan);
+  const shortfallCash = Math.max(0, neededCash - cash);
+  const monthlyPayment = monthlyPay(loan, rate, years);
+  const monthlyRatio = income ? Math.round(((monthlyPayment * 12 + existPay) / income) * 100) : null;
+  // 자금 정보 입력 여부 — 미입력 시 자금 판단 표시 안 함
+  const hasFundInput = cash > 0 || loan > 0 || income > 0;
+  const fundRisk = !income && !cash ? "미입력" : shortfallCash > 0 ? "자금부족" : monthlyRatio == null ? "소득미입력" : monthlyRatio > 45 ? "위험" : monthlyRatio > 30 ? "주의" : "안정";
+  let affordabilityScore;
+  if (!income && !cash) affordabilityScore = 50; // 미입력 중립
+  else { affordabilityScore = 100; if (shortfallCash > 0) affordabilityScore -= 40; if (monthlyRatio != null && monthlyRatio > 45) affordabilityScore -= 30; else if (monthlyRatio != null && monthlyRatio > 30) affordabilityScore -= 12; affordabilityScore = clamp(affordabilityScore, 5, 98); }
+
+  // ── 보유 가능성 ──
+  const baseJeonse = (r.basis && r.basis.jeonse && r.basis.jeonse.value) || Math.round(cur * jr) || 0;
+  const interestBurdenRatio = monthlyRatio; // 기존부채 포함 기준으로 통일 (자금·보유·최종판단 일관)
+  const jeonseSafetyMargin = baseJeonse ? Math.round(((baseJeonse - loan) / baseJeonse) * 100) : null;
+  const reverseJeonseRisk = baseJeonse && loan && baseJeonse < loan ? "높음" : (jeonseSafetyMargin != null && jeonseSafetyMargin < 20) ? "보통" : "낮음";
+  const monthlyHoldingCost = monthlyPayment + 30; // +관리비 placeholder
+  const rateShock = [0, 1, 2].map((d) => ({ delta: d, rate: (rate + d).toFixed(1), monthly: monthlyPay(loan, rate + d, years) }));
+  const rateShockRisk = income ? ((rateShock[2].monthly * 12 + existPay) / income > 0.45 ? "높음" : "보통이하") : "소득미입력";
+  let holdingScore;
+  if (!income) holdingScore = 50;
+  else { holdingScore = 90; if (reverseJeonseRisk === "높음") holdingScore -= 25; else if (reverseJeonseRisk === "보통") holdingScore -= 10; if (rateShockRisk === "높음") holdingScore -= 25; holdingScore = clamp(holdingScore, 5, 95); }
+
+  // ── 시장 환경(시장 조건) 점수 — 추세 데이터 미연동, 가격은 priceScore로 별도 ──
+  const shockScore = { 낮음: 90, 보통: 65, 높음: 40, 매우높음: 20 }[r.shock ? r.shock.level : "보통"] || 65;
+  const supplyScore = { 낮음: 85, 보통: 60, 높음: 35 }[supplyRisk.level] || 60; // 공급은 supplyRisk(calculateSupplyShock)로 통일
+  const ratePenalty = monthlyRatio != null && monthlyRatio > 45 ? 20 : monthlyRatio != null && monthlyRatio > 30 ? 10 : 0;
+  const timingScore = clamp(Math.round(shockScore * 0.5 + supplyScore * 0.5 - ratePenalty), 5, 95); // 가격 이중반영 제거
+
+  // ── 리스크 (안전도, 높을수록 안전) — 특수시장 위험은 marketRisk/최종판단에서만 반영(중복 제거) ──
+  let riskScore = 72;
+  riskScore -= supplyRisk.level === "높음" ? 15 : supplyRisk.level === "보통" ? 7 : 0;
+  riskScore = clamp(riskScore, 5, 95);
+
+  // ── 대체 후보 대비 (POOL 활용) ──
+  const peers = POOL.length ? POOL : [];
+  const avgDiscount = peers.length ? peers.reduce((s, c) => s + (c.fair - c.cur) / c.fair, 0) / peers.length : 0;
+  const myDiscount = -gap;
+  const comparisonResult = myDiscount > avgDiscount + 0.02 ? "우위" : myDiscount < avgDiscount - 0.02 ? "열위" : "평균";
+  const comparisonScore = comparisonResult === "우위" ? 78 : comparisonResult === "평균" ? 55 : 35;
+
+  // ── Opportunity Engine (호재·악재) — 적정가 미반영, 매수판단 보조 ──
+  const opp = analyzeOpportunitySignals(f);
+  const oppNorm = (opp.opportunityScore + 100) / 2; // -100~100 → 0~100
+  // ── buyerScore (가격25·자금20·보유15·시장환경10·리스크10·호재악재10·입지5·분석적합도5) ──
+  const livingScore = living.total;
+  const locationScore = Math.round((living.items.교통 + living.items.학군) / 2);
+  const buyerScore = Math.round(priceScore * 0.25 + affordabilityScore * 0.20 + holdingScore * 0.15 + timingScore * 0.10 + riskScore * 0.10 + oppNorm * 0.10 + locationScore * 0.05 + fitScore * 0.05);
+  // ── 점수 분해 (가점/감점, 중립 50 기준 가중 기여분 — 합 ≈ buyerScore−50) ──
+  const sgn = (s, w) => Math.round((s - 50) * w);
+  const scoreBreakdown = [
+    { label: "가격", score: priceScore, points: sgn(priceScore, 0.25) },
+    { label: "자금", score: affordabilityScore, points: sgn(affordabilityScore, 0.20) },
+    { label: "보유 가능성", score: holdingScore, points: sgn(holdingScore, 0.15) },
+    { label: "시장 환경", score: timingScore, points: sgn(timingScore, 0.10) },
+    { label: "공급·거래량", score: riskScore, points: sgn(riskScore, 0.10) },
+    { label: "호재·악재", score: Math.round(oppNorm), points: sgn(oppNorm, 0.10) },
+    { label: "입지", score: locationScore, points: sgn(locationScore, 0.05) },
+    { label: "분석 적합도", score: fitScore, points: sgn(fitScore, 0.05) },
+  ];
+
+  // ── 신뢰도: 데이터40 + 모델30 + 리스크레이어30 → mock 차감 → 특수시장 상한 → 최저 20 ──
+  const dataConfidence = r.dataConf, modelConfidence = r.modelConf;
+  let decisionConfidence = Math.round(dataConfidence * 0.4 + modelConfidence * 0.3 + riskLayerScore * 0.3);
+  // placeholder/mock 데이터 차감 (TODO(상용화): 실데이터 연결 시 해당 플래그 false → 차감 해제)
+  const mockFlags = { school: true, supply: true, volume: true, popEmp: true, policy: true };
+  let mockPenalty = 0;
+  if (mockFlags.school) mockPenalty += 5;
+  if (mockFlags.supply) mockPenalty += 5;
+  if (mockFlags.volume) mockPenalty += 8;
+  if (mockFlags.popEmp) mockPenalty += 8;
+  if (mockFlags.policy) mockPenalty += 8;
+  mockPenalty = Math.min(mockPenalty, 15); // 동일 원인(데모 데이터)에 대한 중복 차감 방지 — 총 -15 제한
+  decisionConfidence -= mockPenalty;
+  decisionConfidence = Math.max(20, decisionConfidence); // 특수시장이라고 신뢰도를 낮추지 않음 — 위험도는 MarketRisk로 분리
+  // 일반 아파트 + 데이터·모델 충분 → 보조 신뢰도가 과도하게 낮아지지 않게 최소 70 보정
+  if (specialMarketType === "normal" && r.dataConf >= 75 && r.modelConf >= 70) decisionConfidence = Math.max(decisionConfidence, 70);
+  // ── MarketRisk (시장 위험도) — 재건축/강남/투자수요는 신뢰도가 아니라 위험도를 높인다 ──
+  let mrs = 15;
+  if (isSemi) mrs = 40;
+  if (specialMarketType === "redevelopment") mrs = 70;
+  else if (specialMarketType === "primePremium") mrs = 62;
+  else if (specialMarketType === "investmentPremium") mrs = 75;
+  else if (specialMarketType === "policyDriven") mrs = 68;
+  if (premiumRatio > 1) mrs += 12;
+  if (supplyRisk.level === "높음") mrs += 8;
+  if (policyRisk.level === "높음") mrs += 6;
+  if (specialMarketType === "redevelopment") mrs += mc.stageScore < 40 ? 8 : mc.stageScore >= 85 ? -6 : 0; // 초기 단계일수록 불확실성↑
+  mrs = clamp(mrs, 5, 100);
+  const marketRiskLevel = (specialMarketType === "lowData" || specialMarketType === "abnormalInput") ? "평가 불가" : mrs >= 75 ? "매우높음" : mrs >= 55 ? "높음" : mrs >= 35 ? "보통" : "낮음";
+  const marketRisk = { score: mrs, level: marketRiskLevel };
+  // 분석 적합도(fitScore/fitLabel)는 상단에서 계산 — buyerScore·scoreBreakdown과 동일 값 사용
+
+  // ── 최종 판단 (고정 우선순위) ──
+  // abnormal→보류 / lowData→보류 / 특수→투자검토·관망·고위험 / 자금부족→관망 / 부담>45→비추천 / 30~45→협상 / 점수
+  let finalLabel, action;
+  const mr = monthlyRatio; // 부담률(기존부채 포함)로 통일
+  if (specialMarketType === "abnormalInput") { finalLabel = "판단 보류"; action = "현재가 입력 오류 가능성 — 값 확인 후 재분석하세요"; }
+  else if (specialMarketType === "lowData") { finalLabel = "판단 보류"; action = "실거래·시세 데이터 부족 — 보강 후 재분석하세요"; }
+  else if (isSpecial) {
+    finalLabel = buyerScore >= 68 ? "가격 검토 가능" : buyerScore >= 52 ? "신중 접근" : "가격 부담 큼";
+    action = finalLabel === "가격 부담 큼" ? "실사용가치 대비 프리미엄·리스크가 큽니다. 신중한 접근이 필요합니다" : "실사용가치와 시장가치를 분리해 가격 적정성을 판단하세요";
+  }
+  else if (shortfallCash > 0 && hasFundInput) { finalLabel = "자금 보강 필요"; action = `입력한 자금 기준으로 약 ${won(shortfallCash)}의 추가 자금이 필요합니다 (취득세·부대비용 포함)`; }
+  else if (mr != null && mr > 45) { finalLabel = "자금 부담 큼"; action = `월상환 부담 ${mr}% (45% 초과) — 자금 여건 보강을 검토해보세요`; }
+  else if (mr != null && mr >= 30) { finalLabel = "가격 협상 후 검토"; action = `월상환 부담 ${mr}% — 가격 협상으로 부담을 낮춘 뒤 검토하세요`; }
+  else if (buyerScore >= 75) { finalLabel = "가격 조건 양호"; action = "적정가·자금·보유 여건 양호 — 가격 적정성 기준 매수를 검토해볼 수 있습니다"; }
+  else if (buyerScore >= 55) { finalLabel = "협상 후 검토"; action = "가격 여건 보통 — 협상을 통한 가격 조정 후 검토를 고려해볼 수 있습니다"; }
+  else if (buyerScore >= 40) { finalLabel = "신중 접근"; action = "가격·자금 여건 미흡 — 신중한 접근이 필요합니다"; }
+  else { finalLabel = "가격 부담 큼"; action = "가격·자금·리스크 부담이 있습니다 — 신중한 접근이 필요합니다"; }
+  // ── 정확도/신뢰도 위험 시 보수화 (일반 단지) ──
+  if (!isSpecial && specialMarketType !== "abnormalInput" && specialMarketType !== "lowData") {
+    const lowConf = decisionConfidence < 50 || mockPenalty >= 30;
+    if (lowConf && finalLabel === "가격 조건 양호") { finalLabel = "협상 후 검토"; action = "데이터 신뢰도가 낮아 보수적으로 — 가격 협상 후 검토를 고려해볼 수 있습니다"; }
+    else if (lowConf && finalLabel === "신중 접근" && buyerScore < 45) { finalLabel = "가격 부담 큼"; }
+  }
+  // ── 호재·악재 한 단계 조정 (일반 단지만, 자금 하드스톱 시 상향 금지, 특수시장 제외) ──
+  if (!isSpecial && specialMarketType !== "lowData" && specialMarketType !== "abnormalInput") {
+    const ladder = ["가격 부담 큼", "신중 접근", "협상 후 검토", "가격 조건 양호"];
+    const finanHardStop = shortfallCash > 0 || (mr != null && mr > 45);
+    let idx = ladder.indexOf(finalLabel);
+    if (idx >= 0) {
+      if (opp.opportunityLevel === "호재 우세" && !finanHardStop) idx = Math.min(3, idx + 1);
+      else if (opp.opportunityLevel === "악재 우세") idx = Math.max(0, idx - 1);
+      if (ladder[idx] !== finalLabel) { finalLabel = ladder[idx]; action += ` · 주변 ${opp.opportunityLevel} 반영`; }
+    }
+  }
+
+  // ── 핵심 이유 5개 (가격·자금·보유/금리·시장위험·호재악재/특수) ──
+  const reasons = [];
+  if (isSpecial && premiumRatio > 0) reasons.push(`[가격] 실사용 ${won(intrinsicFairPrice)} vs 시장 ${won(marketReferencePrice)} — 프리미엄 ${(premiumRatio * 100).toFixed(0)}% 반영`);
+  else reasons.push(gap < 0 ? `[가격] 적정가 대비 ${(Math.abs(gap) * 100).toFixed(1)}% 저평가 (현재 ${won(cur)} / 적정 ${won(finalFairPrice)})` : `[가격] 적정가 대비 ${(gap * 100).toFixed(1)}% ${gap > 0 ? "고평가" : "수준"} (현재 ${won(cur)} / 적정 ${won(finalFairPrice)})`);
+  if ((income || cash) && shortfallCash > 0) reasons.push(`[자금] 추가 자금 약 ${won(shortfallCash)} 필요 (총 매입비용 ${won(totalBuyCost)}, 취득세·부대비용 포함)`);
+  else if (income || cash) reasons.push(`[자금] 월상환 ${won(monthlyPayment)} · 소득대비 ${mr != null ? mr : "—"}% (${fundRisk})`);
+  else reasons.push("[자금] 자금 정보 미입력 — 가격 위주 판단 (자금 입력 시 정밀화)");
+  reasons.push(`[보유·금리] 월 보유비용 ${won(monthlyHoldingCost)}${income ? ` · 금리 +2%p 시 부담 ${rateShockRisk}` : " · 자금 입력 시 금리 시뮬 제공"}`);
+  reasons.push(`[시장 위험] 시장 위험도 ${marketRisk.level} · 공급 ${supplyRisk.level}·정책 ${policyRisk.level} (데이터 신뢰도 ${r.dataConfLabel}·분석 적합도 ${fitLabel})${isSpecial && mc.reconstructionStage !== "none" ? ` · 재건축 ${RECON[mc.reconstructionStage].label}` : ""}`);
+  if (isSpecial) reasons.push(`[특수시장] 이 단지는 일반 적정가보다 프리미엄과 시장 위험을 분리해서 해석해야 합니다 · 호재·악재 ${opp.summary}`);
+  else reasons.push(`[호재·악재] ${opp.summary} — 적정가 미반영, 매수 판단 보조`);
+
+  const sentences = buildBuyerSentences({ gap, specialMarketType, intrinsicFairPrice, marketReferencePrice, premiumRatio, shortfallCash, monthlyRatio, supplyLevel: supplyRisk.level, policyLevel: policyRisk.level, populationLevel: populationRisk.level });
+
+  return {
+    specialMarketType, isSpecial, isSemi, premiumScore, premiumLevel: mc.premiumLevel, classificationReasons: mc.classificationReasons, marketWarnings: mc.warnings, mc,
+    intrinsicFairPrice, marketReferencePrice, finalFairPrice, premiumAmount, premiumRatio,
+    priceScore, affordabilityScore, holdingScore, timingScore, riskScore, comparisonScore, livingScore, locationScore, buyerScore,
+    dataConfidence, modelConfidence, decisionConfidence, marketRisk, fitScore, fitLabel, riskLayer, riskLayerScore,
+    scoreBreakdown, premiumBreakdown: mc.premiumBreakdown, reconstructionStage: mc.reconstructionStage, stageScore: mc.stageScore, fairBands: computeFairBands(r, mc),
+    affordability: { acqTax: acqObj.total, brokerage, otherCost, totalBuyCost, neededCash, shortfallCash, monthlyPayment, monthlyRatio, fundRisk },
+    holding: { monthlyHoldingCost, interestBurdenRatio, reverseJeonseRisk, jeonseSafetyMargin, rateShock, rateShockRisk },
+    timing: { score: timingScore, trendAvailable: false },
+    comparison: { result: comparisonResult, score: comparisonScore }, opportunity: opp,
+    finalLabel, action, reasons, sentences, hasFundInput,
+  };
+}
+
 export {
-  analyzeSellerDecision,
+  analyzeSellerDecision, analyzeBuyerDecision,
   calculateSupplyShock, calculateVolumeRisk,
   calculatePopulationRisk, calculateEmploymentRisk, calculatePolicyRisk,
   SCHOOL_ZONES, SCARCITY_ZONES, PRIME_REGIONS, PREMIUM_LEVEL, CONF_CAP,
