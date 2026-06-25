@@ -2473,7 +2473,6 @@ function LocationPicker({ onComplete, initialQuery = "" }) {
                   width: "100%", display: "flex", alignItems: "flex-start",
                   justifyContent: "space-between", gap: 12,
                   padding: "13px 16px",
-                  borderBottom: i < candidates.length - 1 ? "0.5px solid rgba(0,0,0,0.06)" : "none",
                   background: "none", border: "none",
                   borderBottom: i < candidates.length - 1 ? "0.5px solid rgba(0,0,0,0.06)" : "none",
                   cursor: "pointer", textAlign: "left",
