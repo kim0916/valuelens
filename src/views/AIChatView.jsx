@@ -3,7 +3,7 @@
 // props / 함수명 / className / 채팅 흐름 변경 금지
 
 import React, { useState, useEffect, useRef } from 'react';
-import { BRAND_GREEN, BRAND_MID, BRAND_MUTED, BRAND_LIGHT, BRAND_BG, BRAND_BORDER,
+import { BRAND, BRAND_GREEN, BRAND_MID, BRAND_MUTED, BRAND_LIGHT, BRAND_BG, BRAND_BORDER,
          GRADE_COLOR, GRADE_BG, GRADE_BR } from '../constants/brand.js';
 import { typicalPyeong } from '../constants/grades.js';
 import { analyze } from '../engine/analyze.js';
