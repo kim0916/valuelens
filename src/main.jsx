@@ -2786,23 +2786,20 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
   // ── 단지 선택 후 분석 실행 ──
   async function runAnalysis(complex, intent) {
-    // thinking 재표시
     replaceLastAI({ type: "thinking", content: "데이터 조회 중..." });
 
     try {
       const sigungu   = complex.sigungu    || "";
       const dong      = complex.legal_dong || "";
-      const sido      = complex.sido       || "";
-      const complexId = complex.id         || null;
       const name      = complex.complex_name;
+      const complexId = complex.id || null;
       const areaListRaw = complex.area_list ? JSON.parse(complex.area_list) : [];
 
-      // 면적 결정 — intent.areaSqm 우선, 없으면 대표면적
+      // 면적 결정
       let targetArea = intent.areaSqm || null;
       if (!targetArea && intent.pyeong) targetArea = Math.round(intent.pyeong * 3.305785);
       if (!targetArea && areaListRaw.length > 0) {
-        // 가장 거래 많을 것 같은 중간값
-        const sorted = [...areaListRaw].sort((a,b)=>a-b);
+        const sorted = [...areaListRaw].sort((a,b) => a - b);
         targetArea = sorted[Math.floor(sorted.length / 2)];
       }
 
@@ -2812,74 +2809,110 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         body: JSON.stringify({ type: 'deals', complex_id: complexId, complex_name: name, sigungu }),
       });
       const sbData = await sbRes.json();
-      const rawDeals = sbData.deals || [];
 
-      // 거래 필터링 (12개월, ±3㎡)
-      const cutoff = (() => {
-        const d = new Date(); d.setMonth(d.getMonth() - 12);
-        return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}`;
-      })();
+      // saleDeals / rentDeals — Supabase 반환 형식
+      let saleDealsRaw = sbData.saleDeals || sbData.deals?.filter(d => d.deal_type==='sale') || [];
+      let rentDealsRaw = sbData.rentDeals || sbData.deals?.filter(d => d.deal_type==='rent') || [];
 
-      const saleDeals = rawDeals.filter(d =>
-        d.deal_type === 'sale' &&
-        d.contract_ym >= cutoff &&
-        (!targetArea || Math.abs(Number(d.area_excl) - targetArea) <= 3)
-      ).map(d => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deal_amount_man)||0, ym: d.contract_ym||"", floor: d.floor||0 }))
-       .filter(d => d.price > 0 && d.areaSqm > 0);
+      // 면적 필터 (±3㎡)
+      const filterArea = (arr) => targetArea
+        ? arr.filter(d => Math.abs(Number(d.area_excl) - targetArea) <= 3)
+        : arr;
 
-      const jeonseDeals = rawDeals.filter(d =>
-        d.deal_type === 'rent' && d.monthly_man === '0' &&
-        d.contract_ym >= cutoff &&
-        (!targetArea || Math.abs(Number(d.area_excl) - targetArea) <= 3)
-      ).map(d => ({ areaSqm: Number(d.area_excl)||0, price: Number(d.deposit_man)||0, ym: d.contract_ym||"" }))
-       .filter(d => d.price > 0 && d.areaSqm > 0);
+      const saleFiltered = filterArea(saleDealsRaw);
+      const rentFiltered = filterArea(rentDealsRaw).filter(d => !d.monthly_man || d.monthly_man === '0');
+
+      // buildAnalysisInput이 요구하는 형식으로 변환
+      // { ym, price, floor, areaSqm } — norm() 함수가 ym/price/floor 읽음
+      const toSale = d => ({
+        ym:      d.contract_ym || "",
+        price:   Number(d.deal_amount_man) || 0,
+        floor:   Number(d.floor) || 5,
+        areaSqm: Number(d.area_excl) || 0,
+      });
+      const toRent = d => ({
+        ym:      d.contract_ym || "",
+        price:   Number(d.deposit_man) || 0,
+        floor:   Number(d.floor) || 5,
+        areaSqm: Number(d.area_excl) || 0,
+      });
+
+      const sale   = saleFiltered.map(toSale).filter(d => d.price > 0 && d.ym);
+      const jeonse = rentFiltered.map(toRent).filter(d => d.price > 0 && d.ym);
 
       // 거래 부족
-      if (saleDeals.length < 3) {
+      if (sale.length < 3) {
         replaceLastAI({
           type: "clarify",
-          content: `${name} (${targetArea ? Math.round(targetArea)+'㎡' : ''}) 최근 12개월 실거래가 ${saleDeals.length}건으로 부족합니다.\n다른 면적이나 단지를 시도해보시거나, 상세 검색을 이용해주세요.`,
+          content: `${name}${targetArea ? ` (${Math.round(targetArea)}㎡)` : ""}\n최근 실거래 ${sale.length}건으로 분석이 어렵습니다.\n다른 면적이나 단지를 시도하거나, 상세 검색을 이용해주세요.`,
+          onSearch: () => onNavigate("fair", { searchQuery: name }),
+        });
+        return;
+      }
+
+      // buildAnalysisInput 호출 — 기존 엔진 전처리 그대로 사용
+      const rawData = {
+        sale, jeonse,
+        areaSqm:     targetArea || 0,
+        region:      sigungu,
+        dong,
+        complexName: name,
+        buildYear:   complex.build_year || null,
+        currentPrice: 0,
+        kbSalePrice:  0,
+        kbJeonse:     0,
+        tradeStatus:  { code: "OK" },
+        areaOptions:  groupAreasByPyeong(areaListRaw)
+          .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: typicalPyeong(g.rep) })),
+      };
+
+      const baseForm = { region: sigungu, dong, complexName: name };
+      const { ff: builtFf, jeonseCalc, saleCalc } = buildAnalysisInput(rawData, baseForm, targetArea || 0);
+
+      if (!builtFf) {
+        replaceLastAI({
+          type: "clarify",
+          content: `${name} 분석에 필요한 데이터를 구성하지 못했습니다.\n상세 검색으로 이동해 직접 입력해보세요.`,
           onSearch: () => onNavigate("fair", { searchQuery: name }),
         });
         return;
       }
 
       // analyze() 호출 — 기존 엔진 그대로
-      const ff = {
-        ...EMPTY,
-        region: sigungu, dong, sido,
-        complexName: name, exactAptNm: name, complexId,
-        areaExclusive: String(Math.round(targetArea || 0)),
-        buildYear: complex.build_year || "",
-      };
+      const res = analyze(builtFf);
+      res.jeonseCalc = jeonseCalc;
+      res.saleCalc   = saleCalc;
+      // 채팅용 추가 필드
+      res.saleCount  = sale.length;
+      res.saleMedian = saleCalc?.value || null;
 
-      const engineResult = analyze({
-        ...ff,
-        deals: { sale: saleDeals, jeonse: jeonseDeals },
-      });
-
-      // 결과 카드 표시
+      // 결과 카드
       replaceLastAI({
         type: "result",
-        content: "",
         data: {
-          complex: { name, sigungu, dong, areaExclusive: Math.round(targetArea || 0), buildYear: complex.build_year },
+          complex: {
+            name,
+            sigungu,
+            dong,
+            areaExclusive: Math.round(targetArea || builtFf.areaExclusive || 0),
+            buildYear: complex.build_year,
+          },
           intent,
-          engine: engineResult,
-          ff,
-          saleDeals,
-          jeonseDeals,
+          engine: res,
+          ff: builtFf,
         },
       });
 
       // 히스토리 저장
-      if (onSaveHistory && engineResult) {
+      if (onSaveHistory) {
         try {
           onSaveHistory({
-            complexName: name, area: targetArea ? `${Math.round(targetArea)}㎡` : "",
+            date: new Date().toISOString().slice(0,10),
+            complexName: name,
+            area: targetArea ? `전용 ${Math.round(targetArea)}㎡` : "",
             analysisType: { fair:"적정가", buy:"매수", sell:"매도" }[intent.intent] || "적정가",
-            grade: engineResult.fairGrade || engineResult.buyGrade || "",
-            headline: engineResult.headline || "",
+            grade: res.fairGrade || res.buyGrade || "",
+            headline: res.headline || "",
           });
         } catch(_) {}
       }
