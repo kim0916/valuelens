@@ -3248,6 +3248,48 @@ function fetchWithTimeout(url, options, ms = 8000) {
 
 
 // ── Supabase 단지 검색 (국토부 API fallback 포함) ──
+// ── 관련 검색어 생성 ──────────────────────────────────────────────────
+// DB 응답(complexes 배열)에서 "지역 키워드" 조합으로 관련 검색어 생성
+// 별도 API 호출 없이 이미 받은 결과에서 파생
+function _extractRegionToken(legalDong, sigungu) {
+  const dong = (legalDong || "").trim();
+  // 법정동 — "상계동" → "상계", "송도동" → "송도"
+  if (dong.length >= 2 && dong.endsWith("동")) return dong.slice(0, -1);
+  // 법정동이 구 단위면(ex "영통구") sigungu 마지막 구/동 토큰 시도
+  const sg = (sigungu || "").split(" ");
+  for (let i = sg.length - 1; i >= 0; i--) {
+    const t = sg[i];
+    if (t.endsWith("동") && t.length >= 3 && t.length <= 5) return t.slice(0,-1);
+    if (t.endsWith("구") && t.length >= 3 && t.length <= 4) return t.slice(0,-1);
+  }
+  return null;
+}
+
+function makeRelatedSuggestions(complexes, kw, maxN = 6) {
+  const kwNorm = kw.replace(/\s/g,"").toLowerCase();
+  const scoreMap = {};   // label → total_sale_cnt
+  const exampleMap = {}; // label → 대표 단지명
+
+  for (const c of complexes) {
+    const name = c.complex_name || "";
+    if (!name.replace(/\s/g,"").toLowerCase().includes(kwNorm)) continue;
+
+    const token = _extractRegionToken(c.legal_dong, c.sigungu);
+    if (!token || token.length < 2 || kw.includes(token)) continue;
+
+    const label = `${token} ${kw}`;
+    const cnt   = Number(c.sale_cnt) || 1;
+    scoreMap[label]   = (scoreMap[label]   || 0) + cnt;
+    if (!exampleMap[label]) exampleMap[label] = name;
+  }
+
+  return Object.entries(scoreMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, maxN)
+    .map(([label]) => ({ label, query: label, example: exampleMap[label] }));
+}
+// ─────────────────────────────────────────────────────────────────────
+
 async function searchComplexFromSupabase(name, sigungu, dong) {
   try {
     const res = await fetch('/api/supabase', {
@@ -3950,6 +3992,7 @@ function LocationPicker({ onComplete }) {
   // ── 통합 검색 상태 ──
   const [query, setQuery]           = React.useState("");        // 통합 검색창 입력값
   const [candidates, setCandidates] = React.useState([]);        // 후보 단지 목록
+  const [suggestions, setSuggestions] = React.useState([]);      // 관련 검색어
   const [loading, setLoading]       = React.useState(false);
   const [searched, setSearched]     = React.useState(false);     // 한 번이라도 검색한 적 있는지
 
@@ -3986,28 +4029,27 @@ function LocationPicker({ onComplete }) {
     setQuery(kw);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (kw.length < 2) {
-      setCandidates([]); setSearched(false); return;
+      setCandidates([]); setSuggestions([]); setSearched(false); return;
     }
     debounceRef.current = setTimeout(() => _doUnifiedSearch(kw), 250);
   }
 
   async function _doUnifiedSearch(kw) {
     const gen = ++genRef.current;
-    setLoading(true); setSearched(false); setCandidates([]);
+    setLoading(true); setSearched(false); setCandidates([]); setSuggestions([]);
     try {
-      // 공백이 있으면 "지역 단지명" 패턴으로 복수 검색 시도
       const tokens = kw.trim().split(/\s+/);
       let richCandidates = [];
+      let bulkPool = [];  // 관련 검색어 생성용 원본 배열
 
       if (tokens.length >= 2) {
-        // 두 가지 순서로 검색: "지역단지" / "단지지역"
         const [t1, ...rest] = tokens;
-        const combined1 = tokens.join("");          // 대치래미안
-        const combined2 = [...rest, t1].join("");   // 래미안대치
+        const combined1 = tokens.join("");
+        const combined2 = [...rest, t1].join("");
         const [r1, r2, r3] = await Promise.all([
           searchComplexFromSupabase(combined1, "", ""),
           searchComplexFromSupabase(combined2, "", ""),
-          searchComplexFromSupabase(rest.join(""), "", ""), // 뒷부분만 (상계주공)
+          searchComplexFromSupabase(rest.join(""), "", ""),
         ]);
         if (gen !== genRef.current) return;
 
@@ -4019,17 +4061,22 @@ function LocationPicker({ onComplete }) {
             }
           }
         }
+        bulkPool = richCandidates;
       }
 
-      // 단독 검색 (공백 없거나 복합 검색 결과 0)
       if (richCandidates.length === 0) {
+        // 단독 키워드 — 관련 검색어 생성을 위해 limit 30으로 더 많이 조회
         const sbResult = await searchComplexFromSupabase(kw, "", "");
         if (gen !== genRef.current) return;
-        if (sbResult.fromSupabase) richCandidates = sbResult.complexes;
+        if (sbResult.fromSupabase) {
+          richCandidates = sbResult.complexes;
+          bulkPool = sbResult.complexes;
+        }
       }
 
       if (gen !== genRef.current) return;
 
+      // 자동완성 후보 (상위 10개)
       const mapped = richCandidates.slice(0, 10).map(c => ({
         name:       c.complex_name,
         complexId:  c.id,
@@ -4045,10 +4092,19 @@ function LocationPicker({ onComplete }) {
         fromSB:     true,
       }));
       setCandidates(mapped);
+
+      // 관련 검색어 — bulkPool 기반 생성 (공백 없는 단독 키워드일 때만 의미 있음)
+      if (tokens.length === 1 && bulkPool.length > 0) {
+        const sugg = makeRelatedSuggestions(bulkPool, kw, 6);
+        setSuggestions(sugg);
+      } else {
+        setSuggestions([]);
+      }
+
     } catch(e) {
       if (gen !== genRef.current) return;
       console.error('[unifiedSearch]', e);
-      setCandidates([]);
+      setCandidates([]); setSuggestions([]);
     } finally {
       if (gen === genRef.current) { setLoading(false); setSearched(true); }
     }
@@ -4196,7 +4252,7 @@ function LocationPicker({ onComplete }) {
           {/* X 클리어 버튼 */}
           {query && (
             <button
-              onClick={() => { setQuery(""); setCandidates([]); setSearched(false); }}
+              onClick={() => { setQuery(""); setCandidates([]); setSuggestions([]); setSearched(false); }}
               style={{
                 position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
                 background: "none", border: "none", cursor: "pointer",
@@ -4279,6 +4335,51 @@ function LocationPicker({ onComplete }) {
                 </div>
               </button>
             ))}
+          </div>
+        )}
+
+        {/* 관련 검색어 */}
+        {!loading && suggestions.length > 0 && (
+          <div style={{ marginTop: candidates.length > 0 ? 12 : 8 }}>
+            <p style={{
+              fontSize: 10, fontWeight: 500, letterSpacing: "0.07em",
+              color: "#a8a29e", textTransform: "uppercase",
+              marginBottom: 8,
+            }}>관련 검색어</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setQuery(s.query);
+                    setSuggestions([]);
+                    _doUnifiedSearch(s.query);
+                  }}
+                  style={{
+                    padding: "6px 13px",
+                    borderRadius: 20,
+                    border: "0.5px solid rgba(0,0,0,0.13)",
+                    background: "#fff",
+                    fontSize: 13, fontWeight: 400,
+                    color: "#111",
+                    cursor: "pointer",
+                    letterSpacing: "-0.01em",
+                    transition: "background 0.12s, border-color 0.12s",
+                    whiteSpace: "nowrap",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = "#f5f5f3";
+                    e.currentTarget.style.borderColor = "rgba(0,0,0,0.22)";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = "#fff";
+                    e.currentTarget.style.borderColor = "rgba(0,0,0,0.13)";
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
