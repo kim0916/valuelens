@@ -188,4 +188,11 @@ function getLawdCd(dong, region) {
 // ───────────────────────────────────────────────────────────────
 // ── 공통 유틸 ──
 
+function fetchWithTimeout(url, options, ms = 8000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
+
 export { LAWD_CD_MAP, DONG_TO_LAWD, getLawdCd, fetchWithTimeout };
