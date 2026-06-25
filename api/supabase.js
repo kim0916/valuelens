@@ -304,21 +304,10 @@ export default async function handler(req, res) {
   // ── 4. 실거래 원본 조회 ──
   // months 파라미터 제거 — DB 적재 전체 범위 반환 (cutoff 없음)
 
-  // ── maintenance 상태 조회 (v5 - raw fetch) ──
+  // ── maintenance 상태 조회 (v6 - 환경변수) ──
   if (type === 'maintenance') {
-    try {
-      const sbUrl = process.env.SUPABASE_URL;
-      const sbKey = process.env.SUPABASE_ANON_KEY;
-      const fetchRes = await fetch(
-        `${sbUrl}/rest/v1/app_config?key=eq.maintenance_mode&select=value&limit=1`,
-        { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } }
-      );
-      const rows = await fetchRes.json();
-      const val = Array.isArray(rows) && rows[0] ? rows[0].value : 'false';
-      res.json({ value: val });
-    } catch(e) {
-      res.json({ value: 'false' });
-    }
+    const val = process.env.MAINTENANCE_MODE === 'true' ? 'true' : 'false';
+    res.json({ value: val });
     return;
   }
 
