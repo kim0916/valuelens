@@ -3498,16 +3498,20 @@ function AppInner() {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceChecked, setMaintenanceChecked] = useState(false);
 
+  // ── User + Maintenance 동시 체크 ──
   React.useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    async function init() {
+      // 1. 현재 유저 확인
+      const { data: { user } } = await supabase.auth.getUser();
+      const email = user?.email ?? null;
       setCurrentUserId(user?.id ?? null);
-      setCurrentUserEmail(user?.email ?? null);
-    });
-  }, []);
+      setCurrentUserEmail(email);
 
-  // maintenance_mode 조회 — 앱 로드 시 1회 + 60초마다 갱신
-  React.useEffect(() => {
-    async function checkMaintenance() {
+      // 2. maintenance 확인
+      await checkMaintenance(email);
+    }
+
+    async function checkMaintenance(email) {
       try {
         const { data, error } = await supabase
           .from("app_config")
@@ -3516,11 +3520,13 @@ function AppInner() {
           .single();
 
         if (error) {
-          console.warn("[Maintenance] app_config 조회 실패:", error.message, error.code);
+          console.warn("[Maintenance] 조회 실패:", error.message);
           setMaintenanceMode(false);
         } else {
-          console.log("[Maintenance] 현재값:", data?.value);
-          setMaintenanceMode(data?.value === "true");
+          console.log("[Maintenance] 현재값:", data?.value, "/ email:", email);
+          const isOn = data?.value === "true";
+          const admin = ADMIN_EMAILS.includes(email);
+          setMaintenanceMode(isOn && !admin);
         }
       } catch (_) {
         setMaintenanceMode(false);
@@ -3529,16 +3535,18 @@ function AppInner() {
       }
     }
 
-    checkMaintenance();
-    const interval = setInterval(checkMaintenance, 60000); // 60초마다 갱신
+    init();
+
+    // 60초마다 갱신 (이메일은 이미 세팅됨)
+    const interval = setInterval(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      await checkMaintenance(user?.email ?? null);
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  // 관리자 여부
-  const isAdmin = ADMIN_EMAILS.includes(currentUserEmail);
-
-  // 점검 중 + 관리자 아닌 경우 → 점검 화면
-  if (maintenanceChecked && maintenanceMode && !isAdmin) {
+  // 점검 중이면 → 점검 화면 (관리자는 checkMaintenance에서 이미 false 처리)
+  if (maintenanceChecked && maintenanceMode) {
     return <MaintenanceScreen />;
   }
 
