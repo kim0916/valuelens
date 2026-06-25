@@ -15,7 +15,5 @@ const pct = (r) => (r > 0 ? "+" : "") + (r * 100).toFixed(1) + "%";
 // 전용면적(㎡) → 통상 분양평형 추정 (한국 분양 관행 매핑). 못 구하면 0.
 const typicalPyeong = (sqm) => { sqm = Number(sqm) || 0; if (sqm <= 0) return 0; return Math.round(sqm / 3.3058); };
 
-// 공급면적(㎡)과 평수 계산 — supplySqm이 없으면 전용 × 1.35 추정
-function supplyAreaInfo(exclusiveSqm, supplySqm) {
 
 export { GRADES, LABEL, GS, won, pct, typicalPyeong };
