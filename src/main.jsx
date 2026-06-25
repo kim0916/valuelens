@@ -2529,162 +2529,195 @@ function AdvancedView({ watch, setWatch, history, finProfile, onReanalyze, uid }
 
 function HomeView({ onNavigate, history }) {
   const recent = (history || []).slice(0, 3);
-  const typeLabel = { fair: "AI 적정가", buy: "AI 매수", sell: "AI 매도" };
-  const gradeColor = (g) => g === "A" || g === "B" ? "#166534" : g === "D" || g === "E" ? "#991b1b" : "#44403c";
+  const gradeColor = (g) => g === "A" || g === "B" ? "#166534" : g === "D" || g === "E" ? "#991b1b" : "#57534e";
+  const gradeBg   = (g) => g === "A" || g === "B" ? "#f0fdf4" : g === "D" || g === "E" ? "#fef2f2" : "#fafaf9";
+  const gradeStr  = (g) => g === "A" || g === "B" ? "#bbf7d0" : g === "D" || g === "E" ? "#fecaca" : BRAND_BORDER;
+
+  // 서비스 메뉴 정의
+  const services = [
+    { id: "apt",    label: "AI 아파트 분석",    tab: "fair",  ready: true },
+    { id: "reco",   label: "AI 추천 후보",       tab: "reco",  ready: true },
+    { id: "room",   label: "AI 원룸 분석",       tab: null,    ready: false },
+    { id: "ofc",    label: "AI 오피스텔 분석",   tab: null,    ready: false },
+    { id: "rev",    label: "AI 수익형 분석",     tab: null,    ready: false },
+    { id: "land",   label: "AI 토지 분석",       tab: null,    ready: false },
+    { id: "com",    label: "AI 상가 분석",       tab: null,    ready: false },
+    { id: "multi",  label: "AI 다가구 분석",     tab: null,    ready: false },
+  ];
+
+  const IC = ({ d, s = 15 }) => (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.6"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {d === "camera" && <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>}
+      {d === "pin"    && <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></>}
+      {d === "home"   && <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>}
+      {d === "right"  && <polyline points="9 18 15 12 9 6"/>}
+      {d === "clock"  && <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>}
+    </svg>
+  );
+
+  const S = { px: 20 }; // 좌우 패딩 기준
 
   return (
-    <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 0 80px" }}>
+    <div style={{ maxWidth: 480, margin: "0 auto", paddingBottom: 60 }}>
 
-      {/* ── Hero ── */}
-      <div style={{ padding: "48px 24px 40px" }}>
-        <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.1em", color: BRAND_MID, marginBottom: 12, textTransform: "uppercase" }}>
-          AI Property Agent
+      {/* ── 1. Header ── */}
+      <div style={{ padding: `32px ${S.px}px 20px` }}>
+        <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.12em", color: "#a8a29e", textTransform: "uppercase", marginBottom: 6 }}>
+          Your AI Property Agent
         </p>
-        <h1 style={{ fontSize: 30, fontWeight: 600, lineHeight: 1.25, letterSpacing: "-0.025em", color: BRAND, margin: "0 0 12px" }}>
-          사진 한 장으로<br />건물을 분석합니다.
+        <h1 style={{ fontSize: 26, fontWeight: 600, lineHeight: 1.2, letterSpacing: "-0.025em", color: BRAND, margin: "0 0 6px" }}>
+          사진으로 시작하는<br />AI 부동산 분석
         </h1>
-        <p style={{ fontSize: 14, color: BRAND_MID, lineHeight: 1.7, margin: 0 }}>
-          사진을 찍거나 주소를 입력하면<br />AI가 건물 정보를 분석합니다.
+        <p style={{ fontSize: 13, color: BRAND_MID, margin: 0, lineHeight: 1.5 }}>
+          사진 한 장 또는 주소 입력으로 AI가 건물을 분석합니다.
         </p>
       </div>
 
-      {/* ── CTA ── */}
-      <div style={{ padding: "0 24px" }}>
-        {/* Primary CTA */}
+      {/* ── 2. Primary CTA ── */}
+      <div style={{ padding: `0 ${S.px}px` }}>
         <button
           onClick={() => onNavigate("photo")}
           style={{
-            width: "100%", height: 54, borderRadius: 14,
+            width: "100%", height: 52, borderRadius: 13,
             background: BRAND, color: "#fff",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-            border: "none", cursor: "pointer", marginBottom: 10,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
+            border: "none", cursor: "pointer",
             fontSize: 15, fontWeight: 500, letterSpacing: "-0.01em",
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-            <circle cx="12" cy="13" r="4"/>
-          </svg>
+          <IC d="camera" s={18} />
           사진으로 분석하기
         </button>
 
-        {/* Secondary CTA */}
-        <button
-          onClick={() => onNavigate("fair")}
-          style={{
-            width: "100%", height: 48, borderRadius: 14,
-            background: "#fff", color: BRAND,
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-            border: `1px solid ${BRAND_BORDER}`, cursor: "pointer", marginBottom: 24,
-            fontSize: 14, fontWeight: 500,
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-            <circle cx="12" cy="10" r="3"/>
-          </svg>
-          건물 주소 직접 입력
-        </button>
-
-        {/* Divider */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-          <div style={{ flex: 1, height: "0.5px", background: BRAND_BORDER }} />
-          <span style={{ fontSize: 12, color: "#a8a29e" }}>또는</span>
-          <div style={{ flex: 1, height: "0.5px", background: BRAND_BORDER }} />
+        {/* 보조 — 텍스트 링크 수준 */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 12, marginBottom: 28 }}>
+          <button
+            onClick={() => onNavigate("fair")}
+            style={{
+              background: "none", border: "none", cursor: "pointer", padding: "4px 0",
+              fontSize: 13, color: BRAND_MID, display: "flex", alignItems: "center", gap: 5,
+              textDecoration: "underline", textDecorationColor: BRAND_BORDER,
+              textUnderlineOffset: 3,
+            }}
+          >
+            <IC d="pin" s={13} />
+            주소 직접 입력
+          </button>
+          <span style={{ width: "0.5px", height: 12, background: BRAND_BORDER }} />
+          <button
+            onClick={() => onNavigate("reco")}
+            style={{
+              background: "none", border: "none", cursor: "pointer", padding: "4px 0",
+              fontSize: 13, color: BRAND_MID, display: "flex", alignItems: "center", gap: 5,
+              textDecoration: "underline", textDecorationColor: BRAND_BORDER,
+              textUnderlineOffset: 3,
+            }}
+          >
+            AI 추천 후보 찾기
+          </button>
         </div>
-
-        {/* Tertiary CTA */}
-        <button
-          onClick={() => onNavigate("reco")}
-          style={{
-            width: "100%", height: 44, borderRadius: 12,
-            background: BRAND_LIGHT, color: BRAND_MID,
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            border: `0.5px solid ${BRAND_BORDER}`, cursor: "pointer", marginBottom: 40,
-            fontSize: 13, fontWeight: 500,
-          }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          </svg>
-          AI 추천 후보 찾기
-          <span style={{ fontSize: 12, color: "#a8a29e" }}>→</span>
-        </button>
       </div>
 
-      {/* ── Feature summary ── */}
-      <div style={{ padding: "0 24px 36px" }}>
-        <div style={{ padding: "20px 0", borderTop: `0.5px solid ${BRAND_BORDER}`, borderBottom: `0.5px solid ${BRAND_BORDER}` }}>
-          {[
-            ["사진만 찍으면 건물 자동 인식", "camera"],
-            ["실거래·적정가 자동 분석", "trending-up"],
-            ["AI가 핵심 정보 요약", "file-text"],
-          ].map(([label, icon]) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0" }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={BRAND} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              <span style={{ fontSize: 13, color: BRAND_MID }}>{label}</span>
-            </div>
+      {/* ── 3. 서비스 메뉴 ── */}
+      <div style={{ padding: `0 ${S.px}px`, marginBottom: 28 }}>
+        <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.08em", color: "#a8a29e", textTransform: "uppercase", marginBottom: 10 }}>
+          서비스
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+          {services.map((svc) => (
+            <button
+              key={svc.id}
+              onClick={() => svc.ready ? onNavigate(svc.tab) : undefined}
+              style={{
+                background: svc.ready ? "#fff" : BRAND_LIGHT,
+                border: svc.ready ? `0.5px solid ${BRAND_BORDER}` : `0.5px dashed ${BRAND_BORDER}`,
+                borderRadius: 10, padding: "12px 13px",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                cursor: svc.ready ? "pointer" : "default",
+                textAlign: "left",
+              }}
+            >
+              <span style={{ fontSize: 12, fontWeight: svc.ready ? 500 : 400, color: svc.ready ? BRAND : "#a8a29e" }}>
+                {svc.label}
+              </span>
+              {svc.ready
+                ? <IC d="right" s={13} />
+                : <span style={{ fontSize: 9, color: "#a8a29e", border: `0.5px solid ${BRAND_BORDER}`, borderRadius: 3, padding: "1px 5px", whiteSpace: "nowrap" }}>준비 중</span>
+              }
+            </button>
           ))}
         </div>
       </div>
 
-      {/* ── 최근 분석 ── */}
+      {/* ── 4. 최근 분석 ── */}
       {recent.length > 0 && (
-        <div style={{ padding: "0 24px" }}>
-          <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.08em", color: "#a8a29e", textTransform: "uppercase", marginBottom: 12 }}>
-            최근 분석
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {recent.map((h, i) => (
-              <button
-                key={i}
-                onClick={() => onNavigate(h.analysisType === "적정가" ? "fair" : h.analysisType === "매수" ? "buy" : "sell", h)}
-                style={{
-                  width: "100%", background: "#fff",
-                  border: `0.5px solid ${BRAND_BORDER}`,
-                  borderRadius: 12, padding: "14px 16px",
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  cursor: "pointer", textAlign: "left",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ padding: `0 ${S.px}px`, marginBottom: 32 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.08em", color: "#a8a29e", textTransform: "uppercase", margin: 0 }}>
+              최근 분석
+            </p>
+            <button onClick={() => onNavigate("adv")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#a8a29e" }}>
+              더보기
+            </button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {recent.map((h, i) => {
+              const typeMap = { "적정가": "fair", "매수": "buy", "매도": "sell" };
+              const tab = typeMap[h.analysisType] || "fair";
+              const typeLabel = { "fair": "AI 적정가", "buy": "AI 매수", "sell": "AI 매도" }[tab] || h.analysisType;
+              return (
+                <button
+                  key={i}
+                  onClick={() => onNavigate(tab)}
+                  style={{
+                    width: "100%", background: "#fff",
+                    border: `0.5px solid ${BRAND_BORDER}`,
+                    borderRadius: 10, padding: "11px 13px",
+                    display: "flex", alignItems: "center", gap: 11,
+                    cursor: "pointer", textAlign: "left",
+                  }}
+                >
                   <div style={{
-                    width: 36, height: 36, borderRadius: 9,
-                    background: BRAND_LIGHT, border: `0.5px solid ${BRAND_BORDER}`,
-                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    width: 30, height: 30, borderRadius: 7, background: BRAND_LIGHT,
+                    border: `0.5px solid ${BRAND_BORDER}`, display: "flex", alignItems: "center",
+                    justifyContent: "center", flexShrink: 0, color: BRAND_MID,
                   }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={BRAND_MID} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                      <polyline points="9 22 9 12 15 12 15 22"/>
-                    </svg>
+                    <IC d="home" s={14} />
                   </div>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 500, color: BRAND, margin: 0, lineHeight: 1.4 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 500, color: BRAND, margin: 0, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {h.complexName || h.complex}
                     </p>
-                    <p style={{ fontSize: 12, color: "#a8a29e", margin: 0, marginTop: 2 }}>
-                      {h.area && `${h.area} · `}{typeLabel[h.analysisType === "적정가" ? "fair" : h.analysisType === "매수" ? "buy" : "sell"] || h.analysisType}
+                    <p style={{ fontSize: 11, color: "#a8a29e", margin: 0, marginTop: 2 }}>
+                      {h.area ? `${h.area} · ` : ""}{typeLabel}
                     </p>
                   </div>
-                </div>
-                {h.grade && (
-                  <span style={{
-                    fontSize: 12, fontWeight: 500,
-                    color: gradeColor(h.grade),
-                    background: h.grade === "A" || h.grade === "B" ? "#f0fdf4" : h.grade === "D" || h.grade === "E" ? "#fef2f2" : "#fafaf9",
-                    border: `0.5px solid ${h.grade === "A" || h.grade === "B" ? "#bbf7d0" : h.grade === "D" || h.grade === "E" ? "#fecaca" : BRAND_BORDER}`,
-                    borderRadius: 6, padding: "3px 8px", flexShrink: 0,
-                  }}>
-                    {h.grade}등급
-                  </span>
-                )}
-              </button>
-            ))}
+                  {h.grade && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 500, flexShrink: 0,
+                      color: gradeColor(h.grade), background: gradeBg(h.grade),
+                      border: `0.5px solid ${gradeStr(h.grade)}`,
+                      borderRadius: 5, padding: "2px 7px",
+                    }}>
+                      {h.grade}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
+
+      {/* ── 5. 법적 안내 ── */}
+      <div style={{ padding: `0 ${S.px}px` }}>
+        <p style={{ fontSize: 10, color: "#c0bbb4", lineHeight: 1.7, margin: 0 }}>
+          본 서비스는 AI 분석 도구입니다. 최종 계약 및 투자 판단은 공인중개사, 세무사 등 전문가와 함께 검토하시기 바랍니다.
+        </p>
+      </div>
+
     </div>
   );
 }
