@@ -2535,31 +2535,259 @@ function AdvancedView({ watch, setWatch, history, finProfile, onReanalyze, uid }
   );
 }
 
+// ── Smart Intent Parser ─────────────────────────────────────────────
+// 자연어 → { intent, complexName, region, dong, pyeong, areaSqm, price, budget, purpose }
+// 순수 JS 규칙 기반 — API 호출 없음, 비용 0
+function parseIntent(raw) {
+  const t = (raw || "").trim();
+  const n = t.replace(/\s/g, "").toLowerCase();
+
+  // ── intent 판별 ──
+  let intent = "fair"; // 기본값
+  if (/팔까|매도|팔려고|팔아야|호가|내집|내가산|내꺼|팔면|팔것|팔지/.test(n)) intent = "sell";
+  else if (/추천|예산|살곳|어디살|뭐살|뭐사|어디사|골라|골라줘|찾아줘|찾아|예산으로|안에서|이하로|이내로/.test(n)) intent = "recommend";
+  else if (/사도돼|사도될까|살만해|살만한가|살까|매수|지금사|살지|살래|살수있나|사볼까/.test(n)) intent = "buy";
+
+  // ── 평형 추출 ──
+  let pyeong = null;
+  const pyeongMatch = t.match(/(\d+)\s*평/);
+  if (pyeongMatch) pyeong = parseInt(pyeongMatch[1]);
+
+  // 전용면적 추출 (㎡, m², 제곱미터)
+  let areaSqm = null;
+  const sqmMatch = t.match(/(\d+(?:\.\d+)?)\s*(?:㎡|m²|제곱미터)/);
+  if (sqmMatch) areaSqm = parseFloat(sqmMatch[1]);
+  // 평 → ㎡ 변환 (areaSqm 없을 때)
+  if (pyeong && !areaSqm) areaSqm = Math.round(pyeong * 3.305785);
+
+  // ── 가격 추출 ──
+  let price = null;
+  let budget = null;
+  // "9억", "9억5천", "9억5000", "9억5", "19억", "9.5억" 형태
+  const priceMatch = t.match(/(\d+(?:\.\d+)?)\s*억\s*(?:(\d+)\s*(?:천만?)?)?/);
+  if (priceMatch) {
+    let val = parseFloat(priceMatch[1]) * 10000;
+    if (priceMatch[2]) {
+      const sub = parseInt(priceMatch[2]);
+      val += sub >= 1000 ? sub : sub * 1000; // 5000만 or 5천
+    }
+    price = val;
+    if (intent === "recommend") budget = val;
+  }
+
+  // ── 지역·단지명 추출 ──
+  // 알려진 브랜드/단지 패턴
+  const BRANDS = ["래미안","자이","푸르지오","힐스테이트","더샵","e편한세상","이편한세상",
+    "아이파크","롯데캐슬","sk뷰","sk뷰","리센츠","헬리오시티","은마","잠실엘스",
+    "트리지움","송파파크하비오","둔촌주공","상계주공","노원","동부","우성","풍림",
+    "태릉","공릉","중계","하계","창동","도봉","수락","의정부","분당","판교","광교",
+    "마포","용산","동대문","강남","서초","송파","강동","강서","양천","영등포",
+    "대치","반포","잠실","압구정","청담","도곡","개포","수서","문정","가락"];
+
+  let complexName = null;
+  let region      = null;
+  let dong        = null;
+
+  // 단지 직접 언급 체크 — 단지명 + 동 조합
+  // "공릉동 동부", "대치 래미안", "잠실 리센츠" 등
+  const dongPattern = t.match(/([가-힣]{2,6}동)\s+([가-힣a-zA-Z0-9\s]{2,12})/);
+  if (dongPattern) {
+    dong        = dongPattern[1];
+    complexName = dongPattern[2].trim();
+    region      = dong; // 일단 동 이름을 region으로
+  }
+
+  // 구 단위 지역 추출 "노원구", "강남구" 등
+  const guMatch = t.match(/([가-힣]{2,4}[구시군])/);
+  if (guMatch) region = guMatch[1];
+
+  // 단지명만 있는 경우 (동 없이) — 브랜드 매칭
+  if (!complexName) {
+    for (const b of BRANDS) {
+      if (n.includes(b)) {
+        // 브랜드 앞에 붙은 단어 포함해서 추출
+        const bIdx = t.toLowerCase().indexOf(b);
+        const before = t.slice(Math.max(0, bIdx - 4), bIdx).replace(/[가-힣]+동\s*/, "").trim();
+        complexName = (before ? before + " " : "") + b;
+        break;
+      }
+    }
+  }
+
+  // 목적 추출
+  let purpose = "live";
+  if (/투자|임대|전세끼|갭투자|갭/.test(n)) purpose = "invest";
+  else if (/학군|학교|교육/.test(n))          purpose = "school";
+  else if (/재건축|재개발/.test(n))            purpose = "rebuild";
+  else if (/교통|역세권|지하철/.test(n))        purpose = "transport";
+
+  return { intent, complexName, region, dong, pyeong, areaSqm, price, budget, purpose, raw: t };
+}
+// ─────────────────────────────────────────────────────────────────────
+
 function HomeView({ onNavigate, history }) {
   const recent = (history || []).slice(0, 3);
   const [menuOpen,   setMenuOpen]   = React.useState(false);
   const [recentOpen, setRecentOpen] = React.useState(false);
   const [toast, setToast]           = React.useState("");
 
+  // ── AI 입력창 상태 ──
+  const [aiInput, setAiInput]       = React.useState("");
+  const [parsing,  setParsing]      = React.useState(false);   // 파싱 중 로딩
+  const [parsed,   setParsed]       = React.useState(null);    // 파싱 결과 미리보기
+  const textareaRef                 = React.useRef(null);
+
+  const PLACEHOLDERS = [
+    "공릉동 동부 25평 어때?",
+    "잠실 리센츠 34평 지금 사도 돼?",
+    "내 집 공릉동 동부 25평 9억에 팔까?",
+    "7억으로 노원구 30평 추천해줘",
+    "대치 래미안 84㎡ 적정가 알려줘",
+  ];
+  const [phIdx, setPhIdx] = React.useState(0);
+  React.useEffect(() => {
+    const t = setInterval(() => setPhIdx(i => (i + 1) % PLACEHOLDERS.length), 3200);
+    return () => clearInterval(t);
+  }, []);
+
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(""), 2400);
   };
 
-  // 아이콘 — strokeWidth 1.3 (Heroicons/Lucide 계열 얇은 라인)
+  // ── 아이콘 컴포넌트 ──
   const I = ({ d, s = 16, color = "currentColor" }) => (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none"
       stroke={color} strokeWidth="1.3"
       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {d === "send"    && <><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>}
       {d === "camera"  && <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>}
-      {d === "pin"     && <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></>}
+      {d === "mic"     && <><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></>}
       {d === "home"    && <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>}
       {d === "chevron" && <polyline points="6 9 12 15 18 9"/>}
       {d === "right"   && <polyline points="9 18 15 12 9 6"/>}
+      {d === "search"  && <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>}
+      {d === "x"       && <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>}
+      {d === "pin"     && <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></>}
     </svg>
   );
 
   const PX = 24;
+
+  // intent → 한국어 라벨
+  const INTENT_LABEL = {
+    fair:      "적정가 분석",
+    buy:       "매수 분석",
+    sell:      "매도 분석",
+    recommend: "예산 추천",
+  };
+  const INTENT_COLOR = {
+    fair:      BRAND_GREEN,
+    buy:       "#2563eb",
+    sell:      "#dc2626",
+    recommend: "#7c3aed",
+  };
+
+  // ── 입력 제출 핸들러 ──
+  async function handleSubmit() {
+    const txt = aiInput.trim();
+    if (!txt || parsing) return;
+
+    setParsing(true);
+    setParsed(null);
+
+    // 규칙 기반 파싱 (동기)
+    const result = parseIntent(txt);
+    setParsed(result);
+    setParsing(false);
+
+    // 단지명 명확 → 바로 이동
+    // 단지명 불명확 → 검색창(LocationPicker)으로 이동하면서 쿼리 전달
+    if (result.complexName) {
+      // intent에 따라 탭 결정
+      const tabMap = { fair: "fair", buy: "buy", sell: "sell", recommend: "reco" };
+      onNavigate(tabMap[result.intent] || "fair", result);
+    } else {
+      // 단지명 모르면 검색 화면으로 — query 전달
+      onNavigate("fair", { ...result, searchQuery: txt });
+    }
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  }
+
+  // ── 음성 입력 ──
+  const [listening, setListening] = React.useState(false);
+  function handleVoice() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { showToast("이 브라우저는 음성 입력을 지원하지 않습니다."); return; }
+    const rec = new SR();
+    rec.lang = "ko-KR";
+    rec.interimResults = false;
+    rec.onstart  = () => setListening(true);
+    rec.onend    = () => setListening(false);
+    rec.onerror  = () => { setListening(false); showToast("음성 인식 실패. 다시 시도해주세요."); };
+    rec.onresult = (e) => {
+      const text = e.results[0][0].transcript;
+      setAiInput(text);
+      setTimeout(() => handleSubmitWithText(text), 100);
+    };
+    rec.start();
+  }
+
+  async function handleSubmitWithText(txt) {
+    if (!txt.trim()) return;
+    setParsing(true);
+    const result = parseIntent(txt);
+    setParsed(result);
+    setParsing(false);
+    const tabMap = { fair: "fair", buy: "buy", sell: "sell", recommend: "reco" };
+    if (result.complexName) onNavigate(tabMap[result.intent] || "fair", result);
+    else onNavigate("fair", { ...result, searchQuery: txt });
+  }
+
+  // ── 아코디언 ──
+  const AccordionRow = ({ label, open, onToggle }) => (
+    <button onClick={onToggle} style={{
+      width: "100%", display: "flex", alignItems: "center",
+      justifyContent: "space-between", background: "none", border: "none",
+      cursor: "pointer", padding: `15px ${PX}px`,
+      borderTop: `0.5px solid ${BRAND_BORDER}`,
+    }}>
+      <span style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.08em", color: BRAND_MUTED, textTransform: "uppercase" }}>
+        {label}
+      </span>
+      <span style={{ color: BRAND_MUTED, display: "flex", transition: "transform 0.22s ease", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>
+        <I d="chevron" s={13} />
+      </span>
+    </button>
+  );
+
+  const AccordionBody = ({ open, children }) => {
+    const ref = React.useRef(null);
+    const [height, setHeight] = React.useState(0);
+    React.useEffect(() => { if (ref.current) setHeight(ref.current.scrollHeight); }, [open, children]);
+    return (
+      <div style={{ overflow: "hidden", maxHeight: open ? height + "px" : "0px", opacity: open ? 1 : 0, transition: "max-height 0.22s ease, opacity 0.18s ease" }}>
+        <div ref={ref}>{children}</div>
+      </div>
+    );
+  };
+
+  // Toast
+  const Toast = () => toast ? (
+    <div style={{
+      position: "fixed", bottom: 96, left: "50%", transform: "translateX(-50%)",
+      background: "rgba(17,17,17,0.90)", backdropFilter: "blur(10px)",
+      color: "#fff", fontSize: 13, padding: "11px 24px", borderRadius: 12,
+      zIndex: 999, whiteSpace: "nowrap", pointerEvents: "none",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
+    }}>{toast}</div>
+  ) : null;
 
   const menus = [
     { id:"apt",  label:"아파트 분석",    tab:"fair", ready:true  },
@@ -2571,221 +2799,197 @@ function HomeView({ onNavigate, history }) {
     { id:"com",  label:"상가 분석",      tab:null,   ready:false },
   ];
 
-  // 토스트
-  const Toast = () => toast ? (
-    <div style={{
-      position: "fixed", bottom: 96, left: "50%", transform: "translateX(-50%)",
-      background: "rgba(17,17,17,0.90)", backdropFilter: "blur(10px)",
-      color: "#fff", fontSize: 13, fontWeight: 400,
-      padding: "11px 24px", borderRadius: 12, zIndex: 999,
-      whiteSpace: "nowrap", pointerEvents: "none",
-      letterSpacing: "-0.01em",
-      boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
-    }}>{toast}</div>
-  ) : null;
-
-  // 아코디언 헤더
-  const AccordionRow = ({ label, open, onToggle }) => (
-    <button
-      onClick={onToggle}
-      style={{
-        width: "100%", display: "flex", alignItems: "center",
-        justifyContent: "space-between", background: "none",
-        border: "none", cursor: "pointer",
-        padding: `15px ${PX}px`,
-        borderTop: `0.5px solid ${BRAND_BORDER}`,
-      }}
-    >
-      <span style={{
-        fontSize: 11, fontWeight: 500,
-        letterSpacing: "0.08em", color: BRAND_MUTED,
-        textTransform: "uppercase",
-      }}>
-        {label}
-      </span>
-      <span style={{
-        color: BRAND_MUTED,
-        display: "flex",
-        transition: "transform 0.22s ease",
-        transform: open ? "rotate(180deg)" : "rotate(0deg)",
-      }}>
-        <I d="chevron" s={13} />
-      </span>
-    </button>
-  );
-
-  // 아코디언 본문 — smooth height + opacity transition
-  const AccordionBody = ({ open, children }) => {
-    const ref = React.useRef(null);
-    const [height, setHeight] = React.useState(0);
-    React.useEffect(() => {
-      if (ref.current) setHeight(ref.current.scrollHeight);
-    }, [open, children]);
-    return (
-      <div style={{
-        overflow: "hidden",
-        maxHeight: open ? height + "px" : "0px",
-        opacity: open ? 1 : 0,
-        transition: "max-height 0.22s ease, opacity 0.18s ease",
-      }}>
-        <div ref={ref}>{children}</div>
-      </div>
-    );
-  };
-
   return (
     <div style={{ maxWidth: 480, margin: "0 auto", background: BRAND_BG, minHeight: "100dvh" }}>
       <Toast />
 
-      {/* ── Hero 영역 ── */}
-      <div style={{ padding: `48px ${PX}px 32px` }}>
-        {/* 브랜드 라벨 */}
-        <div style={{ marginBottom: 20 }}>
-          <span style={{
-            fontSize: 10, fontWeight: 600, letterSpacing: "0.13em",
-            color: BRAND_GREEN, textTransform: "uppercase",
-            display: "block", marginBottom: 2,
-          }}>
+      {/* ── Hero ── */}
+      <div style={{ padding: `48px ${PX}px 24px` }}>
+        <div style={{ marginBottom: 18 }}>
+          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.13em", color: BRAND_GREEN, textTransform: "uppercase", display: "block", marginBottom: 2 }}>
             ValueLens
           </span>
-          <span style={{
-            fontSize: 10, fontWeight: 400, letterSpacing: "0.10em",
-            color: BRAND_MUTED, textTransform: "uppercase",
-          }}>
+          <span style={{ fontSize: 10, fontWeight: 400, letterSpacing: "0.10em", color: BRAND_MUTED, textTransform: "uppercase" }}>
             Property Intelligence
           </span>
         </div>
 
-        {/* 메인 문구 */}
-        <h1 style={{
-          fontSize: 30, fontWeight: 700, lineHeight: 1.2,
-          letterSpacing: "-0.032em", color: BRAND, margin: "0 0 14px",
-        }}>
-          사진 한 장으로<br />건물을 분석합니다.
+        <h1 style={{ fontSize: 28, fontWeight: 700, lineHeight: 1.22, letterSpacing: "-0.03em", color: BRAND, margin: "0 0 10px" }}>
+          궁금한 부동산을<br />바로 물어보세요.
         </h1>
-
-        {/* 서브 문구 */}
-        <p style={{
-          fontSize: 14, color: BRAND_MID, lineHeight: 1.7,
-          margin: 0, fontWeight: 400, letterSpacing: "-0.008em",
-        }}>
-          건물 사진 · 명판 · 주소를 입력하면<br />필요한 정보를 분석해드립니다.
+        <p style={{ fontSize: 14, color: BRAND_MID, lineHeight: 1.65, margin: 0, fontWeight: 400, letterSpacing: "-0.008em" }}>
+          단지명 · 지역 · 평형 · 가격을 자유롭게 입력하면<br />분석 유형을 자동으로 판단합니다.
         </p>
       </div>
 
-      {/* ── 메인 CTA (사진 — 준비 중) ── */}
+      {/* ── AI 입력창 ── */}
       <div style={{ padding: `0 ${PX}px` }}>
-        <button
-          onClick={() => showToast("사진 분석 기능은 준비 중입니다.")}
-          style={{
-            width: "100%", height: 52, borderRadius: 14,
-            background: BRAND, color: "#fff",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-            border: "none", cursor: "pointer",
-            fontSize: 15, fontWeight: 600, letterSpacing: "-0.012em",
-            boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-            position: "relative",
-            transition: "opacity 0.15s",
-          }}
-          onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
-          onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-        >
-          <I d="camera" s={17} color="#fff" />
-          사진으로 분석하기
-          {/* 준비중 Badge — 버튼 우상단 */}
-          <span style={{
-            position: "absolute", top: -7, right: 12,
-            fontSize: 9, fontWeight: 600, letterSpacing: "0.04em",
-            color: "#fff", background: BRAND_GREEN,
-            borderRadius: 20, padding: "2px 7px",
-            textTransform: "uppercase",
-          }}>Beta</span>
-        </button>
-
-        {/* 사진 버튼 아래 안내 */}
-        <p style={{
-          textAlign: "center", fontSize: 11, color: BRAND_MUTED,
-          marginTop: 10, marginBottom: 0, letterSpacing: "-0.005em", fontWeight: 400,
+        <div style={{
+          background: "#fff",
+          border: `1px solid ${parsed ? INTENT_COLOR[parsed.intent] || BRAND_BORDER : BRAND_BORDER}`,
+          borderRadius: 18,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
+          transition: "border-color 0.2s",
+          overflow: "hidden",
         }}>
-          건물 사진 · 명판 · 주소 모두 지원
-        </p>
+          {/* textarea */}
+          <textarea
+            ref={textareaRef}
+            value={aiInput}
+            onChange={e => { setAiInput(e.target.value); setParsed(null); }}
+            onKeyDown={handleKeyDown}
+            placeholder={PLACEHOLDERS[phIdx]}
+            rows={3}
+            style={{
+              width: "100%", boxSizing: "border-box",
+              padding: "16px 16px 8px",
+              border: "none", outline: "none", resize: "none",
+              fontSize: 15, lineHeight: 1.6, color: BRAND,
+              background: "transparent", letterSpacing: "-0.01em",
+              fontFamily: "inherit",
+            }}
+          />
+
+          {/* 하단 액션바 */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px 12px" }}>
+            {/* 좌측: 카메라 + 마이크 */}
+            <div style={{ display: "flex", gap: 4 }}>
+              {/* 카메라 — 준비 중 */}
+              <button
+                onClick={() => showToast("사진 분석은 준비 중입니다.")}
+                style={{ width: 36, height: 36, borderRadius: 10, border: "none", background: BRAND_LIGHT, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.12s" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#ebebea"}
+                onMouseLeave={e => e.currentTarget.style.background = BRAND_LIGHT}
+                title="사진 분석 (준비 중)"
+              >
+                <I d="camera" s={15} color={BRAND_MUTED} />
+              </button>
+
+              {/* 마이크 — 음성 입력 */}
+              <button
+                onClick={handleVoice}
+                style={{
+                  width: 36, height: 36, borderRadius: 10, border: "none",
+                  background: listening ? BRAND_GREEN : BRAND_LIGHT,
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={e => { if (!listening) e.currentTarget.style.background = "#ebebea"; }}
+                onMouseLeave={e => { if (!listening) e.currentTarget.style.background = BRAND_LIGHT; }}
+                title="음성으로 입력"
+              >
+                <I d="mic" s={15} color={listening ? "#fff" : BRAND_MUTED} />
+              </button>
+            </div>
+
+            {/* 우측: 전송 버튼 */}
+            <button
+              onClick={handleSubmit}
+              disabled={!aiInput.trim() || parsing}
+              style={{
+                height: 36, paddingLeft: 16, paddingRight: 16,
+                borderRadius: 10, border: "none",
+                background: aiInput.trim() ? BRAND : BRAND_LIGHT,
+                color: aiInput.trim() ? "#fff" : BRAND_MUTED,
+                cursor: aiInput.trim() ? "pointer" : "default",
+                fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em",
+                display: "flex", alignItems: "center", gap: 6,
+                transition: "background 0.15s, color 0.15s",
+              }}
+            >
+              {parsing ? "분석 중…" : (<><I d="send" s={13} color={aiInput.trim() ? "#fff" : BRAND_MUTED} />분석</>)}
+            </button>
+          </div>
+        </div>
+
+        {/* 파싱 결과 미리보기 */}
+        {parsed && (
+          <div style={{
+            marginTop: 10, padding: "11px 14px",
+            borderRadius: 12,
+            background: `${INTENT_COLOR[parsed.intent] || BRAND_GREEN}10`,
+            border: `0.5px solid ${INTENT_COLOR[parsed.intent] || BRAND_GREEN}30`,
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span style={{
+                fontSize: 10, fontWeight: 600, letterSpacing: "0.06em",
+                color: INTENT_COLOR[parsed.intent] || BRAND_GREEN,
+                textTransform: "uppercase", marginRight: 8,
+              }}>
+                {INTENT_LABEL[parsed.intent] || "분석"}
+              </span>
+              <span style={{ fontSize: 12, color: BRAND_MID, fontWeight: 400 }}>
+                {[parsed.complexName, parsed.dong, parsed.region, parsed.pyeong ? `${parsed.pyeong}평` : null, parsed.price ? `${Math.round(parsed.price/10000)}억` : null].filter(Boolean).join(" · ")}
+              </span>
+            </div>
+            <button onClick={() => { setParsed(null); setAiInput(""); }} style={{ background:"none", border:"none", cursor:"pointer", color: BRAND_MUTED, display:"flex", padding: 2 }}>
+              <I d="x" s={13} />
+            </button>
+          </div>
+        )}
+
+        {/* 음성 중 표시 */}
+        {listening && (
+          <div style={{ marginTop: 10, textAlign: "center" }}>
+            <span style={{ fontSize: 12, color: BRAND_GREEN, fontWeight: 500 }}>
+              🎙 듣고 있습니다… 말씀하세요
+            </span>
+          </div>
+        )}
+
+        {/* 입력 힌트 */}
+        {!aiInput && !listening && (
+          <p style={{ marginTop: 10, fontSize: 11, color: BRAND_MUTED, letterSpacing: "-0.005em", textAlign: "center" }}>
+            Enter로 바로 분석 · Shift+Enter 줄바꿈
+          </p>
+        )}
       </div>
 
-      {/* ── 보조 CTA (주소 입력) ── */}
-      <div style={{ padding: `12px ${PX}px 0` }}>
+      {/* ── 바로가기: 주소 직접 입력 ── */}
+      <div style={{ padding: `16px ${PX}px 0` }}>
         <button
           onClick={() => onNavigate("fair")}
           style={{
-            width: "100%", height: 50, borderRadius: 14,
-            background: "#fff", color: BRAND,
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
+            width: "100%", height: 46, borderRadius: 13,
+            background: "#fff", color: BRAND_MID,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             border: `0.5px solid ${BRAND_BORDER}`, cursor: "pointer",
-            fontSize: 14, fontWeight: 500, letterSpacing: "-0.01em",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.045)",
-            transition: "background 0.15s, box-shadow 0.15s",
+            fontSize: 13, fontWeight: 400, letterSpacing: "-0.008em",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+            transition: "background 0.12s",
           }}
-          onMouseEnter={e => {
-            e.currentTarget.style.background = "#f4f4f2";
-            e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.07)";
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.background = "#fff";
-            e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.045)";
-          }}
+          onMouseEnter={e => e.currentTarget.style.background = "#f5f5f3"}
+          onMouseLeave={e => e.currentTarget.style.background = "#fff"}
         >
-          <I d="pin" s={15} color={BRAND_MID} />
-          주소 직접 입력
+          <I d="search" s={14} color={BRAND_MUTED} />
+          단지명으로 직접 검색
         </button>
       </div>
 
       {/* ── 분석 메뉴 (아코디언) ── */}
       <div style={{ marginTop: 28 }}>
-        <AccordionRow
-          label="분석 메뉴"
-          open={menuOpen}
-          onToggle={() => setMenuOpen(v => !v)}
-        />
+        <AccordionRow label="분석 메뉴" open={menuOpen} onToggle={() => setMenuOpen(v => !v)} />
         <AccordionBody open={menuOpen}>
           <div style={{ padding: `8px ${PX}px 16px` }}>
             {menus.map((m, idx) => (
-              <button
-                key={m.id}
-                onClick={() => {
-                  if (m.ready) onNavigate(m.tab);
-                  else showToast("곧 제공될 예정입니다.");
-                }}
+              <button key={m.id}
+                onClick={() => { if (m.ready) onNavigate(m.tab); else showToast("곧 제공될 예정입니다."); }}
                 style={{
-                  width: "100%", display: "flex", alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "14px 4px",
-                  marginBottom: 0,
-                  background: "none", border: "none",
+                  width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "14px 4px", background: "none", border: "none",
                   borderBottom: idx < menus.length - 1 ? `0.5px solid ${BRAND_BORDER}` : "none",
-                  cursor: m.ready ? "pointer" : "default",
-                  textAlign: "left",
-                  transition: "opacity 0.12s",
+                  cursor: m.ready ? "pointer" : "default", textAlign: "left", transition: "opacity 0.12s",
                 }}
                 onMouseEnter={e => { if (m.ready) e.currentTarget.style.opacity = "0.68"; }}
                 onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
               >
-                <span style={{
-                  fontSize: 14, fontWeight: 400,
-                  color: m.ready ? BRAND : BRAND_MUTED,
-                  letterSpacing: "-0.008em",
-                }}>
+                <span style={{ fontSize: 14, fontWeight: 400, color: m.ready ? BRAND : BRAND_MUTED, letterSpacing: "-0.008em" }}>
                   {m.label}
                 </span>
                 {m.ready
                   ? <I d="right" s={13} color={BRAND_MUTED} />
-                  : (
-                    <span style={{
-                      fontSize: 9, fontWeight: 500, letterSpacing: "0.04em",
-                      color: BRAND_MUTED,
-                      border: `0.5px solid ${BRAND_BORDER}`,
-                      borderRadius: 20, padding: "2px 8px",
-                      textTransform: "uppercase",
-                    }}>준비 중</span>
-                  )
+                  : <span style={{ fontSize: 9, fontWeight: 500, color: BRAND_MUTED, border: `0.5px solid ${BRAND_BORDER}`, borderRadius: 20, padding: "2px 8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>준비 중</span>
                 }
               </button>
             ))}
@@ -2796,11 +3000,7 @@ function HomeView({ onNavigate, history }) {
       {/* ── 최근 분석 (아코디언) ── */}
       {recent.length > 0 && (
         <div style={{ marginTop: 4 }}>
-          <AccordionRow
-            label="최근 분석"
-            open={recentOpen}
-            onToggle={() => setRecentOpen(v => !v)}
-          />
+          <AccordionRow label="최근 분석" open={recentOpen} onToggle={() => setRecentOpen(v => !v)} />
           <AccordionBody open={recentOpen}>
             <div style={{ padding: `8px ${PX}px 16px` }}>
               {recent.map((h, i) => {
@@ -2809,35 +3009,22 @@ function HomeView({ onNavigate, history }) {
                 const typeLabel = { fair: "적정가", buy: "매수", sell: "매도" }[tab] || h.analysisType;
                 const g = h.grade || "C";
                 return (
-                  <button
-                    key={i}
-                    onClick={() => onNavigate(tab)}
+                  <button key={i} onClick={() => onNavigate(tab)}
                     style={{
-                      width: "100%", background: "#fff",
-                      border: `0.5px solid ${BRAND_BORDER}`,
+                      width: "100%", background: "#fff", border: `0.5px solid ${BRAND_BORDER}`,
                       borderRadius: 12, padding: "13px 16px", marginBottom: 8,
                       display: "flex", alignItems: "center", gap: 13,
                       cursor: "pointer", textAlign: "left",
-                      boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-                      transition: "background 0.12s",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.04)", transition: "background 0.12s",
                     }}
                     onMouseEnter={e => e.currentTarget.style.background = "#f5f5f3"}
                     onMouseLeave={e => e.currentTarget.style.background = "#fff"}
                   >
-                    <div style={{
-                      width: 36, height: 36, borderRadius: 10,
-                      background: BRAND_LIGHT, border: `0.5px solid ${BRAND_BORDER}`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      flexShrink: 0,
-                    }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: BRAND_LIGHT, border: `0.5px solid ${BRAND_BORDER}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       <I d="home" s={15} color={BRAND_MID} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{
-                        fontSize: 14, fontWeight: 500, color: BRAND,
-                        margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                        letterSpacing: "-0.01em",
-                      }}>
+                      <p style={{ fontSize: 14, fontWeight: 500, color: BRAND, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: "-0.01em" }}>
                         {h.complexName || h.complex}
                       </p>
                       <p style={{ fontSize: 12, color: BRAND_MUTED, margin: "3px 0 0", fontWeight: 400 }}>
@@ -2845,13 +3032,7 @@ function HomeView({ onNavigate, history }) {
                       </p>
                     </div>
                     {h.grade && (
-                      <span style={{
-                        fontSize: 12, fontWeight: 500, flexShrink: 0,
-                        color: GRADE_COLOR[g] || "#44403c",
-                        background: GRADE_BG[g]  || "#fafaf8",
-                        border: `0.5px solid ${GRADE_BR[g] || BRAND_BORDER}`,
-                        borderRadius: 6, padding: "3px 9px",
-                      }}>
+                      <span style={{ fontSize: 12, fontWeight: 500, flexShrink: 0, color: GRADE_COLOR[g] || "#44403c", background: GRADE_BG[g] || "#fafaf8", border: `0.5px solid ${GRADE_BR[g] || BRAND_BORDER}`, borderRadius: 6, padding: "3px 9px" }}>
                         {g}
                       </span>
                     )}
@@ -2863,22 +3044,12 @@ function HomeView({ onNavigate, history }) {
         </div>
       )}
 
-      {/* ── 하단 캐치프레이즈 ── */}
-      <div style={{
-        padding: `24px ${PX}px 0`,
-        borderTop: `0.5px solid ${BRAND_BORDER}`,
-        marginTop: 8,
-      }}>
-        <p style={{
-          fontSize: 12, color: BRAND_MUTED, fontWeight: 400,
-          letterSpacing: "-0.008em", lineHeight: 1.7, margin: 0,
-          textAlign: "center",
-        }}>
+      {/* ── 하단 ── */}
+      <div style={{ padding: `24px ${PX}px 0`, borderTop: `0.5px solid ${BRAND_BORDER}`, marginTop: 8 }}>
+        <p style={{ fontSize: 12, color: BRAND_MUTED, fontWeight: 400, letterSpacing: "-0.008em", lineHeight: 1.7, margin: 0, textAlign: "center" }}>
           건물의 핵심 정보를 빠르게 확인할 수 있습니다.
         </p>
       </div>
-
-      {/* ── 법적 안내 + Safe Area 여백 ── */}
       <div style={{ padding: `16px ${PX}px 56px` }}>
         <p style={{ fontSize: 10, color: "#c0bbb4", lineHeight: 1.8, margin: 0, fontWeight: 400 }}>
           ValueLens는 분석 지원 도구입니다. 최종 계약, 투자, 세금, 권리관계 판단은 공인중개사·세무사·감정평가사 등 전문가와 함께 검토하시기 바랍니다.
@@ -3013,16 +3184,32 @@ function AppInner() {
           {aptTab === "home" && (
             <HomeView
               history={history}
-              onNavigate={(tab) => {
-                setAptTab("fair"); // 항상 fair 탭으로 먼저 이동
+              onNavigate={(tab, intentData) => {
                 window.scrollTo({ top: 0, behavior: "smooth" });
+
+                // intentData가 있으면 BuyView에 초기값 주입
+                if (intentData && intentData.complexName) {
+                  setScreenerInitial({
+                    complexName:   intentData.complexName,
+                    region:        intentData.region  || "",
+                    dong:          intentData.dong    || "",
+                    areaExclusive: intentData.areaSqm ? String(Math.round(intentData.areaSqm)) : "",
+                    complexId:     null,
+                    _intentPrice:  intentData.price   || null,
+                    _intentBudget: intentData.budget  || null,
+                    _intentPyeong: intentData.pyeong  || null,
+                    _searchQuery:  intentData.searchQuery || null,
+                  });
+                } else if (intentData && intentData.searchQuery) {
+                  // 단지명 불명확 — 검색창에 쿼리 전달
+                  setScreenerInitial({ _searchQuery: intentData.searchQuery });
+                }
+
                 if (tab === "photo") {
-                  // 탭 렌더 후 파일 input 자동 클릭
-                  setTimeout(() => {
-                    photoTriggerRef.current?.click();
-                  }, 120);
-                } else if (tab !== "fair") {
-                  setAptTab(tab);
+                  setAptTab("fair");
+                  setTimeout(() => photoTriggerRef.current?.click(), 120);
+                } else {
+                  setAptTab(tab === "fair" || tab === "buy" || tab === "sell" || tab === "reco" || tab === "tax" || tab === "adv" ? tab : "fair");
                 }
               }}
             />
@@ -3988,13 +4175,20 @@ function fuzzyMatch(text, query) {
 }
 
 // ── 주소 단계별 선택 컴포넌트 ──
-function LocationPicker({ onComplete }) {
+function LocationPicker({ onComplete, initialQuery = "" }) {
   // ── 통합 검색 상태 ──
-  const [query, setQuery]           = React.useState("");        // 통합 검색창 입력값
-  const [candidates, setCandidates] = React.useState([]);        // 후보 단지 목록
-  const [suggestions, setSuggestions] = React.useState([]);      // 관련 검색어
+  const [query, setQuery]           = React.useState(initialQuery); // ← initialQuery 반영
+  const [candidates, setCandidates] = React.useState([]);
+  const [suggestions, setSuggestions] = React.useState([]);
   const [loading, setLoading]       = React.useState(false);
-  const [searched, setSearched]     = React.useState(false);     // 한 번이라도 검색한 적 있는지
+  const [searched, setSearched]     = React.useState(false);
+
+  // initialQuery가 있으면 마운트 즉시 검색 실행
+  React.useEffect(() => {
+    if (initialQuery && initialQuery.length >= 2) {
+      _doUnifiedSearch(initialQuery);
+    }
+  }, []);
 
   // ── 지역으로 찾기(고급) 상태 ──
   const [advOpen, setAdvOpen]       = React.useState(false);
@@ -5215,7 +5409,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
             </button>
           </div>
         ) : (
-          <LocationPicker onComplete={({ sido, sigungu, dong, complexName, exactAptNm, complexId, buildYear, areaList }) => {
+          <LocationPicker initialQuery={screenerInitial?._searchQuery || ""} onComplete={({ sido, sigungu, dong, complexName, exactAptNm, complexId, buildYear, areaList }) => {
             setF(p => ({ ...p, region: sigungu, sido, dong, complexName, exactAptNm,
               complexId: complexId || null,
               buildYear: buildYear || p.buildYear,
