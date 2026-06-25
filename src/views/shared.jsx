@@ -194,4 +194,52 @@ function SellSaveBtn({ r, f, sd, onBack, showFull, uid }) {
   );
 }
 
-export { AiNotice, GradeInfoPopup, DataTrustBadge, InputWarnings, MarketTypeBadge, SellSaveBtn };
+
+// ── BuySaveBtn ──
+function BuySaveBtn({ r, f, bd, onBack, onSave, saved, showFull, uid }) {
+  const [savedId, setSavedId] = useState(null);
+  const handleSave = () => {
+    saveAnalysis({
+      _uid: uid,
+      id: `buy_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
+      type: "buy", complexName: f.complexName,
+      area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+      region: f.region, savedAt: new Date().toISOString(),
+      currentPrice: Number(f.currentPrice) || 0, aiFairPrice: r.fairPrice || 0,
+      gradeLabel: r.gradeLabel || "",
+      summary: `${r.gradeLabel || ""} · AI 적정가 ${won(r.fairPrice)} · ${bd.finalLabel}`,
+      resultSnapshot: { fairPrice: r.fairPrice, safetyPrice: r.safetyPrice, buyGrade: r.buyGrade,
+        gradeLabel: r.gradeLabel, gapRatio: r.gapRatio, finalLabel: bd.finalLabel,
+        currentPrice: Number(f.currentPrice) || 0 },
+    });
+    setSavedId(true);
+  };
+
+  if (showFull) {
+    return (
+      <button onClick={handleSave} disabled={!!savedId}
+        className={`w-full rounded-2xl py-3 text-sm font-semibold transition-colors ${savedId ? "bg-slate-100 text-slate-400" : "border border-emerald-200 bg-emerald-50 text-emerald-700 active:bg-emerald-100"}`}>
+        {savedId ? "✓ 저장됨" : "💾 이 분석 저장하기"}
+      </button>
+    );
+  }
+
+  return (
+    <div className="mb-4 flex items-center justify-between">
+      <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 분석</button>
+      <div className="flex items-center gap-2">
+        <button onClick={handleSave} disabled={!!savedId}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+          {savedId ? "✓ 저장됨" : "저장"}
+        </button>
+        <button onClick={onSave} disabled={saved}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium ${saved ? "bg-slate-100 text-slate-400" : "text-white"}`}
+          style={saved ? {} : { backgroundColor: NAVY }}>
+          {saved ? "★ 관심단지" : "☆ 관심단지"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export { AiNotice, GradeInfoPopup, DataTrustBadge, InputWarnings, MarketTypeBadge, SellSaveBtn, BuySaveBtn };
