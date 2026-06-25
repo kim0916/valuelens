@@ -1,6 +1,13 @@
 // ValueLens Recommendation — 예산 기반 추천 엔진
 // ★ 계산 로직 수정 금지
 
+import { CONFIG, LABEL } from '../engine/analyze.js';
+import { won } from '../constants/grades.js';
+import { PRIME_REGIONS } from '../engine/market.js';
+import { POOL } from './pool.js';
+import { scorePool, calculateLivingScore, calculateSupplyRisk, calculatePositiveFactors, calculateNegativeFactors } from './score.js';
+import { clamp } from '../utils/math.js';
+
 function recommendByBudget({ budget, region = "전체", pyeong = 0, prefs = [] }) {
   const B = budget;
   return POOL
