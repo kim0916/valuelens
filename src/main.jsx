@@ -3415,9 +3415,74 @@ function HomeView({ onNavigate, history, onSaveHistory, currentUserId, currentUs
 
 
 
+// ── 관리자 이메일 (Maintenance Mode 바이패스) ──
+const ADMIN_EMAILS = [
+  "asher20160916@gmail.com",  // 성현 (개발자)
+  "gold9999@naver.com",        // 테스트 계정
+];
+
+function MaintenanceScreen() {
+  return (
+    <div style={{
+      minHeight: "100dvh", background: BRAND_BG,
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      padding: "40px 32px", textAlign: "center",
+    }}>
+      {/* 로고 */}
+      <div style={{ marginBottom: 32 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: BRAND_GREEN, textTransform: "uppercase", display: "block", marginBottom: 4 }}>
+          ValueLens
+        </span>
+        <span style={{ fontSize: 10, fontWeight: 400, letterSpacing: "0.10em", color: BRAND_MUTED, textTransform: "uppercase" }}>
+          Property Intelligence
+        </span>
+      </div>
+
+      {/* 아이콘 */}
+      <div style={{
+        width: 64, height: 64, borderRadius: "50%",
+        background: BRAND_LIGHT, border: `0.5px solid ${BRAND_BORDER}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        marginBottom: 28,
+      }}>
+        <svg width={28} height={28} viewBox="0 0 24 24" fill="none"
+          stroke={BRAND_MUTED} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+
+      {/* 제목 */}
+      <h1 style={{
+        fontSize: 22, fontWeight: 700, color: BRAND,
+        letterSpacing: "-0.025em", lineHeight: 1.3,
+        margin: "0 0 16px",
+      }}>
+        서비스 점검 중
+      </h1>
+
+      {/* 본문 */}
+      <p style={{
+        fontSize: 15, color: BRAND_MID, lineHeight: 1.75,
+        letterSpacing: "-0.01em", margin: "0 0 32px",
+        maxWidth: 320,
+      }}>
+        현재 ValueLens는 대규모 업데이트 중입니다.<br />
+        더 완성도 높은 서비스를 위해<br />
+        잠시 점검 중입니다.
+      </p>
+
+      {/* 서브 */}
+      <p style={{ fontSize: 12, color: BRAND_MUTED, letterSpacing: "-0.005em" }}>
+        곧 다시 만나요.
+      </p>
+    </div>
+  );
+}
+
 function AppInner() {
   const [ptype, setPtype] = useState("apartment");
-  const [aptTab, setAptTab] = useState("home");          // home = 새 홈 화면
+  const [aptTab, setAptTab] = useState("home");
   const [screenerInitial, setScreenerInitial] = useState(null);
   const photoTriggerRef = React.useRef(null);
   const [roomTab, setRoomTab] = useState("search");
@@ -3429,12 +3494,52 @@ function AppInner() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
 
+  // ── Maintenance Mode 상태 ──
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [maintenanceChecked, setMaintenanceChecked] = useState(false);
+
   React.useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setCurrentUserId(user?.id ?? null);
       setCurrentUserEmail(user?.email ?? null);
     });
   }, []);
+
+  // maintenance_mode 조회 — 앱 로드 시 1회 + 60초마다 갱신
+  React.useEffect(() => {
+    async function checkMaintenance() {
+      try {
+        const { data, error } = await supabase
+          .from("app_config")
+          .select("value")
+          .eq("key", "maintenance_mode")
+          .single();
+
+        if (error) {
+          // 테이블 없거나 조회 실패 → 점검모드 해제 (안전한 방향)
+          setMaintenanceMode(false);
+        } else {
+          setMaintenanceMode(data?.value === "true");
+        }
+      } catch (_) {
+        setMaintenanceMode(false);
+      } finally {
+        setMaintenanceChecked(true);
+      }
+    }
+
+    checkMaintenance();
+    const interval = setInterval(checkMaintenance, 60000); // 60초마다 갱신
+    return () => clearInterval(interval);
+  }, []);
+
+  // 관리자 여부
+  const isAdmin = ADMIN_EMAILS.includes(currentUserEmail);
+
+  // 점검 중 + 관리자 아닌 경우 → 점검 화면
+  if (maintenanceChecked && maintenanceMode && !isAdmin) {
+    return <MaintenanceScreen />;
+  }
 
   // 홈에서 탭으로 이동
   const goTo = (tab) => {
