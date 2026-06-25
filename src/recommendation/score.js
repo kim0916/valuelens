@@ -75,4 +75,4 @@ function calculateNegativeFactors(f) {
 // TODO(API): 웹앱 전환 시 mock 금리 후보를 아래로 교체
 //   - 금융감독원 금융상품 비교공시 / 은행연합회 금리 공시 / 제휴 대출비교 API / 금융기관 실제 심사 API
 
-export { scorePool, calculateLivingScore, calculateSupplyRisk, calculatePositiveFactors, calculateNegativeFactors };
+export { scorePool, calculateLivingScore, calculateSupplyRisk, calculatePositiveFactors, calculateNegativeFactors, AREA_DB };
