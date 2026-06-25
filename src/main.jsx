@@ -4675,6 +4675,7 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
   // ConfirmStep 내부에서 직접 수정 가능한 상태 관리
   const [edit, setEdit] = useState({ ...p.ff });
   const [dealsOpen, setDealsOpen] = useState(false);
+  const [areaOpen, setAreaOpen] = useState(false);
   const setE = (k, v) => setEdit((prev) => ({ ...prev, [k]: v }));
 
   const age = edit.buildYear ? new Date().getFullYear() - Number(edit.buildYear) : null;
@@ -4852,7 +4853,6 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
         {/* 면적 옵션 — AI 인식 여부로 분기 */}
         {Array.isArray(edit._aiAreaOptions) && edit._aiAreaOptions.length > 0 && (() => {
           const hasAiArea = Number(edit.areaExclusive) > 0;
-          const [areaOpen, setAreaOpen] = React.useState(false);
           return hasAiArea ? (
             // AI가 면적 인식 → 접힘 패턴
             <div className="mt-3">
@@ -5159,6 +5159,8 @@ function ConfirmStep({ p, f, onBack, onConfirm, mode = "buy", onRefetch, onBackT
 
 // 적정가 화면 — 집 자체의 가치평가 전용 (매수판단·자금·대출·월상환 표시 안 함)
 function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId }) {
+  const [detailOpen, setDetailOpen] = React.useState(false);
+  const [fairDetailOpen, setFairDetailOpen] = React.useState(false);
   const mc = classifyApartmentMarket(f, r);
   const hold = r.engineMode === "hold";
   const isLowData = mc.specialMarketType === "lowData";
@@ -5247,10 +5249,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       <div className="mb-4"><MarketTypeBadge mc={mc} /></div>
 
       {/* ── 상세 분석 접기/펼치기 ── */}
-      {(() => {
-        const [detailOpen, setDetailOpen] = React.useState(false);
-        return (
-          <>
+      <>
             <button onClick={() => setDetailOpen(v => !v)}
               className="mb-3 flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100">
               <span className="text-xs font-semibold text-slate-600">📊 상세 분석 보기 (전세가율 · 산출방식 · 적정가 범위)</span>
@@ -5418,17 +5417,16 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
 
         {/* ── 상세 분석 접힘 ── */}
         {(() => {
-          const [open, setOpen] = React.useState(false);
           const fs = (() => { const fl = { redevelopment: 65, primePremium: 70, investmentPremium: 65, policyDriven: 65, semiPremium: 70 }[mc.specialMarketType]; return fl != null ? Math.max(r.modelConf, fl) : r.modelConf; })();
           const mrLevel = (isLowData || isAbnormal) ? "평가 불가" : mc.specialMarketType === "investmentPremium" ? "매우높음" : isSpecial ? "높음" : mc.specialMarketType === "semiPremium" ? "보통" : "낮음";
           return (
             <>
-              <button onClick={() => setOpen(v => !v)}
+              <button onClick={() => setFairDetailOpen(v => !v)}
                 className="flex w-full items-center justify-between border-t border-slate-100 px-4 py-3 text-left">
                 <span className="text-xs font-semibold text-slate-500">상세 분석 보기</span>
-                <span className="text-xs text-slate-400">{open ? "접기 ▲" : "펼치기 ▼"}</span>
+                <span className="text-xs text-slate-400">{fairDetailOpen ? "접기 ▲" : "펼치기 ▼"}</span>
               </button>
-              {open && (
+              {fairDetailOpen && (
                 <div className="border-t border-slate-100">
                   <Row l="적정가 산출 방식" v={r.isPremium ? "프리미엄 반영" : r.engineMode === "jeonse" ? "전세 시세 중심" : r.engineMode === "blend" ? "전세·매매 혼합" : r.engineMode === "sale" ? "매매 시세 중심" : "—"} />
                   <Row l="사용 거래 수 (전세/매매)" v={`${jb.used ?? 0} / ${sb.used ?? 0} 건`} />
@@ -5448,9 +5446,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       <p className="mt-5 px-2 text-[11px] leading-relaxed text-slate-400">시장 위험도는 계산 오류를 의미하지 않습니다. 재건축, 정책, 공급, 프리미엄 등에 따른 가격 변동성 위험을 의미합니다. 본 적정가는 공개 데이터와 입력값 기반 참고용 계산이며, 집 자체의 가치 평가에 한정됩니다. 매수 판단·자금·대출·세금은 매수 탭에서 확인하세요.</p>
               </>
             )}
-          </>
-        );
-      })()}
+      </>
 
       {/* ── PDF 리포트 저장 ── */}
       <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
