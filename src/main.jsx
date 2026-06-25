@@ -7738,8 +7738,12 @@ function BudgetView({ onProfile, onGoToBuy }) {
 
         <div className="mt-5 grid grid-cols-2 gap-4">
           <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-slate-500">희망 지역 (구·동, 비우면 전국)</span>
-            <input type="text" className={inp} value={region} placeholder="노원구 / 공릉동" onChange={(e) => setRegion(e.target.value)} />
+            <span className="mb-1.5 block text-xs font-medium text-slate-500">
+              희망 지역 (구·동)
+              <span className="ml-1 font-normal text-slate-400">— 비우면 전국 검색</span>
+            </span>
+            <input type="text" className={inp} value={region} placeholder="예: 노원구, 공릉동, 송도 (비우면 전국)" onChange={(e) => setRegion(e.target.value)} />
+            {!region && <p className="mt-1 text-[11px] text-slate-400">지역을 비우면 전국에서 AI 검토 후보를 찾습니다.</p>}
           </label>
           <label className="block">
             <span className="mb-1.5 block text-xs font-medium text-slate-500">희망 평형 (선택)</span>
@@ -7799,7 +7803,7 @@ function BudgetView({ onProfile, onGoToBuy }) {
                   </p>
                 )}
               </div>
-              {candidates.map((c, i) => <Card key={`${c.complex_id}-${i}`} c={c} idx={i} />)}
+              {candidates.map((c, i) => <Card key={`${c.complex_name || "c"}-${c.area_excl || 0}-${i}`} c={c} idx={i} />)}
               <div className="rounded-2xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-500">
                 <b className="text-slate-600">
                   본 결과는 사용자가 입력한 조건과 공개 데이터를 기반으로 산출된 AI 분석 결과입니다.
