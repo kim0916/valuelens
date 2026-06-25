@@ -2590,19 +2590,23 @@ function parseIntent(raw) {
 
   // 단지 직접 언급 체크 — 단지명 + 동 조합
   // "공릉동 동부", "대치 래미안", "잠실 리센츠" 등
+  // recommend intent면 단지명 추출 안 함 (지역만)
   const dongPattern = t.match(/([가-힣]{2,6}동)\s+([가-힣a-zA-Z0-9\s]{2,12})/);
-  if (dongPattern) {
+  if (dongPattern && intent !== "recommend") {
     dong        = dongPattern[1];
     complexName = dongPattern[2].trim();
-    region      = dong; // 일단 동 이름을 region으로
+    region      = dong;
+  } else if (dongPattern) {
+    dong   = dongPattern[1];
+    region = dong;
   }
 
   // 구 단위 지역 추출 "노원구", "강남구" 등
   const guMatch = t.match(/([가-힣]{2,4}[구시군])/);
   if (guMatch) region = guMatch[1];
 
-  // 단지명만 있는 경우 (동 없이) — 브랜드 매칭
-  if (!complexName) {
+  // 단지명만 있는 경우 (동 없이) — 브랜드 매칭 (recommend 제외)
+  if (!complexName && intent !== "recommend") {
     for (const b of BRANDS) {
       if (n.includes(b)) {
         // 브랜드 앞에 붙은 단어 포함해서 추출
@@ -2720,9 +2724,24 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
   async function routeIntent(intent, rawText) {
     try {
-      // ── 후보 검색 ──
-      const tokens = rawText.replace(/\s/g,"").split("").join(""); // 공백 제거
-      let complexes = [];
+      // ── recommend → 예산 추천 탭으로 바로 이동 ──
+      if (intent.intent === "recommend") {
+        const region = intent.region || intent.dong || "";
+        const budgetWon = intent.budget || intent.price || 0;
+        const budgetStr = budgetWon ? `${Math.round(budgetWon / 10000)}억` : "";
+        replaceLastAI({
+          type: "clarify",
+          content: [
+            "예산 추천 검색으로 이동합니다.",
+            region    ? `지역: ${region}` : null,
+            budgetStr ? `예산: ${budgetStr}` : null,
+            intent.pyeong ? `평형: ${intent.pyeong}평` : null,
+          ].filter(Boolean).join(" · "),
+          onSearch: () => onNavigate("reco", intent),
+          searchLabel: "AI 검토 후보 열기",
+        });
+        return;
+      }
 
       if (intent.complexName) {
         const kw = intent.complexName;
@@ -3164,7 +3183,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                 onMouseLeave={e => e.currentTarget.style.background="#fff"}
               >
                 <CI d="search" s={12} color={BRAND_MUTED} />
-                단지 직접 검색
+                {msg.searchLabel || "단지 직접 검색"}
               </button>
             )}
           </div>
