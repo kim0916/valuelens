@@ -3995,27 +3995,56 @@ function LocationPicker({ onComplete }) {
     const gen = ++genRef.current;
     setLoading(true); setSearched(false); setCandidates([]);
     try {
-      const sbResult = await searchComplexFromSupabase(kw, "", "");
+      // 공백이 있으면 "지역 단지명" 패턴으로 복수 검색 시도
+      const tokens = kw.trim().split(/\s+/);
+      let richCandidates = [];
+
+      if (tokens.length >= 2) {
+        // 두 가지 순서로 검색: "지역단지" / "단지지역"
+        const [t1, ...rest] = tokens;
+        const combined1 = tokens.join("");          // 대치래미안
+        const combined2 = [...rest, t1].join("");   // 래미안대치
+        const [r1, r2, r3] = await Promise.all([
+          searchComplexFromSupabase(combined1, "", ""),
+          searchComplexFromSupabase(combined2, "", ""),
+          searchComplexFromSupabase(rest.join(""), "", ""), // 뒷부분만 (상계주공)
+        ]);
+        if (gen !== genRef.current) return;
+
+        const seen = new Set();
+        for (const sbResult of [r1, r2, r3]) {
+          if (sbResult.fromSupabase) {
+            for (const c of sbResult.complexes) {
+              if (!seen.has(c.id)) { seen.add(c.id); richCandidates.push(c); }
+            }
+          }
+        }
+      }
+
+      // 단독 검색 (공백 없거나 복합 검색 결과 0)
+      if (richCandidates.length === 0) {
+        const sbResult = await searchComplexFromSupabase(kw, "", "");
+        if (gen !== genRef.current) return;
+        if (sbResult.fromSupabase) richCandidates = sbResult.complexes;
+      }
+
       if (gen !== genRef.current) return;
 
-      let richCandidates = [];
-      if (sbResult.fromSupabase && sbResult.complexes.length > 0) {
-        richCandidates = sbResult.complexes.map(c => ({
-          name:       c.complex_name,
-          complexId:  c.id,
-          sigungu:    c.sigungu,
-          dong:       c.legal_dong,
-          sido:       c.sido,
-          buildYear:  c.build_year,
-          roadAddr:   c.road_addr,
-          saleCnt:    c.sale_cnt,
-          rentCnt:    c.rent_cnt,
-          areaList:   c.area_list ? JSON.parse(c.area_list) : [],
-          lastSaleYm: c.last_sale_ym,
-          fromSB:     true,
-        }));
-      }
-      setCandidates(richCandidates.slice(0, 10));
+      const mapped = richCandidates.slice(0, 10).map(c => ({
+        name:       c.complex_name,
+        complexId:  c.id,
+        sigungu:    c.sigungu,
+        dong:       c.legal_dong,
+        sido:       c.sido,
+        buildYear:  c.build_year,
+        roadAddr:   c.road_addr,
+        saleCnt:    c.sale_cnt,
+        rentCnt:    c.rent_cnt,
+        areaList:   c.area_list ? JSON.parse(c.area_list) : [],
+        lastSaleYm: c.last_sale_ym,
+        fromSB:     true,
+      }));
+      setCandidates(mapped);
     } catch(e) {
       if (gen !== genRef.current) return;
       console.error('[unifiedSearch]', e);
