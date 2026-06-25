@@ -672,6 +672,19 @@ const propertyTypes = [
 const apartmentTabsDef = [["fair", "적정가"], ["buy", "매수"], ["sell", "매도"], ["tax", "세금"], ["reco", "추천 후보"], ["adv", "내 자산"], ["logs", "🔍 로그"]];
 const oneRoomTabsDef = [["search", "원룸 찾기"], ["manage", "원룸 관리"], ["yield", "원룸 수익률"]];
 
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+function ComingSoon({ title, desc }) {
+  return (
+    <div className="mt-10 rounded-3xl bg-white p-10 text-center shadow-sm ring-1 ring-slate-100">
+      <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl text-2xl" style={{ backgroundColor: "#eef2ff" }}>🏗️</div>
+      <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+      <p className="mt-2 text-sm leading-relaxed text-slate-500">{desc}</p>
+      <p className="mt-4 text-xs text-slate-400">준비중입니다. 추후 해당 부동산 유형에 맞는 계산식이 추가됩니다.</p>
+    </div>
+  );
+}
+
 function AppInner() {
   const [ptype, setPtype] = useState("apartment");
   const [aptTab, setAptTab] = useState("home");
