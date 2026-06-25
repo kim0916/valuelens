@@ -2,8 +2,10 @@
 // Phase 1-E: main.jsx에서 분리
 // 계산 로직 / UI / 문구 / className / props 변경 금지
 
-import React from 'react';
+import React, { useState } from 'react';
 import { NAVY } from '../constants/brand.js';
+import { won } from '../constants/grades.js';
+import { saveAnalysis } from '../services/storage/analysis.js';
 
 // ── inputWarnings helper (InputWarnings 컴포넌트 전용) ──
 function inputWarnings(r, f) {
@@ -154,4 +156,42 @@ function MarketTypeBadge({ mc }) {
   );
 }
 
-export { AiNotice, GradeInfoPopup, DataTrustBadge, InputWarnings, MarketTypeBadge };
+
+// ── SellSaveBtn ──
+function SellSaveBtn({ r, f, sd, onBack, showFull, uid }) {
+  const [savedId, setSavedId] = useState(null);
+  const handleSave = () => {
+    saveAnalysis({
+      _uid: uid,
+      id: `sell_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
+      type: "sell", complexName: f.complexName,
+      area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+      region: f.region, savedAt: new Date().toISOString(),
+      currentPrice: Number(f.currentPrice) || 0, aiFairPrice: r.fairPrice || 0,
+      gradeLabel: sd.finalSellDecision || "",
+      summary: `${sd.finalSellDecision} · AI 적정가 ${won(r.fairPrice)} · 희망가 ${won(sd.desired)}`,
+      resultSnapshot: { fairPrice: r.fairPrice, finalSellDecision: sd.finalSellDecision,
+        gapVsRef: sd.gapVsRef, askingLevel: sd.askingLevel, currentPrice: Number(f.currentPrice) || 0 },
+    });
+    setSavedId(true);
+  };
+  if (showFull) {
+    return (
+      <button onClick={handleSave} disabled={!!savedId}
+        className={`w-full rounded-2xl py-3 text-sm font-semibold transition-colors ${savedId ? "bg-slate-100 text-slate-400" : "border border-emerald-200 bg-emerald-50 text-emerald-700 active:bg-emerald-100"}`}>
+        {savedId ? "✓ 저장됨" : "💾 이 분석 저장하기"}
+      </button>
+    );
+  }
+  return (
+    <div className="mb-4 flex items-center justify-between">
+      <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 평가</button>
+      <button onClick={handleSave} disabled={!!savedId}
+        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+        {savedId ? "✓ 저장됨" : "저장"}
+      </button>
+    </div>
+  );
+}
+
+export { AiNotice, GradeInfoPopup, DataTrustBadge, InputWarnings, MarketTypeBadge, SellSaveBtn };
