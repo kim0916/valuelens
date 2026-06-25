@@ -3,8 +3,7 @@
 
 import React from 'react';
 import { won } from '../constants/grades.js';
-
-const card = "rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100";
+import { card } from '../constants/styles.js';
 
 function Empty({ title, desc }) {
   return (
