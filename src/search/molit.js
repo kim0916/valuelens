@@ -1,6 +1,10 @@
 // ValueLens Search — 국토부(MOLIT) API 조회
 // ★ API 로직 수정 금지
 
+import { fetchWithTimeout } from './location.js';
+import { matchAptName, resolveAlias, getBrandWarning } from './alias.js';
+import { parsePrice } from './utils.js';
+
 async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, exactAptNm = "", dong = "", exclusiveAreas = null) {
   const now = new Date();
   // 면적 확장: ±3㎡ 우선, 거래 3건 미만일 때만 ±5·±8㎡ 확장 (보조 데이터)
