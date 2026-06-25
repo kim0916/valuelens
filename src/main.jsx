@@ -20,6 +20,7 @@ import { card } from './constants/styles.js';
 import { WatchView } from './views/WatchView.jsx';
 import { AiNotice, GradeInfoPopup, DataTrustBadge, InputWarnings, MarketTypeBadge } from './views/shared.jsx';
 import { SI_MAX, saveAnalysis, getSavedAnalyses, deleteSavedAnalysis } from './services/storage/analysis.js';
+import { writeSearchLog } from './services/storage/searchLog.js';
 import { LogsView } from './views/LogsView.jsx';
 import { BudgetView } from './views/BudgetView.jsx';
 
@@ -384,17 +385,7 @@ function SellSaveBtn({ r, f, sd, onBack, showFull, uid }) {
 
 
 
-async function writeSearchLog(payload) {
-  try {
-    await fetch('/api/search_logs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'write', ...payload }),
-    });
-  } catch(e) {
-    // 로그 실패는 무시
-  }
-}
+
 
 
 
