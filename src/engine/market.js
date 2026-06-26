@@ -1,6 +1,9 @@
 // ValueLens Engine — 시장 분석 (매도 판단, 위험도, 시장 분류)
 // ★ 계산 로직 수정 금지
 
+import { won, pct } from '../constants/grades.js';
+import { computeTrimmedMean } from './stats.js';
+
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
 function analyzeSellerDecision(f, r) {
