@@ -67,24 +67,31 @@ export default async function handler(req, res) {
     try {
       // ── 자연어 전처리: 평형 표현 → 면적 힌트 변환 ──
       // 한국 아파트 "N평" = 공급면적 기준 → 전용면적 변환 (전용률 약 77% 적용)
-      // 사용자가 말하는 "34평" = 국민평형 = 전용 84㎡
-      // 사용자가 말하는 "25평" = 전용 약 59㎡
+      const AREA_RE = /\b(1[0-9]{2}|[3-9][0-9])\b/g;
+      const REGION_HINTS = ["송도","판교","동탄","위례","마곡","광교","검단","다산","미사","고덕",
+        "상암","마포","강남","잠실","분당","일산","평촌","중동","산본","하남","파주","의정부",
+        "수지","동백","행신","평택","청주","천안","아산","광주","목포","창원","부산","대구",
+        "압구정","반포","대치","도곡","개포","가락","신천","삼성","역삼","논현","청담","행당",
+        "공릉","상계","온천","효자","오송","세종"];
+
+      // 먼저 숫자 면적 추출 (원본에서)
+      const areaTokensRaw = [...name.matchAll(AREA_RE)].map(m=>Number(m[0]));
+      const naturalAreaRaw = areaTokensRaw.length === 1 ? areaTokensRaw[0] : null;
+
       const PYEONG_MAP = {
-        '국평': 84, '국민평형': 84,    // "국민평형" = 34평 기준 전용84㎡
+        '국평': 84, '국민평형': 84,
         '12평': 33, '13평': 36, '14평': 39, '15평': 43, '16평': 46,
         '17평': 49, '18평': 52, '19평': 56, '20평': 59, '21평': 62,
         '22평': 66, '23평': 69, '24평': 72, '25평': 75, '26평': 79,
         '27평': 84, '28평': 84, '29평': 84, '30평': 84, '31평': 84,
-        '34평': 84,  // 분양 34평 = 전용 84㎡ (국민평형)
+        '34평': 84,
         '32평': 99, '33평': 99,
         '35평': 101,'36평': 101,'37평': 110,'38평': 114,'39평': 114,
         '40평': 114,'41평': 119,'42평': 119,'43평': 135,'45평': 135,
         '50평': 165,'55평': 180,'60평': 198,
       };
-      // 입력에서 평형 표현 추출 및 제거
       let nameForSearch = name;
       let pyeongExtractedArea = null;
-      // 긴 표현 먼저 (국민평형 > 국평 > N평)
       for (const expr of ['국민평형','국평',...Object.keys(PYEONG_MAP).filter(k=>k!=='국평'&&k!=='국민평형').sort((a,b)=>b.length-a.length)]) {
         if (nameForSearch.includes(expr)) {
           pyeongExtractedArea = PYEONG_MAP[expr];
@@ -93,10 +100,8 @@ export default async function handler(req, res) {
           break;
         }
       }
-      // 추출된 면적이 있으면 areaHint로 활용
-      if (pyeongExtractedArea && !naturalArea) {
-        areaTokens.push(pyeongExtractedArea);
-      }
+      // areaHint 결정: 숫자 직접 입력 우선, 없으면 평형 변환값
+      const resolvedAreaHint = naturalAreaRaw || pyeongExtractedArea || null;
 
       // ── 별명/줄임말 정규화 ──
       const NICKNAME_MAP = {
@@ -180,27 +185,23 @@ export default async function handler(req, res) {
 
       // ── 자연어 파싱 ──
       // "송도 더샵 퍼스트월드 84" → complexCore="더샵퍼스트월드" area=84 regionHint="송도"
-      // 숫자만 있는 토큰이 면적(30~200㎡)이면 name에서 제거 + areaSqm 힌트로 활용
-      const AREA_RE = /\b(1[0-9]{2}|[3-9][0-9])\b/g;
-      const REGION_HINTS = ["송도","판교","동탄","위례","마곡","광교","검단","다산","미사","고덕",
-        "상암","마포","강남","잠실","분당","일산","평촌","중동","산본","하남","파주","의정부",
-        "수지","동백","행신","일산","평택","청주","천안","아산","광주","목포","창원","부산","대구"];
+      // AREA_RE, REGION_HINTS는 위에서 이미 선언됨
       const areaTokens = [...name.matchAll(AREA_RE)].map(m=>Number(m[0]));
-      const naturalArea = areaTokens.length === 1 ? areaTokens[0] : null;
-      // 자연어에서 면적 숫자 제거한 단지명 핵심
-      let naturalCore = name.replace(AREA_RE,'').trim();
+      const naturalArea = areaTokensRaw.length === 1 ? areaTokensRaw[0] : null;
+      // 자연어에서 면적 숫자 제거한 단지명 핵심 (nameForSearch 기반)
+      let naturalCore = nameForSearch.replace(AREA_RE,'').trim();
       // 지역 힌트 앞에서 추출
       let naturalRegion = null;
       for (const rh of REGION_HINTS.sort((a,b)=>b.length-a.length)) {
         if (naturalCore.includes(rh) && !sigungu) {
           naturalRegion = rh;
-          // 지역어는 sigungu 힌트로만 쓰고 단지명에서 제거하지 않음 (단지명에 포함될 수 있음)
           break;
         }
       }
       // naturalCore 공백제거
       const naturalCoreNoSpace = naturalCore.replace(/\s/g,'');
-      const naturalAreaHint = naturalArea; // 면적 힌트 (검색 결과 필터용)
+      // 면적 힌트: 숫자 직접 입력 > 평형 표현 변환
+      const naturalAreaHint = resolvedAreaHint;
 
       // 단순 변환 (DB에 원본 표기 없는 경우)
       let normalizedName = nameForSearch || name;
