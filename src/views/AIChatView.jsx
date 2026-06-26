@@ -242,10 +242,29 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       addMsg({ role: "ai", type: "thinking", content: "분석 중..." });
       try {
         const tr = await routeTool(ar.goal, ar.memory, ar.params);
+
+        // 후보 여러 개 → 선택 카드 (fair_select)
+        if (tr.ok && tr.tool === "fair_select") {
+          const { complexes, area, memory: mem } = tr.rawData;
+          replaceLastAI({
+            type: "candidates",
+            content: tr.summary.conclusion,
+            data: complexes,
+            intent: { intent: "fair", areaSqm: area ? parseFloat(area) * 3.305785 : null },
+            // 선택 후 AgentCore memory에 단지 정보 저장
+            onSelect: (complex) => {
+              const newMem = { ...agentMemoryRef.current, complexName: complex.complex_name,
+                complexId: complex.id, sigungu: complex.sigungu };
+              agentMemoryRef.current = newMem;
+              setAgentSessionMemory(newMem);
+            },
+          });
+          return;
+        }
+
         if (tr.ok && tr.summary?.conclusion) {
           replaceLastAI({ type: "agent_result", summary: tr.summary, rawData: tr.rawData });
         } else {
-          // ToolRouter 실패 → 에러 카드, 이동 없음
           const errMsg = tr.summary?.conclusion || "분석을 완료하지 못했습니다.";
           replaceLastAI({ type: "text", content: errMsg + "\n다시 시도하거나 단지명/평형을 확인해주세요." });
         }
@@ -724,10 +743,22 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
               {(msg.data||[]).map((c, i) => (
                 <button key={i}
-                  onClick={() => {
+                  onClick={async () => {
                     addMsg({ role:"user", type:"text", content: c.complex_name });
+                    // onSelect 콜백으로 memory 업데이트
+                    if (msg.onSelect) msg.onSelect(c);
                     addMsg({ role:"ai", type:"thinking", content:"분석 중..." });
-                    runAnalysis(c, msg.intent || {intent:"fair"});
+                    // 확정된 단지로 fair 분석 재실행
+                    const updMem = { ...agentMemoryRef.current,
+                      complexName: c.complex_name, complexId: c.id,
+                      sigungu: c.sigungu, complexQuery: c.complex_name };
+                    agentMemoryRef.current = updMem;
+                    const tr = await routeTool("fair", updMem, {});
+                    if (tr.ok && tr.summary?.conclusion) {
+                      replaceLastAI({ type:"agent_result", summary: tr.summary, rawData: tr.rawData });
+                    } else {
+                      replaceLastAI({ type:"text", content: tr.summary?.conclusion || "분석 중 오류가 발생했어요." });
+                    }
                   }}
                   style={{
                     background:"#fff", border:`0.5px solid ${BRAND_BORDER}`,
