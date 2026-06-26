@@ -87,19 +87,32 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
 
     // agentResult 없음 → 기존 입력폼 흐름
     const { complexName, region, dong, areaExclusive, complexId } = screenerInitial;
-    setF((prev) => ({
+    const newForm = {
       ...EMPTY,
-      complexName:   complexName || prev.complexName,
-      region:        region      || prev.region,
-      dong:          dong        || prev.dong,
-      areaExclusive: areaExclusive ? String(areaExclusive) : prev.areaExclusive,
+      complexName:   complexName || "",
+      region:        region      || "",
+      dong:          dong        || "",
+      areaExclusive: areaExclusive ? String(areaExclusive) : "",
       complexId:     complexId   || null,
-    }));
+    };
+    setF(newForm);
     setR(null);
     setPending(null);
     setAreaOptions([]);
     rawMolitRef.current = null;
     if (onClearScreenerInitial) onClearScreenerInitial();
+
+    // 단지명 있으면 자동 quickSearch 실행
+    if (complexName && region) {
+      setTimeout(() => {
+        quickSearch(
+          areaExclusive ? Number(areaExclusive) : null,
+          newForm,
+          null,
+          false
+        );
+      }, 50);
+    }
   }, [screenerInitial]);
 
   const [fetchingAreas, setFetchingAreas] = useState(false);
