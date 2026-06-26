@@ -10,7 +10,7 @@ import { computeDataTrust } from '../engine/stats.js';
 import { writeSearchLog } from '../services/storage/searchLog.js';
 import {
   AiNotice, DataTrustBadge, GradeInfoPopup,
-  InputWarnings, MarketTypeBadge,
+  InputWarnings, MarketTypeBadge, FairSaveBtn,
 } from './shared.jsx';
 
 function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId }) {
