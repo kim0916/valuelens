@@ -336,9 +336,13 @@ export default async function handler(req, res) {
         }
         merged.sort((a, b) => (b.sale_cnt||0) - (a.sale_cnt||0));
 
-        res.setHeader('Cache-Control', 's-maxage=3600');
-        res.status(200).json({ complexes: merged, aliasMatch, total: merged.length });
-        return;
+        if (merged.length > 0) {
+          res.setHeader('Cache-Control', 's-maxage=3600');
+          res.status(200).json({ complexes: merged, aliasMatch, total: merged.length, ...( (naturalAreaHint) ? {areaHint: naturalAreaHint, regionHint: naturalRegion} : {} ) });
+          return;
+        }
+        // 0건이면 fallback으로 계속
+        console.log('[search] orVariant 0건 → fallback 진행');
       }
 
       if (hasSpecial) {
