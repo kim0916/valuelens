@@ -1240,6 +1240,7 @@ function AppInner() {
   const [ptype, setPtype] = useState("apartment");
   const [aptTab, setAptTab] = useState("home");
   const [agentInitial, setAgentInitial] = useState(null);
+  const [agentResultData, setAgentResultData] = useState(null); // 자세히 보기용
   const [screenerInitial, setScreenerInitial] = useState(null);
   const photoTriggerRef = React.useRef(null);
   const [roomTab, setRoomTab] = useState("search");
@@ -1314,13 +1315,14 @@ function AppInner() {
   // 홈에서 탭으로 이동
   const goTo = (tab, params) => {
     if (tab === "ai") {
-      // searchQuery: AgentHome 질문 → AIChatView에서 처리
-      // agentInitial: 이미 계산된 결과 주입
       setAgentInitial(params?.searchQuery
         ? { searchQuery: params.searchQuery, agentMemory: params.agentMemory }
         : params?.agentInitial || null);
+      setAgentResultData(null);
     } else {
       setAgentInitial(null);
+      // 자세히 보기에서 넘어온 agentResult 저장
+      setAgentResultData(params?.agentResult ? { ...params.agentResult, _goal: tab } : null);
     }
     setAptTab(tab === "ai" ? "ai" : tab);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1485,7 +1487,7 @@ function AppInner() {
           </div>
           {aptTab === "tax" && <TaxView buyCtx={buyCtx} sellCtx={sellCtx} />}
           {aptTab === "logs" && <LogsView />}
-          {aptTab === "reco" && <BudgetView onProfile={(p) => setFinProfile(p)} onGoToBuy={(init) => { setScreenerInitial(init); setAptTab("buy"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />}
+          {aptTab === "reco" && <BudgetView agentResult={agentResultData?._goal === "reco" ? agentResultData : null} onProfile={(p) => setFinProfile(p)} onGoToBuy={(init) => { setScreenerInitial(init); setAptTab("buy"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />}
           {aptTab === "adv" && <AdvancedView watch={watch} setWatch={setWatch} history={history} finProfile={finProfile} onReanalyze={() => setAptTab("fair")} uid={currentUserId} />}
         </>)}
         {ptype === "oneRoom" && <OneRoomView tab={roomTab} />}
