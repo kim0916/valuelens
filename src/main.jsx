@@ -35,7 +35,6 @@ import { TaxView } from './views/TaxView.jsx';
 import { getOrCreateDeviceId } from './utils/device.js';
 import { LS_MAX, loadRecentAnalysis, saveRecentAnalysis } from './services/storage/recentAnalysis.js';
 import { createSessionMemory, processUserInput } from './agent/AgentCore.js';
-import { routeTool, tabFor } from './agent/ToolRouter.js';
 import { supabase as supabaseClient } from './services/supabaseClient.js';
 import { LocationPicker } from './views/LocationPicker.jsx';
 
@@ -653,19 +652,9 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
     if (!query.trim()) return;
     const result = processUserInput(query.trim(), agentMemory);
     setAgentMemory(result.memory);
-    setAiGreeting(result.response);
+    // AgentHome → AIChatView로 이동, 질문과 memory 전달
+    if (onNavigate) onNavigate("ai", { searchQuery: query.trim(), agentMemory: result.memory });
     setQuery("");
-    if (result.readyToAnalyze) {
-      setAiGreeting(prev => (prev || "") + "\n\n⏳ 분석 중...");
-      routeTool(result.goal, result.memory, result.params).then(toolResult => {
-        if (toolResult.ok && toolResult.summary?.conclusion) {
-          // AIChatView로 이동하면서 agentInitial 전달
-          if (onNavigate) onNavigate("ai", { agentInitial: toolResult });
-        } else if (!toolResult.ok) {
-          setAiGreeting(toolResult.summary?.conclusion || "분석 중 오류가 발생했어요.");
-        }
-      }).catch(() => setAiGreeting("분석 중 오류가 발생했어요. 다시 시도해주세요."));
-    }
   }
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
