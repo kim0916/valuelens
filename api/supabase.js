@@ -270,8 +270,10 @@ export default async function handler(req, res) {
         .limit(limit);
 
       // OR variant 있을 때: 두 표기 각각 별도 쿼리 후 병합
-      // hasSpace인 경우 공백제거 후 orVariant 경로 적용 (레미안 대치팰리스 → 공백제거 후 래미안대치팰리스 검색)
-      if (orVariant && !hasSpecial) {
+      // 단, 자연어 숫자 포함 입력 (hasSpace + lastIsNum)은 숫자제거 분기 우선
+      const spaceTokensForNum = nameOrig.split(/\s+/).filter(t => t.length >= 1);
+      const lastIsNumForOr = spaceTokensForNum.length > 0 && /^\d+$/.test(spaceTokensForNum[spaceTokensForNum.length - 1]);
+      if (orVariant && !hasSpecial && (!hasSpace || (!lastIsNumForOr && nameNoSpace.length <= 15))) {
         const half = Math.ceil(limit / 2);
         const varNoSpace = orVariant.replace(/\s/g, '');
 
