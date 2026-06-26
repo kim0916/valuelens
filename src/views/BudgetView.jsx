@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 
-function BudgetView({ onProfile, onGoToBuy }) {
+function BudgetView({ onProfile, onGoToBuy, agentResult }) {
   // ── 입력 상태 ──
   const [equity, setEquity]       = useState("");   // 보유현금 (만원)
   const [income, setIncome]       = useState("");   // 연소득 (만원)
@@ -14,8 +14,12 @@ function BudgetView({ onProfile, onGoToBuy }) {
 
   // ── 결과 상태 ──
   const [loading, setLoading]     = useState(false);
-  const [candidates, setCandidates] = useState(null);  // null = 미조회
-  const [meta, setMeta]           = useState(null);
+  const [candidates, setCandidates] = useState(agentResult?.rawData || null);  // agentResult 있으면 바로 결과
+  const [meta, setMeta]           = useState(agentResult ? {
+    budget: agentResult.memory?.budgetNum || 0,
+    region: agentResult.memory?.region || "전체",
+    pyeong: agentResult.memory?.area ? parseFloat(agentResult.memory.area) : 0,
+  } : null);
   const [errMsg, setErrMsg]       = useState("");
 
   // 총예산 자동계산
