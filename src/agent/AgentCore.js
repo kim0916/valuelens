@@ -53,12 +53,25 @@ function extractBasicParams(text) {
     "송도","분당","일산","판교","수원","인천","의정부","안양","부천","광명","성남",
     "하남","과천","청라","검단","위례","동탄","평택","고양","용인","화성","시흥"];
   for (const r of regions) { if (t.includes(r)) { params.region = r; break; } }
-  // 패턴1: 브랜드명 단지 (리센츠, 래미안 등)
-  const cp1 = /([가-힣]{1,6}\s?[가-힣]*(?:래미안|자이|힐스테이트|아이파크|롯데캐슬|푸르지오|더샵|리센츠|엘스|트리지움|헬리오시티|올림픽파크|주공|동부|은마|도곡|파크원|e편한세상|이편한세상))/i;
-  // 패턴2: "아파트"로 끝나는 일반 단지명
-  const cp2 = /([가-힣]{2,12}(?:\s[가-힣]{1,6})?\s?아파트)/;
-  const cm = t.match(cp1) || t.match(cp2);
-  if (cm) params.complexName = cm[1].trim();
+  // complexQuery: Supabase fuzzy search용 (단지명 확정은 Supabase가 담당)
+  // 의도어/평형/가격/광역시도 제거 후 남은 텍스트
+  const REGION_WORDS = new Set(["강남","서초","송파","강동","마포","용산","성동","광진","노원","도봉",
+    "강북","성북","종로","중구","동대문","중랑","강서","양천","구로","금천","영등포","동작","관악",
+    "은평","서대문","잠실","송도","분당","일산","판교","수원","인천","의정부","안양","부천",
+    "광명","성남","하남","과천","청라","검단","위례","동탄","평택","고양","용인","화성","시흥"]);
+  let cqText = t
+    .replace(/\d+\s*(?:평|㎡|m2)/g, " ")
+    .replace(/\d+(?:\.\d+)?\s*억\s*(?:\d+천)?/g, " ")
+    .replace(/적정가|적정\s?가격|얼마야|얼마임|시세|분석해줘|알려줘|봐줘|사도\s?돼|사도\s?될까|살\s?까|매수|어때|지금|현재|요즘|추천|찾아줘/g, " ")
+    .replace(/서울|경기|인천|부산|대구|광주|대전|울산|세종/g, " ")
+    .replace(/[??.!]/g, " ")
+    .replace(/\s+/g, " ").trim();
+  const cqTokens = cqText.split(" ").filter(tok =>
+    tok.length >= 2 && !REGION_WORDS.has(tok) && !/^[가-힣]{1,4}(?:특별시|광역시|시|구|군|읍|면|리)$/.test(tok)
+  );
+  if (cqTokens.length > 0) {
+    params.complexQuery = cqText; // 원본(동 포함) 유지
+  }
   const hm = t.match(/(\d)\s*주택/);
   if (hm) params.houseCount = parseInt(hm[1]);
   const prices = [...t.matchAll(/(\d+(?:\.\d+)?)\s*억/g)].map(m=>parseFloat(m[1])*10000);
@@ -72,10 +85,14 @@ function extractBasicParams(text) {
 // ── Missing 체크 ──
 function checkMissing(goal, params, memory) {
   const m = { ...memory, ...params };
-  // buy/fair: 단지명 + 평형 필요
+  // buy/fair: complexQuery(단지 검색어) + 평형 필요
   if (goal === "buy" || goal === "fair") {
-    if (!m.complexName) return "분석할 아파트 단지명을 알려주세요.\n예: 잠실 리센츠 34평, 은마아파트";
-    if (!m.area) return `좋아요. ${m.complexName}를 분석해드릴게요.\n몇 평 기준으로 볼까요? 예: 25평, 34평, 59㎡`;
+    if (!m.complexQuery && !m.complexName)
+      return "분석할 아파트를 알려주세요.\n예: 동신아파트 25평, 리센츠, 은마 31평";
+    if (!m.area) {
+      const hint = m.complexQuery || m.complexName || "해당 단지";
+      return `좋아요. ${hint} 기준으로 분석해드릴게요.\n몇 평 기준으로 볼까요? 예: 25평, 34평, 59㎡`;
+    }
   }
   // reco: 예산 필요, 예산 있어도 지역 없으면 질문
   if (goal === "reco") {
