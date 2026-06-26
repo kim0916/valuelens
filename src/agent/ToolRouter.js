@@ -65,35 +65,95 @@ async function toolFairValue(memory) {
 }
 
 async function runFairAnalysis(complex, area, region) {
-  const areaNum = area ? parseFloat(area) : null;
+  const areaNum  = area ? parseFloat(area) : null;
   const areaExcl = areaNum ? (area.includes("평") ? Math.round(areaNum * 3.3) : areaNum) : null;
+  const sigungu  = complex.sigungu || region || "";
+  const name     = complex.complex_name;
+  const cid      = complex.complex_id || complex.id || null;
 
-  let priceSummary;
+  // ── 1차: summary API ──
+  let priceSummary = null;
   try {
-    priceSummary = await getPriceSummaryFromSupabase(
-      complex.complex_id || complex.id, complex.complex_name, complex.sigungu, areaExcl
-    );
-  } catch {
-    return makeErr("fair", "가격 데이터를 가져오는 중 오류가 발생했어요.");
+    priceSummary = await getPriceSummaryFromSupabase(cid, name, sigungu, areaExcl);
+  } catch { /* fallback으로 진행 */ }
+
+  // ── 2차: deals API fallback (summary 없거나 currentPrice=0) ──
+  let rawInput = null;
+  if (!priceSummary || !priceSummary.median_price) {
+    try {
+      const dealsRes = await fetch('/api/supabase', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'deals', complex_id: cid, complex_name: name, sigungu }),
+      });
+      const dealsData = await dealsRes.json();
+
+      let saleRaw  = dealsData.saleDeals || [];
+      let rentRaw  = dealsData.rentDeals || [];
+
+      // 면적 필터 ±3㎡
+      if (areaExcl) {
+        saleRaw = saleRaw.filter(d => Math.abs(Number(d.area_excl) - areaExcl) <= 3);
+        rentRaw = rentRaw.filter(d => Math.abs(Number(d.area_excl) - areaExcl) <= 3
+                               && (!d.monthly_man || Number(d.monthly_man) === 0));
+      }
+
+      const sale   = saleRaw.map(d => ({ ym: d.contract_ym||"", price: Number(d.deal_amount_man)||0,
+                                         floor: Number(d.floor)||5, areaSqm: Number(d.area_excl)||0 }))
+                             .filter(d => d.price > 0 && d.ym);
+      const jeonse = rentRaw.map(d => ({ ym: d.contract_ym||"", price: Number(d.deposit_man)||0,
+                                         floor: Number(d.floor)||5, areaSqm: Number(d.area_excl)||0 }))
+                             .filter(d => d.price > 0 && d.ym);
+
+      if (sale.length < 3)
+        return makeErr("fair", `${name} 최근 실거래 데이터가 부족해요 (${sale.length}건).
+현재 매물가를 직접 입력하면 분석할 수 있어요.`);
+
+      rawInput = {
+        sale, jeonse,
+        areaSqm:      areaExcl || 0,
+        region:       sigungu,
+        dong:         complex.legal_dong || "",
+        complexName:  name,
+        buildYear:    complex.build_year || null,
+        currentPrice: 0,  // buildAnalysisInput이 실거래로 자동 계산
+        kbSalePrice:  0,
+        kbJeonse:     0,
+        tradeStatus:  { code: "OK" },
+        areaOptions:  [],
+      };
+    } catch {
+      return makeErr("fair", "실거래 데이터를 가져오는 중 오류가 발생했어요.");
+    }
   }
-  if (!priceSummary) return makeErr("fair", "해당 평형의 거래 데이터가 부족해요.");
 
-  const form = {
-    complexName: complex.complex_name,
-    region: complex.sigungu || region || "",
-    areaExclusive: areaExcl ? String(Math.round(areaExcl)) : "",
-    currentPrice: priceSummary.median_price || 0,
-    kbJeonse: priceSummary.jeonse_price || 0,
-    buildYear: complex.build_year || 0,
-  };
-
+  // ── 분석 실행 ──
   let r;
+  const baseForm = { region: sigungu, dong: complex.legal_dong||"", complexName: name,
+                     areaExclusive: areaExcl ? String(Math.round(areaExcl)) : "" };
+
   try {
-    const analysisInput = buildAnalysisInput(priceSummary, form, areaExcl);
-    r = analyze(analysisInput);
+    if (rawInput) {
+      // deals fallback 경로
+      const built = buildAnalysisInput(rawInput, baseForm, areaExcl ? Math.round(areaExcl) : 0);
+      if (!built?.ff) return makeErr("fair", "분석 데이터를 구성하지 못했어요.");
+      r = analyze(built.ff);
+      r.jeonseCalc = built.jeonseCalc;
+      r.saleCalc   = built.saleCalc;
+    } else {
+      // summary 경로
+      const form = { ...baseForm, currentPrice: priceSummary.median_price || 0,
+                     kbJeonse: priceSummary.jeonse_price || 0, buildYear: complex.build_year || 0 };
+      const analysisInput = buildAnalysisInput(priceSummary, form, areaExcl);
+      r = analyze(analysisInput);
+    }
   } catch {
     return makeErr("fair", "적정가 계산 중 오류가 발생했어요.");
   }
+
+  const form = { ...baseForm,
+    currentPrice: r.saleCalc?.value || priceSummary?.median_price || 0,
+    buildYear: complex.build_year || 0,
+  };
 
   const fairPrice = r.fairPrice || 0;
   const curPrice  = form.currentPrice;
