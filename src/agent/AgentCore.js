@@ -49,8 +49,14 @@ function extractBasicParams(text) {
     params.budget = `${main}억${subStr}`;
     params.budgetNum = Math.round(main*10000+sub);
   }
-  const am = t.match(/(\d+)\s*(평|㎡|m2)/);
-  if (am) params.area = `${am[1]}${am[2]}`;
+  // 면적 파싱: ㎡/m2/타입 → 전용㎡, 평 → 공급면적 기준 입력
+  const amSqm = t.match(/(\d+(?:\.\d+)?)\s*(?:㎡|m2|타입)/);
+  const amPyeong = t.match(/(\d+(?:\.\d+)?)\s*평/);
+  if (amSqm) {
+    params.area = `${amSqm[1]}㎡`;  // 전용㎡ 그대로
+  } else if (amPyeong) {
+    params.area = `${amPyeong[1]}평`;  // 평 표기 유지 (변환은 ToolRouter에서)
+  }
   const regions = ["강남","서초","송파","강동","마포","용산","성동","노원","도봉","강북",
     "성북","종로","중구","강서","양천","구로","영등포","동작","관악","은평","서대문",
     "송도","분당","일산","판교","수원","인천","의정부","안양","부천","광명","성남",
