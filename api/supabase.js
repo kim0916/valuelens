@@ -301,6 +301,17 @@ export default async function handler(req, res) {
         const half = Math.ceil(limit / 2);
         const varNoSpace = orVariant.replace(/\s/g, '');
 
+        // hasSpace일 때 첫 토큰이 지역어면 sigungu 힌트로 활용
+        const KR2 = ["강남","서초","송파","강동","마포","용산","성동","광진","노원","강북","성북","구로","금천","관악","동작","영등포","양천","강서","도봉","중랑","동대문","종로","광명","부천","안양","수원","성남","의정부","고양","남양주","하남","화성","동탄","평택","안산","시흥","파주","부산","대구","인천","대전","울산","세종","창원","진주","김해","양산","포항","경주","안동","구미","동래","해운대","수영","연제","압구정","반포","대치","도곡","개포","잠실","가락","역삼","청담","행당","공릉","상계","아현","우동","온천","효자","오송","광주"];
+        let extraSigungu = sigungu;
+        if (hasSpace && !sigungu) {
+          const spToks = nameOrig.split(/\s+/).filter(t=>t.length>=1);
+          const firstSpTok = spToks[0] || '';
+          if (KR2.some(r => firstSpTok === r || firstSpTok.includes(r))) {
+            extraSigungu = firstSpTok;
+          }
+        }
+
         const buildQ = (keyword) => {
           let q = supabase
             .from('realestate_complexes')
@@ -308,8 +319,8 @@ export default async function handler(req, res) {
             .order('sale_cnt', { ascending: false })
             .limit(half);
           q = q.ilike('complex_name', `%${keyword}%`);
-          if (sigungu) q = q.ilike('sigungu', `%${sigungu}%`);
-          if (safeDong) q = q.ilike('legal_dong', `%${safeDong}%`);
+          if (extraSigungu) q = q.ilike('sigungu', `%${extraSigungu}%`);
+          else if (safeDong) q = q.ilike('legal_dong', `%${safeDong}%`);
           return q;
         };
 
