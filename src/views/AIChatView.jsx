@@ -216,57 +216,45 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     if (!text) return;
     setInput("");
     setPendingIntent(null);
-
-    // ── Step 1. 사용자 메시지 추가 ──
     addMsg({ role: "user", type: "text", content: text });
 
-    // ── Step 2. AgentCore 처리 (무료 패턴 매칭) ──
-    // 이전 memory의 goal을 유지 (예: "34평" 입력 시 이전 buy 유지)
-    const prevMemory = agentSessionMemory;
-    const agentResult = processUserInput(text, prevMemory);
-    // unknown이면 이전 goal 유지
-    const effectiveGoal = agentResult.goal !== "unknown"
-      ? agentResult.goal
-      : prevMemory.purpose || "unknown";
-    const effectiveResult = { ...agentResult, goal: effectiveGoal };
-    setAgentSessionMemory(effectiveResult.memory);
+    // AgentCore 처리 — status 기반 4분기
+    const ar = processUserInput(text, agentSessionMemory);
+    setAgentSessionMemory(ar.memory);
 
-    // ── Step 3a. missingInfo → 질문만 표시, 절대 이동 없음 ──
-    if (effectiveResult.needsMoreInfo) {
-      addMsg({ role: "ai", type: "text", content: effectiveResult.response });
+    // ── missing: 메시지만 표시, 이동 없음 ──
+    if (ar.status === "missing") {
+      addMsg({ role: "ai", type: "text", content: ar.message });
       return;
     }
 
-    // ── Step 3b. readyToAnalyze → ToolRouter → 결과 카드 ──
-    if (effectiveResult.readyToAnalyze || (effectiveGoal !== "unknown" && !effectiveResult.needsMoreInfo)) {
-      addMsg({ role: "ai", type: "thinking", content: "분석 중..." });
-      try {
-        const toolResult = await routeTool(effectiveGoal, effectiveResult.memory, effectiveResult.params);
-        if (toolResult.ok && toolResult.summary?.conclusion) {
-          console.log("[Agent] 무료 경로:", effectiveGoal, toolResult.tool);
-          replaceLastAI({
-            type: "agent_result",
-            summary: toolResult.summary,
-            rawData: toolResult.rawData,
-          });
-          return;
-        }
-        if (!toolResult.ok) {
-          replaceLastAI({ type: "text", content: toolResult.summary?.conclusion || "분석 중 오류가 발생했어요." });
-          return;
-        }
-      } catch (e) {
-        console.warn("[Agent] ToolRouter 오류:", e);
-        replaceLastAI({ type: "text", content: "분석 중 오류가 발생했어요. 다시 시도해주세요." });
-        return;
-      }
+    // ── guide: 안내만 표시, 이동 없음 ──
+    if (ar.status === "guide") {
+      addMsg({ role: "ai", type: "text", content: ar.message });
+      return;
     }
 
-    // ── Step 3c. unknown → 기존 parseIntent 폴백 ──
-    console.log("[Agent] 폴백 경로:", text);
-    addMsg({ role: "ai", type: "thinking", content: "분석 중..." });
-    const intent = parseIntent(text);
-    await routeIntent(intent, text);
+    // ── ready: ToolRouter → agentResult 카드, 이동 없음 ──
+    if (ar.status === "ready") {
+      addMsg({ role: "ai", type: "thinking", content: "분석 중..." });
+      try {
+        const tr = await routeTool(ar.goal, ar.memory, ar.params);
+        if (tr.ok && tr.summary?.conclusion) {
+          replaceLastAI({ type: "agent_result", summary: tr.summary, rawData: tr.rawData });
+        } else {
+          // ToolRouter 실패 → 에러 카드, 이동 없음
+          const errMsg = tr.summary?.conclusion || "분석을 완료하지 못했습니다.";
+          replaceLastAI({ type: "text", content: errMsg + "\n다시 시도하거나 단지명/평형을 확인해주세요." });
+        }
+      } catch (e) {
+        replaceLastAI({ type: "text", content: "분석 중 오류가 발생했어요.\n잠시 후 다시 시도해주세요." });
+      }
+      return;
+    }
+
+    // ── unknown: 안내 메시지, 이동 없음 ──
+    addMsg({ role: "ai", type: "text", content: ar.message ||
+      "말씀하신 내용을 이해하지 못했어요.\n단지명, 예산, 지역을 포함해서 다시 말씀해주세요." });
   }
 
   async function routeIntent(intent, rawText) {
