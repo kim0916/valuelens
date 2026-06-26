@@ -69,7 +69,9 @@ function extractBasicParams(text) {
   const cqTokens = cqText.split(" ").filter(tok =>
     tok.length >= 2 && !REGION_WORDS.has(tok) && !/^[가-힣]{1,4}(?:특별시|광역시|시|구|군|읍|면|리)$/.test(tok)
   );
-  if (cqTokens.length > 0) {
+  // 숫자/평형만 남은 경우 complexQuery 생성 안 함
+  const isOnlyNumbers = /^[\d\s]+$/.test(cqText.trim());
+  if (cqTokens.length > 0 && !isOnlyNumbers) {
     params.complexQuery = cqText; // 원본(동 포함) 유지
   }
   const hm = t.match(/(\d)\s*주택/);
