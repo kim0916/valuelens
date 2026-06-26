@@ -119,7 +119,7 @@ function parseIntent(raw) {
   return { intent, complexName, region, dong, pyeong, areaSqm, price, budget, purpose, raw: t };
 }
 
-function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, currentUserEmail }) {
+function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, currentUserEmail, agentInitial }) {
 
   // ── 아이콘 ──
   const CI = ({ d, s = 16, color = "currentColor", sw = 1.35 }) => (
@@ -147,6 +147,17 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   };
 
   const [msgs, setMsgs]           = React.useState([WELCOME]);
+
+  // agentInitial: AgentHome에서 ToolRouter 결과를 받아 채팅에 주입
+  React.useEffect(() => {
+    if (agentInitial && agentInitial.summary) {
+      setMsgs([WELCOME, {
+        id: "agent_" + Date.now(), role: "ai", type: "agent_result",
+        summary: agentInitial.summary,
+        rawData: agentInitial.rawData,
+      }]);
+    }
+  }, [agentInitial]);
   const [input, setInput]         = React.useState("");
   const [listening, setListening] = React.useState(false);
   const [advOpen, setAdvOpen]     = React.useState(false);  // 고급 검색 접기
@@ -579,6 +590,64 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   // ── 메시지 렌더 ──
   function renderMsg(msg) {
     const isUser = msg.role === "user";
+
+    if (msg.type === "agent_result") {
+      const s = msg.summary || {};
+      const PURPLE = "#5b52e0";
+      const trustColor = s.trust?.includes("주의") ? "#b45309" : "#15803d";
+      const trustBg    = s.trust?.includes("주의") ? "#fef3c7" : "#dcfce7";
+      return (
+        <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
+          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN,
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <CI d="star" s={13} color="#fff" />
+          </div>
+          <div style={{ flex:1, minWidth:0 }}>
+            {/* 결론 */}
+            {s.conclusion && (
+              <p style={{ fontSize:14, fontWeight:600, color:BRAND, margin:"0 0 10px", lineHeight:1.55 }}>
+                {s.conclusion}
+              </p>
+            )}
+            {/* 핵심 숫자 카드 */}
+            {s.keyNumbers && s.keyNumbers.length > 0 && (
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:10 }}>
+                {s.keyNumbers.map((kn, i) => (
+                  <div key={i} style={{ background:BRAND_BG, borderRadius:10, padding:"8px 10px",
+                    border:`0.5px solid ${BRAND_BORDER}` }}>
+                    <p style={{ fontSize:10, color:BRAND_MID, margin:"0 0 2px" }}>{kn.label}</p>
+                    <p style={{ fontSize:14, fontWeight:600, color:BRAND, margin:0 }}>{kn.value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* 근거 */}
+            {s.basis && (
+              <p style={{ fontSize:11, color:BRAND_MID, margin:"0 0 6px", lineHeight:1.5 }}>
+                📊 {s.basis}
+              </p>
+            )}
+            {/* 신뢰도/주의 */}
+            {s.trust && (
+              <span style={{ display:"inline-block", fontSize:10, fontWeight:500,
+                background:trustBg, color:trustColor, borderRadius:5, padding:"2px 8px", marginBottom:10 }}>
+                {s.trust}
+              </span>
+            )}
+            {/* 자세히 보기 버튼 */}
+            {s.tab && (
+              <div>
+                <button onClick={() => onNavigate(s.tab, { agentResult: msg.rawData })}
+                  style={{ background:PURPLE, color:"#fff", border:"none", borderRadius:9,
+                    padding:"8px 16px", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                  자세히 보기 →
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
 
     if (msg.type === "thinking") {
       return (
