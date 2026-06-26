@@ -122,15 +122,18 @@ function toolReco(memory) {
   try {
     const budget  = memory.budgetNum || 0;
     const region  = memory.region || "전체";
+    // 평형 계산 — 평/㎡ 구분 정확히
     const areaRaw = memory.area ? parseFloat(memory.area) : 0;
-    const pyeong  = areaRaw && memory.area?.includes("평") ? areaRaw : Math.round(areaRaw / 3.3);
+    const pyeong  = areaRaw > 0
+      ? (memory.area?.includes("평") ? areaRaw : Math.round(areaRaw / 3.305785))
+      : 0;
     const results = recommendByBudget({ budget, region, pyeong });
     if (!results || results.length === 0)
       return makeErr("reco", "조건에 맞는 추천 단지를 찾지 못했어요. 예산이나 지역을 변경해보세요.");
 
     const top = results[0];
     return makeResult("reco", {
-      conclusion: `${memory.budget || budget + "만원"} 예산 ${region} 기준 — ${results.length}개 단지 추천`,
+      conclusion: `${memory.budget || budget + "만원"} 예산 ${region}${pyeong ? ` ${pyeong}평대` : ""} 기준 — ${results.length}개 단지 추천`,
       keyNumbers: [
         { label: "추천 1위",  value: top.name || top.complexName || "-" },
         { label: "예상가",     value: won(top.fair || top.fairPrice) },
