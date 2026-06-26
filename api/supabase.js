@@ -139,18 +139,22 @@ export default async function handler(req, res) {
 
       // 단지 전체명 alias 변환 (BRAND_ALIAS보다 우선)
       const nameNoSpaceForAlias = normalizedName.replace(/\s/g, '');
+      let complexAliasMatched = false;
       for (const [from, to] of Object.entries(COMPLEX_ALIAS)) {
         if (nameNoSpaceForAlias === from.replace(/\s/g, '') ||
             normalizedName === from ||
             normalizedName.includes(from)) {
           console.log(`[search] 단지명 alias 변환: "${normalizedName}" → "${to}"`);
           normalizedName = to;
+          complexAliasMatched = true;
           break;
         }
       }
 
       // OR 검색 추가어 (DB 양쪽 혼재 브랜드)
+      // alias 변환된 경우 orVariant 생성 안 함 (래미안온천2단지 → 변환 후 래미안 포함으로 orVariant 오작동 방지)
       let orVariant = null;
+      if (!complexAliasMatched) {
       for (const [from, to] of Object.entries(BRAND_OR_MAP)) {
         if (normalizedName.includes(from)) {
           orVariant = normalizedName.replace(from, to);
@@ -162,6 +166,7 @@ export default async function handler(req, res) {
           break;
         }
       }
+      } // end if(!complexAliasMatched)
 
       // alias 조회
       const aliasKey = normalizedName.replace(/\s/g, '');
@@ -245,11 +250,22 @@ export default async function handler(req, res) {
         const lastIsNum = /^\d+$/.test(lastToken);
         if (lastIsNum) {
           // 숫자 토큰 제외하고 나머지 공백제거로 검색
-          const withoutNum = spaceTokens.filter(t => !/^\d+$/.test(t)).join('');
-          query = query.ilike('complex_name', `%${withoutNum}%`);
-          // 첫 토큰이 지역일 수 있음
-          const firstToken = spaceTokens[0];
-          if (!/^\d+$/.test(firstToken) && !sigungu) query = query.ilike('sigungu', `%${firstToken}%`);
+          // "동래 래미안아이파크 84" → "동래래미안아이파크" 전체 검색 (지역어도 단지명 일부)
+          // "강남 은마 76" → "은마" 검색 + sigungu="강남" 필터 (sigungu는 광역시 전체명 필요)
+          const nonNumTokens = spaceTokens.filter(t => !/^\d+$/.test(t));
+          const KNOWN_REGIONS = ["강남","서초","송파","강동","마포","용산","성동","광진","노원","강북","성북","은평","서대문","구로","금천","관악","동작","영등포","양천","강서","도봉","중랑","동대문","중구","종로","광명","부천","안양","수원","성남","의정부","고양","남양주","하남","화성","동탄","평택","안산","시흥","파주","양주","김포","광주","이천","오산","군포","의왕","안성","포천","여주","가평","양평","연천","부산","대구","인천","광주","대전","울산","세종","창원","진주","김해","양산","포항","경주","안동","구미"];
+          const firstNonNum = nonNumTokens[0] || '';
+          const isRegion = KNOWN_REGIONS.some(r => firstNonNum === r || firstNonNum.includes(r));
+          if (isRegion && nonNumTokens.length >= 2) {
+            // 첫 토큰=지역, 나머지=단지명
+            const complexPart = nonNumTokens.slice(1).join('');
+            query = query.ilike('complex_name', `%${complexPart}%`);
+            if (!sigungu) query = query.ilike('sigungu', `%${firstNonNum}%`);
+          } else {
+            // 전체 공백제거로 단지명 검색 (지역어가 단지명에 포함된 경우)
+            const withoutNum = nonNumTokens.join('');
+            query = query.ilike('complex_name', `%${withoutNum}%`);
+          }
         } else {
           const complexToken = lastToken; // 마지막=단지명
           const regionToken  = spaceTokens.length >= 2 ? spaceTokens[0] : ''; // 첫번째=지역
