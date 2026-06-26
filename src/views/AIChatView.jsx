@@ -11,6 +11,7 @@ import { groupAreasByPyeong } from '../search/utils.js';
 import { buildAnalysisInput } from '../search/input.js';
 import { searchComplexFromSupabase } from '../search/supabase.js';
 import { LocationPicker } from './LocationPicker.jsx';
+import { FairValueResult } from './FairValueResult.jsx';
 import { createSessionMemory, processUserInput } from '../agent/AgentCore.js';
 import { routeTool } from '../agent/ToolRouter.js';
 
@@ -795,9 +796,19 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     }
 
     if (msg.type === "result") {
+      const { engine, ff } = msg.data || {};
+      if (engine && ff) {
+        return (
+          <div key={msg.id} style={{ marginBottom:8 }}>
+            <FairValueResult r={engine} f={ff} onBack={null} onNewSearch={null}
+              onHome={null} areaOptions={[]} currentUserId={currentUserId} />
+          </div>
+        );
+      }
       return (
         <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
-          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
+          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN,
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
             <CI d="star" s={13} color="#fff" />
           </div>
           <div style={{ flex:1, minWidth:0 }}>
