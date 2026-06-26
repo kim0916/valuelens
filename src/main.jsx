@@ -642,11 +642,8 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
   };
 
   function handleQuickCard(q) {
-    setQuery(q);
-    const result = processUserInput(q, agentMemory);
-    setAgentMemory(result.memory);
-    setAiGreeting(result.response);
-    window.scrollTo({ top: 0, behavior:"smooth" });
+    // 질문 카드 → AIChatView로 이동 후 처리 (탭 직접 이동 금지)
+    if (onNavigate) onNavigate("ai", { searchQuery: q });
   }
   function handleSubmit() {
     if (!query.trim()) return;
@@ -1316,8 +1313,12 @@ function AppInner() {
 
   // 홈에서 탭으로 이동
   const goTo = (tab, params) => {
-    if (tab === "ai" && params?.agentInitial) {
-      setAgentInitial(params.agentInitial);
+    if (tab === "ai") {
+      // searchQuery: AgentHome 질문 → AIChatView에서 처리
+      // agentInitial: 이미 계산된 결과 주입
+      setAgentInitial(params?.searchQuery
+        ? { searchQuery: params.searchQuery, agentMemory: params.agentMemory }
+        : params?.agentInitial || null);
     } else {
       setAgentInitial(null);
     }
