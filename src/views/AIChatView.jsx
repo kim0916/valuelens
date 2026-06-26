@@ -150,6 +150,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
   const [msgs, setMsgs]           = React.useState([WELCOME]);
   const [agentSessionMemory, setAgentSessionMemory] = React.useState(() => createSessionMemory());
+  const agentMemoryRef = React.useRef(createSessionMemory()); // state 비동기 문제 방지
 
   // agentInitial: AgentHome에서 질문 텍스트를 받아 AIChatView 안에서 처리
   React.useEffect(() => {
@@ -219,8 +220,10 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     addMsg({ role: "user", type: "text", content: text });
 
     // AgentCore 처리 — status 기반 4분기
-    const ar = processUserInput(text, agentSessionMemory);
-    setAgentSessionMemory(ar.memory);
+    // ref로 항상 최신 memory 사용 (React state 비동기 문제 방지)
+    const ar = processUserInput(text, agentMemoryRef.current);
+    agentMemoryRef.current = ar.memory;  // 동기 업데이트
+    setAgentSessionMemory(ar.memory);    // UI 렌더링용
 
     // ── missing: 메시지만 표시, 이동 없음 ──
     if (ar.status === "missing") {
