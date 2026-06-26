@@ -38,11 +38,39 @@ async function toolSearchComplex(complexName, region) {
 }
 
 // ── Tool 2: 적정가 (fair) ──
+// complexQuery(줄임말/부분명) → Supabase fuzzy search → 1개/여러개/0개 분기
 async function toolFairValue(memory) {
-  const { complexName, area, region } = memory;
-  const searchRes = await toolSearchComplex(complexName, region);
-  if (!searchRes.ok) return searchRes;
-  const complex = searchRes.data[0];
+  const { complexQuery, complexName, area, region } = memory;
+  const searchKw = complexQuery || complexName;
+  if (!searchKw) return makeErr("fair", "분석할 아파트를 알려주세요.
+예: 동신아파트, 리센츠, 은마");
+
+  // Supabase fuzzy search
+  let complexes = [];
+  try {
+    const res = await searchComplexFromSupabase(searchKw, region || "", "");
+    complexes = res.complexes || [];
+  } catch { return makeErr("fair", "단지 검색 중 오류가 발생했어요."); }
+
+  // 0개
+  if (complexes.length === 0)
+    return makeErr("fair", `"${searchKw}"와 일치하는 단지를 찾지 못했어요.
+더 자세히 입력해주세요. 예: 공릉동 동신, 잠실 리센츠`);
+
+  // 여러 개 → 후보 카드 (AIChatView에서 처리)
+  if (complexes.length > 1) {
+    return {
+      ok: true, tool: "fair_select",
+      summary: {
+        conclusion: `"${searchKw}"로 ${complexes.length}개 단지를 찾았어요. 분석할 단지를 선택해주세요.`,
+        keyNumbers: [], basis: "", trust: "", tab: "fair",
+      },
+      rawData: { complexes, area, memory },
+    };
+  }
+
+  // 1개 → 바로 분석
+  const complex = complexes[0];
 
   const areaNum = area ? parseFloat(area) : null;
   const areaExcl = areaNum ? (area.includes("평") ? Math.round(areaNum * 3.3) : areaNum) : null;
