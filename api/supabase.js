@@ -100,8 +100,8 @@ export default async function handler(req, res) {
           break;
         }
       }
-      // areaHint 결정: 숫자 직접 입력 우선, 없으면 평형 변환값
-      const resolvedAreaHint = naturalAreaRaw || pyeongExtractedArea || null;
+      // areaHint 결정: 평형 표현 변환값 우선 (34평→84), 없으면 숫자 직접 입력
+      const resolvedAreaHint = pyeongExtractedArea || naturalAreaRaw || null;
 
       // ── 별명/줄임말 정규화 ──
       const NICKNAME_MAP = {
@@ -198,6 +198,36 @@ export default async function handler(req, res) {
         '해운대자이우동':         '해운대자이2차1단지',
         '아현마포래미안':         '마포래미안푸르지오',
         '마포래미안아현':         '마포래미안푸르지오',
+        // QA 실패 케이스 추가
+        '잠실파크리오':           '파크리오',
+        '잠실리센츠':             '리센츠',
+        '송도더샵퍼스트파크':     '송도더샵퍼스트파크',  // 정규화
+        '더샵퍼스트파크':         '송도더샵퍼스트파크',
+        '이편한세상도마':         '도마e편한세상포레나',
+        '이편한도마':             '도마e편한세상포레나',
+        '이편한포레나':           '도마e편한세상포레나',
+        '다산이편한자이':         '다산 이편한세상자이',
+        '다산자이이편한':         '다산 이편한세상자이',
+        '남양주다산자이':         '다산 이편한세상자이',
+        '두정역해링턴':           '두정역효성해링턴플레이스',
+        '두정역헤링턴':           '두정역효성해링턴플레이스',
+        '두정해링턴플레이스':     '두정역효성해링턴플레이스',
+        '상계주공7단지':          '상계주공7',
+        '상계7단지':              '상계주공7',
+        '행당서울숲':             '서울숲푸르지오',
+        '서울숲행당':             '서울숲푸르지오',
+        '성동서울숲':             '서울숲푸르지오',
+        '수원힐푸':               '힐스테이트푸르지오수원',
+        '매교힐스테이트':         '힐스테이트푸르지오수원',
+        '만촌화성':               '만촌화성파크드림',
+        '수성구만촌':             '만촌화성파크드림',
+        '대구만촌':               '만촌화성파크드림',
+        '압구정현대7차':          '현대7차(73~77,82,85동)',
+        '현대7차압구정':          '현대7차(73~77,82,85동)',
+        '송도아크베이':           '더샵송도아크베이',
+        '아크베이송도':           '더샵송도아크베이',
+        '해운대자이2차1단지':     '해운대자이2차1단지',  // 정규화
+        '해운대자이2차':          '해운대자이2차1단지',
       };
 
       // ── 자연어 파싱 ──
@@ -353,20 +383,30 @@ export default async function handler(req, res) {
         const spaceTokens = nameOrig.split(/\s+/).filter(t => t.length >= 1);
         const lastToken = spaceTokens[spaceTokens.length - 1];
         const lastIsNum = /^\d+$/.test(lastToken);
+        // 단지 차수 숫자 판별: 1~2자리 단독 숫자는 차수일 수 있음
+        // "상계 주공 7" → 7은 차수 → 주공7로 합쳐야 함
+        // "잠실 엘스 84" → 84는 면적 → 제거
+        // 기준: 숫자가 면적 범위(30~200)이면 면적, 아니면 차수
+        const lastNumVal = lastIsNum ? Number(lastToken) : 0;
+        const lastNumIsArea = lastIsNum && lastNumVal >= 30 && lastNumVal <= 200;
+        const lastNumIsSeq = lastIsNum && (lastNumVal < 30 || lastNumVal > 200); // 차수 (1~29 또는 200+)
 
-        // KNOWN_REGIONS 재사용 (이미 위에서 선언됨)
+        // KNOWN_REGIONS 재사용
         const KR = ["강남","서초","송파","강동","마포","용산","성동","광진","노원","강북","성북","은평","서대문","구로","금천","관악","동작","영등포","양천","강서","도봉","중랑","동대문","중구","종로","광명","부천","안양","수원","성남","의정부","고양","남양주","하남","화성","동탄","평택","안산","시흥","파주","양주","김포","광주","이천","오산","군포","의왕","부산","대구","인천","대전","울산","세종","창원","진주","김해","양산","포항","경주","안동","구미","동래","해운대","수영","연제","압구정","반포","대치","도곡","개포","잠실","가락","역삼","청담","행당","공릉","상계","아현","우동","온천","효자","오송"];
 
-        // 숫자 토큰 제거
-        const nonNumTokens = spaceTokens.filter(t => !/^\d+$/.test(t));
+        // 차수 숫자면 단지명에 붙여서 검색
+        if (lastNumIsSeq) {
+          const joined = spaceTokens.slice(0, -1).join('') + lastToken; // 차수 붙임
+          query = query.ilike('complex_name', `%${joined}%`);
+        } else {
+          // 면적 숫자 제거
+          const nonNumTokens = spaceTokens.filter(t => !/^\d+$/.test(t));
+          const firstTok = nonNumTokens[0] || '';
+          const lastNonNumTok = nonNumTokens[nonNumTokens.length - 1] || '';
+          const firstIsRegion = KR.some(r => firstTok === r || firstTok.includes(r) || r.includes(firstTok) && firstTok.length >= 2);
+          const lastIsRegion  = nonNumTokens.length >= 2 && KR.some(r => lastNonNumTok === r || lastNonNumTok.includes(r));
 
-        // 첫 토큰이 지역어인지 확인
-        const firstTok = nonNumTokens[0] || '';
-        const lastNonNumTok = nonNumTokens[nonNumTokens.length - 1] || '';
-        const firstIsRegion = KR.some(r => firstTok === r || firstTok.includes(r) || r.includes(firstTok) && firstTok.length >= 2);
-        const lastIsRegion  = nonNumTokens.length >= 2 && KR.some(r => lastNonNumTok === r || lastNonNumTok.includes(r));
-
-        if (lastIsNum || firstIsRegion) {
+        if (lastNumIsArea || firstIsRegion) {
           // 케이스: "강남 은마 76", "대치 래미안", "부산 동래 래미안 84"
           // → 숫자·지역어 제외 나머지가 단지명 핵심
           let regionTok = firstIsRegion ? firstTok : '';
@@ -374,27 +414,25 @@ export default async function handler(req, res) {
             if (i === 0 && firstIsRegion) return false; // 첫 토큰 지역 제외
             return true;
           });
-          const complexPart = complexTokens.join(''); // 공백 제거 합침
+          const complexPart = complexTokens.join('');
 
           if (complexPart.length >= 2) {
             query = query.ilike('complex_name', `%${complexPart}%`);
             if (regionTok && !sigungu) query = query.ilike('sigungu', `%${regionTok}%`);
           } else {
-            // 단지명 핵심이 너무 짧으면 전체 공백제거
             query = query.ilike('complex_name', `%${nonNumTokens.join('')}%`);
           }
         } else if (lastIsRegion) {
-          // 케이스: "현대 압구정", "자이위브 광명" (단지명 앞, 지역 뒤)
           const complexPart = nonNumTokens.slice(0, -1).join('');
           query = query.ilike('complex_name', `%${complexPart}%`);
           if (!sigungu) query = query.ilike('sigungu', `%${lastNonNumTok}%`);
         } else {
-          // 일반 공백 패턴: 마지막 토큰=단지명, 첫 토큰=지역 힌트
           const complexToken = lastToken;
           const regionToken  = spaceTokens.length >= 2 ? spaceTokens[0] : '';
           query = query.ilike('complex_name', `%${complexToken}%`);
           if (regionToken && !sigungu) query = query.ilike('sigungu', `%${regionToken}%`);
         }
+        } // end else (not lastNumIsSeq)
       } else {
         // 일반: 공백제거 단일 ilike
         query = query.ilike('complex_name', `%${nameNoSpace}%`);
