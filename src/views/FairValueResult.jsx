@@ -42,61 +42,70 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
 
   return (
     <>
-      {/* ── 결론 카드 ── */}
-      <div className="mb-4 overflow-hidden rounded-3xl shadow-lg ring-1 ring-slate-200">
-        <div className="px-5 py-4 text-white" style={{ backgroundColor: NAVY }}>
-          <p className="text-xs text-slate-300">{f.complexName} · {f.dong}{Number(f.areaExclusive) > 0 ? ` 전용 ${f.areaExclusive}㎡` : ""}</p>
-          <div className="mt-2 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] text-slate-400">적정가 판단</p>
-              <p className="text-xl font-extrabold">{provisional ? "데이터 부족 — 분석 어려움" : r.gradeLabel}</p>
-              {provisional && <p className="mt-1 text-xs text-slate-300">{r.holdReason}</p>}
-              {!provisional && <p className="text-[11px] text-slate-400">ValueLens {r.buyGrade}등급 · {{ A:"적정가 대비 크게 낮음", B:"적정가 대비 낮음", C:"적정가 수준", D:"적정가 대비 높은 편", E:"적정가 대비 크게 높음" }[r.buyGrade] || ""}</p>}
+      {/* ── 결론 카드 (Image 2 스타일) ── */}
+      <div className="mb-4 overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-200 bg-white">
+        {/* 등급 + 한줄 설명 */}
+        <div className="px-5 py-4 border-b border-slate-100" style={{borderLeft: `4px solid ${hold ? '#94a3b8' : r.gapRatio < -0.05 ? '#2F6F4F' : r.gapRatio > 0.05 ? '#C97B22' : '#2F6F4F'}`}}>
+          <p className="text-xs text-slate-400 mb-1">{f.complexName} · {f.dong}{Number(f.areaExclusive) > 0 ? ` 전용 ${f.areaExclusive}㎡` : ""}</p>
+          <div className="flex items-center gap-2 mb-1">
+            <span style={{width:10,height:10,borderRadius:'50%',background: hold ? '#94a3b8' : r.gapRatio < -0.05 ? '#2F6F4F' : r.gapRatio > 0.05 ? '#C97B22' : '#64748b',flexShrink:0,display:'inline-block'}}/>
+            <span className="text-lg font-bold text-slate-900">
+              {hold ? "판단 보류" : `${r.buyGrade}등급 · ${{A:"매우 저평가",B:"저평가",C:"적정 가격",D:"고평가 주의",E:"고평가"}[r.buyGrade]||""}`}
+            </span>
+          </div>
+          <p className="text-sm text-slate-500">
+            {hold ? r.holdReason : r.gapRatio < 0 ? "현재 매물가가 시장 적정가보다 낮습니다" : "현재 매물가가 시장 적정가보다 높습니다"}
+          </p>
+        </div>
+
+        {/* 적정가 범위 + 현재 매물가 나란히 */}
+        {!hold && (
+          <div className="grid grid-cols-2 divide-x divide-slate-100 px-0">
+            <div className="px-4 py-3">
+              <p className="text-xs text-slate-400 mb-1">적정가 (추정 범위)</p>
+              <p className="text-base font-bold text-emerald-700">{won(r.fairPrice)}</p>
+              {(() => { const fb = computeFairBands(r, classifyApartmentMarket(f, r)); return (
+                <p className="text-xs text-slate-400 mt-0.5">{won(fb.conservative)} ~ {won(fb.aggressive)}</p>
+              ); })()}
             </div>
-            {!provisional && (
-              <div className="flex flex-col items-end gap-1">
-                <GradeInfoPopup />
-                <div className="text-right">
-                  <p className="text-[11px] text-slate-400">AI 적정가</p>
-                  <p className="text-xl font-extrabold text-emerald-400">{won(r.fairPrice)}</p>
-                </div>
-              </div>
-            )}
+            <div className="px-4 py-3">
+              <p className="text-xs text-slate-400 mb-1">현재 매물가</p>
+              <p className="text-base font-bold text-slate-800">{won(Number(f.currentPrice))}</p>
+              <p className={`text-xs mt-0.5 font-semibold ${r.gapRatio < 0 ? "text-emerald-600" : "text-red-500"}`}>
+                {r.gapRatio < 0 ? "↓" : "↑"} {Math.abs(r.gapRatio * 100).toFixed(1)}% {r.gapRatio < 0 ? "낮음" : "높음"}
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="grid grid-cols-3 divide-x divide-slate-100 bg-white">
-          <div className="px-3 py-3 text-center">
-            <p className="text-[11px] text-slate-400">현재가</p>
-            <p className="mt-0.5 text-sm font-extrabold text-slate-900">{won(Number(f.currentPrice))}</p>
-          </div>
-          <div className="px-3 py-3 text-center">
-            <p className="text-[11px] text-slate-400">AI 적정가</p>
-            <p className="mt-0.5 text-sm font-extrabold" style={{ color: NAVY }}>{provisional ? "—" : won(r.fairPrice)}</p>
-          </div>
-          <div className="px-3 py-3 text-center">
-            <p className="text-[11px] text-slate-400">{r.gapRatio < 0 ? "저평가" : "고평가"}</p>
-            <p className={`mt-0.5 text-sm font-extrabold ${r.gapRatio < -0.03 ? "text-emerald-600" : r.gapRatio > 0.03 ? "text-red-500" : "text-slate-700"}`}>
-              {provisional ? "—" : pct(r.gapRatio)}
-            </p>
-          </div>
-        </div>
-        {/* 한줄 결론 배너 */}
-        {!provisional && (
-          <div className={`border-t border-slate-100 px-5 py-2.5 text-sm font-semibold ${r.gapRatio < -0.05 ? "bg-emerald-50 text-emerald-800" : r.gapRatio > 0.05 ? "bg-red-50 text-red-800" : "bg-slate-50 text-slate-700"}`}>
+        )}
+
+        {/* 한줄 결론 */}
+        {!hold && (
+          <div className={`px-4 py-2.5 text-sm font-semibold border-t border-slate-100 flex items-center gap-2 ${r.gapRatio < -0.05 ? "bg-emerald-50 text-emerald-800" : r.gapRatio > 0.05 ? "bg-amber-50 text-amber-800" : "bg-slate-50 text-slate-700"}`}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{flexShrink:0}}>
+              <path d="M3 8.5l2 2L11 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
             {r.headline}
           </div>
         )}
-        {provisional && (
-          <div className="border-t border-amber-100 bg-amber-50 px-5 py-2.5 text-sm font-semibold text-amber-800">
-            데이터 부족으로 신뢰도 있는 분석이 어렵습니다
+        {hold && (
+          <div className="px-4 py-2.5 text-sm font-semibold border-t border-amber-100 bg-amber-50 text-amber-800">
+            데이터 부족으로 정확한 분석이 어렵습니다
           </div>
         )}
       </div>
 
-      {/* ── AI 참고 안내 ── */}
-      <AiNotice />
+      {/* ── AI 판단 이유 ── */}
+      {!provisional && (
+        <div className="mb-4 rounded-2xl border border-slate-100 bg-white shadow-sm px-4 py-3">
+          <p className="text-xs font-semibold text-slate-500 mb-1.5">이렇게 판단한 이유</p>
+          <p className="text-sm text-slate-700 leading-relaxed">{r.reasons?.[0] ? r.reasons[0].replace(/전세가율|전세|월세|환산|엔진|jeonse|blend|sale/g, '').replace(/\s+/g,' ').trim() : r.headline}</p>
+          {r.reasons?.[1] && (
+            <p className="text-xs text-slate-400 mt-1 leading-relaxed">{r.reasons[1].replace(/전세가율|전세|월세|환산|엔진|jeonse|blend|sale/g,'').replace(/\s+/g,' ').trim()}</p>
+          )}
+        </div>
+      )}
 
-      {/* ── 데이터 신뢰도 ── */}
+      {/* ── 데이터 안정성 ── */}
       <div className="mb-4"><DataTrustBadge trust={trust} /></div>
 
       <FairSaveBtn r={r} f={f} onBack={onBack} uid={currentUserId} />
@@ -131,37 +140,28 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
           <p className="mt-1 text-[10px] leading-tight text-slate-400">최근 매매 거래의 평균 시세입니다.</p>
         </div>
         <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">적용 전세가율</p>
-          <p className={`mt-1 text-base font-bold ${
-            r.actualRatio == null ? "text-slate-400" :
-            r.ratioWarn ? "text-orange-500" :
-            r.actualRatio >= 0.55 ? "text-emerald-600" :
-            r.actualRatio >= 0.45 ? "text-amber-600" : "text-orange-600"
-          }`}>
-            {r.actualRatio != null
-              ? `${(r.actualRatio*100).toFixed(1)}%${r.ratioWarn ? " ⚠️" : ""}`
-              : "계산불가"}
+          <p className="text-[11px] text-slate-400">데이터 안정성</p>
+          <p className={`mt-1 text-base font-bold ${trust?.grade === 'A' ? 'text-emerald-700' : trust?.grade === 'B' ? 'text-amber-700' : 'text-orange-700'}`}>
+            {trust?.gradeLabel || r.dataConfLabel}
           </p>
           <p className="text-[10px] text-slate-400">
-            {r.actualRatio != null
-              ? (r.actualRatio >= 0.55 ? "실수요 견고" : r.actualRatio >= 0.45 ? "보통 수준" : "낮음 — 투자수요")
-              : "—"}
+            {trust?.grade === 'A' ? '거래 충분' : trust?.grade === 'B' ? '거래 보통' : '거래 부족'}
           </p>
-          <p className="mt-1 text-[10px] leading-tight text-slate-400">매매가 대비 전세가 비율입니다.</p>
+          <p className="mt-1 text-[10px] leading-tight text-slate-400">분석에 사용된 데이터 품질입니다.</p>
         </div>
         <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">적정가 산출 방식</p>
+          <p className="text-[11px] text-slate-400">분석 방식</p>
           <p className="mt-1 text-sm font-bold text-slate-800">
             {r.isPremium ? "프리미엄 반영" :
-             r.engineMode === "jeonse" ? "전세 시세 중심" :
-             r.engineMode === "blend"  ? "전세·매매 혼합" :
-             r.engineMode === "sale"   ? "매매 시세 중심" : "보류"}
+             r.engineMode === "jeonse" ? "시세 중심" :
+             r.engineMode === "blend"  ? "혼합 분석" :
+             r.engineMode === "sale"   ? "거래가 중심" : "보류"}
           </p>
           <p className="mt-1 text-[10px] leading-tight text-slate-400">
             {r.isPremium ? "단지 특성 추가 반영" :
-             r.engineMode === "jeonse" ? "전세 거래 중심으로 계산했습니다." :
-             r.engineMode === "blend"  ? "전세·매매 혼합으로 계산했습니다." :
-             r.engineMode === "sale"   ? "매매 거래 중심으로 계산했습니다." : "—"}
+             r.engineMode === "jeonse" ? "임대 거래 기준으로 계산했습니다." :
+             r.engineMode === "blend"  ? "임대·매매 혼합으로 계산했습니다." :
+             r.engineMode === "sale"   ? "매매 거래 기준으로 계산했습니다." : "—"}
           </p>
         </div>
       </div>
@@ -267,8 +267,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
         {/* ── 핵심 4개 기본 노출 ── */}
         <Row l="분석 기준 전세 시세" v={r.jeonseFair ? `${won(r.jeonseFair)} (${r.jeonseUsed}건)` : "—"} />
         <Row l="분석 기준 매매 시세" v={r.saleFair ? `${won(r.saleFair)} (${r.saleUsed}건)` : "—"} />
-        <Row l="적용 전세가율" v={r.usedRatio ? `${(r.usedRatio*100).toFixed(1)}% (${r.dynamicRatio ? "실측값" : "기준값"})` : "—"} />
-        <Row l="데이터 신뢰도" v={r.dataConfLabel} />
+        <Row l="데이터 안정성" v={trust?.gradeLabel || r.dataConfLabel} />
 
         {/* ── 상세 분석 접힘 ── */}
         {(() => {
@@ -386,6 +385,27 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
           </div>
           <span className="text-xs text-slate-400">다운로드 ↓</span>
         </button>
+      </div>
+
+      {/* ── 유의사항 ── */}
+      <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+        <div className="flex items-center gap-1.5 mb-2">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{flexShrink:0}}>
+            <path d="M7 2L1.5 12h11L7 2z" stroke="#C97B22" strokeWidth="1.2" fill="none" strokeLinejoin="round"/>
+            <path d="M7 6v3M7 10.5v.5" stroke="#C97B22" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+          <p className="text-xs font-semibold text-amber-800">유의사항</p>
+        </div>
+        <ul className="space-y-1">
+          {["본 결과는 최근 거래 데이터를 기반으로 분석한 참고 자료입니다.", "시장 상황이나 개별 매물의 특성에 따라 실제 거래가격은 달라질 수 있습니다.", "중요한 의사결정 전에는 최신 실거래와 매물 상태를 반드시 확인하시기 바랍니다."].map((t,i) => (
+            <li key={i} className="flex items-start gap-1.5 text-xs text-amber-800">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{flexShrink:0,marginTop:2}}>
+                <path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="#C97B22" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {t}
+            </li>
+          ))}
+        </ul>
       </div>
 
       {/* ── 하단 네비게이션 CTA ── */}

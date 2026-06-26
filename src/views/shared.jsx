@@ -80,32 +80,81 @@ function GradeInfoPopup() {
 
 function DataTrustBadge({ trust }) {
   if (!trust) return null;
+
+  const dotColor = trust.grade === 'A'
+    ? '#2F6F4F'
+    : (trust.grade === 'B' ? '#C97B22' : '#B83232');
+
+  // 분석에 사용된 데이터 체크리스트
+  const dataItems = [];
+  if (trust.saleUsed > 0) {
+    dataItems.push({ ok: true,  text: `최근 동일 평형 매매 거래 ${trust.saleUsed}건` });
+  } else {
+    dataItems.push({ ok: false, text: '최근 거래량이 적습니다' });
+  }
+  dataItems.push({ ok: trust.sufficient, text: trust.sufficient ? '최근 거래를 중심으로 분석' : '분석 가능한 데이터를 함께 활용했습니다' });
+  if (trust.saleUsed > 0 || trust.jeonseUsed > 0) {
+    dataItems.push({ ok: true, text: '이상 거래 제외 후 계산' });
+    dataItems.push({ ok: true, text: '시장 가격 흐름 반영' });
+  }
+  if (!trust.sufficient) {
+    dataItems.push({ ok: null, text: '결과는 참고용으로 활용하시기 바랍니다' });
+  }
+
   return (
-    <div className={`rounded-2xl border p-4 ${trust.gradeColor}`}>
-      <div className="flex items-center justify-between">
+    <div className="rounded-2xl border border-slate-100 bg-white overflow-hidden shadow-sm">
+      {/* 데이터 안정성 헤더 */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-extrabold">{trust.gradeLabel}</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{flexShrink:0}}>
+            <path d="M8 1.5L2 4v4c0 3.3 2.5 6.1 6 6.9 3.5-.8 6-3.6 6-6.9V4L8 1.5z" stroke="#2F6F4F" strokeWidth="1.2" fill="none"/>
+            <path d="M5.5 8l2 2 3-3" stroke="#2F6F4F" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span className="text-sm font-semibold text-slate-700">데이터 안정성</span>
         </div>
-        <span className="text-xs text-slate-500">총 {trust.totalUsed}건 · 점수 {trust.score}/100</span>
-      </div>
-      <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
-        <div>
-          <p className="text-slate-400">매매 표본</p>
-          <p className="font-bold">{trust.saleUsed}건</p>
-        </div>
-        <div>
-          <p className="text-slate-400">전세 표본</p>
-          <p className="font-bold">{trust.jeonseUsed}건</p>
-        </div>
-        <div>
-          <p className="text-slate-400">최근 거래</p>
-          <p className="font-bold">{trust.latestYm && trust.monthsAgo != null && !isNaN(trust.monthsAgo) ? (trust.monthsAgo === 0 ? '이번 달' : `${trust.monthsAgo}개월 전`) : trust.latestYm ? trust.latestYm : '—'}</p>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold"
+          style={{
+            background: trust.grade === 'A' ? '#E6F4EE' : trust.grade === 'B' ? '#FEF3E2' : '#FDECEA',
+            color: trust.grade === 'A' ? '#1B5E38' : trust.grade === 'B' ? '#7A4A0A' : '#8B1F1F',
+            borderColor: trust.grade === 'A' ? '#A8D5BB' : trust.grade === 'B' ? '#F5C07A' : '#F0A8A8',
+          }}>
+          <span style={{width:6,height:6,borderRadius:'50%',background:dotColor,display:'inline-block'}}/>
+          {trust.gradeLabel}
         </div>
       </div>
-      <p className="mt-2 text-[11px]">{trust.gradeDesc}</p>
-      {!trust.sufficient && (
-        <p className="mt-1 text-[11px] font-semibold">⚠ 데이터가 충분하지 않아 결과를 참고용으로만 활용하세요.</p>
-      )}
+      {/* 안정성 설명 */}
+      <div className="px-4 pt-3 pb-2">
+        <p className="text-sm text-slate-700 leading-relaxed">{trust.gradeDesc}</p>
+      </div>
+      {/* 이번 분석에 사용된 데이터 */}
+      <div className="px-4 pb-1">
+        <p className="text-xs font-semibold text-slate-500 mb-2">이번 분석에 사용된 데이터</p>
+        <div className="space-y-1.5">
+          {dataItems.map((item, i) => (
+            <div key={i} className="flex items-start gap-2">
+              {item.ok === true && (
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{flexShrink:0,marginTop:1}}>
+                  <path d="M3 7.5l3 3 6-6" stroke="#2F6F4F" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+              {item.ok === false && (
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{flexShrink:0,marginTop:1}}>
+                  <path d="M7.5 5v4M7.5 10.5v.5" stroke="#B83232" strokeWidth="1.4" strokeLinecap="round"/>
+                  <path d="M2 13h11L7.5 2 2 13z" stroke="#B83232" strokeWidth="1.2" fill="none" strokeLinejoin="round"/>
+                </svg>
+              )}
+              {item.ok === null && (
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{flexShrink:0,marginTop:1}}>
+                  <circle cx="7.5" cy="7.5" r="5.5" stroke="#888" strokeWidth="1.2"/>
+                  <path d="M7.5 5v3.5M7.5 10v.5" stroke="#888" strokeWidth="1.3" strokeLinecap="round"/>
+                </svg>
+              )}
+              <span className="text-xs text-slate-700 leading-relaxed">{item.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="h-3" />
     </div>
   );
 }

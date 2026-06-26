@@ -139,21 +139,21 @@ function computeDataTrust(r, deals = [], saleDeals = []) {
   const rawScore = Math.round((freshness * 0.4 + sampleScore * 0.6) * 25); // 0~100
 
   if (rawScore >= 75) {
-    grade = 'A'; gradeLabel = '신뢰도 높음';
-    gradeColor = 'text-emerald-600 bg-emerald-50 border-emerald-200';
-    gradeDesc = '충분한 실거래 표본 + 최근 거래 확인';
+    grade = 'A'; gradeLabel = '높음';
+    gradeColor = 'text-emerald-700 bg-emerald-50 border-emerald-200';
+    gradeDesc = '최근 동일 평형 매매 거래가 충분하여 안정적으로 분석되었습니다.';
   } else if (rawScore >= 50) {
-    grade = 'B'; gradeLabel = '신뢰도 보통';
-    gradeColor = 'text-amber-600 bg-amber-50 border-amber-200';
-    gradeDesc = '표본 또는 최신성 중 하나 미흡';
+    grade = 'B'; gradeLabel = '보통';
+    gradeColor = 'text-amber-700 bg-amber-50 border-amber-200';
+    gradeDesc = '최근 거래량이 다소 적어 가격 변동성이 있을 수 있습니다.';
   } else if (rawScore >= 25) {
-    grade = 'C'; gradeLabel = '신뢰도 낮음';
-    gradeColor = 'text-orange-600 bg-orange-50 border-orange-200';
-    gradeDesc = '표본 부족 또는 오래된 데이터';
+    grade = 'C'; gradeLabel = '낮음';
+    gradeColor = 'text-orange-700 bg-orange-50 border-orange-200';
+    gradeDesc = '최근 거래 데이터가 부족하여 분석 가능한 보완 데이터를 함께 활용했습니다. 결과는 참고용으로 활용하시고 실제 시세를 함께 확인하시기 바랍니다.';
   } else {
-    grade = 'D'; gradeLabel = '신뢰도 매우 낮음';
-    gradeColor = 'text-red-600 bg-red-50 border-red-200';
-    gradeDesc = '실거래 거의 없음 — 참고용으로만 활용';
+    grade = 'D'; gradeLabel = '낮음';
+    gradeColor = 'text-orange-700 bg-orange-50 border-orange-200';
+    gradeDesc = '최근 거래 데이터가 부족하여 분석 가능한 보완 데이터를 함께 활용했습니다. 결과는 참고용으로 활용하시고 실제 시세를 함께 확인하시기 바랍니다.';
   }
 
   const sufficient = totalUsed >= 5 && (monthsAgo == null || monthsAgo <= 6);
