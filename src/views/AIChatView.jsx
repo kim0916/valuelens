@@ -11,6 +11,8 @@ import { groupAreasByPyeong } from '../search/utils.js';
 import { buildAnalysisInput } from '../search/input.js';
 import { searchComplexFromSupabase } from '../search/supabase.js';
 import { LocationPicker } from './LocationPicker.jsx';
+import { createSessionMemory, processUserInput } from '../agent/AgentCore.js';
+import { routeTool } from '../agent/ToolRouter.js';
 
 // ── parseIntent (AIChatView 전용) ──
 function parseIntent(raw) {
@@ -147,6 +149,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   };
 
   const [msgs, setMsgs]           = React.useState([WELCOME]);
+  const [agentSessionMemory, setAgentSessionMemory] = React.useState(() => createSessionMemory());
 
   // agentInitial: AgentHome에서 ToolRouter 결과를 받아 채팅에 주입
   React.useEffect(() => {
@@ -210,13 +213,41 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     // 1. 사용자 메시지 추가
     addMsg({ role: "user", type: "text", content: text });
 
-    // 2. 파싱
-    const intent = parseIntent(text);
+    // 2. AgentCore 우선 처리 (무료)
+    const agentResult = processUserInput(text, agentSessionMemory);
+    setAgentSessionMemory(agentResult.memory);
 
-    // 3. thinking 표시
+    // 3. AgentCore가 인식한 경우
+    if (agentResult.goal !== "unknown") {
+      // 정보 부족 → 최소 질문 (무료, AI API 호출 없음)
+      if (agentResult.needsMoreInfo) {
+        replaceLastAI({ type: "text", content: agentResult.response });
+        return;
+      }
+      // 정보 충분 → ToolRouter로 기존 엔진 호출 (무료)
+      addMsg({ role: "ai", type: "thinking", content: "분석 중..." });
+      try {
+        const toolResult = await routeTool(agentResult.goal, agentResult.memory, agentResult.params);
+        if (toolResult.ok && toolResult.summary?.conclusion) {
+          // [LOG] AgentCore 무료 경로 처리
+          console.log("[Agent] 무료 경로:", agentResult.goal, toolResult.tool);
+          replaceLastAI({
+            type: "agent_result",
+            summary: toolResult.summary,
+            rawData: toolResult.rawData,
+          });
+          return;
+        }
+      } catch (e) {
+        console.warn("[Agent] ToolRouter 실패, 기존 경로로 폴백:", e);
+      }
+    }
+
+    // 4. unknown 또는 ToolRouter 실패 → 기존 parseIntent 경로 (폴백)
+    // [LOG] AI 폴백 경로 (복잡한 질문)
+    console.log("[Agent] 기존 parseIntent 경로 사용:", text);
     addMsg({ role: "ai", type: "thinking", content: "분석 중..." });
-
-    // 4. 단지 검색
+    const intent = parseIntent(text);
     await routeIntent(intent, text);
   }
 
