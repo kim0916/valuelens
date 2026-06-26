@@ -438,7 +438,37 @@ export default async function handler(req, res) {
         }
       }
 
-      // ── fallback 3: 자연어 core 검색 (면적·지역어 제거 후 단지명 핵심만) ──
+      // ── fallback 2.5: 지역어+단지명 분리 재검색 ──
+      // orVariant 경로에서 sigungu 없이 전국 검색했거나
+      // hasSpace 분기에서 지역어가 sigungu로 전달 안 된 경우
+      if ((!data || data.length === 0) && hasSpace) {
+        const KR3 = ["강남","서초","송파","강동","마포","용산","성동","광진","노원","강북","성북","구로","금천","관악","동작","영등포","양천","강서","도봉","중랑","동대문","종로","광명","부천","안양","수원","성남","의정부","고양","남양주","하남","화성","동탄","평택","안산","시흥","파주","부산","대구","인천","대전","울산","세종","창원","진주","김해","포항","경주","안동","구미","동래","해운대","수영","연제","압구정","반포","대치","도곡","개포","잠실","가락","역삼","청담","행당","공릉","상계","아현","우동","온천","효자","오송"];
+        const spToks25 = nameOrig.split(/\s+/).filter(t=>t.length>=1&&!/^\d+$/.test(t));
+        for (let i = 0; i < Math.min(spToks25.length - 1, 2); i++) {
+          const regionCandidate = spToks25[i];
+          if (KR3.some(r => regionCandidate === r || regionCandidate.includes(r))) {
+            const complexPart = spToks25.slice(i+1).join('');
+            if (complexPart.length >= 2) {
+              console.log(`[search] fallback2.5: region="${regionCandidate}" complex="${complexPart}"`);
+              let fb25q = supabase
+                .from('realestate_complexes')
+                .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
+                .ilike('complex_name', `%${complexPart}%`)
+                .ilike('sigungu', `%${regionCandidate}%`)
+                .order('sale_cnt', { ascending: false })
+                .limit(Math.min(limit, 8));
+              const { data: fb25Data } = await fb25q;
+              if (fb25Data && fb25Data.length > 0) {
+                data = fb25Data;
+                console.log(`[search] fallback2.5 성공: ${fb25Data.length}건`);
+                break;
+              }
+            }
+          }
+        }
+      }
+
+
       if ((!data || data.length === 0) && naturalCoreNoSpace.length >= 3 && naturalCoreNoSpace !== normalizedName.replace(/\s/g,'')) {
         console.log(`[search] fallback3: 자연어core "${naturalCoreNoSpace}" region="${naturalRegion||''}"`);
         let fb3q = supabase
