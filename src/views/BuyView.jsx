@@ -66,10 +66,16 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
     // agentResult 있으면 결과 화면 직행 (setR(null) 차단)
     const agentRes = screenerInitial.agentResult;
     if (agentRes) {
-      // ToolRouter rawData 구조: { complex, form, analysisResult, buyDecision? }
+      // ResultCard engine or ToolRouter rawData.analysisResult
       const resultObj = agentRes.analysisResult || agentRes;
-      if (resultObj && resultObj.fairPrice !== undefined) {
-        // form 정보도 복원
+      // fairPrice 또는 engineMode 또는 buyGrade 중 하나라도 있으면 결과로 판단
+      const isResult = resultObj && (
+        resultObj.fairPrice !== undefined ||
+        resultObj.engineMode !== undefined ||
+        resultObj.buyGrade !== undefined ||
+        resultObj.gradeLabel !== undefined
+      );
+      if (isResult) {
         const form = agentRes.form || {};
         setF((prev) => ({
           ...EMPTY,
