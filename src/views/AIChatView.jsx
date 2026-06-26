@@ -432,6 +432,12 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       }
 
       // buildAnalysisInput 호출 — 기존 엔진 전처리 그대로 사용
+      // sale 중앙값을 currentPrice로 자동 세팅 (blockReason 방지)
+      const sortedPrices = [...sale].map(d => d.price).filter(p => p > 0).sort((a,b) => a-b);
+      const medianPrice = sortedPrices.length > 0
+        ? sortedPrices[Math.floor(sortedPrices.length / 2)]
+        : 0;
+
       const rawData = {
         sale, jeonse,
         areaSqm:     targetArea || 0,
@@ -439,7 +445,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         dong,
         complexName: name,
         buildYear:   complex.build_year || null,
-        currentPrice: 0,
+        currentPrice: medianPrice,  // 실거래 중앙값으로 자동 세팅
         kbSalePrice:  0,
         kbJeonse:     0,
         tradeStatus:  { code: "OK" },
