@@ -124,90 +124,118 @@ export default async function handler(req, res) {
         orVariant = null; // alias 매칭 시 OR 불필요
       }
 
-      // ── 스마트 토큰 검색 ──
-      // 사용자는 부분명/줄임말 입력. 공백 포함 시 토큰 분리 후 각각 검색.
-      // "공릉동 동신" → ["공릉동","동신"] → 동신 검색 + 공릉동 지역 필터
-      // "잠실 리센츠" → ["잠실","리센츠"] → 리센츠 검색 + 잠실 지역 필터
-      const SELECT_COLS = 'id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, area_list';
+      // 검색명 처리:
+      // 1) 특수문자(괄호,하이픈 등) 포함 시 → .ilike() 직접 사용 (Supabase .or() 파서가 괄호를 그룹 연산자로 오인)
+      // 2) OR variant 있음 → 원본 + variant 양쪽 OR 검색 (레미안↔래미안, 이편한↔e편한)
+      // 3) 공백 포함 시 → 공백제거+원본 두 버전 OR 검색
+      // 4) 일반 단지명 → 공백제거 단일 ilike
       const nameNoSpace = searchName.replace(/\s/g, '');
-      const tokens = searchName.trim().split(/\s+/).filter(t => t.length >= 1);
+      const nameOrig    = searchName.trim();
+      const hasSpecial  = /[()\[\]\-·,]/.test(nameOrig);
+      const hasSpace    = nameNoSpace !== nameOrig;
 
-      // 지역 토큰 구분 (구/시/동/읍 등)
-      const REGION_SUFFIXES = /(?:특별시|광역시|시|구|군|읍|면|동|리)$/;
-      const REGION_WORDS = new Set(['강남','서초','송파','강동','마포','용산','성동','광진','노원','도봉',
-        '강북','성북','종로','중구','동대문','중랑','강서','양천','구로','금천','영등포','동작','관악',
-        '은평','서대문','잠실','송도','분당','일산','판교','수원','인천','의정부','안양','부천',
-        '광명','성남','하남','과천','청라','검단','위례','동탄','평택','고양','용인','화성','시흥',
-        '수성','달서','북구','남구','동구','서구','중구','해운대','부산진','남동','연수','미추홀']);
+      let query = supabase
+        .from('realestate_complexes')
+        .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
+        .order('sale_cnt', { ascending: false })
+        .limit(limit);
 
-      const regionTokens = tokens.filter(t => REGION_WORDS.has(t) || REGION_SUFFIXES.test(t));
-      const nameTokens   = tokens.filter(t => !REGION_WORDS.has(t) && !REGION_SUFFIXES.test(t));
+      // OR variant 있을 때: 두 표기 각각 별도 쿼리 후 병합
+      // → sale_cnt 정렬 시 한쪽 표기가 limit 안에서 밀리는 문제 방지
+      // 예: 레미안(9건) + 래미안(218건) → 각각 상위 N/2건씩 뽑아 합침
+      if (orVariant && !hasSpecial) {
+        const half = Math.ceil(limit / 2);
+        const varNoSpace = orVariant.replace(/\s/g, '');
 
-      // 효과적인 단지명 검색어 결정
-      const effectiveNameKw = nameTokens.length > 0
-        ? nameTokens.join('')   // 단지명 토큰만 합쳐서
-        : nameNoSpace;          // 전체 공백제거
+        const buildQ = (keyword) => {
+          let q = supabase
+            .from('realestate_complexes')
+            .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
+            .order('sale_cnt', { ascending: false })
+            .limit(half);
+          q = q.ilike('complex_name', `%${keyword}%`);
+          if (sigungu) q = q.ilike('sigungu', `%${sigungu}%`);
+          if (dong)    q = q.ilike('legal_dong', `%${dong}%`);
+          return q;
+        };
 
-      // 지역 힌트 결정 (우선순위: 파라미터 sigungu > 쿼리 내 지역 토큰)
-      const effectiveSigungu = sigungu || (regionTokens.length > 0 ? regionTokens[0] : '');
-      const effectiveDong    = dong    || (regionTokens.length > 1 ? regionTokens[1] : '');
-
-      // OR variant (브랜드 혼재 처리)
-      const buildTokenQuery = async (kw, sig, dng, lim) => {
-        let q = supabase.from('realestate_complexes').select(SELECT_COLS)
-          .ilike('complex_name', \`%\${kw}%\`)
-          .order('sale_cnt', { ascending: false }).limit(lim);
-        if (sig) q = q.ilike('sigungu', \`%\${sig}%\`);
-        if (dng) q = q.ilike('legal_dong', \`%\${dng}%\`);
-        return q;
-      };
-
-      let data = [];
-
-      if (orVariant) {
-        const varKw = orVariant.replace(/\s/g, '');
-        const half  = Math.ceil(limit / 2);
-        const [r1, r2] = await Promise.all([
-          buildTokenQuery(effectiveNameKw, effectiveSigungu, effectiveDong, half),
-          buildTokenQuery(varKw,           effectiveSigungu, effectiveDong, half),
-        ]);
+        const [r1, r2] = await Promise.all([buildQ(nameNoSpace), buildQ(varNoSpace)]);
         if (r1.error) throw r1.error;
         if (r2.error) throw r2.error;
+
+        // 중복 제거 후 sale_cnt 내림차순 병합
         const seen = new Set();
+        const merged = [];
         for (const item of [...(r1.data||[]), ...(r2.data||[])]) {
-          if (!seen.has(item.id)) { seen.add(item.id); data.push(item); }
+          if (!seen.has(item.id)) { seen.add(item.id); merged.push(item); }
         }
-        data.sort((a, b) => (b.sale_cnt||0) - (a.sale_cnt||0));
+        merged.sort((a, b) => (b.sale_cnt||0) - (a.sale_cnt||0));
+
+        res.setHeader('Cache-Control', 's-maxage=3600');
+        res.status(200).json({ complexes: merged, aliasMatch, total: merged.length });
+        return;
+      }
+
+      if (hasSpecial) {
+        // 특수문자 포함: .ilike() 직접 사용
+        query = query.ilike('complex_name', `%${nameOrig}%`);
+      } else if (hasSpace) {
+        // 공백 포함: 토큰 분리 → 마지막 토큰=단지명, 앞 토큰=지역 힌트
+        // "공릉동 동신" → complex_name ILIKE '%동신%' AND sigungu ILIKE '%공릉동%'
+        // "잠실 리센츠" → complex_name ILIKE '%리센츠%' AND sigungu ILIKE '%잠실%'
+        const spaceTokens = nameOrig.split(/\s+/).filter(t => t.length >= 1);
+        const complexToken = spaceTokens[spaceTokens.length - 1]; // 마지막=단지명
+        const regionToken  = spaceTokens.length >= 2 ? spaceTokens[0] : ''; // 첫번째=지역
+        query = query.ilike('complex_name', `%${complexToken}%`);
+        if (regionToken && !sigungu) query = query.ilike('sigungu', `%${regionToken}%`);
       } else {
-        const r = await buildTokenQuery(effectiveNameKw, effectiveSigungu, effectiveDong, limit);
-        if (r.error) throw r.error;
-        data = r.data || [];
+        // 일반: 공백제거 단일 ilike
+        query = query.ilike('complex_name', `%${nameNoSpace}%`);
       }
 
-      // ── fallback 1: 지역 필터 제거 후 재검색 ──
-      if (data.length === 0 && effectiveSigungu) {
-        console.log(\`[search] fallback1: 지역 제거 후 재검색 "\${effectiveNameKw}"\`);
-        const r = await buildTokenQuery(effectiveNameKw, '', '', limit);
-        if (!r.error && r.data?.length > 0) data = r.data;
+      if (sigungu) query = query.ilike('sigungu', `%${sigungu}%`);
+      if (dong)    query = query.ilike('legal_dong', `%${dong}%`);
+
+      let { data, error } = await query;
+      if (error) throw error;
+
+      // ── fallback 1: 결과 없으면 sigungu 제거 후 재검색 ──
+      if ((!data || data.length === 0) && sigungu) {
+        console.log(`[search] fallback: sigungu 제거 후 재검색 "${normalizedName}"`);
+        let fbQuery = supabase
+          .from('realestate_complexes')
+          .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
+          .order('sale_cnt', { ascending: false })
+          .limit(limit);
+        const fbNoSpace = normalizedName.replace(/\s/g, '');
+        fbQuery = fbQuery.ilike('complex_name', `%${fbNoSpace}%`);
+        const { data: fbData, error: fbErr } = await fbQuery;
+        if (!fbErr && fbData && fbData.length > 0) {
+          data = fbData;
+          console.log(`[search] fallback 성공: ${fbData.length}건`);
+        }
       }
 
-      // ── fallback 2: 전체 공백제거 단지명으로 재검색 ──
-      if (data.length === 0 && nameNoSpace !== effectiveNameKw) {
-        console.log(\`[search] fallback2: 전체명 "\${nameNoSpace}"\`);
-        const r = await buildTokenQuery(nameNoSpace, effectiveSigungu, effectiveDong, limit);
-        if (!r.error && r.data?.length > 0) data = r.data;
+      // ── fallback 2: 여전히 없으면 앞 4글자 부분검색 ──
+      if ((!data || data.length === 0) && normalizedName.length >= 4) {
+        const short = normalizedName.replace(/\s/g, '').slice(0, 5);
+        console.log(`[search] fallback2: 부분검색 "${short}"`);
+        let fb2Query = supabase
+          .from('realestate_complexes')
+          .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
+          .ilike('complex_name', `%${short}%`)
+          .order('sale_cnt', { ascending: false })
+          .limit(Math.min(limit, 5));
+        if (sigungu) fb2Query = fb2Query.ilike('sigungu', `%${sigungu}%`);
+        const { data: fb2Data, error: fb2Err } = await fb2Query;
+        if (!fb2Err && fb2Data && fb2Data.length > 0) {
+          data = fb2Data;
+          console.log(`[search] fallback2 성공: ${fb2Data.length}건`);
+        }
       }
 
-      // ── fallback 3: 앞 4글자 부분검색 ──
-      if (data.length === 0 && nameNoSpace.length >= 3) {
-        const short = nameNoSpace.slice(0, 4);
-        console.log(\`[search] fallback3: 부분검색 "\${short}"\`);
-        const r = await buildTokenQuery(short, effectiveSigungu, effectiveDong, Math.min(limit, 10));
-        if (!r.error && r.data?.length > 0) data = r.data;
-      }
-
-      res.setHeader('Cache-Control', 's-maxage=60');
-      res.status(200).json({ complexes: data, aliasMatch, total: data.length });
+      res.setHeader('Cache-Control', 's-maxage=3600');
+      res.status(200).json({ complexes: data || [], aliasMatch, total: (data || []).length });
     } catch (e) {
       errRes(res, e, 'search');
     }
