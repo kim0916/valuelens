@@ -764,6 +764,13 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                     addMsg({ role:"ai", type:"thinking", content:"분석 중..." });
                     // runAnalysis로 연결 → result 타입 → FairValueResult 직접 렌더링
                     const intent = msg.intent || { intent:"fair" };
+                    // areaSqm이 없으면 area_list 중앙값으로 보정
+                    if (!intent.areaSqm && c.area_list) {
+                      const al = typeof c.area_list === "string" ? JSON.parse(c.area_list) : c.area_list;
+                      const sorted = [...al].map(Number).filter(Boolean).sort((a,b)=>a-b);
+                      intent.areaSqm = sorted[Math.floor(sorted.length/2)];
+                    }
+                    console.log("[candidates click] intent.areaSqm:", intent.areaSqm, "area:", intent.pyeong);
                     await runAnalysis(c, intent);
                   }}
                   style={{
