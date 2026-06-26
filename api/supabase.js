@@ -37,8 +37,32 @@ export default async function handler(req, res) {
 
   // ── 1. 단지 검색 ──
   if (type === 'search') {
-    const { name, sigungu, dong, limit = 20 } = req.body;
+    const { name, limit = 20 } = req.body;
+    let { sigungu, dong } = req.body;
     if (!name) { res.status(400).json({ error: 'name 필수' }); return; }
+
+    // ── sigungu 광역시 정규화 ──
+    // 앱/BT_LIST: "부산시 동래구" → DB: "부산광역시 동래구"
+    // ilike '%부산시 동래구%' 로는 매칭 실패 → 정규화 필수
+    if (sigungu) {
+      const METRO_NORM = {
+        '부산시': '부산광역시', '대구시': '대구광역시', '인천시': '인천광역시',
+        '광주시': '광주광역시', '대전시': '대전광역시', '울산시': '울산광역시',
+        '세종시': '세종특별자치시',
+      };
+      for (const [short, full] of Object.entries(METRO_NORM)) {
+        if (sigungu.startsWith(short)) {
+          console.log(`[search] sigungu 광역시 정규화: "${sigungu}" → "${sigungu.replace(short, full)}"`);
+          sigungu = sigungu.replace(short, full);
+          break;
+        }
+      }
+    }
+
+    // ── dong 필터: legal_dong 컬럼 미정비 단지 대비 안전화 ──
+    // DB의 legal_dong 컬럼이 null이거나 sigungu 풀주소에만 포함된 경우 dong 필터로 0건 발생
+    // → dong은 sigungu 필터가 없을 때만 보조 힌트로 사용, sigungu 있으면 dong 생략
+    const safeDong = sigungu ? '' : (dong || '');
 
     try {
       // ── 브랜드 표기 정규화 (DB 혼재 대응) ──
@@ -155,7 +179,7 @@ export default async function handler(req, res) {
             .limit(half);
           q = q.ilike('complex_name', `%${keyword}%`);
           if (sigungu) q = q.ilike('sigungu', `%${sigungu}%`);
-          if (dong)    q = q.ilike('legal_dong', `%${dong}%`);
+          if (safeDong) q = q.ilike('legal_dong', `%${safeDong}%`);
           return q;
         };
 
@@ -194,7 +218,7 @@ export default async function handler(req, res) {
       }
 
       if (sigungu) query = query.ilike('sigungu', `%${sigungu}%`);
-      if (dong)    query = query.ilike('legal_dong', `%${dong}%`);
+      if (safeDong) query = query.ilike('legal_dong', `%${safeDong}%`);
 
       let { data, error } = await query;
       if (error) throw error;
@@ -318,8 +342,24 @@ export default async function handler(req, res) {
   }
 
   if (type === 'deals') {
-    const { complex_id, complex_name, sigungu, area_excl } = req.body;
+    const { complex_id, complex_name, area_excl } = req.body;
+    let { sigungu } = req.body;
     const requestedArea = area_excl ? Number(area_excl) : null;
+
+    // 광역시 정규화 (search와 동일)
+    if (sigungu) {
+      const METRO_NORM = {
+        '부산시': '부산광역시', '대구시': '대구광역시', '인천시': '인천광역시',
+        '광주시': '광주광역시', '대전시': '대전광역시', '울산시': '울산광역시',
+        '세종시': '세종특별자치시',
+      };
+      for (const [short, full] of Object.entries(METRO_NORM)) {
+        if (sigungu.startsWith(short)) {
+          sigungu = sigungu.replace(short, full);
+          break;
+        }
+      }
+    }
 
     try {
       // cutoff 없음 — DB에 있는 데이터 전부 반환
@@ -341,8 +381,8 @@ export default async function handler(req, res) {
 
       if (requestedArea) {
         const [s1, r1] = await Promise.all([
-          baseQ('realestate_sales_raw').gte('area_excl', requestedArea - 3).lte('area_excl', requestedArea + 3).limit(200),
-          baseQ('realestate_rent_raw').eq('monthly_man', 0).gte('area_excl', requestedArea - 3).lte('area_excl', requestedArea + 3).limit(200),
+          baseQ('realestate_sales_raw').gte('area_excl', requestedArea - 5).lte('area_excl', requestedArea + 5).limit(200),
+          baseQ('realestate_rent_raw').eq('monthly_man', 0).gte('area_excl', requestedArea - 5).lte('area_excl', requestedArea + 5).limit(200),
         ]);
         if (s1.error) throw s1.error;
         if (r1.error) throw r1.error;
