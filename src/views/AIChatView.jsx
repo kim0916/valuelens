@@ -715,7 +715,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   const recent = (history||[]).slice(0,4);
 
   return (
-    <div style={{ maxWidth:480, margin:"0 auto", background:BRAND_BG, minHeight:"100dvh", display:"flex", flexDirection:"column" }}>
+    <div style={{ maxWidth:480, margin:"0 auto", background:BRAND_BG, height:"calc(100dvh - 56px)", display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
       {/* ── dot 애니메이션 CSS ── */}
       <style>{`
