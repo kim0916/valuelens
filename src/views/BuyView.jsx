@@ -62,6 +62,30 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
   // ── AI 검토 후보에서 넘어온 경우 자동 단지 입력 ──
   useEffect(() => {
     if (!screenerInitial) return;
+
+    // agentResult 있으면 결과 화면 직행 (setR(null) 차단)
+    const agentRes = screenerInitial.agentResult;
+    if (agentRes) {
+      // ToolRouter rawData 구조: { complex, form, analysisResult, buyDecision? }
+      const resultObj = agentRes.analysisResult || agentRes;
+      if (resultObj && resultObj.fairPrice !== undefined) {
+        // form 정보도 복원
+        const form = agentRes.form || {};
+        setF((prev) => ({
+          ...EMPTY,
+          complexName:   form.complexName   || prev.complexName,
+          region:        form.region        || prev.region,
+          dong:          form.dong          || prev.dong,
+          areaExclusive: form.areaExclusive || prev.areaExclusive,
+        }));
+        setR(resultObj);
+        setPending(null);
+        if (onClearScreenerInitial) onClearScreenerInitial();
+        return;
+      }
+    }
+
+    // agentResult 없음 → 기존 입력폼 흐름
     const { complexName, region, dong, areaExclusive, complexId } = screenerInitial;
     setF((prev) => ({
       ...EMPTY,
