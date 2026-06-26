@@ -1322,7 +1322,12 @@ function AppInner() {
     } else {
       setAgentInitial(null);
       // 자세히 보기에서 넘어온 agentResult 저장
-      setAgentResultData(params?.agentResult ? { ...params.agentResult, _goal: tab } : null);
+      const ar = params?.agentResult || null;
+      setAgentResultData(ar ? { ...ar, _goal: tab } : null);
+      // fair/buy: agentResult를 screenerInitial에 병합해서 결과 직행
+      if (ar && (tab === "fair" || tab === "buy")) {
+        setScreenerInitial({ agentResult: ar, _goal: tab });
+      }
     }
     setAptTab(tab === "ai" ? "ai" : tab);
     window.scrollTo({ top: 0, behavior: "smooth" });
