@@ -53,8 +53,11 @@ function extractBasicParams(text) {
     "송도","분당","일산","판교","수원","인천","의정부","안양","부천","광명","성남",
     "하남","과천","청라","검단","위례","동탄","평택","고양","용인","화성","시흥"];
   for (const r of regions) { if (t.includes(r)) { params.region = r; break; } }
-  const cp = /([가-힣]+\s?(?:래미안|자이|힐스테이트|아이파크|롯데캐슬|푸르지오|더샵|리센츠|엘스|트리지움|헬리오시티|올림픽파크|주공|동부|은마|도곡|현대|파크원|아이원|센트럴|이편한|e편한))/i;
-  const cm = t.match(cp);
+  // 패턴1: 브랜드명 단지 (리센츠, 래미안 등)
+  const cp1 = /([가-힣]{1,6}\s?[가-힣]*(?:래미안|자이|힐스테이트|아이파크|롯데캐슬|푸르지오|더샵|리센츠|엘스|트리지움|헬리오시티|올림픽파크|주공|동부|은마|도곡|파크원|e편한세상|이편한세상))/i;
+  // 패턴2: "아파트"로 끝나는 일반 단지명
+  const cp2 = /([가-힣]{2,12}(?:\s[가-힣]{1,6})?\s?아파트)/;
+  const cm = t.match(cp1) || t.match(cp2);
   if (cm) params.complexName = cm[1].trim();
   const hm = t.match(/(\d)\s*주택/);
   if (hm) params.houseCount = parseInt(hm[1]);
