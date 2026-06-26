@@ -1,127 +1,190 @@
-// ValueLens — ToolRouter.js
-// Step 2: goal → 기존 엔진 호출 Adapter
-// 기존 엔진 로직 수정 금지 — 호출만 담당
+// ValueLens — ToolRouter.js v2
+// Step 3: agentResult 표준화 + 요약 포맷 추가
 
 import { analyze } from '../engine/analyze.js';
 import { analyzeBuyerDecision, analyzeSellerDecision } from '../engine/market.js';
-import { computeTrimmedMean } from '../engine/stats.js';
 import { acqTax, cgTax } from '../engine/tax.js';
 import { recommendByBudget } from '../recommendation/recommend.js';
 import { searchComplexFromSupabase, getPriceSummaryFromSupabase } from '../search/supabase.js';
 import { buildAnalysisInput } from '../search/input.js';
 
-// ── Tool 결과 포맷 ──
-function ok(tool, data)  { return { ok: true,  tool, data }; }
-function err(tool, msg)  { return { ok: false, tool, error: msg }; }
+// ── agentResult 표준 포맷 ──
+// { ok, tool, summary: { conclusion, keyNumbers, basis, trust, tab, rawData } }
+function makeResult(tool, summary, rawData) {
+  return { ok: true, tool, summary: { ...summary, tab: tabFor(tool) }, rawData };
+}
+function makeErr(tool, message) {
+  return { ok: false, tool, summary: { conclusion: message, keyNumbers: [], basis: "", trust: "" }, rawData: null };
+}
+function tabFor(tool) {
+  return { fair:"fair", buy:"buy", reco:"reco", acqTax:"tax", cgTax:"tax", loan_info:"tax" }[tool] || "fair";
+}
+
+function won(v) {
+  if (!v && v !== 0) return "-";
+  const n = Number(v);
+  if (n >= 10000) return `${(n/10000).toFixed(1)}억`;
+  return `${n.toLocaleString()}만원`;
+}
 
 // ── Tool 1: 단지 검색 ──
 async function toolSearchComplex(complexName, region) {
   try {
-    const sigungu = region || "";
-    const results = await searchComplexFromSupabase(complexName, sigungu, "");
+    const results = await searchComplexFromSupabase(complexName, region || "", "");
     if (!results || results.length === 0)
-      return err("search", `"${complexName}" 단지를 찾지 못했어요. 단지명을 다시 확인해주세요.`);
-    return ok("search", results);
-  } catch (e) {
-    return err("search", "단지 검색 중 오류가 발생했어요.");
-  }
+      return makeErr("search", `"${complexName}" 단지를 찾지 못했어요. 단지명을 다시 확인해주세요.`);
+    return { ok: true, tool: "search", data: results };
+  } catch { return makeErr("search", "단지 검색 중 오류가 발생했어요."); }
 }
 
-// ── Tool 2: 가격 요약 조회 ──
-async function toolGetPriceSummary(complexId, complexName, sigungu, areaExcl) {
-  try {
-    const summary = await getPriceSummaryFromSupabase(complexId, complexName, sigungu, areaExcl);
-    if (!summary) return err("price", "가격 데이터를 찾지 못했어요.");
-    return ok("price", summary);
-  } catch (e) {
-    return err("price", "가격 데이터 조회 중 오류가 발생했어요.");
-  }
-}
-
-// ── Tool 3: 적정가 분석 (fair) ──
+// ── Tool 2: 적정가 (fair) ──
 async function toolFairValue(memory) {
   const { complexName, area, region } = memory;
-  // 1. 단지 검색
-  const searchResult = await toolSearchComplex(complexName, region);
-  if (!searchResult.ok) return searchResult;
-  const complex = searchResult.data[0];
+  const searchRes = await toolSearchComplex(complexName, region);
+  if (!searchRes.ok) return searchRes;
+  const complex = searchRes.data[0];
 
-  // 2. 면적 파악
   const areaNum = area ? parseFloat(area) : null;
-  const areaExcl = areaNum ? (area.includes("평") ? areaNum * 3.3 : areaNum) : null;
+  const areaExcl = areaNum ? (area.includes("평") ? Math.round(areaNum * 3.3) : areaNum) : null;
 
-  // 3. 가격 요약
-  const priceResult = await toolGetPriceSummary(
-    complex.complex_id, complex.complex_name, complex.sigungu, areaExcl
-  );
-  if (!priceResult.ok) return priceResult;
+  let priceSummary;
+  try {
+    priceSummary = await getPriceSummaryFromSupabase(
+      complex.complex_id, complex.complex_name, complex.sigungu, areaExcl
+    );
+  } catch { return makeErr("fair", "가격 데이터를 가져오는 중 오류가 발생했어요."); }
+  if (!priceSummary) return makeErr("fair", "해당 평형의 거래 데이터가 부족해요.");
 
-  // 4. buildAnalysisInput
   const form = {
-    complexName: complex.complex_name,
-    region: complex.sigungu || region || "",
+    complexName: complex.complex_name, region: complex.sigungu || region || "",
     areaExclusive: areaExcl ? String(Math.round(areaExcl)) : "",
-    currentPrice: priceResult.data.median_price || 0,
-    kbJeonse: priceResult.data.jeonse_price || 0,
+    currentPrice: priceSummary.median_price || 0,
+    kbJeonse: priceSummary.jeonse_price || 0,
     buildYear: complex.build_year || 0,
   };
-  const analysisInput = buildAnalysisInput(priceResult.data, form, areaExcl);
 
-  // 5. analyze
-  const r = analyze(analysisInput);
-  return ok("fair", { complex, form, analysisInput, result: r });
+  let r;
+  try {
+    const analysisInput = buildAnalysisInput(priceSummary, form, areaExcl);
+    r = analyze(analysisInput);
+  } catch { return makeErr("fair", "적정가 계산 중 오류가 발생했어요."); }
+
+  const fairPrice = r.fairPrice || 0;
+  const curPrice  = form.currentPrice;
+  const diff      = curPrice - fairPrice;
+  const diffPct   = fairPrice ? Math.round((diff / fairPrice) * 100) : 0;
+  const grade     = r.gradeLabel || r.buyGrade || "-";
+  const overUnder = diff > 0 ? `시세보다 ${Math.abs(diffPct)}% 고평가` : diff < 0 ? `시세보다 ${Math.abs(diffPct)}% 저평가` : "적정 수준";
+
+  return makeResult("fair", {
+    conclusion: `${complex.complex_name} ${area || ""} — AI 적정가 ${won(fairPrice)}, ${overUnder}`,
+    keyNumbers: [
+      { label: "AI 적정가",  value: won(fairPrice) },
+      { label: "현재 시세",  value: won(curPrice) },
+      { label: "등급",        value: grade },
+      { label: "전세가율",   value: r.jeonseRatio ? `${r.jeonseRatio}%` : "-" },
+    ],
+    basis: `실거래 ${r.sampleCount || 0}건 기반 · ${complex.sigungu || region || ""}`,
+    trust: r.dataConfidence || "보통",
+  }, { complex, form, analysisResult: r });
 }
 
-// ── Tool 4: 매수 판단 (buy) ──
+// ── Tool 3: 매수 판단 (buy) ──
 async function toolBuyAnalysis(memory) {
-  const fairResult = await toolFairValue(memory);
-  if (!fairResult.ok) return fairResult;
+  const fairRes = await toolFairValue(memory);
+  if (!fairRes.ok) return fairRes;
 
-  const { form, analysisInput, result: r } = fairResult.data;
-  const bd = analyzeBuyerDecision(r, { ...form, currentPrice: form.currentPrice });
-  return ok("buy", { ...fairResult.data, buyDecision: bd });
+  const { form, analysisResult: r } = fairRes.rawData;
+  let bd;
+  try {
+    bd = analyzeBuyerDecision(r, { ...form, currentPrice: form.currentPrice });
+  } catch { return makeErr("buy", "매수 판단 계산 중 오류가 발생했어요."); }
+
+  const verdict  = bd.finalLabel || "-";
+  const grade    = r.gradeLabel || "-";
+  const fairPrice = r.fairPrice || 0;
+
+  return makeResult("buy", {
+    conclusion: `${form.complexName} — ${verdict}`,
+    keyNumbers: [
+      { label: "매수 의견",  value: verdict },
+      { label: "AI 적정가",  value: won(fairPrice) },
+      { label: "등급",        value: grade },
+      { label: "전세가율",   value: r.jeonseRatio ? `${r.jeonseRatio}%` : "-" },
+    ],
+    basis: `실거래 ${r.sampleCount || 0}건 기반 · ${form.region}`,
+    trust: r.dataConfidence || "보통",
+  }, { ...fairRes.rawData, buyDecision: bd });
 }
 
-// ── Tool 5: 예산 추천 (reco) ──
+// ── Tool 4: 예산 추천 (reco) ──
 function toolReco(memory) {
   try {
-    const budget = memory.budgetNum || 0;
-    const region = memory.region || "전체";
-    const areaMatch = memory.area ? parseFloat(memory.area) : 0;
-    const pyeong = areaMatch && memory.area?.includes("평") ? areaMatch
-                 : areaMatch ? Math.round(areaMatch / 3.3) : 0;
+    const budget  = memory.budgetNum || 0;
+    const region  = memory.region || "전체";
+    const areaRaw = memory.area ? parseFloat(memory.area) : 0;
+    const pyeong  = areaRaw && memory.area?.includes("평") ? areaRaw : Math.round(areaRaw / 3.3);
     const results = recommendByBudget({ budget, region, pyeong });
     if (!results || results.length === 0)
-      return err("reco", "조건에 맞는 추천 단지를 찾지 못했어요. 예산이나 지역을 바꿔서 다시 시도해보세요.");
-    return ok("reco", results);
-  } catch (e) {
-    return err("reco", "추천 중 오류가 발생했어요.");
-  }
+      return makeErr("reco", "조건에 맞는 추천 단지를 찾지 못했어요. 예산이나 지역을 변경해보세요.");
+
+    const top = results[0];
+    return makeResult("reco", {
+      conclusion: `${memory.budget || budget + "만원"} 예산 ${region} 기준 — ${results.length}개 단지 추천`,
+      keyNumbers: [
+        { label: "추천 1위",  value: top.name || top.complexName || "-" },
+        { label: "예상가",     value: won(top.fair || top.fairPrice) },
+        { label: "등급",        value: top.grade || "-" },
+        { label: "총 후보",    value: `${results.length}개` },
+      ],
+      basis: `예산 ${memory.budget} · ${region} 기준`,
+      trust: "실거래 기반",
+    }, results);
+  } catch { return makeErr("reco", "추천 중 오류가 발생했어요."); }
 }
 
-// ── Tool 6: 취득세 계산 (loan/acqTax) ──
+// ── Tool 5: 취득세 ──
 function toolAcqTax(memory, params) {
   try {
-    const price  = params.buyPrice || memory.buyPrice || memory.budgetNum || 0;
+    const price  = params?.buyPrice || memory.buyPrice || memory.budgetNum || 0;
     const houses = memory.houseCount ?? 1;
-    const result = acqTax(price, false, houses, false, false);
-    return ok("acqTax", { price, houses, taxAmount: result });
-  } catch (e) {
-    return err("acqTax", "취득세 계산 중 오류가 발생했어요.");
-  }
+    const tax    = acqTax(price, false, houses, false, false);
+    const rate   = price ? Math.round((tax / price) * 100 * 10) / 10 : 0;
+    return makeResult("acqTax", {
+      conclusion: `${won(price)} 기준 취득세 ${won(tax)} (약 ${rate}%)`,
+      keyNumbers: [
+        { label: "매수가",   value: won(price) },
+        { label: "취득세",   value: won(tax) },
+        { label: "세율",     value: `${rate}%` },
+        { label: "보유 주택", value: `${houses}주택` },
+      ],
+      basis: "취득세법 기준 (농특세·지방교육세 포함)",
+      trust: "참고용 — 정확한 금액은 세무사 확인 필요",
+    }, { price, houses, tax });
+  } catch { return makeErr("acqTax", "취득세 계산 중 오류가 발생했어요."); }
 }
 
-// ── Tool 7: 양도세 계산 (loan/cgTax) ──
+// ── Tool 6: 양도세 ──
 function toolCgTax(memory) {
   try {
     const buy   = memory.buyPrice  || 0;
     const sell  = memory.sellPrice || 0;
     const years = memory.holdingYears || 1;
-    const result = cgTax({ buy, sell, years, houses: memory.houseCount ?? 1 });
-    return ok("cgTax", { buy, sell, years, taxAmount: result });
-  } catch (e) {
-    return err("cgTax", "양도세 계산 중 오류가 발생했어요.");
-  }
+    const houses = memory.houseCount ?? 1;
+    const tax   = cgTax({ buy, sell, years, houses });
+    const gain  = sell - buy;
+    return makeResult("cgTax", {
+      conclusion: `양도차익 ${won(gain)} 기준 양도세 약 ${won(tax)}`,
+      keyNumbers: [
+        { label: "매수가",   value: won(buy) },
+        { label: "매도가",   value: won(sell) },
+        { label: "양도차익", value: won(gain) },
+        { label: "양도세",   value: won(tax) },
+      ],
+      basis: `보유기간 ${years}년 · ${houses}주택 기준`,
+      trust: "참고용 — 정확한 금액은 세무사 확인 필요",
+    }, { buy, sell, years, houses, tax });
+  } catch { return makeErr("cgTax", "양도세 계산 중 오류가 발생했어요."); }
 }
 
 // ── 메인 라우터 ──
@@ -132,20 +195,18 @@ async function routeTool(goal, memory, params) {
     case "reco":     return toolReco(memory);
     case "loan": {
       const raw = (params?._rawText || "").toLowerCase();
-      if (/취득세/.test(raw))             return toolAcqTax(memory, params);
-      if (/양도세/.test(raw))             return toolCgTax(memory);
-      // 그 외 loan 질문 → 안내만
-      return ok("loan_info", { message: "자금 관련 질문을 구체적으로 입력해주세요.\n예: 취득세 얼마야?, 양도세 계산해줘" });
+      if (/취득세/.test(raw)) return toolAcqTax(memory, params);
+      if (/양도세/.test(raw)) return toolCgTax(memory);
+      return makeResult("loan_info", {
+        conclusion: "자금 관련 질문을 더 구체적으로 입력해주세요.",
+        keyNumbers: [],
+        basis: "예: 취득세 얼마야?, 양도세 계산해줘",
+        trust: "",
+      }, null);
     }
-    case "sell":
-    case "contract":
-    case "region":
-    case "photo":
-      // Step 2 범위 외 — 안내 응답만
-      return ok("guide", { message: null });
     default:
-      return err("unknown", "질문 의도를 파악하지 못했어요. 다시 입력해주세요.");
+      return makeResult("guide", { conclusion: null, keyNumbers: [], basis: "", trust: "" }, null);
   }
 }
 
-export { routeTool, toolFairValue, toolBuyAnalysis, toolReco, toolAcqTax, toolCgTax };
+export { routeTool, tabFor };
