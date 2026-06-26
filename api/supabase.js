@@ -66,27 +66,32 @@ export default async function handler(req, res) {
 
     try {
       // ── 자연어 전처리: 평형 표현 → 면적 힌트 변환 ──
-      // "34평" → 84㎡, "국평" → 84㎡, "84평" → 84㎡, "20평" → 59㎡ 등
+      // 한국 아파트 "N평" = 공급면적 기준 → 전용면적 변환 (전용률 약 77% 적용)
+      // 사용자가 말하는 "34평" = 국민평형 = 전용 84㎡
+      // 사용자가 말하는 "25평" = 전용 약 59㎡
       const PYEONG_MAP = {
-        '국평': 84, '국민평형': 84,
-        '10평': 33, '11평': 36, '12평': 39, '13평': 43, '14평': 46,
-        '15평': 49, '16평': 52, '17평': 56, '18평': 59, '19평': 62,
-        '20평': 66, '21평': 69, '22평': 72, '23평': 75, '24평': 79,
-        '25평': 82, '26평': 84, '27평': 89, '28평': 92, '29평': 95,
-        '30평': 99, '31평': 101,'32평': 105,'33평': 108,'34평': 112,
-        '35평': 115,'40평': 132,'45평': 148,'50평': 165,'60평': 198,
+        '국평': 84, '국민평형': 84,    // "국민평형" = 34평 기준 전용84㎡
+        '12평': 33, '13평': 36, '14평': 39, '15평': 43, '16평': 46,
+        '17평': 49, '18평': 52, '19평': 56, '20평': 59, '21평': 62,
+        '22평': 66, '23평': 69, '24평': 72, '25평': 75, '26평': 79,
+        '27평': 84, '28평': 84, '29평': 84, '30평': 84, '31평': 84,
+        '34평': 84,  // 분양 34평 = 전용 84㎡ (국민평형)
+        '32평': 99, '33평': 99,
+        '35평': 101,'36평': 101,'37평': 110,'38평': 114,'39평': 114,
+        '40평': 114,'41평': 119,'42평': 119,'43평': 135,'45평': 135,
+        '50평': 165,'55평': 180,'60평': 198,
       };
       // 입력에서 평형 표현 추출 및 제거
       let nameForSearch = name;
       let pyeongExtractedArea = null;
-      for (const [expr, sqm] of Object.entries(PYEONG_MAP)) {
+      // 긴 표현 먼저 (국민평형 > 국평 > N평)
+      for (const expr of ['국민평형','국평',...Object.keys(PYEONG_MAP).filter(k=>k!=='국평'&&k!=='국민평형').sort((a,b)=>b.length-a.length)]) {
         if (nameForSearch.includes(expr)) {
-          pyeongExtractedArea = sqm;
+          pyeongExtractedArea = PYEONG_MAP[expr];
           nameForSearch = nameForSearch.replace(expr, '').trim();
-          console.log(`[search] 평형표현 추출: "${expr}" → ${sqm}㎡`);
+          console.log(`[search] 평형표현 추출: "${expr}"→${pyeongExtractedArea}㎡, 나머지:"${nameForSearch}"`);
           break;
         }
-      }
       // 추출된 면적이 있으면 AREA_RE 숫자 추출과 병합
       if (pyeongExtractedArea && !naturalArea) {
         areaTokens.push(pyeongExtractedArea);
