@@ -628,6 +628,13 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
               region: complex.sigungu,
               dong: complex.dong,
               areaSqm: complex.areaExclusive,
+              // agentResult: BuyView/FairValueResult 직행용
+              agentResult: engine ? { analysisResult: engine, form: {
+                complexName: complex.name,
+                region: complex.sigungu,
+                dong: complex.dong || "",
+                areaExclusive: complex.areaExclusive ? String(complex.areaExclusive) : "",
+              }} : undefined,
             })}
             style={{
               width:"100%", height:38, borderRadius:10,
