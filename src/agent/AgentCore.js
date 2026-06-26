@@ -123,6 +123,7 @@ function updateMemory(memory, params, goal) {
   if (params.budgetNum)   u.budgetNum   = params.budgetNum;
   if (params.region)      u.region      = params.region;
   if (params.complexName) u.complexName = params.complexName;
+  if (params.complexQuery)  u.complexQuery  = params.complexQuery;
   if (params.area)        u.area        = params.area;
   if (params.buyPrice)    u.buyPrice    = params.buyPrice;
   if (params.sellPrice)   u.sellPrice   = params.sellPrice;
