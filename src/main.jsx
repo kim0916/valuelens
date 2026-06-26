@@ -35,7 +35,7 @@ import { TaxView } from './views/TaxView.jsx';
 import { getOrCreateDeviceId } from './utils/device.js';
 import { LS_MAX, loadRecentAnalysis, saveRecentAnalysis } from './services/storage/recentAnalysis.js';
 import { createSessionMemory, processUserInput } from './agent/AgentCore.js';
-import { routeTool } from './agent/ToolRouter.js';
+import { routeTool, tabFor } from './agent/ToolRouter.js';
 import { supabase as supabaseClient } from './services/supabaseClient.js';
 import { LocationPicker } from './views/LocationPicker.jsx';
 
@@ -656,16 +656,13 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
     setAiGreeting(result.response);
     setQuery("");
     if (result.readyToAnalyze) {
-      // 정보 충분 → ToolRouter로 기존 엔진 자동 호출
       setAiGreeting(prev => (prev || "") + "\n\n⏳ 분석 중...");
       routeTool(result.goal, result.memory, result.params).then(toolResult => {
-        if (toolResult.ok && onNavigate) {
-          // 결과를 기존 탭으로 전달
-          const tabMap = { fair:"fair", buy:"buy", reco:"reco", acqTax:"tax", cgTax:"tax" };
-          const tab = tabMap[toolResult.tool];
-          if (tab) onNavigate(tab, { agentResult: toolResult.data, agentMemory: result.memory });
+        if (toolResult.ok && toolResult.summary?.conclusion) {
+          // AIChatView로 이동하면서 agentInitial 전달
+          if (onNavigate) onNavigate("ai", { agentInitial: toolResult });
         } else if (!toolResult.ok) {
-          setAiGreeting(toolResult.error);
+          setAiGreeting(toolResult.summary?.conclusion || "분석 중 오류가 발생했어요.");
         }
       }).catch(() => setAiGreeting("분석 중 오류가 발생했어요. 다시 시도해주세요."));
     }
@@ -1256,6 +1253,7 @@ function ComingSoon({ title, desc }) {
 function AppInner() {
   const [ptype, setPtype] = useState("apartment");
   const [aptTab, setAptTab] = useState("home");
+  const [agentInitial, setAgentInitial] = useState(null);
   const [screenerInitial, setScreenerInitial] = useState(null);
   const photoTriggerRef = React.useRef(null);
   const [roomTab, setRoomTab] = useState("search");
@@ -1328,8 +1326,13 @@ function AppInner() {
   }
 
   // 홈에서 탭으로 이동
-  const goTo = (tab) => {
-    setAptTab(tab);
+  const goTo = (tab, params) => {
+    if (tab === "ai" && params?.agentInitial) {
+      setAgentInitial(params.agentInitial);
+    } else {
+      setAgentInitial(null);
+    }
+    setAptTab(tab === "ai" ? "ai" : tab);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -1427,6 +1430,11 @@ function AppInner() {
       {/* ── Main ── */}
       <main style={{ maxWidth: 640, margin: "0 auto", padding: isHome ? "0" : "24px 16px" }}>
         {ptype === "apartment" && (<>
+          {aptTab === "ai" && (
+            <AIChatView onNavigate={goTo} history={history} onSaveHistory={onSaveHistory}
+              currentUserId={currentUserId} currentUserEmail={currentUserEmail}
+              agentInitial={agentInitial} />
+          )}
           {aptTab === "home" && (
             <AgentHome
               history={history}
