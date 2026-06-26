@@ -1421,7 +1421,14 @@ function AppInner() {
       <main style={{ maxWidth: 640, margin: "0 auto", padding: isHome ? "0" : "24px 16px" }}>
         {ptype === "apartment" && (<>
           {aptTab === "ai" && (
-            <AIChatView onNavigate={goTo} history={history} onSaveHistory={onSaveHistory}
+            <AIChatView onNavigate={goTo} history={history}
+              onSaveHistory={(h) => {
+                saveRecentAnalysis(h, currentUserId);
+                setHistory(p => {
+                  const deduped = p.filter(x => !(x.complexName===h.complexName && x.area===h.area && x.analysisType===h.analysisType));
+                  return [h, ...deduped].slice(0, LS_MAX);
+                });
+              }}
               currentUserId={currentUserId} currentUserEmail={currentUserEmail}
               agentInitial={agentInitial} />
           )}
