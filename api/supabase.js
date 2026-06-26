@@ -84,7 +84,8 @@ export default async function handler(req, res) {
         '범어e편한세상':           'e편한세상범어',
         '범어이편한세상':           'e편한세상범어',
         '다산자이아이비플렉스':     '다산자이아이비플레이스',
-        '다산이편한세상자이':       '다산 이편한세상자이',
+        '다산이편한세상자이':       '이편한세상자이',    // 공백 없이 → 검색 가능
+        '다산이편한세상':           '다산e편한세상더퍼스트',
         '탄현마을10단지신도브래뉴': '탄현마을풍림',
         '탄현마을신도브래뉴':       '탄현마을풍림',
         '검단신도시우미린에듀':     '우미린에듀파크2단지',
@@ -94,12 +95,13 @@ export default async function handler(req, res) {
         '구월롯데':                '구월동롯데',
         '부평삼성래미안':          '삼성래미안부평',
         '래미안온천2단지':         '온천래미안2단지',
-        '온천래미안2단지':         '온천래미안2단지',   // 순서 무관하게 캐치
-        '자양한양수자인':          '자양한양수자인',     // 검색 실패 → fallback 유도
-        '개포주공1단지':           '개포래미안블레스티지', // 재건축 완료 단지
+        '온천래미안2단지':         '온천래미안2단지',
+        '개포주공1단지':           '개포래미안블레스티지',
         '정자동느티마을':          '느티마을(4단지)(공무원)',
-        'e편한세상삼덕':           'e편한세상삼덕',      // fallback 유도
+        'e편한세상삼덕':           'e편한세상삼덕',
         '잠실엘스84':             '잠실엘스',
+        '자양한양':               '자양한양수자인',     // 부분 입력 커버
+        '한양수자인자양':          '자양한양수자인',     // 역순 커버
       };
 
       // ── 자연어 파싱 ──
@@ -237,11 +239,23 @@ export default async function handler(req, res) {
         // 공백 포함: 토큰 분리 → 마지막 토큰=단지명, 앞 토큰=지역 힌트
         // "공릉동 동신" → complex_name ILIKE '%동신%' AND sigungu ILIKE '%공릉동%'
         // "잠실 리센츠" → complex_name ILIKE '%리센츠%' AND sigungu ILIKE '%잠실%'
+        // 주의: "동래 래미안아이파크 84" → 마지막 토큰 84는 숫자 → 건너뛰고 공백제거 전체 검색
         const spaceTokens = nameOrig.split(/\s+/).filter(t => t.length >= 1);
-        const complexToken = spaceTokens[spaceTokens.length - 1]; // 마지막=단지명
-        const regionToken  = spaceTokens.length >= 2 ? spaceTokens[0] : ''; // 첫번째=지역
-        query = query.ilike('complex_name', `%${complexToken}%`);
-        if (regionToken && !sigungu) query = query.ilike('sigungu', `%${regionToken}%`);
+        const lastToken = spaceTokens[spaceTokens.length - 1];
+        const lastIsNum = /^\d+$/.test(lastToken);
+        if (lastIsNum) {
+          // 숫자 토큰 제외하고 나머지 공백제거로 검색
+          const withoutNum = spaceTokens.filter(t => !/^\d+$/.test(t)).join('');
+          query = query.ilike('complex_name', `%${withoutNum}%`);
+          // 첫 토큰이 지역일 수 있음
+          const firstToken = spaceTokens[0];
+          if (!/^\d+$/.test(firstToken) && !sigungu) query = query.ilike('sigungu', `%${firstToken}%`);
+        } else {
+          const complexToken = lastToken; // 마지막=단지명
+          const regionToken  = spaceTokens.length >= 2 ? spaceTokens[0] : ''; // 첫번째=지역
+          query = query.ilike('complex_name', `%${complexToken}%`);
+          if (regionToken && !sigungu) query = query.ilike('sigungu', `%${regionToken}%`);
+        }
       } else {
         // 일반: 공백제거 단일 ilike
         query = query.ilike('complex_name', `%${nameNoSpace}%`);
