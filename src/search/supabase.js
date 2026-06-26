@@ -63,6 +63,8 @@ async function searchComplexFromSupabase(name, sigungu, dong) {
     return {
       complexes: data.complexes || [],
       aliasMatch: data.aliasMatch || null,
+      areaHint: data.areaHint || null,
+      regionHint: data.regionHint || null,
       fromSupabase: true,
     };
   } catch (e) {

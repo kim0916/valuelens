@@ -85,18 +85,23 @@ function LocationPicker({ onComplete, initialQuery = "" }) {
     try {
       const tokens = kw.trim().split(/\s+/);
       let richCandidates = [];
-      let bulkPool = [];  // 관련 검색어 생성용 원본 배열
+      let bulkPool = [];
+      let detectedAreaHint = null; // 자연어 입력에서 추출된 면적 힌트
 
       if (tokens.length >= 2) {
         const [t1, ...rest] = tokens;
         const combined1 = tokens.join("");
         const combined2 = [...rest, t1].join("");
+        // combined1에 areaHint가 있을 수 있음 (자연어 입력 경로)
         const [r1, r2, r3] = await Promise.all([
           searchComplexFromSupabase(combined1, "", ""),
           searchComplexFromSupabase(combined2, "", ""),
           searchComplexFromSupabase(rest.join(""), "", ""),
         ]);
         if (gen !== genRef.current) return;
+
+        // areaHint 추출 (첫 번째 성공 결과에서)
+        detectedAreaHint = r1.areaHint || r2.areaHint || r3.areaHint || null;
 
         const seen = new Set();
         for (const sbResult of [r1, r2, r3]) {
@@ -110,16 +115,46 @@ function LocationPicker({ onComplete, initialQuery = "" }) {
       }
 
       if (richCandidates.length === 0) {
-        // 단독 키워드 — 관련 검색어 생성을 위해 limit 30으로 더 많이 조회
         const sbResult = await searchComplexFromSupabase(kw, "", "");
         if (gen !== genRef.current) return;
         if (sbResult.fromSupabase) {
           richCandidates = sbResult.complexes;
           bulkPool = sbResult.complexes;
+          detectedAreaHint = sbResult.areaHint || null;
         }
       }
 
       if (gen !== genRef.current) return;
+
+      // ── 자동 선택: 결과 1건 + areaHint 있으면 바로 선택 ──
+      if (richCandidates.length === 1 && detectedAreaHint) {
+        const c = richCandidates[0];
+        const areaList = c.area_list ? JSON.parse(c.area_list) : [];
+        // areaHint와 가장 가까운 면적 자동 선택
+        const bestArea = areaList.length > 0
+          ? areaList.reduce((prev, cur) =>
+              Math.abs(Number(cur) - detectedAreaHint) < Math.abs(Number(prev) - detectedAreaHint) ? cur : prev
+            )
+          : null;
+        const autoAreaDiff = bestArea ? Math.abs(Number(bestArea) - detectedAreaHint) : 99;
+        // ±8㎡ 이내면 자동 선택, 아니면 후보 목록 표시
+        if (autoAreaDiff <= 8) {
+          setLoading(false);
+          onComplete({
+            sido: c.sido || "",
+            sigungu: c.sigungu || "",
+            dong: c.legal_dong || "",
+            complexName: c.complex_name,
+            exactAptNm: c.complex_name,
+            complexId: c.id || null,
+            buildYear: c.build_year || null,
+            areaList,
+            autoAreaSqm: Number(bestArea), // 자동 선택된 면적
+            areaHint: detectedAreaHint,
+          });
+          return;
+        }
+      }
 
       // 자동완성 후보 (상위 10개)
       const mapped = richCandidates.slice(0, 10).map(c => ({

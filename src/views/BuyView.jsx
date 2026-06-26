@@ -734,20 +734,36 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
             </button>
           </div>
         ) : (
-          <LocationPicker initialQuery={screenerInitial?._searchQuery || ""} onComplete={({ sido, sigungu, dong, complexName, exactAptNm, complexId, buildYear, areaList }) => {
+          <LocationPicker initialQuery={screenerInitial?._searchQuery || ""} onComplete={({ sido, sigungu, dong, complexName, exactAptNm, complexId, buildYear, areaList, autoAreaSqm, areaHint }) => {
             setF(p => ({ ...p, region: sigungu, sido, dong, complexName, exactAptNm,
               complexId: complexId || null,
               buildYear: buildYear || p.buildYear,
               areaExclusive: "" }));
             rawMolitRef.current = null;
-            setAreaOptions([]);
             setListingPriceInput(""); // 단지 변경 시 매물가 초기화
+
             // areaList가 있으면 바로 면적 버튼 생성 (Supabase 경로)
             if (areaList && areaList.length > 0) {
               const opts = groupAreasByPyeong(areaList)
                 .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: typicalPyeong(g.rep) }));
               setAreaOptions(opts);
+
+              // ── 자동 면적 선택 (자연어 입력 힌트) ──
+              if (autoAreaSqm && autoAreaSqm > 0) {
+                // opts 중 autoAreaSqm과 가장 가까운 것 선택
+                const best = opts.reduce((prev, cur) =>
+                  Math.abs(cur.areaSqm - autoAreaSqm) < Math.abs(prev.areaSqm - autoAreaSqm) ? cur : prev
+                );
+                if (Math.abs(best.areaSqm - autoAreaSqm) <= 8) {
+                  // 약간의 딜레이 후 자동 선택 (UI 렌더링 대기)
+                  setTimeout(() => {
+                    setF(p => ({ ...p, areaExclusive: String(best.areaSqm) }));
+                    setAiMsg(null);
+                  }, 50);
+                }
+              }
             } else {
+              setAreaOptions([]);
               setTimeout(() => fetchAreasFor(sigungu, dong, complexName, exactAptNm, sido), 100);
             }
           }} />

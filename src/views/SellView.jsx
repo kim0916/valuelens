@@ -410,18 +410,27 @@ function SellView({ onContext, currentUserId, currentUserEmail }) {
             </button>
           </div>
         ) : (
-          <LocationPicker onComplete={({ sido, sigungu, dong, complexName, exactAptNm, complexId, buildYear, areaList }) => {
+          <LocationPicker onComplete={({ sido, sigungu, dong, complexName, exactAptNm, complexId, buildYear, areaList, autoAreaSqm }) => {
             setF(p => ({ ...p, region: sigungu, sido, dong, complexName, exactAptNm,
               complexId: complexId || null,
               buildYear: buildYear || p.buildYear,
               areaExclusive: "" }));
             rawMolitRef.current = null;
-            setAreaOptions([]);
             setListingPriceInput("");
             if (areaList && areaList.length > 0) {
-              setAreaOptions(groupAreasByPyeong(areaList)
-                .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: typicalPyeong(g.rep) })));
+              const opts = groupAreasByPyeong(areaList)
+                .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: typicalPyeong(g.rep) }));
+              setAreaOptions(opts);
+              if (autoAreaSqm && autoAreaSqm > 0) {
+                const best = opts.reduce((prev, cur) =>
+                  Math.abs(cur.areaSqm - autoAreaSqm) < Math.abs(prev.areaSqm - autoAreaSqm) ? cur : prev
+                );
+                if (Math.abs(best.areaSqm - autoAreaSqm) <= 8) {
+                  setTimeout(() => setF(p => ({ ...p, areaExclusive: String(best.areaSqm) })), 50);
+                }
+              }
             } else {
+              setAreaOptions([]);
               setTimeout(() => fetchAreasFor(sigungu, dong, complexName, exactAptNm, sido), 100);
             }
           }} />
