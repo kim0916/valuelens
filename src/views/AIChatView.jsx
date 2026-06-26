@@ -715,7 +715,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   const recent = (history||[]).slice(0,4);
 
   return (
-    <div style={{ maxWidth:480, margin:"0 auto", background:BRAND_BG, height:"calc(100dvh - 56px)", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={{ maxWidth:480, margin:"0 auto", background:BRAND_BG, display:"flex", flexDirection:"column" }}>
 
       {/* ── dot 애니메이션 CSS ── */}
       <style>{`
@@ -811,7 +811,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       </div>
 
       {/* ── 입력창 ── */}
-      <div style={{ padding:"10px 16px 20px", borderTop:`0.5px solid ${BRAND_BORDER}`, background:BRAND_BG, flexShrink:0 }}>
+      <div style={{ padding:"10px 16px 20px", borderTop:`0.5px solid ${BRAND_BORDER}`, background:BRAND_BG, flexShrink:0, position:"sticky", bottom:"max(64px, calc(64px + env(safe-area-inset-bottom)))" }}>
         {/* 숨겨진 파일 input */}
         <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display:"none" }} onChange={handleFileChange} />
 
