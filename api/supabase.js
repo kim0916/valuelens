@@ -202,9 +202,8 @@ export default async function handler(req, res) {
         .limit(limit);
 
       // OR variant 있을 때: 두 표기 각각 별도 쿼리 후 병합
-      // → sale_cnt 정렬 시 한쪽 표기가 limit 안에서 밀리는 문제 방지
-      // 예: 레미안(9건) + 래미안(218건) → 각각 상위 N/2건씩 뽑아 합침
-      if (orVariant && !hasSpecial) {
+      // hasSpace인 경우(자연어 입력) orVariant 경로 미사용 — hasSpace 분기에서 별도 처리
+      if (orVariant && !hasSpecial && !hasSpace) {
         const half = Math.ceil(limit / 2);
         const varNoSpace = orVariant.replace(/\s/g, '');
 
