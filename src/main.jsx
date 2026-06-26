@@ -34,6 +34,7 @@ import { AIChatView } from './views/AIChatView.jsx';
 import { TaxView } from './views/TaxView.jsx';
 import { getOrCreateDeviceId } from './utils/device.js';
 import { LS_MAX, loadRecentAnalysis, saveRecentAnalysis } from './services/storage/recentAnalysis.js';
+import { createSessionMemory, processUserInput } from './agent/AgentCore.js';
 import { supabase as supabaseClient } from './services/supabaseClient.js';
 import { LocationPicker } from './views/LocationPicker.jsx';
 
@@ -576,6 +577,7 @@ function runCase(c) {
 
 function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQuery }) {
   const PURPLE = "#5b52e0";
+  const [agentMemory, setAgentMemory] = React.useState(() => createSessionMemory());
 
   // ── placeholder 순환 ──
   const placeholders = [
@@ -641,13 +643,21 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
 
   function handleQuickCard(q) {
     setQuery(q);
-    setAiGreeting(greetings[q] || "네, 말씀해주세요. 바로 도와드릴게요.");
+    const result = processUserInput(q, agentMemory);
+    setAgentMemory(result.memory);
+    setAiGreeting(result.response);
     window.scrollTo({ top: 0, behavior:"smooth" });
   }
   function handleSubmit() {
     if (!query.trim()) return;
-    if (onAIQuery) onAIQuery(query.trim());
-    else if (onNavigate) onNavigate("ai", { searchQuery: query.trim() });
+    const result = processUserInput(query.trim(), agentMemory);
+    setAgentMemory(result.memory);
+    setAiGreeting(result.response);
+    setQuery("");
+    if (result.readyToAnalyze && onAIQuery) {
+      // 정보 충분 → AI 분석 흐름 시작
+      onAIQuery(query.trim(), result);
+    }
   }
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
