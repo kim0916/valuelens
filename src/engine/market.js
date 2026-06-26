@@ -1,6 +1,8 @@
 // ValueLens Engine — 시장 분석 (매도 판단, 위험도, 시장 분류)
 // ★ 계산 로직 수정 금지
 
+const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+
 function analyzeSellerDecision(f, r) {
   const mc = classifyApartmentMarket(f, r);
   const hold = r.engineMode === "hold";
