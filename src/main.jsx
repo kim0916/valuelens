@@ -1159,7 +1159,7 @@ function AppInner() {
       <main style={{ maxWidth: 640, margin: "0 auto", padding: isHome ? "0" : "24px 16px" }}>
         {ptype === "apartment" && (<>
           {aptTab === "home" && (
-            <HomeView
+            <AIChatView
               history={history}
               currentUserId={currentUserId}
               currentUserEmail={currentUserEmail}
