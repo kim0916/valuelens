@@ -71,22 +71,31 @@ function extractBasicParams(text) {
 }
 
 const REQUIRED = {
-  buy: ["complexName"], fair: ["complexName"], reco: ["budget"],
+  buy:      ["complexName", "area"],
+  fair:     ["complexName", "area"],
+  reco:     ["budget"],
   contract: [], loan: [], region: [], photo: [], unknown: [],
 };
 
 const MISSING_QUESTIONS = {
   complexName: "분석할 아파트 단지명을 알려주세요.\n예: 잠실 리센츠, 은마, 마포래미안",
-  budget: "예산이 얼마인가요?\n예: 7억, 10억, 5억5천",
-  region: "어떤 지역이 궁금하신가요?\n예: 송도, 노원구, 분당",
+  area:        "몇 평 기준으로 볼까요?\n예: 25평, 34평, 59㎡",
+  budget:      "예산이 얼마인가요?\n예: 7억, 10억, 5억5천",
+  region:      "어떤 지역이 궁금하신가요?\n예: 송도, 노원구, 분당",
 };
 
 function checkMissingInfo(goal, params, memory) {
   const merged = { ...memory, ...params };
   for (const field of (REQUIRED[goal] || [])) {
-    if (!merged[field]) return MISSING_QUESTIONS[field];
+    if (!merged[field]) {
+      // complexName 있고 area만 없으면 단지명 언급해서 안내
+      if (field === "area" && merged.complexName) {
+        return `좋아요. ${merged.complexName}를 분석해드릴게요.\n몇 평 기준으로 볼까요? 예: 25평, 34평, 59㎡`;
+      }
+      return MISSING_QUESTIONS[field];
+    }
   }
-  // reco: budget 있어도 region 없으면 지역 질문 (전국 추천 방지)
+  // reco: budget 있어도 region 없으면 지역 질문
   if (goal === "reco" && merged.budget && !merged.region) {
     return "어떤 지역이 궁금하신가요?\n예: 송도, 노원구, 분당, 마포";
   }
