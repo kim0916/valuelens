@@ -1437,10 +1437,15 @@ function AppInner() {
                   return [h, ...deduped].slice(0, LS_MAX);
                 });
               }}
-              onNavigate={(tab, intentData) => {
+              onNavigate={(tab, params) => {
+                // AI 탭 → AIChatView로 이동 (searchQuery 전달)
+                if (tab === "ai") {
+                  goTo("ai", params);
+                  return;
+                }
                 window.scrollTo({ top: 0, behavior: "smooth" });
-
-                // intentData가 있으면 BuyView에 초기값 주입
+                // 기존 탭 이동 (자세히 보기 등)
+                const intentData = params;
                 if (intentData && intentData.complexName) {
                   setScreenerInitial({
                     complexName:   intentData.complexName,
@@ -1453,11 +1458,9 @@ function AppInner() {
                     _intentPyeong: intentData.pyeong  || null,
                     _searchQuery:  intentData.searchQuery || null,
                   });
-                } else if (intentData && intentData.searchQuery) {
-                  // 단지명 불명확 — 검색창에 쿼리 전달
+                } else if (intentData && intentData.searchQuery && tab !== "ai") {
                   setScreenerInitial({ _searchQuery: intentData.searchQuery });
                 }
-
                 if (tab === "photo") {
                   setAptTab("fair");
                   setTimeout(() => photoTriggerRef.current?.click(), 120);
