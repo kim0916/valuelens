@@ -469,6 +469,37 @@ function BuyerDecisionCard({ bd, r, f }) {
         )}
       </div>
       <div className="bg-slate-50 px-5 py-2.5 text-[11px] leading-relaxed text-slate-400">본 분석은 공개 데이터와 사용자 입력값 기반 참고용이며, 실제 감정평가·투자자문·매수 권유가 아닙니다. 최종 의사결정은 사용자 본인의 책임입니다.</div>
+
+      {/* ── 하단 탭바 ── */}
+      <div style={{
+        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100,
+        background: "linear-gradient(to top, #0f0c2e 0%, #1a1650 60%, rgba(26,22,80,0.95) 100%)",
+        borderTop: "1px solid rgba(91,82,224,0.2)",
+        display: "flex", justifyContent: "space-around",
+        padding: "10px 0 max(14px, env(safe-area-inset-bottom))",
+      }}>
+        {[
+          { label:"홈", key:"home", icon:<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor"/><polyline points="9 22 9 12 15 12 15 22" stroke="currentColor"/></> },
+          { label:"추천 아파트", key:"reco", icon:<><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke="currentColor"/><circle cx="12" cy="10" r="3" stroke="currentColor"/></> },
+          { label:"분석 내역", key:"fair", icon:<><rect x="3" y="12" width="4" height="9" stroke="currentColor"/><rect x="10" y="7" width="4" height="14" stroke="currentColor"/><rect x="17" y="3" width="4" height="18" stroke="currentColor"/></> },
+          { label:"계약 체크", key:"tax", icon:<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor"/><polyline points="9 12 11 14 15 10" stroke="currentColor"/></> },
+          { label:"더보기", key:"adv", icon:<><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor"/><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor"/><line x1="3" y1="18" x2="21" y2="18" stroke="currentColor"/></> },
+        ].map(({ label, key, icon }) => {
+          const isActive = key === "home" ? aptTab === "home" : aptTab === key;
+          return (
+            <button key={key}
+              onClick={() => key === "home" ? (setPtype("apartment"), setAptTab("home")) : (setPtype("apartment"), setAptTab(key))}
+              style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4, background:"none", border:"none", cursor:"pointer", padding:"0 6px", minWidth:52 }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
+                style={{ color: isActive ? "#7b6fff" : "rgba(196,192,240,0.5)" }}>
+                {icon}
+              </svg>
+              <span style={{ fontSize:9, color: isActive ? "#7b6fff" : "rgba(196,192,240,0.5)", fontWeight: isActive ? 600 : 400 }}>{label}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -548,10 +579,10 @@ function HomeView({ onNavigate, history, onSaveHistory, currentUserId, currentUs
   const recentList = (history || []).slice(0, 3);
 
   const quickQuestions = [
-    "4억으로 어디가 좋아?",
-    "이 집 사도 될까?",
-    "사진으로 분석해줘",
-    "계약서 위험한 부분 봐줘",
+    "예) 10억으로 송도 아파트 찾아줘",
+    "7호선 근처 신축 아파트 찾아줘",
+    "아이 키우기 좋은 학군 아파트 찾아줘",
+    "공릉동 동부 이 가격 적정가야?",
   ];
 
   function handleSubmit() {
@@ -559,198 +590,224 @@ function HomeView({ onNavigate, history, onSaveHistory, currentUserId, currentUs
     if (onNavigate) onNavigate("ai", { searchQuery: query.trim() });
   }
 
-  function handleQuick(q) {
-    setQuery(q);
-  }
-
   function handleKeyDown(e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
   }
 
-  const typeLabel = { fairValue: "적정가", buy: "매수", sell: "매도" };
-  const typeColor = {
-    fairValue: { bg: "#eff6ff", text: "#2563eb" },
-    buy:       { bg: "#f0fdf4", text: "#16a34a" },
-    sell:      { bg: "#fff7ed", text: "#ea580c" },
+  const typeLabel = { fairValue: "적정가", buy: "매수", sell: "매도", reco: "추천" };
+  const typeBadge = {
+    fairValue: { bg: "#ede9fe", text: "#5b21b6" },
+    buy:       { bg: "#dbeafe", text: "#1d4ed8" },
+    sell:      { bg: "#fee2e2", text: "#b91c1c" },
+    reco:      { bg: "#dcfce7", text: "#15803d" },
   };
 
+  const PURPLE = "#5b52e0";
+  const NAVY   = "#0f0c2e";
+
   return (
-    <div style={{
-      minHeight: "100dvh",
-      background: BRAND_BG,
-      display: "flex",
-      flexDirection: "column",
-      maxWidth: 480,
-      margin: "0 auto",
-      padding: "0 16px 40px",
-    }}>
+    <div style={{ minHeight: "100dvh", background: "#f7f6ff", fontFamily: "inherit" }}>
 
-      {/* ── 헤더 ── */}
-      <div style={{ paddingTop: 52, paddingBottom: 32, textAlign: "center" }}>
-        <div style={{
-          width: 44, height: 44,
-          borderRadius: 14,
-          background: "#111",
-          margin: "0 auto 16px",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-            <polyline points="9 22 9 12 15 12 15 22"/>
-          </svg>
-        </div>
-        <h1 style={{
-          fontSize: 22, fontWeight: 600, color: BRAND,
-          margin: "0 0 6px", letterSpacing: "-0.02em",
-        }}>
-          AI Property Agent
-        </h1>
-        <p style={{ fontSize: 14, color: BRAND_MID, margin: 0, lineHeight: 1.6 }}>
-          질문 하나로 부동산 판단을 시작하세요.
-        </p>
-      </div>
-
-      {/* ── 입력창 ── */}
+      {/* ── HERO ── */}
       <div style={{
-        background: "#fff",
-        border: "1px solid #e2e0da",
-        borderRadius: 16,
-        padding: "14px 14px 10px",
-        marginBottom: 10,
-        boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+        background: "linear-gradient(175deg, #0f0c2e 0%, #1a1650 55%, #2d2870 100%)",
+        padding: "20px 20px 32px",
+        position: "relative", overflow: "hidden",
       }}>
-        <textarea
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={"예: 4억으로 어디가 좋아? / 이 집 사도 될까?"}
-          rows={3}
-          style={{
-            width: "100%", border: "none", outline: "none",
-            resize: "none", fontSize: 15, lineHeight: 1.6,
-            color: BRAND, background: "transparent",
-            fontFamily: "inherit",
-          }}
-        />
-        {/* 아이콘 버튼 행 */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
-          {/* 사진 */}
-          <button onClick={() => alert("사진 분석 — 준비 중")} style={{
-            display: "flex", alignItems: "center", gap: 5,
-            background: BRAND_LIGHT, border: "none", borderRadius: 8,
-            padding: "6px 10px", fontSize: 12, color: BRAND_MID,
-            cursor: "pointer",
+        {/* 배경 원 */}
+        <div style={{ position:"absolute", right:-40, top:-40, width:200, height:200, borderRadius:"50%", background:"#2d2870", opacity:0.3 }} />
+        <div style={{ position:"absolute", right:20, top:30, width:100, height:100, borderRadius:"50%", background:"#4c45b8", opacity:0.2 }} />
+
+        {/* 로고 */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, position:"relative" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ width:28, height:28, borderRadius:9, background:PURPLE, display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+            </div>
+            <span style={{ fontSize:14, fontWeight:700, color:"#fff", letterSpacing:"-0.01em" }}>찾아줘!! 아파트</span>
+          </div>
+          <button onClick={() => onNavigate && onNavigate("adv")} style={{
+            background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.15)",
+            borderRadius:8, padding:"5px 10px", display:"flex", alignItems:"center", gap:4, cursor:"pointer"
           }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            사진
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#c4c0f0" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span style={{ fontSize:10, color:"#c4c0f0" }}>최근 분석</span>
           </button>
-          {/* PDF */}
-          <button onClick={() => alert("PDF 분석 — 준비 중")} style={{
-            display: "flex", alignItems: "center", gap: 5,
-            background: BRAND_LIGHT, border: "none", borderRadius: 8,
-            padding: "6px 10px", fontSize: 12, color: BRAND_MID,
-            cursor: "pointer",
-          }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            PDF
-          </button>
-          {/* 음성 */}
-          <button onClick={() => alert("음성 입력 — 준비 중")} style={{
-            display: "flex", alignItems: "center", gap: 5,
-            background: BRAND_LIGHT, border: "none", borderRadius: 8,
-            padding: "6px 10px", fontSize: 12, color: BRAND_MID,
-            cursor: "pointer",
-          }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-            음성
-          </button>
-          {/* 전송 */}
-          <button
-            onClick={handleSubmit}
-            disabled={!query.trim()}
-            style={{
-              marginLeft: "auto",
-              width: 32, height: 32, borderRadius: 10,
-              background: query.trim() ? BRAND : BRAND_LIGHT,
-              border: "none", cursor: query.trim() ? "pointer" : "default",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "background 0.15s",
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={query.trim() ? "#fff" : BRAND_MUTED} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-          </button>
+        </div>
+
+        {/* 헤드라인 + 돋보기 */}
+        <div style={{ display:"flex", alignItems:"flex-start", gap:8, position:"relative", marginBottom:16 }}>
+          <div style={{ flex:1 }}>
+            <p style={{ fontSize:10, color:"#7b76c8", margin:"0 0 8px", letterSpacing:"0.04em" }}>AI 부동산 · 실거래 기반</p>
+            <h1 style={{ fontSize:22, fontWeight:800, color:"#fff", margin:"0 0 8px", lineHeight:1.2, letterSpacing:"-0.03em" }}>
+              실제 거래가 기준으로<br/>조건에 맞는<br/><span style={{ color:"#7b6fff" }}>실제 아파트를</span><br/><span style={{ color:"#7b6fff" }}>찾아드려요</span>
+            </h1>
+            <p style={{ fontSize:11, color:"#9994d8", margin:0, lineHeight:1.6 }}>
+              원하는 조건을 입력하면<br/>실제 거래된 아파트 중에서 딱 맞는 매물을 추천해드려요.
+            </p>
+          </div>
+          {/* 돋보기 SVG */}
+          <div style={{ flexShrink:0, marginTop:4 }}>
+            <svg width="80" height="90" viewBox="0 0 80 90" fill="none">
+              <rect x="10" y="8" width="46" height="52" rx="4" fill="#1e1b52" stroke="#3a3680" strokeWidth="1"/>
+              <rect x="14" y="12" width="38" height="6" rx="2" fill="#2d2870"/>
+              <rect x="14" y="22" width="28" height="3" rx="1" fill="#3a3680"/>
+              <rect x="14" y="28" width="22" height="3" rx="1" fill="#3a3680"/>
+              <rect x="14" y="34" width="26" height="3" rx="1" fill="#3a3680"/>
+              <rect x="14" y="40" width="18" height="3" rx="1" fill="#3a3680"/>
+              <circle cx="44" cy="44" r="18" fill="none" stroke="#7b6fff" strokeWidth="3"/>
+              <circle cx="44" cy="44" r="13" fill="rgba(91,82,224,0.15)"/>
+              <line x1="57" y1="57" x2="68" y2="70" stroke="#7b6fff" strokeWidth="4" strokeLinecap="round"/>
+              <circle cx="40" cy="40" r="5" fill="none" stroke="#a89fff" strokeWidth="1.5"/>
+            </svg>
+          </div>
+        </div>
+
+        {/* 체크 뱃지 */}
+        <div style={{ display:"flex", gap:5, flexWrap:"wrap", position:"relative" }}>
+          {["실제 거래 기반","적정가 분석","맞춤 추천","계약 안전 체크"].map(t => (
+            <div key={t} style={{ display:"flex", alignItems:"center", gap:4, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"4px 8px" }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#7b6fff" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span style={{ fontSize:10, color:"#c4c0f0" }}>{t}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* ── 빠른 질문 카드 ── */}
-      <div style={{ marginBottom: 28 }}>
-        <p style={{ fontSize: 11, color: BRAND_MUTED, margin: "0 0 8px 2px", letterSpacing: "0.04em" }}>
-          빠른 시작
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          {quickQuestions.map((q, i) => (
-            <button
-              key={i}
-              onClick={() => handleQuick(q)}
-              style={{
-                background: "#fff",
-                border: `1px solid ${query === q ? "#111" : "#e2e0da"}`,
-                borderRadius: 10,
-                padding: "10px 12px",
-                textAlign: "left",
-                cursor: "pointer",
-                fontSize: 12,
-                color: query === q ? BRAND : BRAND_MID,
-                lineHeight: 1.5,
-                fontWeight: query === q ? 500 : 400,
-                transition: "all 0.12s",
-              }}
-            >
-              {q}
+      {/* ── 입력 카드 ── */}
+      <div style={{ padding:"0 14px", marginTop:-16, position:"relative" }}>
+        <div style={{ background:"#fff", borderRadius:18, border:"1px solid #e4e1f8", padding:"16px 14px 12px", boxShadow:"0 4px 20px rgba(91,82,224,0.08)" }}>
+          <p style={{ fontSize:13, fontWeight:700, color:"#1a1650", margin:"0 0 10px" }}>어떤 아파트를 찾고 계신가요?</p>
+
+          {/* 예시 질문 칩 */}
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:10 }}>
+            {quickQuestions.map((q, i) => (
+              <button key={i} onClick={() => setQuery(q)} style={{
+                background: query === q ? "#ede9fe" : "#f0effe",
+                border: `1px solid ${query === q ? "#7b6fff" : "#dbd8f8"}`,
+                borderRadius:20, padding:"5px 10px", fontSize:10,
+                color: query === q ? "#5b21b6" : PURPLE, cursor:"pointer",
+                fontWeight: query === q ? 600 : 400,
+              }}>{q}</button>
+            ))}
+          </div>
+
+          {/* 텍스트 입력 */}
+          <textarea
+            value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown}
+            placeholder="조건을 자유롭게 입력하세요"
+            rows={2}
+            style={{ width:"100%", border:"none", borderTop:"1px solid #f0eefe", outline:"none", resize:"none", fontSize:13, color:"#1a1650", background:"transparent", fontFamily:"inherit", padding:"10px 0 6px", lineHeight:1.6 }}
+          />
+
+          {/* 액션 버튼 */}
+          <div style={{ display:"flex", alignItems:"center", gap:5, borderTop:"1px solid #f0eefe", paddingTop:8 }}>
+            {[
+              { label:"단지명·주소", icon:<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg> },
+              { label:"예산", icon:<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> },
+              { label:"사진", icon:<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>, onClick: () => alert("사진 업로드 — 준비 중") },
+              { label:"음성", icon:<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>, onClick: () => alert("음성 입력 — 준비 중") },
+            ].map(({ label, icon, onClick }) => (
+              <button key={label} onClick={onClick} style={{ display:"flex", alignItems:"center", gap:3, background:"#f0effe", border:"1px solid #dbd8f8", borderRadius:7, padding:"5px 8px", fontSize:10, color:PURPLE, cursor:"pointer" }}>
+                {icon}{label}
+              </button>
+            ))}
+            <button onClick={handleSubmit} disabled={!query.trim()} style={{
+              marginLeft:"auto", width:32, height:32, borderRadius:10,
+              background: query.trim() ? PURPLE : "#e4e1f8", border:"none",
+              cursor: query.trim() ? "pointer" : "default",
+              display:"flex", alignItems:"center", justifyContent:"center",
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={query.trim() ? "#fff" : "#b0acd8"} strokeWidth="2" strokeLinecap="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 이 앱이 도와드리는 일 ── */}
+      <div style={{ padding:"20px 14px 0" }}>
+        <p style={{ fontSize:14, fontWeight:700, color:"#1a1650", margin:"0 0 12px" }}>이 앱이 도와드리는 일</p>
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {[
+            { icon:"chart-bar", title:"적정가 판단", desc:"아파트 적당한 가격인지 AI가 분석해요", tab:"fair", color:PURPLE, bg:"#eeecff" },
+            { icon:"home-search", title:"매수 추천", desc:"조건에 맞는 최적의 아파트를 추천해드려요", tab:"buy", color:PURPLE, bg:"#eeecff" },
+            { icon:"currency-won", title:"예산 맞춤 추천", desc:"내 예산에 맞는 아파트를 찾아드려요", tab:"reco", color:PURPLE, bg:"#eeecff" },
+          ].map(({ icon, title, desc, tab, color, bg }) => (
+            <button key={tab} onClick={() => onNavigate && onNavigate(tab)} style={{
+              background:"#fff", border:"1px solid #e4e1f8", borderRadius:14,
+              padding:"12px 14px", display:"flex", alignItems:"center", gap:12,
+              textAlign:"left", cursor:"pointer", width:"100%",
+            }}>
+              <div style={{ width:40, height:40, borderRadius:12, background:bg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  {icon === "chart-bar" && <><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></>}
+                  {icon === "home-search" && <><path d="M10 20v-6h4v6"/><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="17" cy="17" r="3"/><line x1="19.5" y1="19.5" x2="22" y2="22"/></>}
+                  {icon === "currency-won" && <><circle cx="12" cy="12" r="10"/><path d="M8 12l4 4 4-4M8 8l4 4 4-4"/></>}
+                </svg>
+              </div>
+              <div style={{ flex:1 }}>
+                <p style={{ fontSize:13, fontWeight:600, color:"#1a1650", margin:"0 0 2px" }}>{title}</p>
+                <p style={{ fontSize:11, color:"#9994d8", margin:0, lineHeight:1.5 }}>{desc}</p>
+              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b0acd8" strokeWidth="1.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
           ))}
         </div>
       </div>
 
+      {/* ── 계약 안전 체크 ── */}
+      <div style={{ padding:"16px 14px 0" }}>
+        <div style={{ background:"#1a1650", borderRadius:16, padding:"16px 14px", display:"flex", gap:12, alignItems:"flex-start" }}>
+          <div style={{ width:44, height:44, borderRadius:12, background:"#2d2870", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7b6fff" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <polyline points="9 12 11 14 15 10"/>
+            </svg>
+          </div>
+          <div style={{ flex:1 }}>
+            <p style={{ fontSize:13, fontWeight:700, color:"#fff", margin:"0 0 3px" }}>계약 안전 체크</p>
+            <p style={{ fontSize:10, color:"#7b76c8", margin:"0 0 10px", lineHeight:1.5 }}>이 계약, 정말 안전할까요?<br/>계약서, 등기부등본을 분석해 위험 요소와 권리관계를 확인해드려요.</p>
+            <div style={{ display:"flex", gap:7 }}>
+              <button onClick={() => alert("PDF 업로드 — 준비 중")} style={{ flex:1, background:"#2d2870", border:"1px solid #3a3680", borderRadius:8, padding:"8px", fontSize:11, color:"#c4c0f0", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:5 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                PDF 업로드
+              </button>
+              <button onClick={() => onNavigate && onNavigate("buy")} style={{ flex:1, background:PURPLE, border:"none", borderRadius:8, padding:"8px", fontSize:11, fontWeight:600, color:"#fff", cursor:"pointer" }}>
+                분석 시작
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ── 최근 분석 ── */}
       {recentList.length > 0 && (
-        <div style={{ marginBottom: 28 }}>
-          <p style={{ fontSize: 11, color: BRAND_MUTED, margin: "0 0 8px 2px", letterSpacing: "0.04em" }}>
-            최근 분석
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ padding:"16px 14px 0" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+            <p style={{ fontSize:14, fontWeight:700, color:"#1a1650", margin:0 }}>최근 분석</p>
+            <button onClick={() => onNavigate && onNavigate("adv")} style={{ background:"none", border:"none", fontSize:11, color:PURPLE, cursor:"pointer" }}>전체 보기 ›</button>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
             {recentList.map((h, i) => {
-              const tc = typeColor[h.analysisType] || { bg: "#f5f5f3", text: "#57534e" };
-              const tl = typeLabel[h.analysisType] || h.analysisType;
+              const tc = typeBadge[h.analysisType] || { bg:"#f0effe", text:PURPLE };
+              const tl = typeLabel[h.analysisType] || h.analysisType || "분석";
               return (
-                <button
-                  key={i}
-                  onClick={() => onNavigate && onNavigate(h.analysisType === "sell" ? "sell" : "fair")}
-                  style={{
-                    background: "#fff",
-                    border: "1px solid #e2e0da",
-                    borderRadius: 10,
-                    padding: "10px 12px",
-                    textAlign: "left",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                  }}
-                >
-                  <span style={{
-                    fontSize: 10, fontWeight: 500,
-                    background: tc.bg, color: tc.text,
-                    borderRadius: 5, padding: "2px 6px",
-                    flexShrink: 0,
-                  }}>{tl}</span>
-                  <span style={{ fontSize: 12, color: BRAND, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {h.complexName} {h.area}
-                  </span>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={BRAND_MUTED} strokeWidth="1.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <button key={i} onClick={() => onNavigate && onNavigate(h.analysisType === "sell" ? "sell" : "fair")} style={{
+                  background:"#fff", border:"1px solid #e4e1f8", borderRadius:12,
+                  padding:"10px 12px", display:"flex", alignItems:"center", gap:10,
+                  textAlign:"left", cursor:"pointer", width:"100%",
+                }}>
+                  <div style={{ width:36, height:36, borderRadius:10, background:"#eeecff", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={PURPLE} strokeWidth="1.5" strokeLinecap="round"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <p style={{ fontSize:12, fontWeight:500, color:"#1a1650", margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{h.complexName} {h.area}</p>
+                    <span style={{ fontSize:10, fontWeight:500, background:tc.bg, color:tc.text, borderRadius:4, padding:"1px 6px" }}>{tl} 분석 완료</span>
+                  </div>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#b0acd8" strokeWidth="1.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
               );
             })}
@@ -758,41 +815,11 @@ function HomeView({ onNavigate, history, onSaveHistory, currentUserId, currentUs
         </div>
       )}
 
-      {/* ── 하단 보조 메뉴 ── */}
-      <div style={{
-        display: "flex",
-        justifyContent: "center",
-        gap: 8,
-        marginTop: "auto",
-        paddingTop: 8,
-      }}>
-        {[
-          { label: "매수 분석", tab: "buy" },
-          { label: "매도 분석", tab: "sell" },
-          { label: "적정가",   tab: "fair" },
-          { label: "추천 후보", tab: "reco" },
-        ].map(({ label, tab }) => (
-          <button
-            key={tab}
-            onClick={() => onNavigate && onNavigate(tab)}
-            style={{
-              background: "none",
-              border: "1px solid #e2e0da",
-              borderRadius: 8,
-              padding: "6px 12px",
-              fontSize: 12,
-              color: BRAND_MID,
-              cursor: "pointer",
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
+      <div style={{ height:80 }} />
     </div>
   );
 }
+
 
 
 
@@ -902,7 +929,7 @@ const propertyTypes = [
   { key: "commercial", label: "상가", ready: false },
   { key: "oneRoom", label: "원룸", ready: true },
 ];
-const apartmentTabsDef = [["fair", "적정가"], ["buy", "매수"], ["sell", "매도"], ["tax", "세금"], ["reco", "추천 후보"], ["adv", "내 자산"], ["logs", "🔍 로그"]];
+const apartmentTabsDef = [["reco", "추천 아파트"], ["fair", "분석 내역"], ["tax", "계약 체크"], ["adv", "더보기"]];
 const oneRoomTabsDef = [["search", "원룸 찾기"], ["manage", "원룸 관리"], ["yield", "원룸 수익률"]];
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -1152,6 +1179,37 @@ function AppInner() {
           <p style={{ marginTop: 32, padding: "0 8px", fontSize: 11, lineHeight: 1.8, color: "#a8a29e" }}>{LEGAL}</p>
         )}
       </main>
+
+      {/* ── 하단 탭바 ── */}
+      <div style={{
+        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100,
+        background: "linear-gradient(to top, #0f0c2e 0%, #1a1650 60%, rgba(26,22,80,0.95) 100%)",
+        borderTop: "1px solid rgba(91,82,224,0.2)",
+        display: "flex", justifyContent: "space-around",
+        padding: "10px 0 max(14px, env(safe-area-inset-bottom))",
+      }}>
+        {[
+          { label:"홈", key:"home", icon:<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor"/><polyline points="9 22 9 12 15 12 15 22" stroke="currentColor"/></> },
+          { label:"추천 아파트", key:"reco", icon:<><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke="currentColor"/><circle cx="12" cy="10" r="3" stroke="currentColor"/></> },
+          { label:"분석 내역", key:"fair", icon:<><rect x="3" y="12" width="4" height="9" stroke="currentColor"/><rect x="10" y="7" width="4" height="14" stroke="currentColor"/><rect x="17" y="3" width="4" height="18" stroke="currentColor"/></> },
+          { label:"계약 체크", key:"tax", icon:<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor"/><polyline points="9 12 11 14 15 10" stroke="currentColor"/></> },
+          { label:"더보기", key:"adv", icon:<><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor"/><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor"/><line x1="3" y1="18" x2="21" y2="18" stroke="currentColor"/></> },
+        ].map(({ label, key, icon }) => {
+          const isActive = key === "home" ? aptTab === "home" : aptTab === key;
+          return (
+            <button key={key}
+              onClick={() => key === "home" ? (setPtype("apartment"), setAptTab("home")) : (setPtype("apartment"), setAptTab(key))}
+              style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4, background:"none", border:"none", cursor:"pointer", padding:"0 6px", minWidth:52 }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
+                style={{ color: isActive ? "#7b6fff" : "rgba(196,192,240,0.5)" }}>
+                {icon}
+              </svg>
+              <span style={{ fontSize:9, color: isActive ? "#7b6fff" : "rgba(196,192,240,0.5)", fontWeight: isActive ? 600 : 400 }}>{label}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
