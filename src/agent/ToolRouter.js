@@ -32,8 +32,17 @@ async function toolFairValue(memory) {
 
   let complexes = [];
   try {
-    const res = await searchComplexFromSupabase(searchKw, region || "", "");
+    // 스마트 검색: "공릉동 동신" → 마지막 토큰으로 검색, 앞 토큰은 지역 힌트
+    const tokens = searchKw.trim().split(/\s+/);
+    const complexKw  = tokens.length >= 2 ? tokens[tokens.length - 1] : tokens[0];
+    const regionHint = tokens.length >= 2 ? tokens[0] : (region || "");
+    const res = await searchComplexFromSupabase(complexKw, regionHint, "");
     complexes = res.complexes || [];
+    // 결과 없으면 전체 쿼리로 재시도
+    if (complexes.length === 0 && tokens.length >= 2) {
+      const res2 = await searchComplexFromSupabase(searchKw, region || "", "");
+      complexes = res2.complexes || [];
+    }
   } catch {
     return makeErr("fair", "단지 검색 중 오류가 발생했어요.");
   }
