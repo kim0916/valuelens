@@ -65,19 +65,64 @@ export default async function handler(req, res) {
     const safeDong = sigungu ? '' : (dong || '');
 
     try {
+      // ── 자연어 전처리: 평형 표현 → 면적 힌트 변환 ──
+      // "34평" → 84㎡, "국평" → 84㎡, "84평" → 84㎡, "20평" → 59㎡ 등
+      const PYEONG_MAP = {
+        '국평': 84, '국민평형': 84,
+        '10평': 33, '11평': 36, '12평': 39, '13평': 43, '14평': 46,
+        '15평': 49, '16평': 52, '17평': 56, '18평': 59, '19평': 62,
+        '20평': 66, '21평': 69, '22평': 72, '23평': 75, '24평': 79,
+        '25평': 82, '26평': 84, '27평': 89, '28평': 92, '29평': 95,
+        '30평': 99, '31평': 101,'32평': 105,'33평': 108,'34평': 112,
+        '35평': 115,'40평': 132,'45평': 148,'50평': 165,'60평': 198,
+      };
+      // 입력에서 평형 표현 추출 및 제거
+      let nameForSearch = name;
+      let pyeongExtractedArea = null;
+      for (const [expr, sqm] of Object.entries(PYEONG_MAP)) {
+        if (nameForSearch.includes(expr)) {
+          pyeongExtractedArea = sqm;
+          nameForSearch = nameForSearch.replace(expr, '').trim();
+          console.log(`[search] 평형표현 추출: "${expr}" → ${sqm}㎡`);
+          break;
+        }
+      }
+      // 추출된 면적이 있으면 AREA_RE 숫자 추출과 병합
+      if (pyeongExtractedArea && !naturalArea) {
+        areaTokens.push(pyeongExtractedArea);
+      }
+
+      // ── 별명/줄임말 정규화 ──
+      const NICKNAME_MAP = {
+        '마래푸':   '마포래미안푸르지오',
+        '마래푸4단지': '마포래미안푸르지오4단지',
+        '래미안마래푸': '마포래미안푸르지오',
+        '아파트':   '',   // 접미사 제거
+        'ELCE':     '엘스',
+        'elce':     '엘스',
+      };
+      for (const [nick, real] of Object.entries(NICKNAME_MAP)) {
+        const nickLower = nick.toLowerCase();
+        const nameLower = nameForSearch.toLowerCase();
+        if (nameLower.includes(nickLower)) {
+          const replaced = nameForSearch.replace(new RegExp(nick, 'gi'), real).trim();
+          console.log(`[search] 별명정규화: "${nameForSearch}" → "${replaced}"`);
+          nameForSearch = replaced;
+          break;
+        }
+      }
+
       // ── 브랜드 표기 정규화 (DB 혼재 대응) ──
-      // 국토부 DB에는 두 가지 표기가 혼재함:
-      //   레미안(9건) + 래미안(218건), 이편한세상(64건) + e편한세상(240건)
-      // 단순 변환 시 한쪽 누락 → OR 검색으로 양쪽 모두 잡음
-      // 헤링턴·더샾은 DB에 해당 표기 없음 → 변환 후 단일 검색이 맞음
       const BRAND_OR_MAP = {
-        '레미안':   '래미안',     // DB 양쪽 혼재 → OR 검색
-        '이편한': 'e편한',       // DB 양쪽 혼재 → OR 검색 (이편한/이편한세상 부분 입력 모두 커버)
-        'XI':       '자이',       // 영문 XI 입력 → 자이 OR XI 양쪽 검색
+        '레미안':   '래미안',
+        '이편한': 'e편한',
+        'XI':       '자이',
       };
       const BRAND_ALIAS = {
-        '헤링턴': '해링턴',  // DB에 헤링턴 없음 → 단순 변환
-        '더샾':   '더샵',    // DB에 더샾 없음 → 단순 변환
+        '헤링턴': '해링턴',
+        '더샾':   '더샵',
+        'SK뷰':   'SKVIEW',   // 매교역 SK뷰 → SKVIEW
+        'SK VIEW':'SKVIEW',
       };
       // 단지 전체명 표기 불일치 매핑 (사용자 입력 → DB 실제명)
       const COMPLEX_ALIAS = {
@@ -100,8 +145,31 @@ export default async function handler(req, res) {
         '정자동느티마을':          '느티마을(4단지)(공무원)',
         'e편한세상삼덕':           'e편한세상삼덕',
         '잠실엘스84':             '잠실엘스',
-        '자양한양':               '자양한양수자인',     // 부분 입력 커버
-        '한양수자인자양':          '자양한양수자인',     // 역순 커버
+        '자양한양':               '자양한양수자인',
+        '한양수자인자양':          '자양한양수자인',
+        // 새로 추가 (QA 실패 케이스)
+        '도마이편한포레나':       '도마e편한세상포레나',
+        '도마e편한포레나':        '도마e편한세상포레나',
+        '도마포레나':             '도마e편한세상포레나',
+        '이편한세상도마':         '도마e편한세상포레나',
+        '마래푸':                 '마포래미안푸르지오',
+        '압구정현대7차':          '현대7차(73~77,82,85동)',
+        '현대7차압구정':          '현대7차(73~77,82,85동)',
+        '잠실파크리오':           '파크리오',
+        '상계7단지':              '상계주공7',
+        '행당서울숲':             '서울숲푸르지오',
+        '서울숲행당':             '서울숲푸르지오',
+        '매교역SK뷰':             '매교역푸르지오SKVIEW',
+        '매교역SKVIEW':           '매교역푸르지오SKVIEW',
+        '송도더샵아크베이':       '더샵송도아크베이',
+        '아크베이송도':           '더샵송도아크베이',
+        '송도아크베이':           '더샵송도아크베이',
+        '삼익비치재건축':         '삼익비치',
+        '은마아파트':             '은마',
+        '반포자이아파트':         '반포자이',
+        '엘스아파트':             '잠실엘스',
+        '잠실엘스아파트':         '잠실엘스',
+        '퍼스트파크송도':         '송도더샵퍼스트파크',
       };
 
       // ── 자연어 파싱 ──
@@ -129,7 +197,7 @@ export default async function handler(req, res) {
       const naturalAreaHint = naturalArea; // 면적 힌트 (검색 결과 필터용)
 
       // 단순 변환 (DB에 원본 표기 없는 경우)
-      let normalizedName = name;
+      let normalizedName = nameForSearch || name;
       for (const [from, to] of Object.entries(BRAND_ALIAS)) {
         if (normalizedName.includes(from)) {
           normalizedName = normalizedName.split(from).join(to);
@@ -202,8 +270,8 @@ export default async function handler(req, res) {
         .limit(limit);
 
       // OR variant 있을 때: 두 표기 각각 별도 쿼리 후 병합
-      // hasSpace인 경우(자연어 입력) orVariant 경로 미사용 — hasSpace 분기에서 별도 처리
-      if (orVariant && !hasSpecial && !hasSpace) {
+      // hasSpace인 경우 공백제거 후 orVariant 경로 적용 (레미안 대치팰리스 → 공백제거 후 래미안대치팰리스 검색)
+      if (orVariant && !hasSpecial) {
         const half = Math.ceil(limit / 2);
         const varNoSpace = orVariant.replace(/\s/g, '');
 
@@ -252,7 +320,7 @@ export default async function handler(req, res) {
           // "동래 래미안아이파크 84" → "동래래미안아이파크" 전체 검색 (지역어도 단지명 일부)
           // "강남 은마 76" → "은마" 검색 + sigungu="강남" 필터 (sigungu는 광역시 전체명 필요)
           const nonNumTokens = spaceTokens.filter(t => !/^\d+$/.test(t));
-          const KNOWN_REGIONS = ["강남","서초","송파","강동","마포","용산","성동","광진","노원","강북","성북","은평","서대문","구로","금천","관악","동작","영등포","양천","강서","도봉","중랑","동대문","중구","종로","광명","부천","안양","수원","성남","의정부","고양","남양주","하남","화성","동탄","평택","안산","시흥","파주","양주","김포","광주","이천","오산","군포","의왕","안성","포천","여주","가평","양평","연천","부산","대구","인천","광주","대전","울산","세종","창원","진주","김해","양산","포항","경주","안동","구미","동래","해운대","수영","연제","사상","사하","금정","북구","동구","중구","서구","남구"];
+          const KNOWN_REGIONS = ["강남","서초","송파","강동","마포","용산","성동","광진","노원","강북","성북","은평","서대문","구로","금천","관악","동작","영등포","양천","강서","도봉","중랑","동대문","중구","종로","광명","부천","안양","수원","성남","의정부","고양","남양주","하남","화성","동탄","평택","안산","시흥","파주","양주","김포","광주","이천","오산","군포","의왕","안성","포천","여주","가평","양평","연천","부산","대구","인천","광주","대전","울산","세종","창원","진주","김해","양산","포항","경주","안동","구미","동래","해운대","수영","연제","사상","사하","금정","북구","동구","중구","서구","남구","압구정","반포","대치","도곡","개포","잠실","가락","신천","삼성","역삼","논현","청담","방배","서초동","반포동","이촌","한남","이태원","서빙고","응봉","행당","왕십리","공릉","상계","하계","월계","중계","창동","도봉동","방학","우이","미아","수유","번동","아현","합정","망원","상수","성산","연남","신수","신촌","홍은","홍제","은평","갈현","구산","대조","역촌","불광","증산","수색","오송","세종","효자","온천"];
           const firstNonNum = nonNumTokens[0] || '';
           const isRegion = KNOWN_REGIONS.some(r => firstNonNum === r || firstNonNum.includes(r));
           if (isRegion && nonNumTokens.length >= 2) {
