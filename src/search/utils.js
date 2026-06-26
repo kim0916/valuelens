@@ -1,4 +1,5 @@
 // ValueLens Search — 검색 유틸 (면적 그룹핑, 가격 파싱 등)
+import { typicalPyeong } from '../constants/grades.js';
 
 function groupAreasByPyeong(areaList) {
   if (!areaList || !Array.isArray(areaList) || areaList.length === 0) return [];
