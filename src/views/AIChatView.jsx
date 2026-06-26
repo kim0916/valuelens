@@ -237,31 +237,32 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       return;
     }
 
-    // ── ready: ToolRouter → agentResult 카드, 이동 없음 ──
+    // ── ready: goal별 처리 ──
     if (ar.status === "ready") {
       addMsg({ role: "ai", type: "thinking", content: "분석 중..." });
+
+      // fair/buy → 기존 routeIntent 재사용 (부분명 검색 + 후보 카드 + runAnalysis)
+      if (ar.goal === "fair" || ar.goal === "buy") {
+        const mem = ar.memory;
+        const rawQuery = ar.params.complexQuery || ar.params.complexName || text;
+        const intent = {
+          intent: ar.goal === "buy" ? "buy" : "fair",
+          complexName: rawQuery,
+          region: mem.region || "",
+          dong: "",
+          pyeong: mem.area ? parseFloat(mem.area) : null,
+          areaSqm: mem.area ? (mem.area.includes("평")
+            ? Math.round(parseFloat(mem.area) * 3.305785)
+            : parseFloat(mem.area)) : null,
+          price: mem.buyPrice || 0,
+        };
+        await routeIntent(intent, rawQuery);
+        return;
+      }
+
+      // reco/loan 등 → ToolRouter
       try {
         const tr = await routeTool(ar.goal, ar.memory, ar.params);
-
-        // 후보 여러 개 → 선택 카드 (fair_select)
-        if (tr.ok && tr.tool === "fair_select") {
-          const { complexes, area, memory: mem } = tr.rawData;
-          replaceLastAI({
-            type: "candidates",
-            content: tr.summary.conclusion,
-            data: complexes,
-            intent: { intent: "fair", areaSqm: area ? parseFloat(area) * 3.305785 : null },
-            // 선택 후 AgentCore memory에 단지 정보 저장
-            onSelect: (complex) => {
-              const newMem = { ...agentMemoryRef.current, complexName: complex.complex_name,
-                complexId: complex.id, sigungu: complex.sigungu };
-              agentMemoryRef.current = newMem;
-              setAgentSessionMemory(newMem);
-            },
-          });
-          return;
-        }
-
         if (tr.ok && tr.summary?.conclusion) {
           replaceLastAI({ type: "agent_result", summary: tr.summary, rawData: tr.rawData });
         } else {
