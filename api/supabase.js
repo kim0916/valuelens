@@ -73,21 +73,10 @@ export default async function handler(req, res) {
         "압구정","반포","대치","도곡","개포","가락","신천","삼성","역삼","논현","청담","행당",
         "공릉","상계","온천","효자","오송","세종"];
 
-      // ① ㎡ 및 평 기호 제거: "84㎡" → "84", "34평" → 이후 PYEONG_MAP이 없으면 "34"
-      // PYEONG_MAP에 없는 순수 숫자+평은 일단 기호만 제거 ("84평" → "84")
+      // ① ㎡ 및 독립 평 기호 제거 (PYEONG_MAP 처리 이전)
+      // "84㎡" → "84", "84평" → "84 " (단, "34평"처럼 PYEONG_MAP에 있는 건 다음 단계에서 처리)
       let nameForSearch = name
-        .replace(/(\d+)㎡/g, '$1 ')   // 84㎡ → 84
-        .replace(/(\d+)\s*평\b(?!형)/g, (m, n) => {
-          // PYEONG_MAP에 있으면 나중에 처리, 없으면 숫자만 남김
-          const key = n + '평';
-          return Object.prototype.hasOwnProperty.call({
-            '국평':1,'국민평형':1,'12평':1,'13평':1,'14평':1,'15평':1,'16평':1,
-            '17평':1,'18평':1,'19평':1,'20평':1,'21평':1,'22평':1,'23평':1,'24평':1,
-            '25평':1,'26평':1,'27평':1,'28평':1,'29평':1,'30평':1,'31평':1,'32평':1,
-            '33평':1,'34평':1,'35평':1,'36평':1,'37평':1,'38평':1,'39평':1,'40평':1,
-            '41평':1,'42평':1,'43평':1,'45평':1,'50평':1,'55평':1,'60평':1,
-          }, key) ? m : n + ' ';  // PYEONG_MAP에 있으면 그대로 (뒤에서 처리), 없으면 숫자만
-        })
+        .replace(/(\d+)㎡/g, '$1 ')     // 84㎡ → 84
         .trim();
 
       // ② 숫자 면적 추출 (㎡ 제거 후 기준)
@@ -117,6 +106,12 @@ export default async function handler(req, res) {
       }
       // areaHint 결정: 평형 표현 변환값 우선 (34평→84), 없으면 숫자 직접 입력
       const resolvedAreaHint = pyeongExtractedArea || naturalAreaRaw || null;
+
+      // PYEONG_MAP에 없는 N평 표현 잔류 처리: "84평" → "84" (기호만 제거)
+      // PYEONG_MAP이 이미 처리했으면 nameForSearch에 평이 없으므로 이 replace는 무해
+      if (!pyeongExtractedArea) {
+        nameForSearch = nameForSearch.replace(/(\d+)\s*평(?!형)/g, '$1 ').trim();
+      }
 
       // ── 별명/줄임말 정규화 ──
       const NICKNAME_MAP = {
