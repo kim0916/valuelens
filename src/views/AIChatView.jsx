@@ -754,20 +754,11 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                 <button key={i}
                   onClick={async () => {
                     addMsg({ role:"user", type:"text", content: c.complex_name });
-                    // onSelect 콜백으로 memory 업데이트
                     if (msg.onSelect) msg.onSelect(c);
                     addMsg({ role:"ai", type:"thinking", content:"분석 중..." });
-                    // 확정된 단지로 fair 분석 재실행
-                    const updMem = { ...agentMemoryRef.current,
-                      complexName: c.complex_name, complexId: c.id,
-                      sigungu: c.sigungu, complexQuery: c.complex_name };
-                    agentMemoryRef.current = updMem;
-                    const tr = await routeTool("fair", updMem, {});
-                    if (tr.ok && tr.summary?.conclusion) {
-                      replaceLastAI({ type:"agent_result", summary: tr.summary, rawData: tr.rawData });
-                    } else {
-                      replaceLastAI({ type:"text", content: tr.summary?.conclusion || "분석 중 오류가 발생했어요." });
-                    }
+                    // runAnalysis로 연결 → result 타입 → FairValueResult 직접 렌더링
+                    const intent = msg.intent || { intent:"fair" };
+                    await runAnalysis(c, intent);
                   }}
                   style={{
                     background:"#fff", border:`0.5px solid ${BRAND_BORDER}`,
