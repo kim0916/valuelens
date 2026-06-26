@@ -301,12 +301,17 @@ export default async function handler(req, res) {
       }
 
       // 단지 전체명 alias 변환 (BRAND_ALIAS보다 우선)
-      const nameNoSpaceForAlias = normalizedName.replace(/\s/g, '');
+      // 숫자(면적) 제거 후 비교 — '이편한세상 도마 84' → '이편한세상도마'로 alias 매칭
+      const nameNoSpaceForAlias = normalizedName.replace(/\s/g, '').replace(AREA_RE, '');
+      const nameNoSpaceWithNum  = normalizedName.replace(/\s/g, '');
       let complexAliasMatched = false;
       for (const [from, to] of Object.entries(COMPLEX_ALIAS)) {
-        if (nameNoSpaceForAlias === from.replace(/\s/g, '') ||
+        const fromKey = from.replace(/\s/g, '');
+        if (nameNoSpaceForAlias === fromKey ||
+            nameNoSpaceWithNum  === fromKey ||
             normalizedName === from ||
-            normalizedName.includes(from)) {
+            normalizedName.includes(from) ||
+            nameNoSpaceForAlias.includes(fromKey) && fromKey.length >= 4) {
           console.log(`[search] 단지명 alias 변환: "${normalizedName}" → "${to}"`);
           normalizedName = to;
           complexAliasMatched = true;
