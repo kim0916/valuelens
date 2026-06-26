@@ -32,6 +32,9 @@ function goalInference(text) {
     if (patterns.some(p => p.test(t))) return goal;
   }
   if (/\d+\s*억/.test(t)) return "reco";
+  // 단지명+평형 패턴 → fair 기본값
+  // 예: "공릉동 동신 25평", "리센츠 34평", "동부아파트 25평"
+  if (/\d+\s*(평|㎡|타입)/.test(t)) return "fair";
   return "unknown";
 }
 
