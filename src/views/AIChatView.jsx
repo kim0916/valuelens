@@ -151,14 +151,21 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   const [msgs, setMsgs]           = React.useState([WELCOME]);
   const [agentSessionMemory, setAgentSessionMemory] = React.useState(() => createSessionMemory());
 
-  // agentInitial: AgentHome에서 ToolRouter 결과를 받아 채팅에 주입
+  // agentInitial: AgentHome에서 질문 텍스트를 받아 AIChatView 안에서 처리
   React.useEffect(() => {
-    if (agentInitial && agentInitial.summary) {
-      setMsgs([WELCOME, {
-        id: "agent_" + Date.now(), role: "ai", type: "agent_result",
-        summary: agentInitial.summary,
-        rawData: agentInitial.rawData,
-      }]);
+    if (agentInitial) {
+      // searchQuery가 있으면 handleSend로 처리 (AgentCore → ToolRouter → 카드)
+      if (agentInitial.searchQuery) {
+        setTimeout(() => handleSend(agentInitial.searchQuery), 100);
+      }
+      // 이미 계산된 결과가 있으면 바로 카드로 표시
+      else if (agentInitial.summary) {
+        setMsgs(prev => [...prev, {
+          id: "agent_" + Date.now(), role: "ai", type: "agent_result",
+          summary: agentInitial.summary,
+          rawData: agentInitial.rawData,
+        }]);
+      }
     }
   }, [agentInitial]);
   const [input, setInput]         = React.useState("");
@@ -229,13 +236,16 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       try {
         const toolResult = await routeTool(agentResult.goal, agentResult.memory, agentResult.params);
         if (toolResult.ok && toolResult.summary?.conclusion) {
-          // [LOG] AgentCore 무료 경로 처리
           console.log("[Agent] 무료 경로:", agentResult.goal, toolResult.tool);
+          // ToolRouter 결과 → 채팅 카드로 표시 (탭 이동 금지)
           replaceLastAI({
             type: "agent_result",
-            summary: toolResult.summary,
+            summary: { ...toolResult.summary, tab: toolResult.summary.tab },
             rawData: toolResult.rawData,
           });
+          return;
+        } else if (!toolResult.ok && toolResult.summary?.conclusion) {
+          replaceLastAI({ type: "text", content: toolResult.summary.conclusion });
           return;
         }
       } catch (e) {
