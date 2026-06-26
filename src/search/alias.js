@@ -68,25 +68,78 @@ function normalizeAptName(name) {
   return String(name || "").replace(/\s/g, "").toLowerCase();
 }
 
-// 단지명 매칭 v2 — 복합키 기반, 브랜드 단독 차단
+// [P1 Fix] 단지명 매칭 v3 — 숫자 단지 구분 + 브랜드 prefix 인식
+// 변경 이유:
+//   v2의 "앞 2자 일치"는 상계주공5↔상계주공7, 래미안퍼스티지↔래미안대치팰리스 등
+//   완전히 다른 단지를 동일 단지로 오매칭하는 문제가 있었음.
+//
+// 새 규칙:
+//   E. 숫자 포함 단지명 → 첫 숫자 위치까지 + 1글자 이상 연속 일치 필요
+//      (상계주공7 검색 시 상계주공5·상계주공14 차단)
+//   F. 브랜드 prefix 단지명 → 브랜드 전체 + 1글자 이상 연속 일치 필요
+//      (e편한세상대치 검색 시 e편한세상논현 차단)
+//   G. 일반 단지명 → 앞 min(4, len) 자 연속 일치 (기존 2자에서 강화)
+
+// 브랜드 prefix 목록 (길이순 정렬 — 긴 것 우선 매칭)
+const BRAND_PREFIXES = [
+  'e편한세상', '힐스테이트', '롯데캐슬', '호반베르디움', '한화포레나',
+  '중흥s클래스', '푸르지오', '아이파크', '래미안', 'sk뷰', '우미린',
+  '더샵', '자이', '한신', '현대', '대우',
+];
+
+function _getBrandPrefixLen(base) {
+  for (const b of BRAND_PREFIXES) {
+    if (base.startsWith(b) && base.length > b.length) return b.length;
+  }
+  return 0;
+}
+
+function _prefixCommon(n, base) {
+  let common = 0;
+  const minLen = Math.min(n.length, base.length);
+  for (let ci = 0; ci < minLen; ci++) {
+    if (n[ci] === base[ci]) common++;
+    else break;
+  }
+  return common;
+}
+
 function matchAptName(itemName, complexName, exactAptNm) {
   if (!complexName) return true;
   const n = normalizeAptName(itemName);
   const base = normalizeAptName(exactAptNm || complexName);
   if (!n) return false;
-  // 완전일치 (가장 안전)
+
+  // A: 완전일치
   if (n === base) return true;
+  // B: 아파트/apt 접미사 차이
   if (n === base + "아파트" || base === n + "아파트") return true;
-  if (n === base + "apt" || base === n + "apt") return true;
-  // exactAptNm 있으면 완전일치만 허용
+  if (n === base + "apt"    || base === n + "apt")    return true;
+  // C: exactAptNm 있으면 완전일치만
   if (exactAptNm) return false;
-  // 브랜드 단독 검색이면 포함 매칭 차단 (혼재 위험)
+  // D: 브랜드 단독 검색 → 완전일치만
   if (isBrandOnlySearch(complexName)) return n === base;
-  // 일반: 앞글자 연속 일치 (최소 2자)
-  const minLen = Math.min(n.length, base.length);
-  let common = 0;
-  for (let ci = 0; ci < minLen; ci++) { if (n[ci] === base[ci]) common++; else break; }
-  return common >= Math.min(2, minLen);
+
+  const common = _prefixCommon(n, base);
+
+  // E: 숫자 포함 단지명 → 첫 숫자 위치 + 2글자 이상 일치
+  //    (상계주공[7] 검색 → 상계주공[5] 차단, 상계주공[14] 차단)
+  if (/\d/.test(base)) {
+    let digitPos = base.search(/\d/);
+    const required = Math.min(digitPos + 2, Math.min(n.length, base.length));
+    return common >= required;
+  }
+
+  // F: 브랜드 prefix 단지명 → 브랜드 전체 + 1글자 이상 일치
+  //    (e편한세상[대치] 검색 → e편한세상[논현] 차단)
+  const brandLen = _getBrandPrefixLen(base);
+  if (brandLen > 0) {
+    const required = Math.min(brandLen + 1, Math.min(n.length, base.length));
+    return common >= required;
+  }
+
+  // G: 일반 단지명 → 앞 min(4, len) 자 연속 일치 (v2의 2자에서 강화)
+  return common >= Math.min(4, Math.min(n.length, base.length));
 }
 
 // 전용면적 배열을 평형 그룹으로 묶기 (±2㎡ 이내 = 같은 그룹)

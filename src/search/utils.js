@@ -1,6 +1,12 @@
 // ValueLens Search — 검색 유틸 (면적 그룹핑, 가격 파싱 등)
 import { typicalPyeong } from '../constants/grades.js';
 
+// [P1 Fix] groupAreasByPyeong — anchor 기준 고정으로 평형 그룹 누적 오류 수정
+// 수정 이유:
+//   기존 로직은 rep(대표값)이 최빈값으로 업데이트되면서, 다음 면적 추가 시
+//   이동된 rep을 기준으로 비교했기 때문에 59㎡가 63㎡와 같은 그룹이 되는 문제 발생.
+//   예: [59.5, 60.5, 63.0] → 59.5+60.5 = 그룹(rep=60.5), 60.5+63.0 = ±3 내 → 전부 하나의 그룹
+//   수정: anchor(그룹 첫 면적)를 고정 기준으로 사용, rep은 표시용으로만 업데이트
 function groupAreasByPyeong(areaList) {
   if (!areaList || !Array.isArray(areaList) || areaList.length === 0) return [];
   const sorted = [...new Set(areaList.map(a => Math.round(Number(a)*100)/100).filter(a => a > 0))].sort((a,b)=>a-b);
@@ -8,12 +14,14 @@ function groupAreasByPyeong(areaList) {
   const groups = [];
   for (const a of sorted) {
     const last = groups[groups.length - 1];
-    if (last && a - last.rep <= 3) {
+    // anchor(그룹 최초 면적)와 비교 — rep이 이동해도 그룹 범위는 anchor 기준으로 고정
+    if (last && a - last.anchor <= 3) {
       last.areas.push(a);
-      // 대표값은 최빈값으로 업데이트
+      // rep은 최빈값으로 업데이트 (표시용, 그룹 판별엔 미사용)
       last.rep = last.areas.reduce((p,c,_,arr) => arr.filter(x=>x===c).length >= arr.filter(x=>x===p).length ? c : p, last.areas[0]);
     } else {
-      groups.push({ rep: a, areas: [a], pyeong: typicalPyeong(a) });
+      // 새 그룹: anchor = 첫 면적(고정), rep = 첫 면적(최빈값 업데이트용)
+      groups.push({ rep: a, anchor: a, areas: [a], pyeong: typicalPyeong(a) });
     }
   }
   return groups;

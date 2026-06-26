@@ -165,8 +165,11 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
     buildYear: Number(item.buildYear) || 0,
   });
 
-  const saleOut = saleArea.map(toSale).filter(d => d.price > 0).sort((a,b)=>b.ym.localeCompare(a.ym)).slice(0, 10);
-  const jeonseOut = rentArea.map(toJeonse).filter(d => d.price > 0).sort((a,b)=>b.ym.localeCompare(a.ym)).slice(0, 10);
+  // [P0 Fix] slice(0,50): 24개월치 데이터를 computeTrimmedMean에 충분히 전달
+  // 이전 slice(0,10)은 거래 많은 단지에서 최신 0.5~1개월치만 전달되어
+  // 기간필터/이상치제거/KB가중 로직이 모두 무력화되는 문제 해결
+  const saleOut = saleArea.map(toSale).filter(d => d.price > 0).sort((a,b)=>b.ym.localeCompare(a.ym)).slice(0, 50);
+  const jeonseOut = rentArea.map(toJeonse).filter(d => d.price > 0).sort((a,b)=>b.ym.localeCompare(a.ym)).slice(0, 50);
   salePipe.step6_final = saleOut.length;
   jeonseP.step6_final = jeonseOut.length;
 
