@@ -242,4 +242,45 @@ function BuySaveBtn({ r, f, bd, onBack, onSave, saved, showFull, uid }) {
   );
 }
 
-export { AiNotice, GradeInfoPopup, DataTrustBadge, InputWarnings, MarketTypeBadge, SellSaveBtn, BuySaveBtn };
+
+// ── FairSaveBtn ──
+function FairSaveBtn({ r, f, onBack, showFull, uid }) {
+  const [savedId, setSavedId] = React.useState(null);
+  const handleSave = () => {
+    saveAnalysis({
+      _uid: uid,
+      id: `fair_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
+      type: "fair", complexName: f.complexName,
+      area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+      region: f.region, savedAt: new Date().toISOString(),
+      currentPrice: Number(f.currentPrice) || 0, aiFairPrice: r.fairPrice || 0,
+      gradeLabel: r.gradeLabel || "",
+      summary: `${r.gradeLabel || ""} · AI 적정가 ${won(r.fairPrice)}`,
+      resultSnapshot: { fairPrice: r.fairPrice, safetyPrice: r.safetyPrice,
+        buyGrade: r.buyGrade, gradeLabel: r.gradeLabel, gapRatio: r.gapRatio,
+        currentPrice: Number(f.currentPrice) || 0 },
+    });
+    setSavedId(true);
+  };
+
+  if (showFull) {
+    return (
+      <button onClick={handleSave} disabled={!!savedId}
+        className={`w-full rounded-2xl py-3 text-sm font-semibold transition-colors ${savedId ? "bg-slate-100 text-slate-400" : "bg-emerald-500 text-white active:bg-emerald-600"}`}>
+        {savedId ? "✓ 저장됨" : "💾 이 분석 저장하기"}
+      </button>
+    );
+  }
+
+  return (
+    <div className="mb-4 flex items-center justify-between">
+      <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-600">← 다시 분석</button>
+      <button onClick={handleSave} disabled={!!savedId}
+        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${savedId ? "bg-emerald-50 text-emerald-600" : "bg-emerald-500 text-white"}`}>
+        {savedId ? "✓ 저장됨" : "저장"}
+      </button>
+    </div>
+  );
+}
+
+export { AiNotice, GradeInfoPopup, DataTrustBadge, InputWarnings, MarketTypeBadge, SellSaveBtn, BuySaveBtn, FairSaveBtn };
