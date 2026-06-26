@@ -65,8 +65,7 @@ export default async function handler(req, res) {
     const safeDong = sigungu ? '' : (dong || '');
 
     try {
-      // ── 자연어 전처리: 평형 표현 → 면적 힌트 변환 ──
-      // 한국 아파트 "N평" = 공급면적 기준 → 전용면적 변환 (전용률 약 77% 적용)
+      // ── 자연어 전처리 ──
       const AREA_RE = /\b(1[0-9]{2}|[3-9][0-9])\b/g;
       const REGION_HINTS = ["송도","판교","동탄","위례","마곡","광교","검단","다산","미사","고덕",
         "상암","마포","강남","잠실","분당","일산","평촌","중동","산본","하남","파주","의정부",
@@ -74,8 +73,11 @@ export default async function handler(req, res) {
         "압구정","반포","대치","도곡","개포","가락","신천","삼성","역삼","논현","청담","행당",
         "공릉","상계","온천","효자","오송","세종"];
 
-      // 먼저 숫자 면적 추출 (원본에서)
-      const areaTokensRaw = [...name.matchAll(AREA_RE)].map(m=>Number(m[0]));
+      // ① ㎡ 기호 제거 (AREA_RE보다 먼저): "84㎡" → "84"
+      let nameForSearch = name.replace(/(\d+)㎡/g, '$1 ').trim();
+
+      // ② 숫자 면적 추출 (㎡ 제거 후 기준)
+      const areaTokensRaw = [...nameForSearch.matchAll(AREA_RE)].map(m=>Number(m[0]));
       const naturalAreaRaw = areaTokensRaw.length === 1 ? areaTokensRaw[0] : null;
 
       const PYEONG_MAP = {
@@ -90,7 +92,6 @@ export default async function handler(req, res) {
         '40평': 114,'41평': 119,'42평': 119,'43평': 135,'45평': 135,
         '50평': 165,'55평': 180,'60평': 198,
       };
-      let nameForSearch = name;
       let pyeongExtractedArea = null;
       for (const expr of ['국민평형','국평',...Object.keys(PYEONG_MAP).filter(k=>k!=='국평'&&k!=='국민평형').sort((a,b)=>b.length-a.length)]) {
         if (nameForSearch.includes(expr)) {
@@ -198,36 +199,67 @@ export default async function handler(req, res) {
         '해운대자이우동':         '해운대자이2차1단지',
         '아현마포래미안':         '마포래미안푸르지오',
         '마포래미안아현':         '마포래미안푸르지오',
-        // QA 실패 케이스 추가
+        // ── QA 500건 실패 케이스 보강 ──
+        // 잠실
         '잠실파크리오':           '파크리오',
         '잠실리센츠':             '리센츠',
-        '송도더샵퍼스트파크':     '송도더샵퍼스트파크',  // 정규화
+        '엘스잠실':               '잠실엘스',
+        // 송도 더샵
+        '송도더샵퍼스트파크':     '송도더샵퍼스트파크',
         '더샵퍼스트파크':         '송도더샵퍼스트파크',
+        '퍼스트파크송도':         '송도더샵퍼스트파크',
+        '송도아크베이':           '더샵송도아크베이',
+        '아크베이송도':           '더샵송도아크베이',
+        // 이편한세상 도마 (대전)
         '이편한세상도마':         '도마e편한세상포레나',
         '이편한도마':             '도마e편한세상포레나',
         '이편한포레나':           '도마e편한세상포레나',
+        '도마이편한포레나':       '도마e편한세상포레나',
+        '포레나도마':             '도마e편한세상포레나',
+        '도마포레나':             '도마e편한세상포레나',
+        '이편한도마포레나':       '도마e편한세상포레나',
+        // 다산 이편한
         '다산이편한자이':         '다산 이편한세상자이',
         '다산자이이편한':         '다산 이편한세상자이',
-        '남양주다산자이':         '다산 이편한세상자이',
+        '남양주다산자이':         '다산자이아이비플레이스',  // 실제 매핑
+        // 두정역
         '두정역해링턴':           '두정역효성해링턴플레이스',
         '두정역헤링턴':           '두정역효성해링턴플레이스',
         '두정해링턴플레이스':     '두정역효성해링턴플레이스',
+        '두정해링턴':             '두정역효성해링턴플레이스',
+        // 상계주공
         '상계주공7단지':          '상계주공7',
         '상계7단지':              '상계주공7',
+        // 서울숲
         '행당서울숲':             '서울숲푸르지오',
         '서울숲행당':             '서울숲푸르지오',
         '성동서울숲':             '서울숲푸르지오',
+        // 수원
         '수원힐푸':               '힐스테이트푸르지오수원',
         '매교힐스테이트':         '힐스테이트푸르지오수원',
+        '매교힐스':               '힐스테이트푸르지오수원',
+        // 대구
         '만촌화성':               '만촌화성파크드림',
         '수성구만촌':             '만촌화성파크드림',
         '대구만촌':               '만촌화성파크드림',
+        // 압구정 현대
         '압구정현대7차':          '현대7차(73~77,82,85동)',
         '현대7차압구정':          '현대7차(73~77,82,85동)',
-        '송도아크베이':           '더샵송도아크베이',
-        '아크베이송도':           '더샵송도아크베이',
-        '해운대자이2차1단지':     '해운대자이2차1단지',  // 정규화
+        '압구정현대':             '현대',
+        // 해운대
         '해운대자이2차':          '해운대자이2차1단지',
+        '해운대자이2차1단지':     '해운대자이2차1단지',
+        // 부산 래미안 온천
+        '온천래미안2단지':        '래미안온천2단지',
+        '래미안온천':             '래미안온천2단지',
+        // 힐스테이트효자
+        '힐스테이트효자':         '힐스테이트어울림효자',
+        '전주힐스테이트효자':     '힐스테이트어울림효자',
+        '효자힐스테이트':         '힐스테이트어울림효자',
+        // 광명
+        '광명자이위브':           '광명아크포레자이위브',
+        '자이위브광명':           '광명아크포레자이위브',
+        '아크포레광명':           '광명아크포레자이위브',
       };
 
       // ── 자연어 파싱 ──
@@ -481,35 +513,38 @@ export default async function handler(req, res) {
       }
 
       // ── fallback 2.5: 지역어+단지명 분리 재검색 ──
-      // orVariant 경로에서 sigungu 없이 전국 검색했거나
-      // hasSpace 분기에서 지역어가 sigungu로 전달 안 된 경우
-      if ((!data || data.length === 0) && hasSpace) {
-        const KR3 = ["강남","서초","송파","강동","마포","용산","성동","광진","노원","강북","성북","구로","금천","관악","동작","영등포","양천","강서","도봉","중랑","동대문","종로","광명","부천","안양","수원","성남","의정부","고양","남양주","하남","화성","동탄","평택","안산","시흥","파주","부산","대구","인천","대전","울산","세종","창원","진주","김해","포항","경주","안동","구미","동래","해운대","수영","연제","압구정","반포","대치","도곡","개포","잠실","가락","역삼","청담","행당","공릉","상계","아현","우동","온천","효자","오송"];
+      // 조건: 결과 없음 OR 결과가 있지만 지역어와 sigungu가 맞지 않는 오매칭
+      const KR3 = ["강남","서초","송파","강동","마포","용산","성동","광진","노원","강북","성북","구로","금천","관악","동작","영등포","양천","강서","도봉","중랑","동대문","종로","광명","부천","안양","수원","성남","의정부","고양","남양주","하남","화성","동탄","평택","안산","시흥","파주","부산","대구","인천","대전","울산","세종","창원","진주","김해","포항","경주","안동","구미","동래","해운대","수영","연제","압구정","반포","대치","도곡","개포","잠실","가락","역삼","청담","행당","공릉","상계","아현","우동","온천","효자","오송"];
+      if (hasSpace) {
         const spToks25 = nameOrig.split(/\s+/).filter(t=>t.length>=1&&!/^\d+$/.test(t));
         for (let i = 0; i < Math.min(spToks25.length - 1, 2); i++) {
           const regionCandidate = spToks25[i];
           if (KR3.some(r => regionCandidate === r || regionCandidate.includes(r))) {
             const complexPart = spToks25.slice(i+1).join('');
             if (complexPart.length >= 2) {
-              console.log(`[search] fallback2.5: region="${regionCandidate}" complex="${complexPart}"`);
-              let fb25q = supabase
-                .from('realestate_complexes')
-                .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
-                .ilike('complex_name', `%${complexPart}%`)
-                .ilike('sigungu', `%${regionCandidate}%`)
-                .order('sale_cnt', { ascending: false })
-                .limit(Math.min(limit, 8));
-              const { data: fb25Data } = await fb25q;
-              if (fb25Data && fb25Data.length > 0) {
-                data = fb25Data;
-                console.log(`[search] fallback2.5 성공: ${fb25Data.length}건`);
-                break;
+              // 결과가 없거나, 결과의 sigungu가 지역어와 맞지 않는 경우 재검색
+              const curSigungu = (data&&data[0]?.sigungu)||'';
+              const regionMatches = !regionCandidate || curSigungu.includes(regionCandidate);
+              if (!data || data.length === 0 || (!sigungu && !regionMatches)) {
+                console.log(`[search] fallback2.5: region="${regionCandidate}" complex="${complexPart}" (cur:${curSigungu.slice(0,10)})`);
+                let fb25q = supabase
+                  .from('realestate_complexes')
+                  .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
+                  .ilike('complex_name', `%${complexPart}%`)
+                  .ilike('sigungu', `%${regionCandidate}%`)
+                  .order('sale_cnt', { ascending: false })
+                  .limit(Math.min(limit, 8));
+                const { data: fb25Data } = await fb25q;
+                if (fb25Data && fb25Data.length > 0) {
+                  data = fb25Data;
+                  console.log(`[search] fallback2.5 성공: ${fb25Data.length}건`);
+                  break;
+                }
               }
             }
           }
         }
       }
-
 
       if ((!data || data.length === 0) && naturalCoreNoSpace.length >= 3 && naturalCoreNoSpace !== normalizedName.replace(/\s/g,'')) {
         console.log(`[search] fallback3: 자연어core "${naturalCoreNoSpace}" region="${naturalRegion||''}"`);
