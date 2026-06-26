@@ -92,7 +92,8 @@ export default async function handler(req, res) {
           console.log(`[search] 평형표현 추출: "${expr}"→${pyeongExtractedArea}㎡, 나머지:"${nameForSearch}"`);
           break;
         }
-      // 추출된 면적이 있으면 AREA_RE 숫자 추출과 병합
+      }
+      // 추출된 면적이 있으면 areaHint로 활용
       if (pyeongExtractedArea && !naturalArea) {
         areaTokens.push(pyeongExtractedArea);
       }
