@@ -86,6 +86,10 @@ function checkMissingInfo(goal, params, memory) {
   for (const field of (REQUIRED[goal] || [])) {
     if (!merged[field]) return MISSING_QUESTIONS[field];
   }
+  // reco: budget 있어도 region 없으면 지역 질문 (전국 추천 방지)
+  if (goal === "reco" && merged.budget && !merged.region) {
+    return "어떤 지역이 궁금하신가요?\n예: 송도, 노원구, 분당, 마포";
+  }
   return null;
 }
 
