@@ -80,21 +80,51 @@ export default async function handler(req, res) {
         '더샾':   '더샵',    // DB에 더샾 없음 → 단순 변환
       };
       // 단지 전체명 표기 불일치 매핑 (사용자 입력 → DB 실제명)
-      // 추가 시: 왼쪽=사용자가 입력할 법한 표기, 오른쪽=DB 실제 complex_name
       const COMPLEX_ALIAS = {
         '범어e편한세상':           'e편한세상범어',
         '범어이편한세상':           'e편한세상범어',
         '다산자이아이비플렉스':     '다산자이아이비플레이스',
+        '다산이편한세상자이':       '다산 이편한세상자이',
         '탄현마을10단지신도브래뉴': '탄현마을풍림',
         '탄현마을신도브래뉴':       '탄현마을풍림',
         '검단신도시우미린에듀':     '우미린에듀파크2단지',
-        '두산위브더제니스':         '두산위브지웰시티2차',  // 대구 청주 등 구분 필요 시 sigungu로 처리
+        '두산위브더제니스':         '두산위브지웰시티2차',
         '해운대자이2차':           '해운대자이2차1단지',
-        '중동롯데1단지':           '중동롯데캐슬',          // 부천 중동
+        '중동롯데1단지':           '중동롯데캐슬',
         '구월롯데':                '구월동롯데',
         '부평삼성래미안':          '삼성래미안부평',
         '래미안온천2단지':         '온천래미안2단지',
+        '온천래미안2단지':         '온천래미안2단지',   // 순서 무관하게 캐치
+        '자양한양수자인':          '자양한양수자인',     // 검색 실패 → fallback 유도
+        '개포주공1단지':           '개포래미안블레스티지', // 재건축 완료 단지
+        '정자동느티마을':          '느티마을(4단지)(공무원)',
+        'e편한세상삼덕':           'e편한세상삼덕',      // fallback 유도
+        '잠실엘스84':             '잠실엘스',
       };
+
+      // ── 자연어 파싱 ──
+      // "송도 더샵 퍼스트월드 84" → complexCore="더샵퍼스트월드" area=84 regionHint="송도"
+      // 숫자만 있는 토큰이 면적(30~200㎡)이면 name에서 제거 + areaSqm 힌트로 활용
+      const AREA_RE = /\b(1[0-9]{2}|[3-9][0-9])\b/g;
+      const REGION_HINTS = ["송도","판교","동탄","위례","마곡","광교","검단","다산","미사","고덕",
+        "상암","마포","강남","잠실","분당","일산","평촌","중동","산본","하남","파주","의정부",
+        "수지","동백","행신","일산","평택","청주","천안","아산","광주","목포","창원","부산","대구"];
+      const areaTokens = [...name.matchAll(AREA_RE)].map(m=>Number(m[0]));
+      const naturalArea = areaTokens.length === 1 ? areaTokens[0] : null;
+      // 자연어에서 면적 숫자 제거한 단지명 핵심
+      let naturalCore = name.replace(AREA_RE,'').trim();
+      // 지역 힌트 앞에서 추출
+      let naturalRegion = null;
+      for (const rh of REGION_HINTS.sort((a,b)=>b.length-a.length)) {
+        if (naturalCore.includes(rh) && !sigungu) {
+          naturalRegion = rh;
+          // 지역어는 sigungu 힌트로만 쓰고 단지명에서 제거하지 않음 (단지명에 포함될 수 있음)
+          break;
+        }
+      }
+      // naturalCore 공백제거
+      const naturalCoreNoSpace = naturalCore.replace(/\s/g,'');
+      const naturalAreaHint = naturalArea; // 면적 힌트 (검색 결과 필터용)
 
       // 단순 변환 (DB에 원본 표기 없는 경우)
       let normalizedName = name;
@@ -240,26 +270,66 @@ export default async function handler(req, res) {
         }
       }
 
-      // ── fallback 2: 여전히 없으면 앞 4글자 부분검색 ──
+      // ── fallback 2: 토큰 역순 검색 (온천래미안2단지 → 래미안온천 커버) ──
+      if ((!data || data.length === 0) && normalizedName.replace(/\s/g,'').length >= 4) {
+        const tokens2 = normalizedName.trim().split(/\s+/).filter(t=>t.length>=2);
+        if (tokens2.length >= 2) {
+          const reversed = [...tokens2].reverse().join('');
+          console.log(`[search] fallback2: 토큰역순 "${reversed}"`);
+          const { data: fb2Data } = await supabase
+            .from('realestate_complexes')
+            .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
+            .ilike('complex_name', `%${reversed}%`)
+            .order('sale_cnt', { ascending: false })
+            .limit(Math.min(limit, 5));
+          if (fb2Data && fb2Data.length > 0) {
+            data = fb2Data;
+            console.log(`[search] fallback2 토큰역순 성공: ${fb2Data.length}건`);
+          }
+        }
+      }
+
+      // ── fallback 3: 자연어 core 검색 (면적·지역어 제거 후 단지명 핵심만) ──
+      if ((!data || data.length === 0) && naturalCoreNoSpace.length >= 3 && naturalCoreNoSpace !== normalizedName.replace(/\s/g,'')) {
+        console.log(`[search] fallback3: 자연어core "${naturalCoreNoSpace}" region="${naturalRegion||''}"`);
+        let fb3q = supabase
+          .from('realestate_complexes')
+          .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
+          .ilike('complex_name', `%${naturalCoreNoSpace}%`)
+          .order('sale_cnt', { ascending: false })
+          .limit(limit);
+        if (sigungu) fb3q = fb3q.ilike('sigungu', `%${sigungu}%`);
+        else if (naturalRegion) fb3q = fb3q.ilike('sigungu', `%${naturalRegion}%`);
+        const { data: fb3Data } = await fb3q;
+        if (fb3Data && fb3Data.length > 0) {
+          data = fb3Data;
+          console.log(`[search] fallback3 자연어core 성공: ${fb3Data.length}건`);
+        }
+      }
+
+      // ── fallback 4: 앞 5글자 부분검색 ──
       if ((!data || data.length === 0) && normalizedName.length >= 4) {
         const short = normalizedName.replace(/\s/g, '').slice(0, 5);
-        console.log(`[search] fallback2: 부분검색 "${short}"`);
-        let fb2Query = supabase
+        console.log(`[search] fallback4: 앞5글자 "${short}"`);
+        let fb4Query = supabase
           .from('realestate_complexes')
           .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
           .ilike('complex_name', `%${short}%`)
           .order('sale_cnt', { ascending: false })
           .limit(Math.min(limit, 5));
-        if (sigungu) fb2Query = fb2Query.ilike('sigungu', `%${sigungu}%`);
-        const { data: fb2Data, error: fb2Err } = await fb2Query;
-        if (!fb2Err && fb2Data && fb2Data.length > 0) {
-          data = fb2Data;
-          console.log(`[search] fallback2 성공: ${fb2Data.length}건`);
+        if (sigungu) fb4Query = fb4Query.ilike('sigungu', `%${sigungu}%`);
+        const { data: fb4Data, error: fb4Err } = await fb4Query;
+        if (!fb4Err && fb4Data && fb4Data.length > 0) {
+          data = fb4Data;
+          console.log(`[search] fallback4 앞5글자 성공: ${fb4Data.length}건`);
         }
       }
 
+      // 면적 힌트 메타 (자연어 입력 시 클라이언트에서 자동 선택용)
+      const naturalMeta = naturalAreaHint ? { areaHint: naturalAreaHint, regionHint: naturalRegion } : {};
+
       res.setHeader('Cache-Control', 's-maxage=3600');
-      res.status(200).json({ complexes: data || [], aliasMatch, total: (data || []).length });
+      res.status(200).json({ complexes: data || [], aliasMatch, total: (data || []).length, ...naturalMeta });
     } catch (e) {
       errRes(res, e, 'search');
     }
