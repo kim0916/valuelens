@@ -484,10 +484,9 @@ function handlePostComplex(state, areaHint) {
   const complex    = state.currentComplex;
   const areaGroups = getAreaGroups(state);
 
-  // 면적이 자동 선택됨 (Rule 1)
-  if (state.currentArea) {
-    return [state, responseReadyToAnalyze(complex, state.currentArea)];
-  }
+  // 면적이 이미 선택된 상태 → 바로 분석 (사용자가 이전에 선택한 경우)
+  // 단, 새 단지 검색 시에는 이전 면적 무시하고 목록 다시 보여줌
+  // (Rule 7: 새 단지 입력 시 currentArea 초기화됨)
 
   // 면적 데이터 없음
   if (areaGroups.length === 0) {
