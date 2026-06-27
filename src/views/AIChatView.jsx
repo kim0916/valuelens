@@ -149,12 +149,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   // ── 메시지 타입 ──
   // { id, role: 'user'|'ai', type: 'text'|'thinking'|'result'|'candidates'|'clarify'|'error', content, data }
 
-  const WELCOME = {
-    id: "welcome", role: "ai", type: "text",
-    content: "",  // 첫 메시지 제거 (카드 배너로 대체)
-  };
-
-  const [msgs, setMsgs]           = React.useState([WELCOME]);
+  const [msgs, setMsgs]           = React.useState([]);  // 첫 메시지 없음 (카드 배너로 대체)
   const [agentSessionMemory, setAgentSessionMemory] = React.useState(() => createSessionMemory());
   const agentMemoryRef = React.useRef(createSessionMemory()); // state 비동기 문제 방지
 
@@ -803,7 +798,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
           <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN,
             display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
-            <CI d="star" s={13} color="#fff" />
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           </div>
           <div style={{ flex:1, minWidth:0 }}>
             <p style={{ fontSize:14, color:BRAND, margin:"0 0 10px", lineHeight:1.55, letterSpacing:"-0.01em" }}>
