@@ -851,6 +851,15 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
         )}
       </div>}
 
+      {/* ── 주의 문구 ── */}
+      <div style={{ padding:"16px", marginTop:8 }}>
+        <p style={{ fontSize:10, color:"#b0acd8", lineHeight:1.7, margin:0, textAlign:"center" }}>
+          본 분석은 공개 실거래 데이터 기반 참고용이며,<br/>
+          실제 감정평가·투자자문·매수 권유가 아닙니다.<br/>
+          최종 의사결정은 전문가 상담 후 본인 책임 하에 하시기 바랍니다.
+        </p>
+      </div>
+
     </div>
   );
 }
