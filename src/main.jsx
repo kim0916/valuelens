@@ -1412,7 +1412,7 @@ function AppInner() {
                 <button onClick={() => { setAptTab("ai"); setChatResultData(null); }}
                   style={{ background:"none", border:"none", cursor:"pointer", display:"flex", alignItems:"center", gap:6, color:"#5b52e0" }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5b52e0" strokeWidth="2.2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-                  <span style={{ fontSize:13, fontWeight:500 }}>채팅으로</span>
+                  <span style={{ fontSize:13, fontWeight:500 }}>이전으로</span>
                 </button>
                 <span style={{ flex:1, textAlign:"center", fontSize:14, fontWeight:700, color:"#1a1650" }}>분석 결과</span>
                 <div style={{ width:70 }}/>

@@ -688,27 +688,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           하단 네비게이션
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr",
-        gap: 10, marginTop: 10 }}>
-        <button onClick={onBack}
-          style={{ borderRadius: 12, border: `1px solid ${CLR.border}`,
-            background: "#fff", padding: "13px", fontSize: 13,
-            fontWeight: 600, color: "#475569", cursor: "pointer" }}>
-          ← 다시 검색
-        </button>
-        <button onClick={onNewSearch}
-          style={{ borderRadius: 12, border: `1px solid ${CLR.blueB}`,
-            background: CLR.blueL, padding: "13px", fontSize: 13,
-            fontWeight: 600, color: CLR.blue, cursor: "pointer" }}>
-          다른 단지 분석
-        </button>
-      </div>
-      <button onClick={onHome}
-        style={{ width: "100%", borderRadius: 12, background: "#1e293b",
-          color: "#fff", padding: "14px", fontSize: 13, fontWeight: 600,
-          cursor: "pointer", marginTop: 10, border: "none" }}>
-        처음으로
-      </button>
+
 
       {/* AI 안내 */}
       <AiNotice />
