@@ -58,10 +58,10 @@ export function extractRegion(text) {
 // 단지명 추출
 // ─────────────────────────────────────────────
 const BRAND_WORDS = [
-  '래미안', '자이', '푸르지오', '힐스테이트', '더샵', 'e편한세상',
+  '래미안', '자이', '푸르지오', '힐스테이트', '더샵', 'e편한세상', '이편한세상', '이편한',
   '아이파크', '롯데캐슬', '한화포레나', '우미린', '해링턴', '포레나',
   '파크리오', '리센츠', '엘스', '트리지움', '헬리오시티', '그라시움',
-  '아르테온', '마포래미안', '레미안',
+  '아르테온', '마포래미안', '레미안', '현대', '주공', 'sk뷰', '두산',
 ];
 
 export function extractComplexName(text, state = {}) {
@@ -70,45 +70,82 @@ export function extractComplexName(text, state = {}) {
   let complexQuery = null;
   let brand        = null;
 
-  // 1. 직접 별칭 매칭
+  // ★ 지역어/행정구역명은 단지명이 아님 — 먼저 제거
+  // REGION_NORMALIZE 키와 일반 행정구역 패턴 제거 후 추출
+  let textForComplex = t;
+  // 지역 약칭 제거 (잠실, 송도, 판교 등)
+  for (const alias of Object.keys(REGION_NORMALIZE)) {
+    textForComplex = textForComplex.replace(new RegExp(alias.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi'), ' ');
+  }
+  // 행정구역 패턴 제거 (시/구/군/동)
+  textForComplex = textForComplex.replace(/[가-힣]{1,5}(?:특별시|광역시|특별자치시|도|시|군|구|읍|면|동)\s*/g, ' ').trim();
+
+  // 1. 직접 별칭 매칭 (지역어 제거 후)
   for (const [alias, full] of Object.entries(COMPLEX_ALIAS_NLU)) {
     const re = new RegExp(alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    if (re.test(t)) {
+    if (re.test(t)) {  // 원본에서 체크 (별칭은 단지명이므로 OK)
       complexName  = full;
       complexQuery = full;
       return { complexName, complexQuery, brand };
     }
   }
 
-  // 2. 브랜드명 감지
+  // 2. 브랜드명 감지 (지역어 제거된 텍스트에서 추출)
   for (const bw of BRAND_WORDS) {
     if (t.includes(bw)) {
       brand = bw;
-      // 브랜드 앞뒤 2~6글자 포함해서 단지명 후보
-      const re = new RegExp(`([가-힣A-Za-z0-9]{1,6})?${bw}([가-힣A-Za-z0-9]{0,10})`, 'i');
-      const m = t.match(re);
-      if (m) {
+      // 브랜드 앞뒤에서 지역어 제외한 수식어만 포함
+      const re = new RegExp(`([가-힣A-Za-z0-9]{1,6})?${bw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}([가-힣A-Za-z0-9]{0,10})`, 'i');
+      const m = textForComplex.match(re);  // 지역어 제거된 텍스트에서
+      if (m && m[0].trim()) {
         complexQuery = m[0].trim();
         complexName  = complexQuery;
+      } else {
+        // 브랜드명만 있고 앞뒤 수식어 없음 → 지역+브랜드 조합 → recommend
+        complexQuery = null;
+        complexName  = null;
       }
       break;
     }
   }
 
-  // 3. 한글 2글자 이상 + 숫자/차수 패턴
+  // 3. 한글 2글자 이상 패턴 — 지역어 제거된 텍스트에서만 추출 (Rule A)
   if (!complexName) {
-    // "잠실엘스84" → "잠실엘스" 추출
-    const m = t.match(/([가-힣]{2,10}(?:[A-Za-z0-9가-힣]{0,10})?)(?:\s*\d+)?/);
-    if (m && m[1] && m[1].length >= 2) {
-      // 숫자만, 평형어, 지역어, 목적어 제외
-      const EXCLUDE = ['이하', '이상', '이내', '정도', '대략', '근처', '주변', '학군', '출퇴근', '실거주', '투자'];
-      if (!EXCLUDE.some(ex => m[1].includes(ex))) {
-        complexQuery = m[1].trim();
+    const GENERIC_WORDS = [
+      '아파트', '단지', '집', '매물', '부동산', '빌라', '오피스텔',
+      '이하', '이상', '이내', '정도', '대략', '근처', '주변',
+      '학군', '출퇴근', '실거주', '투자', '투자용', '추천', '적정가', '시세',
+      '괜찮은', '좋은', '저렴한', '싼', '비싼', '넓은', '좁은',
+      '어떤', '어디', '무슨', '어디가', '뭐가', '보여줘', '알려줘',
+      '보고싶어', '궁금해', '확인', '비교', '얼마야', '얼마',
+      '아이', '자녀', '신혼', '부모님', '어르신', '가족', '학생',  // 가족어 = 단지명 아님
+    ];
+    // 의도어/평형어 제거 후 남은 텍스트에서 단지명 추출
+    const cleaned = textForComplex
+      .replace(/\d+(?:평대|평형|평|㎡|억|만)/g, '')  // 평형/예산 제거
+      .replace(/추천|적정가|시세|얼마야|보여줘|알려줘|비싼가|괜찮아|비교|얼마|국평|국민평형/g, '')
+      .replace(/\s+/g, ' ').trim();
+
+    if (cleaned.length >= 2) {
+      const m = cleaned.match(/^([가-힣]{2,10}(?:[A-Za-z0-9가-힣]{0,8})?)/);
+      if (m && m[1]) {
+        const candidate = m[1].trim();
+        const isGeneric = GENERIC_WORDS.some(w => candidate === w || candidate.endsWith(w));
+        if (!isGeneric && candidate.length >= 2) {
+          complexQuery = candidate;
+        }
       }
     }
   }
 
-  return { complexName, complexQuery, brand };
+  // ★ Rule A: "아파트/단지/집/매물"이 complexQuery의 전부라면 제거
+  const GENERIC_ONLY = ['아파트', '단지', '집', '매물', '부동산', '빌라', '오피스텔'];
+  if (complexQuery && GENERIC_ONLY.includes(complexQuery.replace(/\s/g, ''))) {
+    complexQuery = null;
+    complexName  = null;
+  }
+
+  return { complexName, complexQuery, brand, hasComplexHint: !!(complexName || complexQuery) };
 }
 
 // ─────────────────────────────────────────────
@@ -140,8 +177,8 @@ export function extractArea(text) {
     return { areaSqm: null, areaType: 'relative', areaRange: null, areaDir: 'smaller' };
   }
 
-  // 4. N평 / 국평 정확 변환 (단독/복합 모두)
-  const pyeongM = t.match(/(\d+)\s*평(?!형|대)/);
+  // 4. N평 / 국평 정확 변환 — "N평대"는 이미 range로 처리됨, 단독 "N평"만
+  const pyeongM = t.match(/(\d+)\s*평(?!형|대|[대])/);
   if (pyeongM) {
     const key = pyeongM[1] + '평';
     if (AREA_NORMALIZE[key]) {
@@ -156,8 +193,14 @@ export function extractArea(text) {
   }
 
   // 5. 순수 숫자 또는 텍스트 끝 숫자 (30~200 범위 = 면적)
-  const numM = t.match(/^(3[0-9]|[4-9][0-9]|1[0-9]{2})([A-Da-d])?$/) ||
-               t.match(/(3[0-9]|[4-9][0-9]|1[0-9]{2})([A-Da-d])?\s*$/);
+  // "N평대" 포함 텍스트는 이미 range로 처리됨 → 숫자 오추출 방지
+  const hasPyeongdae = /\d+\s*평대/.test(t);
+  // "N평대"가 있으면 숫자 단독 추출 금지
+  const numM = !hasPyeongdae && (
+    t.match(/^(3[0-9]|[4-9][0-9]|1[0-9]{2})([A-Da-d])?$/) ||
+    // 끝 숫자: 앞에 "평대" 없는 경우만
+    (!hasPyeongdae && t.match(/(3[0-9]|[4-9][0-9]|1[0-9]{2})([A-Da-d])?\s*$/) && !t.match(/\d+\s*평대.+\d/))
+  );
   if (numM) {
     const n = Number(numM[1]);
     if (n >= 30 && n <= 200) {

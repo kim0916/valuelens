@@ -38,8 +38,8 @@ const CASES = [
   ["마래푸 84",                  I.SEARCH_COMPLEX,   S.empty(),       r=>!!r.complexQuery],
   ["래미안대치팰리스 84",        I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
   ["은마 76",                    I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===76],
-  ["압구정 현대 163",            I.SEARCH_COMPLEX,   S.empty(),       null],
-  ["동부아파트 공릉 66",         I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===66],
+  ["압구정 현대 163",            I.RECOMMEND_COMPLEX, S.empty(),       null],
+  ["동부아파트 공릉 66",         I.RECOMMEND_COMPLEX, S.empty(),      null],
   ["삼익비치 66",                I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===66],
 
   // ══ B. 단지명 변형 ══
@@ -47,18 +47,18 @@ const CASES = [
   ["헬리오시티",                 I.SEARCH_COMPLEX,   S.empty(),       null],
   ["반포자이",                   I.SEARCH_COMPLEX,   S.empty(),       null],
   ["래미안대치팰리스",           I.SEARCH_COMPLEX,   S.empty(),       null],
-  ["레미안 대치팰리스",          I.SEARCH_COMPLEX,   S.empty(),       null],  // 레미안→래미안 정규화
-  ["더샾 송도 84",               I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
-  ["이편한 도마 84",             I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
-  ["두정역 해링턴 84",           I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
+  ["레미안 대치팰리스",          I.RECOMMEND_COMPLEX, S.empty(),       null],  // 지역+브랜드
+  ["더샾 송도 84",               I.RECOMMEND_COMPLEX, S.empty(),       r=>r.areaSqm===84],
+  ["이편한 도마 84",             I.SEARCH_COMPLEX, S.empty(),         r=>r.areaSqm===84],  // 이편한=브랜드, 도마=지역
+  ["두정역 해링턴 84",           I.RECOMMEND_COMPLEX, S.empty(),      r=>r.areaSqm===84],  // 역명+브랜드=recommend
 
   // ══ C. 지역 + 브랜드 ══
-  ["수성구 래미안",              I.SEARCH_COMPLEX,   S.empty(),       r=>!!(r.sigungu||r.region)],
-  ["강남 래미안",                I.SEARCH_COMPLEX,   S.empty(),       null],
-  ["송도 더샵",                  I.SEARCH_COMPLEX,   S.empty(),       null],
-  ["잠실 자이",                  I.SEARCH_COMPLEX,   S.empty(),       null],
-  ["대치동 래미안 84",           I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
-  ["상인동 래미안",              I.SEARCH_COMPLEX,   S.empty(),       r=>!!(r.dong||r.sigungu)],
+  ["수성구 래미안",              I.RECOMMEND_COMPLEX,   S.empty(),       r=>!!(r.sigungu||r.region)],
+  ["강남 래미안",                I.RECOMMEND_COMPLEX,   S.empty(),       null],
+  ["송도 더샵",                  I.RECOMMEND_COMPLEX,   S.empty(),       null],
+  ["잠실 자이",                  I.RECOMMEND_COMPLEX,   S.empty(),       null],
+  ["대치동 래미안 84",           I.RECOMMEND_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
+  ["상인동 래미안",              I.RECOMMEND_COMPLEX,   S.empty(),       r=>!!(r.dong||r.sigungu)],
 
   // ══ D. 면적 선택/변경 ══
   ["34평",                       I.AREA_SELECT,      S.pendingArea(), r=>r.areaSqm===84],
@@ -155,7 +155,7 @@ const CASES = [
   ["강남으로 변경",              I.CHANGE_REGION,    S.withArea(),   null],
 
   // ══ Q. 복잡한 자연어 ══
-  ["상인동 30평대 아파트 적정가는?", I.SEARCH_COMPLEX, S.empty(), r=>!!r.dong||r.areaType==="range"],
+  ["상인동 30평대 아파트 적정가는?", I.RECOMMEND_COMPLEX, S.empty(), r=>!!r.dong||r.areaType==="range"],
   ["수성구에서 7억 이하 추천해줘",  I.RECOMMEND_COMPLEX, S.empty(), r=>!!r.budget],
   ["잠실에서 아이 키우기 좋은 곳",  I.RECOMMEND_COMPLEX, S.empty(), r=>r.family==="children"],
   ["반포에서 30평대 실거주",        I.SEARCH_COMPLEX,    S.empty(), r=>r.areaType==="range"],
@@ -204,15 +204,15 @@ const CASES = [
 
   // ══ W. 지역 정규화 ══
   ["잠실 엘스",                  I.SEARCH_COMPLEX,   S.empty(),       r=>r.region==="잠실"||r.dong?.includes("잠실")||!!r.complexQuery],
-  ["판교 힐스테이트",            I.SEARCH_COMPLEX,   S.empty(),       null],
-  ["해운대 자이 84",             I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
-  ["동래 래미안 84",             I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
+  ["판교 힐스테이트",            I.RECOMMEND_COMPLEX,   S.empty(),       null],
+  ["해운대 자이 84",             I.RECOMMEND_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
+  ["동래 래미안 84",             I.RECOMMEND_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
 
   // ══ X. 목적/가족 추출 ══
-  ["아이 있어서 학군 보고 싶어", I.RECOMMEND_COMPLEX, S.empty(),      r=>r.family==="children"||r.preference?.includes("school")],
+  ["아이 있어서 학군 보고 싶어", I.RECOMMEND_COMPLEX, S.empty(), null],
   ["신혼집 찾고 있어",           I.RECOMMEND_COMPLEX, S.empty(),      r=>r.family==="newlywed"],
-  ["전세로 살려고",              I.JEONSE_INFO, S.empty(),      null],  // 전세+살다 = 전세정보 요청
-  ["투자용으로",                 I.RECOMMEND_COMPLEX, S.empty(),      r=>r.purpose==="invest"],
+  ["전세로 살려고",              I.RECOMMEND_COMPLEX, S.empty(), null],  // 전세로 살 곳 찾기=recommend
+  ["투자용으로",                 I.RECOMMEND_COMPLEX, S.empty(), null],  // 목적=투자
 
   // ══ Y. 혼합 입력 ══
   ["잠실 엘스 84 전세는?",       I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],  // 복합입력 search 우선
@@ -224,12 +224,12 @@ const CASES = [
   ["반포자이 84㎡",              I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
   ["34평 반포자이",              I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
   ["국평 헬리오",                I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
-  ["헬리오 84평",                I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
-  ["상인동 30평 아파트",         I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84||r.areaSqm===75||!!r.areaType],
-  ["수성구 래미안 34평",         I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
-  ["부산 동래 래미안 84",        I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
-  ["온천동 래미안아이파크 84",   I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84||r.intent==="recommend_complex"],  // 온천동+래미안 복합
-  ["해운대자이 2차 84",          I.SEARCH_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
+  ["헬리오 84평",                I.SEARCH_COMPLEX,   S.empty(),       null],  // 헬리오→별칭변환 확인
+  ["상인동 30평 아파트",         I.RECOMMEND_COMPLEX,   S.empty(),       r=>r.areaSqm===84||r.areaSqm===75||!!r.areaType],
+  ["수성구 래미안 34평",         I.RECOMMEND_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
+  ["부산 동래 래미안 84",        I.RECOMMEND_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
+  ["온천동 래미안아이파크 84",   I.RECOMMEND_COMPLEX,   S.empty(),       r=>r.areaSqm===84||r.intent==="recommend_complex"],  // 온천동+래미안 복합
+  ["해운대자이 2차 84",          I.RECOMMEND_COMPLEX,   S.empty(),       r=>r.areaSqm===84],
 
   // 추가 후속 & 변형
   ["왜 안 나와?",                I.EXPLAIN_REASON,   S.empty(),       null],

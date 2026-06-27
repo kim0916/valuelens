@@ -64,6 +64,8 @@ import {
 } from './responseGenerator.js';
 
 import { searchComplexFromSupabase } from '../search/supabase.js';
+import { parseUserInput, NLU_INTENTS } from './nlu/parseUserInput.js';
+import { searchRecommendCandidates, buildRecommendResponse } from './nlu/recommendSearch.js';
 import { applyUXPolicy, auditResponseUX, calcConversationMetrics } from './uxPolicy.js';
 export { calcConversationMetrics };
 
@@ -84,8 +86,13 @@ async function process(input, state = createConversationState()) {
   // 1. 히스토리 추가
   let s = addHistory(state, "user", text);
 
-  // 2. Intent 분류
-  const { intent, extracted, confidence } = classifyIntent(text, s);
+  // 2. NLU 파이프라인 (Phase 2: NLU Brain)
+  //    parseUserInput → 29개 Intent + 엔티티 추출 + Context 업데이트
+  const nlu = parseUserInput(text, s);
+
+  // 2a. NLU → 기존 intent 브릿지
+  //     NLU 신규 Intent를 기존 Policy가 이해할 수 있는 형태로 변환
+  const { intent, extracted, confidence } = bridgeNLUToLegacy(nlu, text, s);
 
   // 3. Policy 적용 → Action 결정
   const decision = applyPolicy(intent, extracted, s, text);
@@ -270,6 +277,10 @@ async function execute(decision, intent, extracted, rawText, state) {
       }];
     }
 
+    // ── 조건형 추천 검색 (NLU recommend_complex) ──
+    case ACTIONS.RECOMMEND:
+      return await handleRecommendSearch(extracted._nlu || {}, state);
+
     // ── 새 단지 Context (Rule 7, 1, 2) ──
     case ACTIONS.NEW_COMPLEX:
     case ACTIONS.SHOW_CANDIDATES:
@@ -283,6 +294,114 @@ async function execute(decision, intent, extracted, rawText, state) {
     // ── Unknown ──
     default:
       return [state, responseUnknown(state)];
+  }
+}
+
+// ─────────────────────────────────────────────
+// NLU → 기존 Intent 브릿지
+// ─────────────────────────────────────────────
+/**
+ * NLU 결과(29개 Intent)를 기존 Policy가 이해하는 형태로 변환
+ * 기존 classifyIntent 결과와 동일한 { intent, extracted, confidence } 반환
+ */
+function bridgeNLUToLegacy(nlu, rawText, state) {
+  const I  = NLU_INTENTS;
+  const LI = INTENTS;   // 기존 15개
+
+  // NLU 신규 Intent → 기존 Intent 매핑
+  const intentMap = {
+    [I.SHOW_ALL_AREAS]:    LI.AREA_SELECT,      // 다 보여줘 → area_select로 처리 (전체 목록)
+    [I.RECOMMEND_COMPLEX]: "recommend_complex",  // 신규 action으로 처리
+    [I.CHANGE_BUDGET]:     LI.CONFIRM,           // 예산 변경 → context update
+    [I.CHANGE_PURPOSE]:    LI.CONFIRM,
+    [I.CHANGE_PREFERENCE]: LI.CONFIRM,
+    [I.CHEAPER_OPTION]:    LI.CHANGE_CANDIDATE,  // 더 싼 거 → 다른 후보
+    [I.LARGER_AREA]:       LI.CHANGE_AREA,
+    [I.SMALLER_AREA]:      LI.CHANGE_AREA,
+    [I.SIMILAR_COMPLEX]:   LI.CHANGE_CANDIDATE,
+    [I.COMPARE_COMPLEX]:   LI.PRICE_ANALYSIS,
+    [I.EXPLAIN_REASON]:    LI.PRICE_ANALYSIS,
+    [I.CONTRACT_CHECK]:    LI.PRICE_ANALYSIS,
+    [I.DATA_MISSING]:      LI.UNKNOWN,
+    [I.UNKNOWN_FOLLOWUP]:  LI.UNKNOWN,
+  };
+
+  // 기존 Intent는 그대로
+  const LEGACY_INTENTS = new Set(Object.values(INTENTS));
+  let mappedIntent = LEGACY_INTENTS.has(nlu.intent)
+    ? nlu.intent
+    : (intentMap[nlu.intent] || LI.UNKNOWN);
+
+  // SHOW_ALL_AREAS: state에 단지가 있으면 area_list 표시
+  if (nlu.intent === I.SHOW_ALL_AREAS) {
+    mappedIntent = state.currentComplex ? LI.AREA_SELECT : LI.SEARCH_COMPLEX;
+  }
+
+  // RECOMMEND_COMPLEX: 신규 action으로 라우팅
+  if (nlu.intent === I.RECOMMEND_COMPLEX) {
+    mappedIntent = "recommend_complex";  // execute()에서 ACTIONS.RECOMMEND로 처리
+  }
+
+  // LARGER/SMALLER_AREA: 면적 힌트 계산
+  let areaSqmOverride = nlu.areaSqm;
+  if (nlu.intent === I.LARGER_AREA && state.currentArea) {
+    areaSqmOverride = Math.round(state.currentArea * 1.25);
+  }
+  if (nlu.intent === I.SMALLER_AREA && state.currentArea) {
+    areaSqmOverride = Math.round(state.currentArea * 0.75);
+  }
+
+  // extracted 구성 (기존 형식 + NLU 확장)
+  const extracted = {
+    areaSqm:      areaSqmOverride,
+    pyeong:       areaSqmOverride ? Math.round(areaSqmOverride / 3.305785) : null,
+    region:       nlu.region || nlu.sigungu,
+    index:        nlu.selectedIndex,
+    complexQuery: nlu.complexQuery,
+    query:        nlu.complexQuery || rawText,
+    budget:       nlu.budget,
+    purpose:      nlu.purpose,
+    family:       nlu.family,
+    // NLU 원본 (추천 검색에서 활용)
+    _nlu:         nlu,
+  };
+
+  return { intent: mappedIntent, extracted, confidence: nlu.confidence };
+}
+
+// ─────────────────────────────────────────────
+// 조건형 추천 검색 처리
+// ─────────────────────────────────────────────
+async function handleRecommendSearch(nlu, state) {
+  try {
+    const { candidates, meta } = await searchRecommendCandidates(nlu);
+    const resp = buildRecommendResponse(candidates, nlu, meta);
+
+    if (candidates.length === 0) {
+      return [state, { type: RESPONSE_TYPES.NOT_FOUND, text: resp.text, ui: "message" }];
+    }
+
+    // 후보 목록 반환 (자동 분석 금지)
+    const newState = {
+      ...state,
+      candidates,
+      lastSearchQuery:  meta.query,
+      lastAreaHint:     nlu.areaSqm || null,
+      region:           nlu.regionArea || nlu.sigungu || state.region,
+      pendingSlot:      "candidate",
+      lastQuestion:     "candidate?",
+    };
+
+    return [newState, {
+      type:       RESPONSE_TYPES.CANDIDATES_LIST,
+      text:       resp.text,
+      candidates,
+      ui:         "candidate_list",
+    }];
+
+  } catch (e) {
+    console.error('[handleRecommendSearch]', e);
+    return [state, responseError("추천 검색 중 오류가 발생했어요.")];
   }
 }
 

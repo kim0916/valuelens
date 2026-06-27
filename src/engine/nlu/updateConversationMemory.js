@@ -132,7 +132,7 @@ export function updateConversationMemory(intent, entities, state) {
     case NLU_INTENTS.CHANGE_CANDIDATE:
       return {
         contextAction: CONTEXT_ACTIONS.NEXT_CANDIDATE,
-        updatedState:  { ...state, candidates: state.candidates.slice(1) },
+        updatedState:  { ...state, candidates: (state.candidates||[]).slice(1) },
         searchQuery: null, areaHint: null,
       };
 

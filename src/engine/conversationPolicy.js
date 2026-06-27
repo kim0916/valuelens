@@ -46,6 +46,9 @@ export const ACTIONS = {
   SELECT_CANDIDATE:    "select_candidate",   // 후보 번호 선택
   CONFIRM_AND_ANALYZE: "confirm_and_analyze",// 확인 후 분석
 
+  // NLU 신규 (Phase 2)
+  RECOMMEND:           "recommend",          // 조건형 추천 검색
+
   // 안내
   GREET:               "greet",             // 인사
   UNKNOWN:             "unknown",           // 분류 불가

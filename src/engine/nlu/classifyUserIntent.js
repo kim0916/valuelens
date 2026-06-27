@@ -72,6 +72,8 @@ const PATTERNS = [
     /왜\s*(분석이|결과가|안\s*나|안\s*돼|이런\s*가격|높|낮|그렇)/,
     /이유가\s*(뭐|뭔|무엇)/,
     /어떻게\s*(계산|나온|산출)/,
+    /실거래.+이유|이유.+실거래/,  // "실거래 없는 이유"
+    /왜\s*안\s*나/,
   ]],
 
   // data_missing — 데이터 관련 질문
@@ -80,6 +82,7 @@ const PATTERNS = [
     /왜\s*(없|데이터|정보)/,
     /(국토부|실거래|공공)\s*(에는|엔)\s*(있는데|있어도)/,
     /데이터가\s*(없|부족|안\s*나)/,
+    /DB.+없|없.+DB|없는\s*이유/,  // "DB에 없는 이유"
   ]],
 
   // compare_complex — A와 B 비교
@@ -137,12 +140,37 @@ const PATTERNS = [
     /특약\s*(사항|넣어야|확인)/,
   ]],
 
-  // recommend_complex with budget only (단지명+면적 형태와 구분)
+  // ★ Rule B: [지역] + [조건] + [아파트/단지/집] → recommend_complex (최우선)
+  // 어떤 지역이 와도 "아파트/단지/집/매물" 포함 시 조건 검색으로
   [NLU_INTENTS.RECOMMEND_COMPLEX, [
+    // 지역 + 조건 + 아파트/단지/집 패턴 (순서 무관)
+    /[가-힣]+\s+(?:\d+평대|\d+평|\d+억|국평|소형|대형|중형).+(?:아파트|단지|집|매물)/,
+    /(?:아파트|단지|집|매물).+(?:얼마야|적정가|시세|비싼가|싼가|추천|보여)/,
+    // 예산 패턴 (지역 없어도)
     /^\d+(?:\.\d+)?억(대|\s*이하|\s*이상|\s*정도|\s*까지|\s*안에서|~)?\s*(추천|아파트|단지|보여)?$/,
-    /\d+~\d+억\s*(아파트|단지|추천|보여)?/,  // "6~7억 아파트 추천"
-    /\d+억(대)?\s*(아파트|단지|추천|이하|이상|정도|보여|알려)/,  // "7억대 아파트"
+    /\d+~\d+억\s*(아파트|단지|추천|보여)?/,
+    /\d+억(대)?\s*(아파트|단지|추천|이하|이상|정도|보여|알려)/,
     /\d+억\s*(이하|미만|까지)\s*(추천|보여|알려)?/,
+    // 예산 역순 (예산+지역)
+    /^\d+억\s*[가-힣]/,
+    /^\d+억(대)?\s*[가-힣]/,
+    // 장소 형태 선호
+    /(?:공원|자연|녹지)\s*(?:가까운|근처|옆)\s*(?:아파트|단지|집)?/,
+    /(?:부모님|어르신|노인)\s*(?:모실|위한|좋은)\s*(?:곳|아파트|단지)?/,
+    // 전세로 살 곳 찾기 (전세+살다/구하다)
+    /전세\s*(로|로\s*살|로\s*구할|살\s*곳)/,
+    // 형용사 + 아파트/단지 = 추천 요청
+    /(?:조용한?|한적한?|쾌적한?|깨끗한?)\s*(동네|곳|아파트|단지|아파?)/,
+    /(?:교통|역세권)\s*(좋은|편한)\s*(아파트|단지|곳)/,
+    // 지역+투자/실거주 목적 + 단독 목적어
+    /[가-힣]+\s+(투자용|실거주용|투자|실거주)$/,
+    /^(투자용으로|투자용|실거주용으로|실거주용)$/,
+    // 지역+역세권+면적 (단지명 없음)
+    /[가-힣]+\s+역세권\s+\d+/,
+    // 소형 예산+면적 조합
+    /\d+억\s+소형|소형\s+\d+억/,
+    // 살기 좋은 곳
+    /살기\s*(좋은|좋아|괜찮은)\s*(곳|동네|아파트)/,
   ]],
 
   // change_budget
@@ -160,15 +188,14 @@ const PATTERNS = [
 
   // change_preference
   [NLU_INTENTS.CHANGE_PREFERENCE, [
-    /학군\s*(위주|중심|좋은\s*곳)/,
-    /조용한\s*(곳|동네|단지)/,
-    /역세권\s*(위주|중심|으로)/,
+    /학군\s*(으로|위주|중심)\s*(바꿔|변경)/,  // 명확한 변경 의도만
+    /역세권\s*(으로|위주|중심)\s*(바꿔|변경)/,
   ]],
 
   // unknown_followup — 맥락 없는 짧은 후속
   [NLU_INTENTS.UNKNOWN_FOLLOWUP, [
     /^(음|흠|아|오|어|글쎄|모르겠|잘\s*모르|생각\s*중|그냥|뭐든|상관\s*없|잘\s*모르겠|음+|흠+)$/,
-    /^(ㅋ+|ㅎ+|ㅇ+)$/, // 감탄사
+    /^(ㅋ+|ㅎ+|ㅇ+)$/,
   ]],
 
   // ── 기존 패턴 (Phase 1 → 그대로 유지) ──
@@ -276,49 +303,64 @@ export function classifyUserIntent(text, entities = {}, state = {}) {
     }
   }
 
-  // 2. 엔티티 기반 Context-aware 분류
+  // 2. 엔티티 기반 Context-aware 분류 (일반화 규칙 A~F)
   const hasComplex  = !!state.currentComplex;
   const hasArea     = !!state.currentArea;
   const hasBudget   = !!entities.budget;
-  const hasRegion   = !!(entities.sigungu || entities.regionArea);
+  const hasRegion   = !!(entities.sigungu || entities.regionArea || entities.dong);
   const hasFamily   = !!entities.family;
   const hasPurpose  = !!entities.purpose;
+  const hasCommute  = !!entities.commute;
   const hasArea2    = entities.areaSqm != null || entities.areaRange != null;
-  const hasComplex2 = !!entities.complexQuery;
+  const hasComplex2 = !!entities.complexQuery;   // 실제 단지명 힌트
+  const hasBrand    = !!entities.brand;
 
-  // 예산 + 지역 → 추천
-  if (hasBudget && (hasRegion || hasComplex)) {
-    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.8 };
-  }
-
-  // 가족/목적 → 추천
-  if (hasFamily || (hasPurpose && !hasComplex2)) {
-    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.75 };
-  }
-
-  // 단지 있고 면적 없는 상태에서 면적 입력
+  // ── Context 슬롯 우선 ──
   if (state.pendingSlot === "area" && hasArea2) {
-    return { intent: NLU_INTENTS.AREA_SELECT, confidence: 0.9 };
+    return { intent: NLU_INTENTS.AREA_SELECT, confidence: 0.92 };
   }
-
-  // 후보 대기 중 숫자 단독
   if (state.pendingSlot === "candidate" && /^\d+$/.test(t)) {
-    return { intent: NLU_INTENTS.CANDIDATE_SELECT, confidence: 0.88 };
+    return { intent: NLU_INTENTS.CANDIDATE_SELECT, confidence: 0.9 };
   }
 
-  // 단지+면적 동시 → 검색
-  if (hasComplex2 && hasArea2) {
-    return { intent: NLU_INTENTS.SEARCH_COMPLEX, confidence: 0.85 };
+  // ── Rule C: 단지명이 명확할 때만 search_complex ──
+  // 단지명이 있더라도 지역+조건 패턴이 함께 있으면 recommend 우선
+  const hasGenericObjectWord = /아파트|단지|집|매물/.test(lower);
+  const hasConditionWithObject = hasArea2 && hasGenericObjectWord;
+
+  if (hasConditionWithObject && hasRegion) {
+    // Rule B + Rule A: 지역+조건+아파트/단지 → recommend (단지명 아님)
+    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.87 };
   }
 
-  // 단지만 → 검색
-  if (hasComplex2 && !hasArea2) {
-    return { intent: NLU_INTENTS.SEARCH_COMPLEX, confidence: 0.72 };
+  if (hasComplex2 && !hasBrand && !hasRegion && !hasGenericObjectWord) {
+    // 단지명만 있음 → search
+    return { intent: NLU_INTENTS.SEARCH_COMPLEX, confidence: hasArea2 ? 0.88 : 0.75 };
+  }
+  if (hasComplex2 && !hasBrand && hasRegion && !hasGenericObjectWord) {
+    // 단지명 + 지역 → search (단지명이 구체적)
+    return { intent: NLU_INTENTS.SEARCH_COMPLEX, confidence: 0.82 };
   }
 
-  // 지역만 → 추천
-  if (hasRegion && !hasComplex2) {
-    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.68 };
+  // ── Rule D: 브랜드명 + 지역 → 후보 추천 ──
+  if (hasBrand && hasRegion) {
+    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.82 };
+  }
+
+  // ── Rule B: 지역 + 조건 → 추천 ──
+  // 지역만 있어도 추천, 예산/가족/목적/면적 있으면 추천 우선
+  if (hasRegion && (hasBudget || hasFamily || hasPurpose || hasCommute || hasArea2 || entities.preference)) {
+    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.85 };
+  }
+
+  // 지역만 → 추천 (후보 조회)
+  if (hasRegion && !hasComplex2 && !hasBrand) {
+    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.70 };
+  }
+
+  // 예산 + 가족/목적 → 추천
+  if (hasBudget || hasFamily || (hasPurpose && !hasComplex2) || hasCommute) {
+    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.78 };
   }
 
   return { intent: NLU_INTENTS.UNKNOWN, confidence: 0 };
