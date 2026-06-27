@@ -627,74 +627,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <FairSaveBtn r={r} f={f} onBack={onBack} uid={currentUserId} />
 
-      {/* 기존 상세분석 블록 — 저평가 카드 안으로 이동됨 */}
-      {false && (
-        <div>
 
-          {/* 적정가 범위 3단 */}
-          {!provisional && fb && (
-            <>
-              <Divider />
-              <div style={{ padding: "10px 14px 6px" }}>
-                <p style={{ fontSize: 11, color: CLR.muted, margin: 0 }}>
-                  적정가 범위 — 보수 / 기준 / 상단
-                </p>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
-                gap: 1, background: CLR.border }}>
-                {[
-                  { l: "보수",  v: won(fb.conservative), c: CLR.green },
-                  { l: "기준",  v: won(fb.base),          c: NAVY },
-                  { l: "상단",  v: won(fb.aggressive),    c: CLR.amber },
-                ].map((col, i) => (
-                  <div key={i} style={{ background: "#fff", padding: "10px 8px",
-                    textAlign: "center" }}>
-                    <p style={{ fontSize: 10, color: CLR.muted, margin: "0 0 3px" }}>{col.l}</p>
-                    <p style={{ fontSize: 14, fontWeight: 700, color: col.c, margin: 0 }}>{col.v}</p>
-                  </div>
-                ))}
-              </div>
-              <p style={{ fontSize: 11, color: CLR.muted, padding: "8px 14px",
-                margin: 0 }}>
-                상단은 매수 권장가가 아닌 참고값입니다.
-              </p>
-            </>
-          )}
-
-          {/* 데이터 경고 */}
-          {r.dataWarnings?.length > 0 && (
-            <>
-              <Divider />
-              <div style={{ padding: "12px 14px", background: CLR.amberL }}>
-                {r.dataWarnings.map((w, i) => (
-                  <p key={i} style={{ fontSize: 12, color: "#b45309",
-                    margin: i ? "4px 0 0" : 0 }}>
-                    ⚠️ {w}
-                  </p>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* KB시세 경고 */}
-          {((jkb != null && jkb >= 0.6) || (skb != null && skb >= 0.6)) && (
-            <>
-              <Divider />
-              <div style={{ padding: "10px 14px", background: CLR.amberL }}>
-                <p style={{ fontSize: 12, color: "#b45309", margin: 0 }}>
-                  ⚠️ 실거래 표본이 적어 보조 데이터 의존도가 높습니다. 결과를 보수적으로 해석하세요.
-                </p>
-              </div>
-            </>
-          )}
-
-          {/* 기존 배지들 유지 */}
-          <div style={{ padding: "12px 14px" }}>
-            <MarketTypeBadge mc={mc} />
-          </div>
-          <InputWarnings r={r} f={f} />
-        </Card>
-      )}
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           하단 네비게이션
