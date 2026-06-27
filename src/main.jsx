@@ -681,12 +681,24 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
                 <p style={{ fontSize:13, fontWeight:700, color:"#c4bfff", margin:0, letterSpacing:"-0.01em", lineHeight:1 }}>찾아줘!! 아파트</p>
               </div>
             </div>
-            <button onClick={() => onNavigate && onNavigate("adv")} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"5px 10px", display:"flex", alignItems:"center", gap:5, cursor:"pointer", backdropFilter:"blur(4px)" }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9994d8" strokeWidth="2" strokeLinecap="round">
-                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-              </svg>
-              <span style={{ fontSize:10, color:"#9994d8" }}>최근 분석</span>
-            </button>
+            {/* 로그인/로그아웃 버튼 */}
+            {currentUserEmail ? (
+              <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }}
+                style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"5px 11px", display:"flex", alignItems:"center", gap:5, cursor:"pointer" }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9994d8" strokeWidth="2" strokeLinecap="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                <span style={{ fontSize:10, color:"#9994d8" }}>로그아웃</span>
+              </button>
+            ) : (
+              <button onClick={() => onNavigate && onNavigate("login")}
+                style={{ background:"rgba(91,82,224,0.2)", border:"1px solid rgba(123,111,255,0.3)", borderRadius:8, padding:"5px 11px", display:"flex", alignItems:"center", gap:5, cursor:"pointer" }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7b6fff" strokeWidth="2" strokeLinecap="round">
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+                </svg>
+                <span style={{ fontSize:10, color:"#7b6fff" }}>로그인</span>
+              </button>
+            )}
           </div>
 
           {/* 헤드라인 */}
@@ -716,18 +728,27 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
         </div>
       )}
 
-      {/* ── 채팅창 안내 문구 ── */}
-      <div style={{ padding:"14px 16px 8px", display:"flex", alignItems:"center", justifyContent:"center", gap:7 }}>
-        {/* 상징마크 (나중에 이미지로 교체 시 이 div만 수정) */}
-        <div id="brand-mark-sub" style={{ width:20, height:20, borderRadius:6, background:"linear-gradient(135deg,#5b52e0,#7b6fff)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-            <circle cx="12" cy="10" r="3"/>
-          </svg>
+      {/* ── 채팅창 안내 문구 + 최근 분석 ── */}
+      <div style={{ padding:"14px 16px 8px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+          {/* 상징마크 (나중에 이미지로 교체 시 이 div만 수정) */}
+          <div id="brand-mark-sub" style={{ width:20, height:20, borderRadius:6, background:"linear-gradient(135deg,#5b52e0,#7b6fff)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+          </div>
+          <p style={{ fontSize:12, color:"#6b67b0", margin:0, letterSpacing:"-0.01em", fontWeight:500 }}>
+            찾아입니다. 궁금한 아파트를 아래서 물어보세요.
+          </p>
         </div>
-        <p style={{ fontSize:12, color:"#6b67b0", margin:0, letterSpacing:"-0.01em", fontWeight:500 }}>
-          찾아입니다. 궁금한 아파트를 아래서 물어보세요.
-        </p>
+        <button onClick={() => onNavigate && onNavigate("adv")}
+          style={{ background:"none", border:"1px solid #d4d0f0", borderRadius:7, padding:"4px 9px", display:"flex", alignItems:"center", gap:4, cursor:"pointer" }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9994d8" strokeWidth="2" strokeLinecap="round">
+            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+          <span style={{ fontSize:10, color:"#9994d8" }}>최근 분석</span>
+        </button>
       </div>
 
       {/* ── 입력창 ── */}
@@ -1365,42 +1386,16 @@ function AppInner() {
   return (
     <div className="min-h-screen" style={{ background: isHome ? BRAND_BG : "#f1f0ec" }}>
 
-      {/* ── Nav ── */}
+      {/* ── Nav (홈 아닐 때 서브탭만) ── */}
       <nav style={{
         position: "sticky", top: 0, zIndex: 10,
         background: `rgba(250,250,248,0.93)`, backdropFilter: "blur(12px)",
-        borderBottom: `0.5px solid ${BRAND_BORDER}`,
+        borderBottom: isHome ? "none" : `0.5px solid ${BRAND_BORDER}`,
         WebkitBackdropFilter: "blur(12px)",
+        display: isHome ? "none" : "block",
       }}>
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "0 16px" }}>
-
-          {/* Top bar */}
-          <div style={{ height: 52, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button
-              onClick={() => { setPtype("apartment"); setAptTab("home"); }}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
-            >
-              <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.02em", color: BRAND }}>
-                ValueLens
-              </span>
-            </button>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              {/* 상위 타입 탭 */}
-              {propertyTypes.filter(p => p.ready).map((pt) => (
-                <button key={pt.key}
-                  onClick={() => { setPtype(pt.key); if (pt.key === "apartment") setAptTab("home"); }}
-                  style={{
-                    fontSize: 12, fontWeight: 500, padding: "5px 11px",
-                    borderRadius: 8, border: "none", cursor: "pointer",
-                    background: ptype === pt.key ? BRAND : "transparent",
-                    color: ptype === pt.key ? "#fff" : BRAND_MID,
-                    transition: "all 0.15s",
-                  }}
-                >{pt.label}</button>
-              ))}
-            </div>
-          </div>
+          <div style={{ height: 0 }}>
 
           {/* Sub tabs — 홈이 아닐 때만 */}
           {!isHome && subTabs && (
