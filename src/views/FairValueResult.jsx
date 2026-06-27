@@ -127,7 +127,7 @@ function getWhyCards(r, trust, f = {}) {
     const region = (f.region || "").toString();
     const buildYear = Number(f.buildYear) || 0;
     const ratio = r.actualRatio || 0;
-    console.log("[WhyCards] isPremium 진입:", { region, buildYear, ratio });
+    console.log("[WhyCards] isPremium 진입 - region:", region, "/ buildYear:", buildYear, "/ ratio:", ratio, "/ f.region:", f.region, "/ f.buildYear:", f.buildYear);
     if (["강남구","서초구","송파구"].some(g => region.includes(g))) {
       cards.push("강남권 입지 특성상 매매가가 높게 형성됩니다.");
     } else if (buildYear > 0 && buildYear <= 1995) {
