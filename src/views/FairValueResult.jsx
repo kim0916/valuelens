@@ -172,7 +172,7 @@ function getStability(trust) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 메인 컴포넌트
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId, onAskMore }) {
+function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId, onAskMore, onBuyAnalysis }) {
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [whyOpen, setWhyOpen] = React.useState(false);
 
@@ -533,15 +533,15 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           하단 채팅창 (결과 보고 바로 질문)
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {onAskMore && <ResultChatBar complex={f.complexName} onSend={onAskMore} />}
+      {onAskMore && <ResultChatBar complex={f.complexName} onSend={onAskMore} onBuyAnalysis={onBuyAnalysis} />}
     </div>
   );
 }
 
 // ── 결과지 하단 채팅바 ──
-function ResultChatBar({ complex, onSend }) {
+function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
   const [text, setText] = React.useState("");
-  const chips = ["전세는?", "다른 평형은?", "매수 의견은?", "최근 거래 흐름은?"];
+  const chips = ["전세는?", "다른 평형은?", "최근 거래 흐름은?"];
 
   const handleSend = () => {
     const t = text.trim();
@@ -561,6 +561,15 @@ function ResultChatBar({ complex, onSend }) {
     }}>
       {/* 빠른 질문 칩 */}
       <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+        {/* 매수 의견 — 바로 분석 */}
+        {onBuyAnalysis && (
+          <button onClick={onBuyAnalysis}
+            style={{ fontSize: 12, fontWeight: 600, padding: "5px 12px",
+              borderRadius: 20, border: "1px solid #5b52e0",
+              background: "#ede9fe", color: "#5b52e0", cursor: "pointer" }}>
+            💡 매수 의견은?
+          </button>
+        )}
         {chips.map((c, i) => (
           <button key={i} onClick={() => onSend(c)}
             style={{ fontSize: 12, fontWeight: 500, padding: "5px 12px",

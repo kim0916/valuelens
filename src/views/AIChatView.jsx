@@ -204,6 +204,28 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     return () => window.removeEventListener("valuelens:ask", handler);
   }, []);
 
+  // 결과지에서 매수 분석 이벤트 수신
+  React.useEffect(() => {
+    const handler = async (e) => {
+      const { complex, areaSqm, currentPrice } = e.detail || {};
+      if (!complex) return;
+      addMsg({ role: "user", type: "text", content: `${complex.name} 매수 의견은?` });
+      addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+      // complex 객체를 Supabase 형식으로 변환
+      const complexObj = {
+        id: null,
+        complex_name: complex.name,
+        sigungu: complex.sigungu,
+        legal_dong: complex.dong,
+        build_year: complex.buildYear,
+        area_list: areaSqm ? [areaSqm] : [],
+      };
+      await runAnalysis(complexObj, { intent: "buy", areaSqm, currentPrice: currentPrice || null });
+    };
+    window.addEventListener("valuelens:buy", handler);
+    return () => window.removeEventListener("valuelens:buy", handler);
+  }, []);
+
   // ── 메시지 추가 헬퍼 ──
   function addMsg(msg) {
     setMsgs(prev => [...prev, { id: Date.now() + Math.random(), ...msg }]);

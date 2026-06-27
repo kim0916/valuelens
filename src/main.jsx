@@ -1458,6 +1458,20 @@ function AppInner() {
                       window.dispatchEvent(new CustomEvent("valuelens:ask", { detail: { text } }));
                     }, 100);
                   }}
+                  onBuyAnalysis={() => {
+                    // 현재 단지/면적으로 바로 매수 분석
+                    const d = chatResultData;
+                    if (!d) return;
+                    setChatResultData(null);
+                    setAptTab("ai");
+                    setTimeout(() => {
+                      window.dispatchEvent(new CustomEvent("valuelens:buy", { detail: {
+                        complex: d.complex,
+                        areaSqm: d.ff?.areaExclusive,
+                        currentPrice: d.ff?.currentPrice,
+                      }}));
+                    }, 100);
+                  }}
                 />
               </div>
             </div>
