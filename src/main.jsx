@@ -653,8 +653,9 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
 
       {/* ── HERO ── */}
       <div style={{ position:"relative", overflow:"hidden" }}>
-        {/* 배경 */}
-        <div style={{ background:"linear-gradient(160deg,#0d0a28 0%,#13103a 60%,#1e1a55 100%)", padding:"0 20px 32px", position:"relative" }}>
+        {/* 배경 — 카드형 */}
+        <div style={{ padding:"12px 16px 0", background:"#f5f3ff" }}>
+        <div style={{ background:"linear-gradient(160deg,#0d0a28 0%,#13103a 60%,#1e1a55 100%)", padding:"0 20px 32px", position:"relative", borderRadius:22, overflow:"hidden", boxShadow:"0 6px 24px rgba(13,10,40,0.18)" }}>
           <div style={{ position:"absolute", right:-40, top:-40, width:200, height:200, borderRadius:"50%", background:"#2d2870", opacity:0.15 }}/>
 
           {/* 로고바 */}
@@ -701,6 +702,7 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
           </p>
         </div>
       </div>
+        </div>
 
       {/* ── AI 선제 응답 말풍선 ── */}
       {aiGreeting && (
