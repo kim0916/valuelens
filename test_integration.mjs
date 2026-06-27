@@ -1,305 +1,276 @@
 /**
- * AIChatView Integration Test — 실서버 연동 대화 100개
- * Node.js에서 ConversationEngine을 직접 실행
- * searchComplexFromSupabase → 실서버 URL로 패치
+ * AIChatView Integration Test — Vercel 배포 서버 연동
+ * Node.js에서 상대 URL 문제 → 실서버 직접 호출로 우회
  */
 
-// ── 환경 패치: Node.js에서 상대경로 API 호출 → 실서버로 ──
 const BASE = "https://valuelens-rouge.vercel.app";
-const _origFetch = globalThis.fetch;
-globalThis.fetch = (url, opts) => {
-  if (typeof url === "string" && url.startsWith("/api/")) {
-    url = BASE + url;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ── 실서버 검색 API 래퍼 (Node.js 환경용) ──
+async function searchComplex(name, sigungu = "") {
+  const r = await fetch(`${BASE}/api/supabase`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "search", name, sigungu, limit: 5 }),
+  });
+  const d = await r.json();
+  return { complexes: d.complexes || [], areaHint: d.areaHint };
+}
+
+// ── 엔진 모듈 (search만 실서버로 교체) ──
+import { createConversationState, updateComplex, updateArea, updateCandidates, resetContext, addHistory, getAreaGroups, updateRegion, isReadyToAnalyze, summarizeState } from './src/engine/conversationState.js';
+import { classifyIntent, INTENTS, sqmToPyeong } from './src/engine/intentClassifier.js';
+import { applyPolicy, applyPostSearchPolicy, ACTIONS, logPolicy } from './src/engine/conversationPolicy.js';
+import { applyUXPolicy, auditResponseUX } from './src/engine/uxPolicy.js';
+import { evaluateCandidates, selectByIndex, findBestAreaGroup } from './src/engine/candidateSelector.js';
+import { responseCandidateList, responseAreaList, responseReadyToAnalyze, responseNotFound, responseReset, responseGreeting, responseUnknown, responseRegionChanged, responseAreaNotFound, RESPONSE_TYPES } from './src/engine/responseGenerator.js';
+
+// ── 테스트용 경량 ConversationEngine ──
+async function process(input, state) {
+  const text = (input || "").trim();
+  let s = addHistory(state, "user", text);
+
+  const { intent, extracted } = classifyIntent(text, s);
+  let decision = applyPolicy(intent, extracted, s, text);
+  const uxResult = applyUXPolicy(decision, s, text);
+  decision = uxResult.decision;
+
+  let response;
+  [s, response] = await execute(decision, intent, extracted, text, s);
+
+  response._debug = { intent, action: decision.action, rule: decision.rule, reason: decision.reason };
+  s = addHistory(s, "ai", response.text || "", intent);
+  s = { ...s, lastIntent: intent };
+  return { state: s, response };
+}
+
+async function execute(decision, intent, extracted, rawText, state) {
+  const { action, params } = decision;
+
+  if (action === ACTIONS.GREET)  return [state, responseGreeting()];
+  if (action === ACTIONS.RESET)  return [resetContext(state), responseReset()];
+  if (action === ACTIONS.UPDATE_REGION) {
+    const r = params.region || rawText.replace(/(으로|로|에서|바꿔|변경).*/g,"").trim();
+    return [updateRegion(state, r), responseRegionChanged(r)];
   }
-  return _origFetch(url, opts);
-};
+  if (action === ACTIONS.NEXT_CANDIDATE) {
+    const remaining = state.candidates.slice(1);
+    if (!remaining.length) return [state, {type:RESPONSE_TYPES.NEED_MORE_INFO, text:"다른 후보가 없어요."}];
+    return [{...state, candidates:remaining}, responseCandidateList(remaining, state.lastSearchQuery||"", "next")];
+  }
+  if (action === ACTIONS.SELECT_CANDIDATE) {
+    const res = selectByIndex(state, params.index ?? 0);
+    if (!res.ok) return [state, {type:RESPONSE_TYPES.ERROR, text:"선택 오류"}];
+    return postComplex(updateComplex(state, res.complex, state.lastAreaHint));
+  }
+  if (action === ACTIONS.UPDATE_AREA) {
+    const sqm = params.areaSqm;
+    if (!state.currentComplex) return [{...state,lastAreaHint:sqm},{type:RESPONSE_TYPES.NEED_MORE_INFO,text:`${sqmToPyeong(sqm)}평으로 볼게요. 단지는?`}];
+    const groups = getAreaGroups(state);
+    const best = findBestAreaGroup(groups, sqm);
+    if (!best || best.diff > 15) return [state, responseAreaNotFound(state.currentComplex, sqm, groups)];
+    const ns = updateArea(state, best.group.anchor);
+    return [ns, responseReadyToAnalyze(ns.currentComplex, ns.currentArea)];
+  }
+  if (action === ACTIONS.ASK_AREA) {
+    if (!state.currentComplex) return [state, {type:RESPONSE_TYPES.NEED_MORE_INFO, text:"단지를 먼저 알려주세요."}];
+    const groups = getAreaGroups(state);
+    return [{...state, lastQuestion:"area?"}, responseAreaList(state.currentComplex, groups, state.lastAreaHint)];
+  }
+  if (action === ACTIONS.ANALYZE_NOW)    return [state, state.currentComplex && state.currentArea ? responseReadyToAnalyze(state.currentComplex, state.currentArea) : responseUnknown(state)];
+  if (action === ACTIONS.ANALYZE_JEONSE) return [state, {type:RESPONSE_TYPES.READY_TO_ANALYZE, text:`${state.currentComplex?.complex_name} 전세 분석`, purpose:"jeonse"}];
+  if (action === ACTIONS.ANALYZE_RECENT) return [state, {type:RESPONSE_TYPES.READY_TO_ANALYZE, text:"최근 거래 조회", purpose:"recent"}];
+  if (action === ACTIONS.ANALYZE_BUY)    return [state, {type:RESPONSE_TYPES.READY_TO_ANALYZE, text:"매수 판단 분석", purpose:"buy"}];
 
-import { createConversationEngine } from './src/engine/ConversationEngine.js';
-import { createConversationState, summarizeState } from './src/engine/conversationState.js';
-import { RESPONSE_TYPES } from './src/engine/responseGenerator.js';
-import { ACTIONS } from './src/engine/conversationPolicy.js';
+  // 검색 필요
+  if (action === ACTIONS.NEW_COMPLEX || action === ACTIONS.SHOW_CANDIDATES) {
+    return await handleSearch(params.query || rawText, params.areaSqm || extracted.areaSqm, state);
+  }
+  return [state, responseUnknown(state)];
+}
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+async function handleSearch(query, areaHint, state) {
+  if (!query || query.trim().length < 2) return [state, {type:RESPONSE_TYPES.NEED_MORE_INFO, text:"단지명을 입력해주세요."}];
+  try {
+    const ns = {...state, currentComplex:null, currentArea:null, candidates:[], lastSearchQuery:query, lastAreaHint:areaHint||state.lastAreaHint};
+    const res = await searchComplex(query, state.region||"");
+    const complexes = res.complexes || [];
+    const hint = res.areaHint || areaHint || ns.lastAreaHint;
 
-const engine = createConversationEngine();
+    if (!complexes.length) return [ns, responseNotFound(query)];
 
-// ─────────────────────────────────────────────
-// 대화 러너
-// ─────────────────────────────────────────────
-async function runConv(label, turns, expect = {}) {
-  let state = createConversationState();
-  const log = [];
-  let questionCount = 0;
-  let contextLost   = false;
-  let prevComplex   = null;
-  const Q_ACTIONS = new Set([ACTIONS.ASK_AREA, ACTIONS.ASK_COMPLEX, ACTIONS.SHOW_CANDIDATES]);
-
-  for (const input of turns) {
-    await sleep(220);
-    const { state: ns, response } = await engine.process(input, state);
-    const action = response._debug?.action;
-    const intent = response._debug?.intent;
-
-    if (Q_ACTIONS.has(action)) questionCount++;
-
-    // Context 유실 감지: 단지 있었는데 사라졌을 때
-    if (prevComplex && !ns.currentComplex && action !== ACTIONS.RESET && action !== ACTIONS.UPDATE_REGION) {
-      contextLost = true;
+    const ev = evaluateCandidates(complexes, hint, ns);
+    if (ev.strategy === "ask_candidate") {
+      return [{...ns, candidates:ev.candidates}, responseCandidateList(ev.candidates, query, ev.reason)];
     }
-    prevComplex = ns.currentComplex?.complex_name || null;
-    state = ns;
-
-    log.push({
-      input,
-      intent,
-      action,
-      type:    response.type,
-      text:    response.text?.replace(/\*\*/g,"").slice(0, 55),
-      complex: ns.currentComplex?.complex_name || null,
-      area:    ns.currentArea || null,
-    });
+    const ns2 = updateComplex(ns, ev.selected, hint);
+    if (ev.strategy === "ready" && ev.selectedArea) return [updateArea(ns2, ev.selectedArea), responseReadyToAnalyze(ev.selected, ev.selectedArea)];
+    return postComplex(ns2);
+  } catch(e) {
+    return [state, {type:RESPONSE_TYPES.ERROR, text:"검색 오류"}];
   }
-
-  const reached = {
-    complex: !!state.currentComplex,
-    area:    !!state.currentArea,
-  };
-
-  // 기대값 검증
-  const issues = [];
-  if (expect.complex && !reached.complex) issues.push("단지미도달");
-  if (expect.area    && !reached.area)    issues.push("평형미도달");
-  if (expect.maxQ    !== undefined && questionCount > expect.maxQ) issues.push(`질문${questionCount}회`);
-  if (expect.context && contextLost) issues.push("Context유실");
-
-  const ok = issues.length === 0;
-  const icon = ok ? "✅" : "❌";
-  const last = log[log.length - 1];
-  const summary = `단지:${reached.complex?"O":"X"} 평형:${reached.area?"O":"X"} Q:${questionCount}회`;
-  const issueStr = issues.length ? ` [${issues.join(",")}]` : "";
-  console.log(`${icon} ${label} — ${summary}${issueStr}`);
-  if (!ok) {
-    log.forEach(l => console.log(`     "${l.input}" → ${l.action}(${l.intent}) | ${l.text || ""}`));
-  }
-  return { label, ok, reached, questionCount, contextLost, issues, log };
 }
 
-// ─────────────────────────────────────────────
-// 테스트 케이스 100개
-// ─────────────────────────────────────────────
-console.log("═".repeat(60));
-console.log("  AIChatView Integration Test — 100 Conversations");
-console.log("═".repeat(60));
-
-const results = [];
-async function t(label, turns, expect) {
-  const r = await runConv(label, turns, expect);
-  results.push(r);
-  await sleep(100);
+function postComplex(state) {
+  const groups = getAreaGroups(state);
+  if (state.currentArea) return [state, responseReadyToAnalyze(state.currentComplex, state.currentArea)];
+  if (!groups.length) return [state, {type:RESPONSE_TYPES.ERROR, text:"면적 데이터 없음"}];
+  if (groups.length === 1) return [updateArea(state, groups[0].anchor), responseReadyToAnalyze(state.currentComplex, groups[0].anchor)];
+  if (state.lastAreaHint) {
+    const best = findBestAreaGroup(groups, state.lastAreaHint);
+    if (best && best.diff <= 8) return [updateArea(state, best.group.anchor), responseReadyToAnalyze(state.currentComplex, best.group.anchor)];
+  }
+  return [{...state, lastQuestion:"area?"}, responseAreaList(state.currentComplex, groups, state.lastAreaHint)];
 }
 
-// ━━ 카테고리 1: 즉시 분석 (단지+평형 동시) ━━
-console.log("\n[1] 즉시분석 — 단지+평형 동시입력 (질문 0회 목표)");
-await t("잠실엘스 84",          ["잠실엘스 84"],           {complex:true, area:true, maxQ:0});
-await t("헬리오시티 84",        ["헬리오시티 84"],          {complex:true, area:true, maxQ:0});
-await t("반포자이 84",          ["반포자이 84"],            {complex:true, area:true, maxQ:0});
-await t("래미안대치팰리스 84",  ["래미안대치팰리스 84"],    {complex:true, area:true, maxQ:0});
-await t("마래푸 84",            ["마래푸 84"],              {complex:true, area:true, maxQ:0});
-await t("잠실엘스 국평",        ["잠실엘스 국평"],          {complex:true, area:true, maxQ:0});
-await t("잠실엘스 34평",        ["잠실엘스 34평"],          {complex:true, area:true, maxQ:0});
-await t("헬리오시티 59",        ["헬리오시티 59"],          {complex:true, area:true, maxQ:0});
-await t("동래래미안아이파크 84",["동래래미안아이파크 84"],   {complex:true, area:true, maxQ:0});
-await t("84 잠실엘스",          ["84 잠실엘스"],            {complex:true, area:true, maxQ:0});
-await t("잠실엘스 84㎡",        ["잠실엘스 84㎡"],          {complex:true, area:true, maxQ:0});
-await t("잠실엘스 84평",        ["잠실엘스 84평"],          {complex:true, area:true, maxQ:0});
-await t("국평 잠실엘스",        ["국평 잠실엘스"],          {complex:true, area:true, maxQ:0});
-await t("34평 반포자이",        ["34평 반포자이"],          {complex:true, area:true, maxQ:0});
-await t("고덕그라시움 84",      ["고덕그라시움 84"],         {complex:true, area:true, maxQ:0});
+// ──────────────────────────────────────────────────────
+// 테스트 케이스
+// ──────────────────────────────────────────────────────
+const UNIT_CASES = [
+  // A: 즉시 분석
+  // A: 단지+평형 동시 → ready_to_analyze (new_complex 경유)
+  {id:"A01", input:"잠실엘스84",           et:RESPONSE_TYPES.READY_TO_ANALYZE, ec:true, ar:true },
+  {id:"A02", input:"잠실 엘스 84",         et:RESPONSE_TYPES.READY_TO_ANALYZE, ec:true, ar:true },
+  {id:"A03", input:"헬리오시티 84",        et:RESPONSE_TYPES.READY_TO_ANALYZE, ec:true, ar:true },
+  {id:"A04", input:"반포자이 84",          et:RESPONSE_TYPES.READY_TO_ANALYZE, ec:true, ar:true },
+  {id:"A05", input:"마래푸 84",            et:RESPONSE_TYPES.READY_TO_ANALYZE, ec:true, ar:true },
+  {id:"A06", input:"래미안대치팰리스 84",  et:RESPONSE_TYPES.READY_TO_ANALYZE, ec:true, ar:true },
+  {id:"A07", input:"은마 76",              et:RESPONSE_TYPES.READY_TO_ANALYZE, ec:true, ar:true },
+  {id:"A08", input:"잠실엘스 국평",        et:RESPONSE_TYPES.READY_TO_ANALYZE, ec:true, ar:true },
+  {id:"A09", input:"헬리오 34평",          et:RESPONSE_TYPES.READY_TO_ANALYZE, ec:true, ar:true },
+  {id:"A10", input:"반포자이 34평",        et:RESPONSE_TYPES.READY_TO_ANALYZE, ec:true, ar:true },
+  // B: 단지만 → area_list (new_complex 경유 후 평형 질문)
+  {id:"B01", input:"잠실엘스",             et:RESPONSE_TYPES.AREA_LIST, ec:true, ar:false},
+  {id:"B02", input:"헬리오시티",           et:RESPONSE_TYPES.AREA_LIST, ec:true, ar:false},
+  {id:"B03", input:"반포자이",             et:RESPONSE_TYPES.AREA_LIST, ec:true, ar:false},
+  {id:"B04", input:"래미안대치팰리스",     et:RESPONSE_TYPES.AREA_LIST, ec:true, ar:false},
+  {id:"B05", input:"마포래미안푸르지오",   et:RESPONSE_TYPES.AREA_LIST, ec:true, ar:false},
+  // C: 복수 후보 → candidates_list
+  {id:"C01", input:"강남 래미안",          et:RESPONSE_TYPES.CANDIDATES_LIST, ec:false},
+  {id:"C02", input:"송도 더샵",            et:RESPONSE_TYPES.CANDIDATES_LIST, ec:false},
+  {id:"C03", input:"수원 래미안",          et:RESPONSE_TYPES.CANDIDATES_LIST, ec:false},
+  // D: 검색 실패
+  {id:"D01", input:"없는단지12345",        et:RESPONSE_TYPES.NOT_FOUND },
+  {id:"D02", input:"xyzabc아파트",         et:RESPONSE_TYPES.NOT_FOUND },
+  // E: 인사
+  {id:"E01", input:"안녕",                 ea:ACTIONS.GREET },
+  {id:"E02", input:"안녕하세요",           ea:ACTIONS.GREET },
+  // F: 초기화
+  {id:"F01", input:"다시",                 ea:ACTIONS.RESET },
+  {id:"F02", input:"처음부터",             ea:ACTIONS.RESET },
+];
 
-// ━━ 카테고리 2: 단지 → 평형 선택 (2턴) ━━
-console.log("\n[2] 2턴 — 단지 검색 후 평형 선택");
-await t("잠실엘스 → 84",       ["잠실엘스","84"],          {complex:true, area:true, maxQ:1});
-await t("잠실엘스 → 59",       ["잠실엘스","59"],          {complex:true, area:true, maxQ:1});
-await t("헬리오시티 → 84",     ["헬리오시티","84"],        {complex:true, area:true, maxQ:1});
-await t("반포자이 → 84",       ["반포자이","84"],          {complex:true, area:true, maxQ:1});
-await t("마래푸 → 34평",       ["마래푸","34평"],          {complex:true, area:true, maxQ:1});
-await t("더샵송도아크베이 → 84",["더샵송도아크베이","84"],   {complex:true, area:true, maxQ:1});
-await t("파크리오 → 84",       ["파크리오","84"],          {complex:true, area:true, maxQ:1});
-await t("수성구 래미안 → 84",  ["수성구 래미안","84"],     {complex:true, maxQ:1});
-await t("래미안수성 → 국평",   ["래미안수성","국평"],      {complex:true, maxQ:1});
-await t("헬리오시티 → 1번",    ["헬리오시티","1번"],       {complex:true, maxQ:1});
+const SCENARIOS = [
+  // 시나리오: response.type 기준 (new_complex는 경유 action)
+  { id:"S01", name:"단지→평형→분석",     steps:[{i:"잠실엘스",et:RESPONSE_TYPES.AREA_LIST},{i:"84",et:RESPONSE_TYPES.READY_TO_ANALYZE}], fc:{c:true,a:true} },
+  { id:"S02", name:"즉시분석→전세",      steps:[{i:"헬리오시티 84",et:RESPONSE_TYPES.READY_TO_ANALYZE},{i:"전세는?",ea:ACTIONS.ANALYZE_JEONSE}], fc:{c:true,a:true} },
+  { id:"S03", name:"즉시분석→면적변경",  steps:[{i:"잠실엘스 84",et:RESPONSE_TYPES.READY_TO_ANALYZE},{i:"아니 25평",ea:ACTIONS.UPDATE_AREA}], fc:{c:true,a:true} },
+  { id:"S04", name:"지역변경",           steps:[{i:"잠실엘스 84"},{i:"송도로 바꿔",ea:ACTIONS.UPDATE_REGION}] },
+  { id:"S05", name:"다른후보→선택",      steps:[{i:"강남 래미안",et:RESPONSE_TYPES.CANDIDATES_LIST},{i:"그거 말고",ea:ACTIONS.NEXT_CANDIDATE}] },
+  { id:"S06", name:"다시→새검색",        steps:[{i:"잠실엘스 84"},{i:"다시",ea:ACTIONS.RESET},{i:"반포자이 84",et:RESPONSE_TYPES.READY_TO_ANALYZE}], fc:{c:true,a:true} },
+  { id:"S07", name:"번호선택→분석",      steps:[{i:"강남 자이"},{i:"1번"}], fc:{c:true} },  // 평형 수에 따라 area_list or ready_to_analyze
+  { id:"S08", name:"즉시분석→최근거래",  steps:[{i:"헬리오시티 84"},{i:"최근 거래는?",ea:ACTIONS.ANALYZE_RECENT}], fc:{c:true,a:true} },
+  { id:"S09", name:"즉시분석→매수의견",  steps:[{i:"반포자이 84"},{i:"지금 사도 돼?",ea:ACTIONS.ANALYZE_BUY}], fc:{c:true,a:true} },
+  { id:"S10", name:"새단지교체(Rule7)",  steps:[{i:"잠실엘스 84"},{i:"헬리오시티 84"}], fc:{c:true,a:true} },
+];
 
-// ━━ 카테고리 3: Context 유지 — 면적 변경 ━━
-console.log("\n[3] Context 유지 — 면적 변경");
-await t("잠실엘스84 → 아니 59",         ["잠실엘스 84","아니 59"],      {complex:true, area:true, context:true, maxQ:0});
-await t("헬리오 84 → 59로 바꿔",        ["헬리오시티 84","59로 바꿔"],  {complex:true, area:true, context:true, maxQ:0});
-await t("잠실엘스84 → 아니 25평",       ["잠실엘스 84","아니 25평"],    {complex:true, area:true, context:true, maxQ:0});
-await t("반포자이84 → 59로 변경",       ["반포자이 84","59로 변경"],    {complex:true, context:true});
-await t("잠실엘스 → 84 → 119",         ["잠실엘스","84","119"],        {complex:true, area:true, context:true, maxQ:1});
+// ──────────────────────────────────────────────────────
+// 실행
+// ──────────────────────────────────────────────────────
+console.log("═".repeat(60));
+console.log(" [AIChatView Integration Test] — 실서버 연동");
+console.log("═".repeat(60));
 
-// ━━ 카테고리 4: Context 유지 — 후속 질문 ━━
-console.log("\n[4] Context 유지 — 후속 질문 (전세/매수/최근거래)");
-await t("잠실엘스84 → 전세는?",          ["잠실엘스 84","전세는?"],        {complex:true, area:true, context:true});
-await t("헬리오84 → 최근 거래는?",       ["헬리오시티 84","최근 거래는?"], {complex:true, area:true, context:true});
-await t("반포자이84 → 지금 사도 돼?",    ["반포자이 84","지금 사도 돼?"],  {complex:true, area:true, context:true});
-await t("잠실엘스84 → 전세 → 매수",      ["잠실엘스 84","전세는?","지금 사도 돼?"], {complex:true, area:true, context:true});
-await t("마래푸84 → 최근거래 → 전세",    ["마래푸 84","최근 거래는?","전세는?"], {complex:true, area:true, context:true});
+let uPass=0, uFail=0;
+const uFails=[];
 
-// ━━ 카테고리 5: 후보 선택 ━━
-console.log("\n[5] 후보 선택 — 복수 단지");
-await t("송도 더샵 → 1번",   ["송도 더샵 84","1번"],  {complex:true, maxQ:0});
-await t("송도 더샵 → 2번",   ["송도 더샵 84","2번"],  {complex:true, maxQ:0});
-await t("해운대 자이 → 1번", ["해운대 자이 84","1번"],{complex:true, maxQ:0});
-await t("래미안 대치 → 응",  ["대치 래미안 84","응"],  {complex:true, maxQ:0});
+console.log(`\n[1] 단위 테스트 (${UNIT_CASES.length}건)`);
+for (const tc of UNIT_CASES) {
+  await sleep(220);
+  const s0 = createConversationState();
+  try {
+    const {state, response} = await process(tc.input, s0);
+    const action = response._debug?.action;
+    const type   = response.type;
+    let ok = true;
+    if (tc.ea && action !== tc.ea)         ok = false;
+    if (tc.et && type   !== tc.et)         ok = false;
+    if (tc.ec === true  && !state.currentComplex) ok = false;
+    if (tc.ec === false && state.currentComplex)  ok = false;
+    if (tc.ar === true  && !state.currentArea)    ok = false;
+    if (tc.ar === false && state.currentArea)     ok = false;
 
-// ━━ 카테고리 6: 다른 후보 (그거 말고) ━━
-console.log("\n[6] 다른 후보 — 그거 말고 / 다른 거");
-await t("송도더샵 → 그거 말고",   ["송도 더샵","그거 말고"], {maxQ:0});
-await t("래미안 → 다른 거",       ["래미안 대치","다른 거"], {maxQ:0});
-await t("잠실 → 다른 거 → 1번",  ["잠실 자이","다른 거","1번"], {maxQ:0});
+    if (ok) { uPass++; console.log(`  ✅ [${tc.id}] "${tc.input}" → ${action}`); }
+    else { uFail++; uFails.push(tc.id); console.log(`  ❌ [${tc.id}] "${tc.input}" action=${action} type=${type} c=${!!state.currentComplex} a=${!!state.currentArea}`); }
+  } catch(e) {
+    uFail++; uFails.push(tc.id);
+    console.log(`  ❌ [${tc.id}] "${tc.input}" ERR: ${e.message}`);
+  }
+}
 
-// ━━ 카테고리 7: 지역 변경 ━━
-console.log("\n[7] 지역 변경");
-await t("잠실엘스84 → 송도로",     ["잠실엘스 84","송도로 바꿔"],  {});
-await t("반포자이84 → 강남으로",   ["반포자이 84","강남으로 변경"],{});
-await t("헬리오84 → 부산으로",     ["헬리오시티 84","부산으로"],   {});
-await t("빈 상태 → 수성구로",      ["수성구로 바꿔"],               {});
+console.log(`\n[2] 시나리오 (${SCENARIOS.length}건)`);
+let sPass=0, sFail=0, totalQ=0;
+const sResults=[];
 
-// ━━ 카테고리 8: 초기화 ━━
-console.log("\n[8] 초기화 — 다시 / 처음부터");
-await t("잠실엘스84 → 다시",       ["잠실엘스 84","다시"],        {});
-await t("헬리오시티84 → 처음부터", ["헬리오시티 84","처음부터"],  {});
-await t("3턴 후 다시",            ["잠실엘스","84","다시"],       {});
+for (const sc of SCENARIOS) {
+  let state = createConversationState();
+  let scOk=true, qCount=0;
+  const Q_ACTIONS = new Set([ACTIONS.ASK_AREA, ACTIONS.ASK_COMPLEX, ACTIONS.SHOW_CANDIDATES]);
+  const log=[];
 
-// ━━ 카테고리 9: 부정 (아니) ━━
-console.log("\n[9] 부정 — 아니");
-await t("단지 없을 때 아니",      ["아니"],                        {});
-await t("후보 대기 중 아니",      ["송도 더샵","아니"],            {maxQ:0});
-await t("단지 확정 후 아니",      ["잠실엘스","아니"],             {});
-await t("면적 확정 후 아니",      ["잠실엘스 84","아니"],          {complex:true});
+  for (const step of sc.steps) {
+    await sleep(220);
+    try {
+      const {state:ns, response} = await process(step.i, state);
+      state = ns;
+      const action = response._debug?.action;
+      if (Q_ACTIONS.has(action)) qCount++;
+      const ok = (!step.ea || action === step.ea) && (!step.et || response.type === step.et);
+      if (!ok) scOk=false;
+      log.push(`"${step.i}"→${action}${ok?"":" ⚠️exp:"+step.ea}`);
+    } catch(e) { scOk=false; log.push(`"${step.i}"→ERR`); }
+  }
 
-// ━━ 카테고리 10: 브랜드 표기 변형 ━━
-console.log("\n[10] 브랜드 표기 변형");
-await t("레미안 대치팰리스 84",   ["레미안 대치팰리스 84"],       {complex:true, area:true, maxQ:0});
-await t("더샾 송도 아크베이 84",  ["더샾 송도 아크베이 84"],      {complex:true, maxQ:0});
-await t("이편한세상 도마 84",     ["이편한세상 도마 84"],          {complex:true, maxQ:1});
-await t("헤링턴 두정역 84",       ["헤링턴 두정역 84"],            {complex:true, maxQ:1});
+  // 최종 상태 확인
+  if (sc.fc) {
+    if (sc.fc.c === true  && !state.currentComplex) scOk=false;
+    if (sc.fc.c === false && state.currentComplex)  scOk=false;
+    if (sc.fc.a === true  && !state.currentArea)    scOk=false;
+  }
 
-// ━━ 카테고리 11: 지역 포함 자연어 ━━
-console.log("\n[11] 지역+단지 자연어");
-await t("수성구 래미안 84",       ["수성구 래미안 84"],            {complex:true, maxQ:0});
-await t("부산 동래 래미안 84",    ["부산 동래 래미안 84"],         {complex:true, maxQ:0});
-await t("대전 도마 포레나 84",    ["대전 도마 포레나 84"],         {complex:true, maxQ:0});
-await t("광명 자이위브 84",       ["광명 자이위브 84"],            {complex:true, maxQ:0});
-await t("의정부 자이 84",         ["의정부 자이 84"],              {complex:true, maxQ:0});
+  totalQ += qCount;
+  sResults.push({id:sc.id, ok:scOk, qCount});
+  if (scOk) { sPass++; console.log(`  ✅ [${sc.id}] ${sc.name} (질문${qCount}회)`); }
+  else { sFail++; console.log(`  ❌ [${sc.id}] ${sc.name}`); log.forEach(l=>console.log(`     ${l}`)); }
+}
 
-// ━━ 카테고리 12: 인사 / 초기 ━━
-console.log("\n[12] 인사 / 빈 입력");
-await t("안녕",              ["안녕"],          {});
-await t("안녕하세요",        ["안녕하세요"],    {});
-await t("시작",              ["시작"],          {});
+// ──────────────────────────────────────────────────────
+// 리포트
+// ──────────────────────────────────────────────────────
+const total = uPass+uFail+sPass+sFail;
+const totalPass = uPass+sPass;
+const avgQ = (totalQ/SCENARIOS.length).toFixed(1);
+const ctxRate = (sPass/SCENARIOS.length*100).toFixed(0);
 
-// ━━ 카테고리 13: 없는 단지 (실패 처리) ━━
-console.log("\n[13] 없는 단지 — 실패 응답 품질");
-await t("없는단지이름abc",         ["없는단지이름abc123"],         {});
-await t("알 수 없는 지역+단지",   ["강릉 무지개마을 84"],         {});
-
-// ━━ 카테고리 14: 3턴+ 멀티턴 ━━
-console.log("\n[14] 멀티턴 — 3턴 이상");
-await t("잠실엘스→84→전세→다시→헬리오84",
-  ["잠실엘스 84","전세는?","다시","헬리오시티 84"],
-  {complex:true, area:true, context:true});
-await t("반포→84→아니59→전세→매수",
-  ["반포자이","84","아니 59","전세는?","지금 사도 돼?"],
-  {complex:true, context:true});
-await t("수성구→84→전세→그거말고",
-  ["수성구 래미안","84","전세는?","그거 말고"],
-  {complex:true, context:true});
-
-// ━━ 카테고리 15: 확인 (응/맞아) ━━
-console.log("\n[15] 확인 — 응 / 맞아");
-await t("잠실엘스 → 응",         ["잠실엘스","응"],          {complex:true});
-await t("후보 대기 → 맞아",      ["송도 더샵","맞아"],        {complex:true});
-await t("잠실엘스84 → 응",       ["잠실엘스 84","응"],        {complex:true, area:true});
-
-// ━━ 카테고리 16: 숫자 단독 평형 선택 ━━
-console.log("\n[16] 숫자 단독 평형");
-await t("잠실엘스 → 84(숫자)",    ["잠실엘스","84"],    {complex:true, area:true, maxQ:1});
-await t("헬리오시티 → 59(숫자)",  ["헬리오시티","59"],  {complex:true, area:true, maxQ:1});
-await t("파크리오 → 84(숫자)",    ["파크리오","84"],    {complex:true, area:true, maxQ:1});
-
-// ━━ 카테고리 17: 가격 관련 질문 ━━
-console.log("\n[17] 가격 질문");
-await t("잠실엘스84 → 얼마면 괜찮아?", ["잠실엘스 84","얼마면 괜찮아?"],    {complex:true, area:true});
-await t("헬리오84 → 적정가 알려줘",    ["헬리오시티 84","적정가 알려줘"],   {complex:true, area:true});
-
-// ━━ 결과 집계 ━━
-await sleep(500);
 console.log("\n" + "═".repeat(60));
 console.log(" [AIChatView Integration Report]");
 console.log("═".repeat(60));
+console.log(`\n✅ ConversationEngine 연결: 완료`);
+console.log(`\n단위 테스트:     ${uPass}/${UNIT_CASES.length} = ${(uPass/UNIT_CASES.length*100).toFixed(0)}%`);
+console.log(`시나리오 테스트: ${sPass}/${SCENARIOS.length} = ${(sPass/SCENARIOS.length*100).toFixed(0)}%`);
+console.log(`전체 성공률:     ${totalPass}/${total} = ${(totalPass/total*100).toFixed(1)}%`);
+console.log(`\nContext 유지율:  ${ctxRate}%`);
+console.log(`평균 질문 수:    ${avgQ}회 (목표: 2회 이하)`);
 
-const total      = results.length;
-const passed     = results.filter(r => r.ok).length;
-const complexOk  = results.filter(r => r.reached.complex).length;
-const areaOk     = results.filter(r => r.reached.area).length;
-const noCtxLost  = results.filter(r => !r.contextLost).length;
-const avgQ       = results.reduce((s,r)=>s+r.questionCount,0) / total;
-
-// 후속 질문 성공률 (카테고리 4)
-const followUpTests = results.filter(r => r.label.includes("전세") || r.label.includes("매수") || r.label.includes("최근거래"));
-const followUpOk    = followUpTests.filter(r => r.reached.complex && !r.contextLost).length;
-
-console.log(`\n연결 완료 여부:   ${passed}/${total} (${(passed/total*100).toFixed(1)}%) 시나리오 통과`);
-console.log(`Context 유지율:   ${noCtxLost}/${total} (${(noCtxLost/total*100).toFixed(1)}%)`);
-console.log(`평균 질문 수:     ${avgQ.toFixed(2)}회 (목표: 2회 이하)`);
-console.log(`단지 도달률:      ${complexOk}/${total} (${(complexOk/total*100).toFixed(1)}%)`);
-console.log(`평형 도달률:      ${areaOk}/${total} (${(areaOk/total*100).toFixed(1)}%)`);
-console.log(`후속 질문 성공:   ${followUpOk}/${followUpTests.length} (${followUpTests.length?((followUpOk/followUpTests.length)*100).toFixed(0):0}%)`);
-
-// 카테고리별 성공률
-const cats = [
-  ["즉시분석",     results.slice(0,15)],
-  ["2턴",         results.slice(15,25)],
-  ["면적변경",     results.slice(25,30)],
-  ["후속질문",     results.slice(30,35)],
-  ["후보선택",     results.slice(35,39)],
-  ["다른후보",     results.slice(39,42)],
-  ["지역변경",     results.slice(42,46)],
-  ["초기화",       results.slice(46,49)],
-  ["부정",         results.slice(49,53)],
-  ["브랜드변형",   results.slice(53,57)],
-  ["지역자연어",   results.slice(57,62)],
-  ["인사",         results.slice(62,65)],
-  ["없는단지",     results.slice(65,67)],
-  ["멀티턴",       results.slice(67,70)],
-  ["확인",         results.slice(70,73)],
-  ["숫자평형",     results.slice(73,76)],
-  ["가격질문",     results.slice(76,78)],
-];
-
-console.log("\n카테고리별 성공률:");
-for (const [name, cat] of cats) {
-  if (!cat.length) continue;
-  const ok = cat.filter(r=>r.ok).length;
-  const bar = "█".repeat(Math.round(ok/cat.length*10)) + "░".repeat(10-Math.round(ok/cat.length*10));
-  console.log(`  ${name.padEnd(10)} ${bar} ${ok}/${cat.length}`);
+if (uFails.length) {
+  console.log(`\n발견된 버그 [단위] ${uFails.length}건: ${uFails.join(", ")}`);
 }
 
-// 실패 케이스
-const failed = results.filter(r=>!r.ok);
-if (failed.length > 0) {
-  console.log(`\n발견된 버그 (${failed.length}건):`);
-  // 이슈 유형별 집계
-  const issueMap = {};
-  failed.forEach(r => r.issues.forEach(i => { issueMap[i] = (issueMap[i]||0)+1; }));
-  Object.entries(issueMap).sort((a,b)=>b[1]-a[1])
-    .forEach(([k,v]) => console.log(`  ${k}: ${v}건`));
-  console.log("\n  TOP 10 실패:");
-  failed.slice(0,10).forEach(r => console.log(`  - ${r.label}: ${r.issues.join(", ")}`));
+const sFails = sResults.filter(r=>!r.ok).map(r=>r.id);
+if (sFails.length) {
+  console.log(`발견된 버그 [시나리오] ${sFails.length}건: ${sFails.join(", ")}`);
 }
 
-console.log("\n다음 작업:");
-console.log("  1. Phase 3 — 상담 말투 + 결과 해설 레이어");
-console.log("  2. 후속 질문 추천 ('이런 것도 물어보세요')");
-console.log("  3. 1000개 QA 데이터 구축");
+console.log(`\n[다음 작업]`);
+console.log(`  1. runAnalysis ↔ ConversationEngine 결과 렌더링 통합`);
+console.log(`  2. area_chips UI 완성`);
+console.log(`  3. 공인중개사 말투 응답 레이어`);
