@@ -476,13 +476,22 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       const sale   = saleFiltered.map(toSale).filter(d => d.price > 0 && d.ym);
       const jeonse = rentFiltered.map(toRent).filter(d => d.price > 0 && d.ym);
 
-      // 거래 부족
+      // 거래 부족 → 매물가 + 전세가 입력 요청
       if (sale.length < 3) {
+        // 전세 데이터도 없으면
+        const hasJeonse = jeonse.length > 0;
         replaceLastAI({
-          type: "clarify",
-          content: `${name}${targetArea ? ` (${Math.round(targetArea)}㎡)` : ""}\n최근 실거래 ${sale.length}건으로 분석이 어렵습니다.\n다른 면적이나 단지를 시도하거나, 상세 검색을 이용해주세요.`,
-          onSearch: () => onNavigate("fair", { searchQuery: name }),
+          type: "text",
+          content: `**${name}** ${targetArea ? `${Math.round(targetArea / 3.3058)}평` : ""}은 최근 1년 내 실거래가 없네요.\n\n현재 매물가랑 ${hasJeonse ? "" : "전세가 "}알려주시면 대략 적정가 분석해드릴게요.\n\n예: "매물가 7.5억, 전세 4억"`,
         });
+        // 입력 대기 상태 세팅
+        convStateRef.current = {
+          ...s,
+          _pendingNoData: true,
+          _pendingComplex: complex,
+          _pendingArea: targetArea,
+          _pendingJeonse: hasJeonse ? jeonse : null,
+        };
         return;
       }
 
