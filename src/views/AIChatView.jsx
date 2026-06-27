@@ -20,6 +20,50 @@ import { createConversationState } from '../engine/conversationState.js';
 import { RESPONSE_TYPES } from '../engine/responseGenerator.js';
 import { ACTIONS } from '../engine/conversationPolicy.js';
 
+// ── 매물가 입력 파싱 (다양한 형식/오타 처리) ──
+function parsePriceInput(text) {
+  if (!text) return null;
+  let t = text.trim();
+
+  // 한글 숫자 변환
+  t = t
+    .replace(/일억/g,'1억').replace(/이억/g,'2억').replace(/삼억/g,'3억')
+    .replace(/사억/g,'4억').replace(/오억/g,'5억').replace(/육억/g,'6억')
+    .replace(/칠억/g,'7억').replace(/팔억/g,'8억').replace(/구억/g,'9억')
+    .replace(/십억/g,'10억').replace(/이십억/g,'20억').replace(/삼십억/g,'30억');
+
+  // 오타 정규화 (악→억, 엌→억, 옥→억)
+  t = t.replace(/([0-9]+)\s*[악엌옥](\s|만|천|$)/g, '$1억$2');
+
+  // 접두사 제거
+  t = t.replace(/^(약|대략|약간)\s*/g, '');
+
+  // "7억5" / "7억5천" 형식
+  const m1 = t.match(/^([0-9]+)억\s*([0-9])천?만?$/);
+  if (m1) return Math.round((Number(m1[1]) + Number(m1[2]) * 0.1) * 10000);
+
+  const m2 = t.match(/^([0-9]+)억\s*([0-9]+)천$/);
+  if (m2) return Math.round(Number(m2[1]) * 10000 + Number(m2[2]) * 1000);
+
+  // "N억" 형식
+  const m3 = t.match(/([0-9]+(?:[.][0-9]+)?)\s*억/);
+  if (m3) return Math.round(Number(m3[1]) * 10000);
+
+  // "N만" 형식 (4자리 이상)
+  const m4 = t.match(/^([0-9]{4,})\s*만?원?$/);
+  if (m4) return Number(m4[1]);
+
+  // 단독 숫자
+  const m5 = t.match(/^([0-9]+(?:[.][0-9]+)?)$/);
+  if (m5) {
+    const n = Number(m5[1]);
+    if (n >= 1000) return n;
+    if (n >= 1) return Math.round(n * 10000);
+  }
+
+  return null;
+}
+
 // ── parseIntent (AIChatView 전용) ──
 function parseIntent(raw) {
   const t = (raw || "").trim();
@@ -273,9 +317,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     if (ps?._pendingNoData) {
       addMsg({ role: "user", type: "text", content: text });
       const { _pendingComplex: complex, _pendingArea: areaSqm, _pendingJeonse: existingJeonse } = ps;
-      const saleMatch   = text.match(/(\d+(?:\.\d+)?)\s*억/);
       const jeonseMatch = text.match(/전세\s*(\d+(?:\.\d+)?)\s*억/);
-      const salePrice   = saleMatch   ? Math.round(Number(saleMatch[1])   * 10000) : null;
+      const salePrice   = /몰라|없어|모르|상관없/i.test(text) ? null : parsePriceInput(text);
       const jeonsePrice = jeonseMatch ? Math.round(Number(jeonseMatch[1]) * 10000) : null;
       convStateRef.current = { ...ps, _pendingNoData: false };
       if (!salePrice) {
@@ -311,18 +354,9 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     if (ps?._pendingPrice) {
       addMsg({ role: "user", type: "text", content: text });
       const { _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose } = ps;
-      const priceMatch = text.match(/(\d+(?:\.\d+)?)\s*억/);
-      const manMatch   = text.match(/(\d{4,})\s*만?$/);
-      const numOnly    = text.match(/^(\d+(?:\.\d+)?)$/);  // "2", "25", "7.5" 단독 숫자
-      const noPrice    = /몰라|없어|없음|패스|그냥|skip|모르|상관없/i.test(text);
-      let currentPrice = null;
-      if (priceMatch) currentPrice = Math.round(Number(priceMatch[1]) * 10000);
-      else if (manMatch) currentPrice = Number(manMatch[1]);
-      else if (numOnly) {
-        const n = Number(numOnly[1]);
-        if (n >= 1000) currentPrice = n;           // 5000 → 5000만원
-        else if (n >= 1) currentPrice = Math.round(n * 10000); // 2 → 2억, 7.5 → 7.5억
-      }
+      // 매물가 파싱 — 다양한 입력 형식 처리
+      const noPrice = /몰라|없어|없음|패스|그냥|skip|모르|상관없|모름/i.test(text);
+      const currentPrice = noPrice ? null : parsePriceInput(text);
       convStateRef.current = { ...ps, _pendingPrice: false, _pendingComplex: null, _pendingArea: null, _pendingPurpose: null };
       addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
       if (noPrice || !currentPrice) {
