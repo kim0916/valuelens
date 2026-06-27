@@ -384,10 +384,13 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
           {f.currentPrice && (
             <div style={{ background: "#fff", padding: "12px 16px" }}>
               <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 4px" }}>
-                {f._userInputPrice ? "현재 매물가 (입력)" : "현재 매물가 (실거래 중앙값)"}
+                {f._userInputPrice ? "현재 매물가" : "현재 시세"}
               </p>
               <p style={{ fontSize: 17, fontWeight: 700, color: "#334155", margin: 0 }}>
-                {won(Number(f.currentPrice))}
+                {f._userInputPrice ? "" : "약 "}{won(Number(f.currentPrice))}
+              </p>
+              <p style={{ fontSize: 10, color: CLR.muted, margin: "2px 0 0" }}>
+                {f._userInputPrice ? "입력하신 매물가" : "최근 실거래 평균가격입니다"}
               </p>
               {!hold && r.gapRatio != null && (
                 <p style={{ fontSize: 10, fontWeight: 600, margin: "3px 0 0",
