@@ -233,7 +233,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     // ── Phase 2: ConversationEngine 기반 처리 ──
     // 매 입력을 새 검색으로 처리하는 방식 폐기
     // ConversationState를 유지하며 Intent → Policy → UX Policy → Action 순으로 처리
-    addMsg({ role: "ai", type: "thinking", content: "생각 중..." });
+    addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
 
     try {
       const { state: newState, response } = await convEngineRef.current.process(
@@ -268,19 +268,26 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     const action = response._debug?.action;
     const type   = response.type;
 
-    // 분석 준비 완료 → runAnalysis 실행
+    // 분석 준비 완료
     if (type === RESPONSE_TYPES.READY_TO_ANALYZE || action === ACTIONS.ANALYZE_NOW) {
       const complex  = state.currentComplex;
       const areaSqm  = state.currentArea;
       const purpose  = state.purpose || "fair";
 
       if (!complex || !areaSqm) {
-        replaceLastAI({ role: "ai", type: "text", content: response.text || "분석 준비 중..." });
+        replaceLastAI({ role: "ai", type: "text", content: response.text || "잠깐만요, 확인해볼게요~ 🔍" });
         return;
       }
 
-      replaceLastAI({ role: "ai", type: "thinking", content: response.text || "분석 중..." });
+      // ask_price: 매물가 질문 → 사용자 답변 대기
+      if (response.ui === "ask_price") {
+        convStateRef.current = { ...s, _pendingPrice: true, _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose };
+        replaceLastAI({ role: "ai", type: "text", content: response.text });
+        return;
+      }
 
+      // analyzing: 바로 분석
+      replaceLastAI({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
       await runAnalysis(complex, {
         intent:   purpose === "buy" ? "buy" : "fair",
         areaSqm,
@@ -297,7 +304,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         replaceLastAI({ role: "ai", type: "text", content: response.text });
         return;
       }
-      replaceLastAI({ role: "ai", type: "thinking", content: response.text || "조회 중..." });
+      replaceLastAI({ role: "ai", type: "thinking", content: response.text || "잠깐만요, 확인해볼게요~ 🔍" });
       const purpose = action === ACTIONS.ANALYZE_JEONSE ? "jeonse"
                     : action === ACTIONS.ANALYZE_BUY    ? "buy"
                     : "fair";
@@ -427,7 +434,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
   // ── 단지 선택 후 분석 실행 ──
   async function runAnalysis(complex, intent) {
-    replaceLastAI({ type: "thinking", content: "데이터 조회 중..." });
+    replaceLastAI({ type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
 
     try {
       const sigungu   = complex.sigungu    || "";
@@ -500,17 +507,22 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         ? sortedPrices[Math.floor(sortedPrices.length / 2)]
         : 0;
 
+      // currentPrice: 사용자 입력 우선, 없으면 실거래 중앙값
+      const userPrice = intent.currentPrice || null;
+      const finalPrice = userPrice || medianPrice;
+
       const rawData = {
         sale, jeonse,
-        areaSqm:     targetArea || 0,
-        region:      sigungu,
+        areaSqm:       targetArea || 0,
+        region:        sigungu,
         dong,
-        complexName: name,
-        buildYear:   complex.build_year || null,
-        currentPrice: medianPrice,  // 실거래 중앙값으로 자동 세팅
-        kbSalePrice:  0,
-        kbJeonse:     0,
-        tradeStatus:  { code: "OK" },
+        complexName:   name,
+        buildYear:     complex.build_year || null,
+        currentPrice:  finalPrice,
+        _userInputPrice: !!userPrice,   // 사용자가 직접 입력한 매물가인지 여부
+        kbSalePrice:   0,
+        kbJeonse:      0,
+        tradeStatus:   { code: "OK" },
         areaOptions:  groupAreasByPyeong(areaListRaw)
           .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: typicalPyeong(g.rep) })),
       };

@@ -30,6 +30,7 @@ export const RESPONSE_TYPES = {
   CONTEXT_RESET:     "context_reset",
   NEED_MORE_INFO:    "need_more_info",
   JEONSE_RESULT:     "jeonse_result",
+  ASK_PRICE:         "ask_price",
   ERROR:             "error",
 };
 
@@ -55,8 +56,7 @@ export function responseAreaList(complex, areaGroups, areaHint = null, isRepeat 
       intro = `**${name}**의 평형을 선택해 주세요.`;
     }
   } else {
-    // Rule 3: DB 실제 정보로 질문 (금지: "몇 평인가요?")
-    intro = `**${name}**에는 아래 평형이 있어요.`;
+    intro = `**${name}** 몇 평 찾으세요?`;
   }
 
   return {
@@ -113,7 +113,21 @@ export function responseReadyToAnalyze(complex, areaSqm) {
 
   return {
     type:      RESPONSE_TYPES.READY_TO_ANALYZE,
-    text:      `**${name}** ${pyeong}평 분석할게요.`,  // Rule 7: 짧게
+    text:      `**${name}** ${pyeong}평이요~\n지금 보시는 매물가가 얼마예요?\n(모르시면 "몰라요" 하시면 실거래 기준으로 알려드려요)`,
+    complex,
+    areaSqm,
+    ui:        "ask_price",  // 매물가 입력 대기
+  };
+}
+
+// 매물가 없을 때 — 실거래 기준으로 바로 분석
+export function responseReadyToAnalyzeNoPrice(complex, areaSqm) {
+  const name   = complex.complex_name;
+  const pyeong = sqmToPyeong(areaSqm);
+
+  return {
+    type:      RESPONSE_TYPES.READY_TO_ANALYZE,
+    text:      `**${name}** ${pyeong}평 실거래 기준으로 분석할게요.`,
     complex,
     areaSqm,
     ui:        "analyzing",
@@ -248,8 +262,7 @@ export function responseNeedComplex(purpose = "analysis", isRepeat = false) {
 export function responseGreeting() {
   return {
     type: RESPONSE_TYPES.NEED_MORE_INFO,
-    // Rule 7: 짧게 + 예시로 다음 행동 명확
-    text: `안녕하세요! 어떤 아파트를 알아보시나요?\n\n예: 잠실 엘스 84, 반포자이 34평, 헬리오 국평`,
+    text: `어서오세요! 어떤 아파트 알아보세요?\n\n예: 잠실 엘스, 반포자이, 홍제현대`,
     ui:   "message",
   };
 }
@@ -263,10 +276,10 @@ export function responseUnknown(state) {
 
   // Rule 1: 이미 있는 정보 다시 묻지 않음
   if (hasComplex && !hasArea) {
-    // 단지 있음 → 평형만 물음 (단지 다시 묻지 않음)
+    const name = state.currentComplex.complex_name;
     return {
       type: RESPONSE_TYPES.NEED_MORE_INFO,
-      text: `평형을 알려주세요.`,
+      text: `**${name}** 몇 평 찾으세요?`,
       ui:   "message",
     };
   }

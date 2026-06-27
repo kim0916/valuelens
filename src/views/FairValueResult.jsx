@@ -384,7 +384,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
           {f.currentPrice && (
             <div style={{ background: "#fff", padding: "12px 16px" }}>
               <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 4px" }}>
-                현재 매물가
+                {f._userInputPrice ? "현재 매물가 (입력)" : "현재 매물가 (실거래 중앙값)"}
               </p>
               <p style={{ fontSize: 17, fontWeight: 700, color: "#334155", margin: 0 }}>
                 {won(Number(f.currentPrice))}
