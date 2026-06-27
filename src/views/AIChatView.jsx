@@ -379,7 +379,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             );
             convStateRef.current = newState;
             setConvState(newState);
-            renderResponse(res);
+            await handleEngineResponse(res, newState);
           } catch(e) {
             console.error("[AIChatView] 후보 선택 오류:", e);
           }
