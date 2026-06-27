@@ -323,7 +323,21 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         content: response.text.split("\n")[0].replace(/\*\*/g, ""),
         areaGroups: response.areaGroups || [],
         complex:    response.complex,
-        onSelect: (areaSqm) => handleSend(String(areaSqm)),  // 정확한 값 전송
+        onSelect: async (areaSqm) => {
+          // 버튼 클릭 → 텍스트 파싱 없이 직접 면적 확정
+          const complex = convStateRef.current.currentComplex;
+          const pyeong = Math.round(areaSqm / 3.305785);
+          addMsg({ role: "user", type: "text", content: `${pyeong}평 (${areaSqm}㎡)` });
+          // ConversationEngine state 직접 업데이트
+          const { updateArea } = await import('../engine/conversationState.js');
+          const newState = updateArea(convStateRef.current, areaSqm);
+          convStateRef.current = newState;
+          // 매물가 질문으로 바로 이동
+          const { responseReadyToAnalyze } = await import('../engine/responseGenerator.js');
+          const resp = responseReadyToAnalyze(complex, areaSqm);
+          convStateRef.current = { ...newState, _pendingPrice: true, _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: "fair" };
+          addMsg({ role: "ai", type: "text", content: resp.text.replace(/\*\*/g, "") });
+        },
       });
       return;
     }
