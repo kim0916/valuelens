@@ -159,7 +159,20 @@ function getStability(trust) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId }) {
   const [detailOpen, setDetailOpen] = React.useState(false);
-  const [checkState, setCheckState] = React.useState({});  // { id: boolean }
+
+  // 체크리스트 localStorage 저장 (단지명+면적 기반 key)
+  const checkKey = `vl_check_${(f.complexName||"").replace(/\s/g,"")}_${f.areaExclusive||0}`;
+  const [checkState, setCheckState] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem(checkKey);
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+
+  // checkState 변경 시 localStorage에 저장
+  React.useEffect(() => {
+    try { localStorage.setItem(checkKey, JSON.stringify(checkState)); } catch {}
+  }, [checkState, checkKey]);
 
   // ── 계산 (엔진 값 수정 금지) ──
   const mc          = classifyApartmentMarket(f, r);
@@ -280,7 +293,8 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       <Card style={{ borderTop: `3px solid ${verdict.clr}` }}>
         <div style={{ padding: "18px 16px 14px", background: verdict.bgClr }}>
           {/* 단지·면적 */}
-          <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 10px" }}>
+          <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 10px",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {f.complexName}
             {Number(f.areaExclusive) > 0 ? ` · 전용 ${f.areaExclusive}㎡` : ""}
             {f.buildYear ? ` · ${f.buildYear}년` : ""}

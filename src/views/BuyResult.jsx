@@ -22,7 +22,7 @@ function OpportunityCard({ opp }) {
     <div className="rounded-xl bg-slate-50 px-3 py-2">
       <div className="flex items-center justify-between"><span className="text-sm font-semibold text-slate-800">{x.title}</span><span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${x.sourceType === "api" ? "bg-emerald-100 text-emerald-700" : x.sourceType === "ai" ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-500"}`}>{x.sourceType === "api" ? "공공데이터" : x.sourceType === "ai" ? "AI요약" : "자체추정"}</span></div>
       <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{x.description}</p>
-      <p className="mt-1 text-[11px] text-slate-400">{x.category} · 영향 {x.impact} · 신뢰도 {x.confidence}{x.distanceNote ? ` · ${x.distanceNote}` : ""}</p>
+      <p className="mt-1 text-[11px] text-slate-400">{x.category} · 영향 {x.impact} · 안정성 {x.confidence}{x.distanceNote ? ` · ${x.distanceNote}` : ""}</p>
     </div>
   );
   return (
@@ -43,6 +43,24 @@ function OpportunityCard({ opp }) {
 
 function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onHome, areaOptions, currentArea, onSelectArea, currentUserId }) {
   const [detailOpen, setDetailOpen] = useState(false);
+
+  // Phase 3: 계약 전 체크리스트 상태 (localStorage 저장)
+  const buyCheckKey = `vl_buycheck_${(f.complexName||"").replace(/\s/g,"")}`;
+  const [buyCheckState, setBuyCheckState] = useState(() => {
+    try { const s = localStorage.getItem(buyCheckKey); return s ? JSON.parse(s) : {}; } catch { return {}; }
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem(buyCheckKey, JSON.stringify(buyCheckState)); } catch {}
+  }, [buyCheckState, buyCheckKey]);
+
+  const BUY_CHECKLIST = [
+    { id:"deals",    text:"최신 실거래 확인",    sub:"국토부 실거래가 공개시스템",    href:"https://rt.molit.go.kr",   btn:"국토부 실거래" },
+    { id:"registry", text:"등기사항 확인",        sub:"권리관계·근저당·가처분 등",    href:"https://www.iros.go.kr",   btn:"대법원 등기소" },
+    { id:"building", text:"건축물대장 확인",      sub:"용도·위반건축물·변경이력",     href:"https://www.gov.kr/mw/AA020InfoCappView.do?HighCtgCD=A09010&CappBizCD=14000000003", btn:"정부24" },
+    { id:"loan",     text:"대출 가능 금액 확인",  sub:"DSR·LTV 기준 실제 한도",      href:null,                       btn:null },
+    { id:"special",  text:"계약 특약 확인",       sub:"잔금일·하자·전입신고 특약",   href:null,                       btn:null },
+  ];
+  const buyAllChecked = BUY_CHECKLIST.every(c => buyCheckState[c.id]);
   const s = GS[r.buyGrade], cheap = r.gapRatio < 0;
   const tone = (sc) => (sc >= 80 ? "text-emerald-600" : sc >= 60 ? "text-amber-600" : "text-orange-600");
   const mrTone2 = (lv) => lv === "매우높음" ? "text-red-600" : lv === "높음" ? "text-orange-600" : lv === "보통" ? "text-amber-600" : lv === "평가 불가" ? "text-slate-500" : "text-emerald-600";
@@ -56,13 +74,14 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
   const isSpec = bd.isSpecial;
 
   // ── 등급 라벨 — 가격 평가형 (투자 권유 표현 제거) ──
+  // Phase 3: 알파벳 등급 제거, 쉬운 표현 사용
   const gradeHero = {
-    A: { label: "A · 매우 저평가", sub: "적정가 대비 크게 낮은 가격", bg: "bg-emerald-600" },
-    B: { label: "B · 저평가",     sub: "적정가 대비 낮은 가격",       bg: "bg-emerald-500" },
-    C: { label: "C · 적정 가격",  sub: "적정가 수준",                  bg: "bg-amber-400"  },
-    D: { label: "D · 고평가 주의",sub: "적정가 대비 높은 편 — 보유 리스크 점검", bg: "bg-orange-500" },
-    E: { label: "E · 고평가",     sub: "적정가 대비 크게 높은 가격",   bg: "bg-red-600"    },
-    보류: { label: "판단 보류",   sub: "데이터 부족",                  bg: "bg-slate-400"  },
+    A: { label: "가격 매력 있음",   sub: "적정가보다 크게 낮은 수준",      bg: "bg-emerald-600" },
+    B: { label: "가격 매력 있음",   sub: "적정가보다 낮은 수준",            bg: "bg-emerald-500" },
+    C: { label: "적정 범위",        sub: "적정가 수준",                      bg: "bg-blue-600"    },
+    D: { label: "가격 부담 있음",   sub: "적정가보다 높은 편 — 추가 확인 필요", bg: "bg-orange-500" },
+    E: { label: "가격 부담 있음",   sub: "적정가보다 크게 높은 수준",       bg: "bg-red-600"     },
+    보류: { label: "데이터 부족",   sub: "거래 데이터 부족으로 분석 제한",   bg: "bg-slate-400"  },
   }[r.buyGrade] || { label: r.buyGrade, sub: "", bg: "bg-slate-400" };
 
   // ── AI 한줄 의견 ──
@@ -159,7 +178,7 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
     if (r.actualRatio != null && r.actualRatio < 0.4) risks.push({ label: "전세가율 낮음", desc: "실거주 수요보다 투자 수요 비중이 높은 단지입니다." });
     if (r.shock?.level === "높음" || r.shock?.level === "매우높음") risks.push({ label: "시장 변동성 주의", desc: "현재 시장 상황에 따라 가격 반영이 지연될 수 있습니다." });
     if (bd.marketRisk?.level === "높음" || bd.marketRisk?.level === "매우높음") risks.push({ label: "시장 변동 가능성 높음", desc: "프리미엄·공급·정책 등 복합 요인으로 가격 변동 가능성이 있습니다." });
-    if (r.dataConf < 50) risks.push({ label: "거래 표본 부족", desc: "데이터가 적어 분석 신뢰도가 낮습니다. 표본 보강 후 재분석을 권장합니다." });
+    if (r.dataConf < 50) risks.push({ label: "거래 표본 부족", desc: "거래 데이터가 적어 분석 결과가 제한적입니다. 참고용으로 활용하세요." });
     if (neg.list?.[0]) risks.push({ label: "지역 특성 참고", desc: neg.list[0] });
     // 중복 label 제거
     const seen = new Set();
@@ -220,14 +239,14 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
             </div>
           ) : (
             <>
-              {/* 가격 판단 최우선 표시 */}
+              {/* Phase 3: 가격 판단 — 알파벳 등급 없이 쉬운 표현 */}
               <div className="mt-2">
-                <p className="text-[11px] text-slate-400">가격 평가</p>
-                <p className={`text-2xl font-extrabold ${r.buyGrade === 'A' || r.buyGrade === 'B' ? 'text-emerald-400' : r.buyGrade === 'D' || r.buyGrade === 'E' ? 'text-red-400' : 'text-amber-300'}`}>
-                  {r.gradeLabel}
+                <p className="text-[11px] text-slate-400">현재 가격 판단</p>
+                <p className={`text-2xl font-extrabold ${r.buyGrade === 'A' || r.buyGrade === 'B' ? 'text-emerald-400' : r.buyGrade === 'D' || r.buyGrade === 'E' ? 'text-red-400' : 'text-white'}`}>
+                  {gradeHero.label}
                 </p>
-                <p className="mt-0.5 text-[11px] text-slate-400">
-                  ValueLens {r.buyGrade}등급 · {r.buyGrade === 'A' || r.buyGrade === 'B' ? `AI 적정가보다 ${Math.abs(r.gapRatio*100).toFixed(1)}% 낮음` : r.buyGrade === 'D' || r.buyGrade === 'E' ? `AI 적정가보다 ${Math.abs(r.gapRatio*100).toFixed(1)}% 높음` : `AI 적정가 수준`}
+                <p className="mt-0.5 text-[11px] text-slate-300">
+                  {gradeHero.sub}
                 </p>
               </div>
               {/* 자금 판단 — 입력 시에만 표시 */}
@@ -247,8 +266,10 @@ function BuyResult({ r, f, onBack, onSave, saved, onNewSearch, onChangeArea, onH
             <p className="mt-0.5 text-sm font-extrabold text-slate-900">{won(Number(f.currentPrice))}</p>
           </div>
           <div className="px-3 py-3 text-center">
-            <p className="text-[11px] text-slate-400">AI 적정가</p>
-            <p className="mt-0.5 text-sm font-extrabold" style={{ color: NAVY }}>{hold0 ? "—" : won(r.fairPrice)}</p>
+            <p className="text-[11px] text-slate-400">적정 범위</p>
+            <p className="mt-0.5 text-xs font-bold" style={{ color: NAVY }}>
+              {hold0 ? "—" : `${won(Math.round(r.fairPrice * 0.95))}~${won(Math.round(r.fairPrice * 1.05))}`}
+            </p>
           </div>
           <div className="px-3 py-3 text-center">
             <p className="text-[11px] text-slate-400">{r.gapRatio < 0 ? "저평가" : "고평가"}</p>
@@ -772,6 +793,60 @@ ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
             </div>
           </div>
         )}\n        {/* 저장 버튼 */}
+        {/* Phase 3: 계약 전 체크리스트 */}
+        <div style={{ background:"#fff", borderRadius:14, border:"1px solid #bfdbfe",
+          marginBottom:12, overflow:"hidden" }}>
+          <div style={{ padding:"12px 16px 10px", borderBottom:"1px solid #e8e4df" }}>
+            <p style={{ fontSize:13, fontWeight:700, color:"#1e40af", margin:"0 0 2px" }}>
+              📋 계약 전 확인 체크리스트
+            </p>
+            <p style={{ fontSize:11, color:"#94a3b8", margin:0 }}>
+              {BUY_CHECKLIST.filter(c=>buyCheckState[c.id]).length}/{BUY_CHECKLIST.length} 완료
+            </p>
+          </div>
+          {BUY_CHECKLIST.map((item, idx) => {
+            const done = !!buyCheckState[item.id];
+            return (
+              <div key={item.id} style={{ display:"flex", alignItems:"center", gap:10,
+                padding:"10px 14px", borderBottom: idx < BUY_CHECKLIST.length-1 ? "1px solid #e8e4df" : "none",
+                background: done ? "#f0fdf4" : "#fff", transition:"background 0.2s" }}>
+                <button onClick={() => setBuyCheckState(p => ({...p, [item.id]:!p[item.id]}))}
+                  style={{ width:22, height:22, borderRadius:6, flexShrink:0,
+                    border: done ? "none" : "2px solid #e8e4df",
+                    background: done ? "#2F6F4F" : "transparent",
+                    display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}>
+                  {done && <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                    <path d="M2 6.5l3 3 6-6" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>}
+                </button>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:13, fontWeight: done ? 400 : 600, color: done ? "#64748b" : "#1e293b",
+                    margin:0, textDecoration: done ? "line-through" : "none" }}>{item.text}</p>
+                  <p style={{ fontSize:11, color:"#94a3b8", margin:"2px 0 0" }}>{item.sub}</p>
+                </div>
+                {item.href && (
+                  <button onClick={() => window.open(item.href, "_blank", "noopener noreferrer")}
+                    style={{ fontSize:11, fontWeight:600, color:"#1d4ed8", background:"#eff6ff",
+                      border:"1px solid #bfdbfe", borderRadius:6, padding:"4px 8px",
+                      cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}>
+                    {item.btn} ↗
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          {buyAllChecked && (
+            <div style={{ padding:"12px 14px", background:"#f0fdf4", borderTop:"1px solid #bbf7d0", textAlign:"center" }}>
+              <p style={{ fontSize:13, fontWeight:700, color:"#2F6F4F", margin:0 }}>
+                ✅ 기본 확인이 완료됐어요!
+              </p>
+              <p style={{ fontSize:11, color:"#4ade80", margin:"3px 0 0" }}>
+                안전한 계약을 위한 기본 확인이 완료되었습니다.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* 2×2 네비 버튼 */}
         <div className="grid grid-cols-2 gap-3">
           <button onClick={onBack}
