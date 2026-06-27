@@ -151,7 +151,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
   const WELCOME = {
     id: "welcome", role: "ai", type: "text",
-    content: "안녕하세요. 부동산에 대해 무엇이든 물어보세요.\n단지명·지역·평형·가격을 자유롭게 말씀하시면 분석해드립니다.",
+    content: "",  // 첫 메시지 제거 (카드 배너로 대체)
   };
 
   const [msgs, setMsgs]           = React.useState([WELCOME]);
@@ -749,10 +749,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       const trustBg    = s.trust?.includes("주의") ? "#fef3c7" : "#dcfce7";
       return (
         <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
-          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN,
-            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-            <CI d="star" s={13} color="#fff" />
-          </div>
+          <div style={{ width:28, height:28, borderRadius:8, background:"linear-gradient(135deg,#5b52e0,#7b6fff)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
           <div style={{ flex:1, minWidth:0 }}>
             {/* 결론 */}
             {s.conclusion && (
@@ -842,9 +839,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     if (msg.type === "thinking") {
       return (
         <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
-          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-            <CI d="star" s={13} color="#fff" />
-          </div>
+          <div style={{ width:28, height:28, borderRadius:8, background:"linear-gradient(135deg,#5b52e0,#7b6fff)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
           <div style={{ paddingTop:4 }}>
             <div style={{ display:"flex", gap:4, alignItems:"center" }}>
               {[0,1,2].map(i => (
@@ -864,8 +859,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     if (msg.type === "candidates") {
       return (
         <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
-          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
-            <CI d="star" s={13} color="#fff" />
+          <div style={{ width:28, height:28, borderRadius:8, background:"linear-gradient(135deg,#5b52e0,#7b6fff)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           </div>
           <div style={{ flex:1, minWidth:0 }}>
             <p style={{ fontSize:14, color:BRAND, margin:"0 0 10px", lineHeight:1.55, letterSpacing:"-0.01em" }}>
@@ -927,10 +922,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       }
       return (
         <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
-          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN,
-            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-            <CI d="star" s={13} color="#fff" />
-          </div>
+          <div style={{ width:28, height:28, borderRadius:8, background:"linear-gradient(135deg,#5b52e0,#7b6fff)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
           <div style={{ flex:1, minWidth:0 }}>
             <ResultCard data={msg.data} intent={msg.data?.intent} />
           </div>
@@ -970,15 +962,15 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         flexDirection: isUser ? "row-reverse" : "row",
       }}>
         {!isUser && (
-          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
-            <CI d="star" s={13} color="#fff" />
+          <div style={{ width:28, height:28, borderRadius:8, background:"linear-gradient(135deg,#5b52e0,#7b6fff)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           </div>
         )}
         <div style={{
           maxWidth:"80%",
           padding:"10px 14px",
           borderRadius: isUser ? "18px 18px 4px 18px" : "4px 18px 18px 18px",
-          background: isUser ? BRAND : "#fff",
+          background: isUser ? "#5b52e0" : "#fff",
           border: isUser ? "none" : `0.5px solid ${BRAND_BORDER}`,
           boxShadow: isUser ? "none" : "0 1px 4px rgba(0,0,0,0.05)",
         }}>
