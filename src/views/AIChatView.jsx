@@ -1006,20 +1006,27 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
 
 
-      {/* ── 찾아!AI 헤더 배너 ── */}
-      <div style={{ background:"linear-gradient(135deg,#0d0a28 0%,#1a1650 100%)", padding:"14px 20px 14px", flexShrink:0, position:"relative", overflow:"hidden" }}>
-        <div style={{ position:"absolute", right:-20, top:-20, width:100, height:100, borderRadius:"50%", background:"#2d2870", opacity:0.3 }}/>
-        <div style={{ display:"flex", alignItems:"center", gap:8, position:"relative" }}>
-          {/* 상징마크 */}
-          <div style={{ width:28, height:28, borderRadius:8, background:"linear-gradient(135deg,#5b52e0,#7b6fff)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, boxShadow:"0 2px 6px rgba(91,82,224,0.4)" }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-              <circle cx="12" cy="10" r="3"/>
-            </svg>
-          </div>
-          <div>
-            <p style={{ fontSize:12, fontWeight:700, color:"#fff", margin:0, letterSpacing:"-0.01em" }}>찾아!AI</p>
-            <p style={{ fontSize:10, color:"#7b76c8", margin:0, letterSpacing:"0.01em" }}>실제거래가격 기반 아파트 전문</p>
+      {/* ── 찾아!AI 헤더 배너 (카드형) ── */}
+      <div style={{ padding:"12px 16px 8px", background:"#f5f3ff", flexShrink:0 }}>
+        <div style={{
+          background:"linear-gradient(135deg,#0d0a28 0%,#1a1650 100%)",
+          borderRadius:18, padding:"14px 18px",
+          position:"relative", overflow:"hidden",
+          boxShadow:"0 4px 16px rgba(13,10,40,0.18)",
+        }}>
+          <div style={{ position:"absolute", right:-20, top:-20, width:90, height:90, borderRadius:"50%", background:"#2d2870", opacity:0.3 }}/>
+          <div style={{ display:"flex", alignItems:"center", gap:8, position:"relative" }}>
+            {/* 상징마크 */}
+            <div style={{ width:28, height:28, borderRadius:8, background:"linear-gradient(135deg,#5b52e0,#7b6fff)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, boxShadow:"0 2px 6px rgba(91,82,224,0.4)" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+            </div>
+            <div>
+              <p style={{ fontSize:13, fontWeight:700, color:"#fff", margin:0, letterSpacing:"-0.01em" }}>찾아!AI</p>
+              <p style={{ fontSize:10, color:"#9994d8", margin:0, letterSpacing:"0.01em" }}>실제거래가격 기반 아파트 전문</p>
+            </div>
           </div>
         </div>
       </div>
