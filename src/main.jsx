@@ -1282,6 +1282,7 @@ function AppInner() {
   const [aptTab, setAptTab] = useState("home");
   const [agentInitial, setAgentInitial] = useState(null);
   const [agentResultData, setAgentResultData] = useState(null); // 자세히 보기용
+  const [chatResultData, setChatResultData] = useState(null); // 채팅 결과 화면용
   const [screenerInitial, setScreenerInitial] = useState(null);
   const photoTriggerRef = React.useRef(null);
   const [roomTab, setRoomTab] = useState("search");
@@ -1355,6 +1356,18 @@ function AppInner() {
 
   // 홈에서 탭으로 이동
   const goTo = (tab, params) => {
+    if (tab === "result") {
+      // 분석 결과 화면으로 이동
+      setChatResultData(params);
+      setAptTab("chat_result");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    if (tab === "home") {
+      setAptTab("home");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     if (tab === "ai") {
       setAgentInitial(params?.searchQuery
         ? { searchQuery: params.searchQuery, agentMemory: params.agentMemory }
@@ -1392,6 +1405,30 @@ function AppInner() {
       {/* ── Main ── */}
       <main style={{ maxWidth: 640, margin: "0 auto", padding: isHome ? "0" : "24px 16px" }}>
         {ptype === "apartment" && (<>
+          {aptTab === "chat_result" && chatResultData && (
+            <div style={{ minHeight:"100dvh", background:"#f5f3ff" }}>
+              {/* 상단바 */}
+              <div style={{ height:52, display:"flex", alignItems:"center", padding:"0 16px", borderBottom:"0.5px solid #e8e4f0", background:"#fff", position:"sticky", top:0, zIndex:10 }}>
+                <button onClick={() => { setAptTab("ai"); setChatResultData(null); }}
+                  style={{ background:"none", border:"none", cursor:"pointer", display:"flex", alignItems:"center", gap:6, color:"#5b52e0" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5b52e0" strokeWidth="2.2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  <span style={{ fontSize:13, fontWeight:500 }}>채팅으로</span>
+                </button>
+                <span style={{ flex:1, textAlign:"center", fontSize:14, fontWeight:700, color:"#1a1650" }}>분석 결과</span>
+                <div style={{ width:70 }}/>
+              </div>
+              <div style={{ padding:"0 0 80px" }}>
+                <FairValueResult
+                  r={chatResultData.engine}
+                  f={chatResultData.ff}
+                  onBack={() => { setAptTab("ai"); setChatResultData(null); }}
+                  onNewSearch={() => { setAptTab("ai"); setChatResultData(null); }}
+                  complexInfo={chatResultData.complex}
+                />
+              </div>
+            </div>
+          )}
+
           {aptTab === "ai" && (
             <AIChatView onNavigate={goTo} history={history}
               onSaveHistory={(h) => {

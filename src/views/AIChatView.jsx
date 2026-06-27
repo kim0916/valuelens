@@ -535,10 +535,9 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       res.saleCount  = sale.length;
       res.saleMedian = saleCalc?.value || null;
 
-      // 결과 카드
-      replaceLastAI({
-        type: "result",
-        data: {
+      // 결과 화면으로 이동 (채팅창 대신 별도 화면)
+      if (onNavigate) {
+        onNavigate("result", {
           complex: {
             name,
             sigungu,
@@ -549,8 +548,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           intent,
           engine: res,
           ff: builtFf,
-        },
-      });
+        });
+      }
 
       // 히스토리 저장
       if (onSaveHistory) {

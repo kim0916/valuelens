@@ -498,21 +498,7 @@ function handlePostComplex(state, areaHint) {
     }];
   }
 
-  // 면적 힌트로 자동 선택 시도 (Rule 1)
-  if (areaHint) {
-    const best = findBestAreaGroup(areaGroups, areaHint);
-    if (best && best.diff <= 8) {
-      const ns = updateArea(state, best.group.anchor);
-      return [ns, responseReadyToAnalyze(complex, best.group.anchor)];
-    }
-  }
-
-  // 면적 1개 → 자동 (Rule 1)
-  if (areaGroups.length === 1) {
-    const ns = updateArea(state, areaGroups[0].anchor);
-    return [ns, responseReadyToAnalyze(complex, areaGroups[0].anchor)];
-  }
-
-  // Rule 2: 복수 면적 → 선택 요청
+  // 항상 평형 목록 보여주기 (사용자가 직접 선택)
+  // 면적 힌트 있어도 자동 선택 안 함
   return [state, responseAreaList(complex, areaGroups, areaHint)];
 }
