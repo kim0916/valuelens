@@ -184,8 +184,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   const inputRef   = React.useRef(null);
   const fileRef    = React.useRef(null);
 
-  // placeholder 고정
-  const PHS = ["단지명이나 지역을 입력해보세요"];
+  // placeholder 없음
+  const PHS = [""];
   const phIdx = 0;
 
   // 스크롤 하단 유지
