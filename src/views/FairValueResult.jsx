@@ -159,6 +159,7 @@ function getStability(trust) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId }) {
   const [detailOpen, setDetailOpen] = React.useState(false);
+  const [whyOpen, setWhyOpen] = React.useState(false);
 
   // 체크리스트 localStorage 저장 (단지명+면적 기반 key)
   const checkKey = `vl_check_${(f.complexName||"").replace(/\s/g,"")}_${f.areaExclusive||0}`;
@@ -400,6 +401,38 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
               단일 숫자가 아닌 범위로 표시합니다.
               데이터 안정성에 따라 범위가 달라질 수 있습니다.
             </p>
+
+            {/* 이유 펼치기 버튼 */}
+            <button
+              onClick={() => setWhyOpen(v => !v)}
+              style={{ marginTop: 10, width: "100%", background: "none",
+                border: `1px solid ${CLR.border}`, borderRadius: 10,
+                padding: "8px 12px", cursor: "pointer", display: "flex",
+                alignItems: "center", justifyContent: "space-between",
+                fontSize: 12, fontWeight: 600, color: "#475569" }}>
+              이 범위가 적정가인 이유
+              <span style={{ fontSize: 11, color: CLR.muted }}>
+                {whyOpen ? "접기 ▲" : "이유 ▼"}
+              </span>
+            </button>
+
+            {/* 이유 내용 */}
+            {whyOpen && (
+              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                {whyCards.map((text, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8,
+                    background: CLR.bg, borderRadius: 8, padding: "9px 11px",
+                    border: `1px solid ${CLR.border}` }}>
+                    <span style={{ fontSize: 13, flexShrink: 0 }}>
+                      {text.includes("부족") || text.includes("적은") || text.includes("높은") ? "⚠️" : "✅"}
+                    </span>
+                    <p style={{ fontSize: 12, color: "#334155", margin: 0, lineHeight: 1.55 }}>
+                      {text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </Card>
       )}
@@ -460,29 +493,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
         )}
       </Card>
 
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          5) 왜 이렇게 판단했나요?
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <Card>
-        <SLabel>왜 이렇게 판단했나요?</SLabel>
-        <div style={{ padding: "0 16px 14px", display: "flex", flexDirection: "column", gap: 7 }}>
-          {whyCards.map((text, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 9,
-              background: CLR.bg, borderRadius: 10, padding: "10px 12px",
-              border: `1px solid ${CLR.border}` }}>
-              <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>
-                {text.startsWith("최근 동일") && !text.includes("부족") ? "✅"
-                  : text.includes("적정 범위") ? "✅"
-                  : text.includes("충분") ? "✅"
-                  : "⚠️"}
-              </span>
-              <p style={{ fontSize: 13, color: "#334155", margin: 0, lineHeight: 1.55 }}>
-                {text}
-              </p>
-            </div>
-          ))}
-        </div>
-      </Card>
+
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           6) 데이터 안정성 (신뢰도 표현 제거)
