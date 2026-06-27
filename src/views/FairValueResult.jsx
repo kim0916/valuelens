@@ -471,20 +471,20 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
           </p>
 
           {/* 거래 목록 펼치기 */}
-          {detailOpen && r.saleDeals && r.saleDeals.length > 0 && (
+          {detailOpen && f.saleDeals && f.saleDeals.length > 0 && (
             <div style={{ marginTop: 10, borderTop: `1px solid ${CLR.border}`, paddingTop: 10 }}>
               <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 6px", fontWeight: 600 }}>
                 최근 매매 거래 내역
               </p>
-              {r.saleDeals.slice(0, 10).map((d, i) => (
+              {[...f.saleDeals].sort((a,b) => (b.ym||"").localeCompare(a.ym||"")).slice(0, 15).map((d, i, arr) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between",
-                  alignItems: "center", padding: "5px 0",
-                  borderBottom: i < Math.min(r.saleDeals.length, 10) - 1 ? `1px solid ${CLR.border}` : "none" }}>
+                  alignItems: "center", padding: "6px 0",
+                  borderBottom: i < arr.length - 1 ? `1px solid ${CLR.border}` : "none" }}>
                   <span style={{ fontSize: 11, color: CLR.muted }}>
-                    {d.deal_year || d.dealYear}년 {d.deal_month || d.dealMonth}월 · {d.floor || d.floor}층
+                    {d.ym ? `${d.ym.slice(0,4)}년 ${d.ym.slice(4,6)}월` : "—"} · {d.floor || "?"}층
                   </span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>
-                    {won(Number(d.price || d.dealAmount) * (Number(d.price || d.dealAmount) < 10000 ? 10000 : 1))}
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#334155" }}>
+                    {won(Number(d.price) * 10000)}
                   </span>
                 </div>
               ))}

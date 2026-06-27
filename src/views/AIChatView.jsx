@@ -645,7 +645,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           },
           intent,
           engine: res,
-          ff: builtFf,
+          ff: { ...builtFf, saleDeals: sale, jeonseDeals: jeonse },
         });
       }
 
