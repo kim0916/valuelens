@@ -226,6 +226,16 @@ export function applyPolicy(intent, extracted, state, rawText = "") {
   // Rule 2: 단지만   → 실제 DB 평형 제시
   // Rule 4: 복수 단지 → 후보 선택
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ── 조건형 추천 검색 (NLU Phase 2) ──
+  if (intent === "recommend_complex") {
+    return decide(ACTIONS.RECOMMEND, 2, "NLU 조건형 추천", {
+      query:    extracted.complexQuery || extracted.query,
+      areaSqm:  extracted.areaSqm || null,
+      needSearch: true,
+      _nlu: extracted._nlu,
+    });
+  }
+
   if (intent === INTENTS.SEARCH_COMPLEX || intent === INTENTS.UNKNOWN) {
     const isNewComplex = hasComplex && !isSameComplexHint(rawText, state.currentComplex);
 
