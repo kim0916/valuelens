@@ -1387,15 +1387,13 @@ function AppInner() {
     <div className="min-h-screen" style={{ background: isHome ? BRAND_BG : "#f1f0ec" }}>
 
       {/* ── Nav (홈 아닐 때 서브탭만) ── */}
-      <nav style={{
+      {!isHome && <nav style={{
         position: "sticky", top: 0, zIndex: 10,
         background: `rgba(250,250,248,0.93)`, backdropFilter: "blur(12px)",
-        borderBottom: isHome ? "none" : `0.5px solid ${BRAND_BORDER}`,
+        borderBottom: `0.5px solid ${BRAND_BORDER}`,
         WebkitBackdropFilter: "blur(12px)",
-        display: isHome ? "none" : "block",
       }}>
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "0 16px" }}>
-          <div style={{ height: 0 }}>
 
           {/* Sub tabs — 홈이 아닐 때만 */}
           {!isHome && subTabs && (
@@ -1434,7 +1432,7 @@ function AppInner() {
             </div>
           )}
         </div>
-      </nav>
+      </nav>}
 
       {/* ── Main ── */}
       <main style={{ maxWidth: 640, margin: "0 auto", padding: isHome ? "0" : "24px 16px" }}>
