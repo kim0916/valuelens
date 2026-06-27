@@ -705,9 +705,16 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
         </div>
       )}
 
+      {/* ── 채팅창 안내 문구 ── */}
+      <div style={{ padding:"20px 16px 8px", textAlign:"center" }}>
+        <p style={{ fontSize:12, color:"#9994d8", margin:0, letterSpacing:"-0.01em" }}>
+          안녕하세요! 아래 채팅창에서 궁금한 아파트를 물어보세요 😊
+        </p>
+      </div>
+
       {/* ── 입력창 ── */}
-      <div style={{ padding:`${aiGreeting?12:0}px 16px 0`, marginTop: aiGreeting ? 0 : -1 }}>
-        <div style={{ background:"#fff", borderRadius: aiGreeting ? 16 : "0 0 20px 20px", padding:"14px 14px 10px", boxShadow:"0 4px 20px rgba(91,82,224,0.08)" }}>
+      <div style={{ padding:`${aiGreeting?12:0}px 16px 0`, marginTop: aiGreeting ? 0 : 0 }}>
+        <div style={{ background:"#fff", borderRadius:16, padding:"14px 14px 10px", boxShadow:"0 4px 20px rgba(91,82,224,0.08)" }}>
           <textarea value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={handleKeyDown}
             placeholder={placeholders[phIdx]} rows={2}
             style={{ width:"100%", border:"none", outline:"none", resize:"none", fontSize:14, color:"#1a1650", background:"transparent", fontFamily:"inherit", lineHeight:1.6, borderBottom:"1px solid #f0eefe", paddingBottom:10, marginBottom:8 }}
