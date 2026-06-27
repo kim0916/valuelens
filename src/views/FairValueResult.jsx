@@ -345,6 +345,31 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
             </p>
           )}
         </div>
+
+        {/* 근거 보기 펼쳐지는 내용 — 저평가 카드 바로 아래 */}
+        {detailOpen && (
+          <div style={{ borderTop: `1px solid ${verdict.brClr}`, background: "#fff" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr",
+              gap: 1, background: CLR.border }}>
+              {[
+                { l: "전세 시세 기준", v: r.jeonseFair ? `${won(r.jeonseFair)} (${r.jeonseUsed}건)` : "—" },
+                { l: "매매 시세 기준", v: r.saleFair   ? `${won(r.saleFair)} (${r.saleUsed}건)` : "—" },
+                { l: "분석 방식",
+                  v: r.isPremium ? "프리미엄 반영"
+                    : r.engineMode === "blend"  ? "매매·전세 혼합"
+                    : r.engineMode === "sale"   ? "매매 거래 기준"
+                    : r.engineMode === "jeonse" ? "전세 거래 기준"
+                    : "—" },
+                { l: "적정가 대비", v: r.gapRatio != null ? `${r.gapRatio < 0 ? "▼" : "▲"} ${Math.abs(r.gapRatio * 100).toFixed(1)}%` : "—" },
+              ].map((row, i) => (
+                <div key={i} style={{ background: "#fff", padding: "12px 14px" }}>
+                  <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 3px" }}>{row.l}</p>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#334155", margin: 0 }}>{row.v}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -602,34 +627,9 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <FairSaveBtn r={r} f={f} onBack={onBack} uid={currentUserId} />
 
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          상세 분석 접기/펼치기
-          (엔진 상세값 — 일반 사용자용 아님)
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-
-
-      {detailOpen && (
-        <Card>
-          {/* 핵심 지표 4개 */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr",
-            gap: 1, background: CLR.border }}>
-            {[
-              { l: "전세 시세 기준", v: r.jeonseFair ? `${won(r.jeonseFair)} (${r.jeonseUsed}건)` : "—" },
-              { l: "매매 시세 기준", v: r.saleFair   ? `${won(r.saleFair)} (${r.saleUsed}건)` : "—" },
-              { l: "분석 방식",
-                v: r.isPremium ? "프리미엄 반영"
-                  : r.engineMode === "blend"  ? "매매·전세 혼합"
-                  : r.engineMode === "sale"   ? "매매 거래 기준"
-                  : r.engineMode === "jeonse" ? "전세 거래 기준"
-                  : "—" },
-              { l: "적정가 대비",  v: r.gapRatio != null ? `${r.gapRatio < 0 ? "▼" : "▲"} ${Math.abs(r.gapRatio * 100).toFixed(1)}%` : "—" },
-            ].map((row, i) => (
-              <div key={i} style={{ background: "#fff", padding: "12px 14px" }}>
-                <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 3px" }}>{row.l}</p>
-                <p style={{ fontSize: 13, fontWeight: 600, color: "#334155", margin: 0 }}>{row.v}</p>
-              </div>
-            ))}
-          </div>
+      {/* 기존 상세분석 블록 — 저평가 카드 안으로 이동됨 */}
+      {false && (
+        <div>
 
           {/* 적정가 범위 3단 */}
           {!provisional && fb && (
