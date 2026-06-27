@@ -288,19 +288,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
     <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif",
       padding: "0 0 40px" }}>
 
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          1) AI 한 줄 결론
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <Card>
-        <div style={{ padding: "14px 16px", background: CLR.bg,
-          display: "flex", alignItems: "flex-start", gap: 10 }}>
-          <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>💬</span>
-          <p style={{ fontSize: 13, color: "#334155", margin: 0,
-            lineHeight: 1.65, letterSpacing: "-0.008em" }}>
-            {aiSummary}
-          </p>
-        </div>
-      </Card>
+
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           2) 현재 가격 판단 (메인, 가장 크게)
@@ -446,18 +434,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
         </Card>
       )}
 
-      {/* 전세가율 — 단독 카드 */}
-      {r.actualRatio && (
-        <Card>
-          <div style={{ padding: "12px 16px", display: "flex",
-            alignItems: "center", justifyContent: "space-between" }}>
-            <p style={{ fontSize: 13, color: CLR.muted, margin: 0 }}>전세가율</p>
-            <p style={{ fontSize: 16, fontWeight: 700, color: "#334155", margin: 0 }}>
-              {Math.round(r.actualRatio * 100)}%
-            </p>
-          </div>
-        </Card>
-      )}
+
 
 
 
@@ -479,14 +456,39 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
                 background: stability.clr, width: stability.barW,
                 transition: "width 0.6s ease" }} />
             </div>
-            <span style={{ fontSize: 11, color: CLR.muted, flexShrink: 0 }}>
-              거래 {(r.saleUsed||0) + (r.jeonseUsed||0)}건
-            </span>
+            <button
+              onClick={() => setDetailOpen(v => !v)}
+              style={{ fontSize: 11, color: CLR.blue, flexShrink: 0,
+                background: CLR.blueL, border: `1px solid ${CLR.blueB}`,
+                borderRadius: 12, padding: "2px 8px", cursor: "pointer", fontWeight: 600 }}>
+              거래 {(r.saleUsed||0) + (r.jeonseUsed||0)}건 보기
+            </button>
           </div>
           {/* 이유 — 엔진의 gradeDesc 그대로 (전문용어 없는 문구) */}
-          <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.65 }}>
+          <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 0", lineHeight: 1.65 }}>
             {stability.desc}
           </p>
+
+          {/* 거래 목록 펼치기 */}
+          {detailOpen && r.saleDeals && r.saleDeals.length > 0 && (
+            <div style={{ marginTop: 10, borderTop: `1px solid ${CLR.border}`, paddingTop: 10 }}>
+              <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 6px", fontWeight: 600 }}>
+                최근 매매 거래 내역
+              </p>
+              {r.saleDeals.slice(0, 10).map((d, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between",
+                  alignItems: "center", padding: "5px 0",
+                  borderBottom: i < Math.min(r.saleDeals.length, 10) - 1 ? `1px solid ${CLR.border}` : "none" }}>
+                  <span style={{ fontSize: 11, color: CLR.muted }}>
+                    {d.deal_year || d.dealYear}년 {d.deal_month || d.dealMonth}월 · {d.floor || d.floor}층
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>
+                    {won(Number(d.price || d.dealAmount) * (Number(d.price || d.dealAmount) < 10000 ? 10000 : 1))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </Card>
 
@@ -514,95 +516,8 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
         </div>
       </Card>
 
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          8) 계약 전 체크리스트
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <Card style={{ border: `1px solid ${CLR.blueB}` }}>
-        {/* 헤더 */}
-        <div style={{ padding: "14px 16px 12px", borderBottom: `1px solid ${CLR.border}` }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: "#1e40af",
-            margin: "0 0 3px" }}>
-            📋 계약 전 확인 체크리스트
-          </p>
-          <p style={{ fontSize: 11, color: CLR.muted, margin: 0 }}>
-            {checkedCount}/{CHECKLIST.length} 완료 · 계약 전 반드시 확인해야 할 항목
-          </p>
-        </div>
 
-        {/* 항목들 */}
-        {CHECKLIST.map((item, idx) => {
-          const done = !!checkState[item.id];
-          return (
-            <div key={item.id} style={{
-              borderBottom: idx < CHECKLIST.length - 1 ? `1px solid ${CLR.border}` : "none",
-              background: done ? "#f0fdf4" : "#fff",
-              transition: "background 0.2s",
-            }}>
-              <div style={{ display: "flex", alignItems: "center",
-                gap: 12, padding: "12px 16px" }}>
-                {/* 체크박스 — 탭 시 체크만 (요구사항: 체크 눌러도 외부 이동 안 함) */}
-                <button
-                  onClick={() => setCheckState(p => ({ ...p, [item.id]: !p[item.id] }))}
-                  style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                    border: done ? "none" : `2px solid ${CLR.border}`,
-                    background: done ? CLR.green : "transparent",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "pointer", transition: "all 0.2s", padding: 0 }}>
-                  {done && (
-                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                      <path d="M2 6.5l3 3 6-6" stroke="#fff"
-                        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </button>
 
-                {/* 텍스트 */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: done ? 400 : 600,
-                    color: done ? "#64748b" : "#1e293b", margin: 0,
-                    textDecoration: done ? "line-through" : "none" }}>
-                    {item.text}
-                  </p>
-                  <p style={{ fontSize: 11, color: CLR.muted, margin: "2px 0 0" }}>
-                    {item.sub}
-                  </p>
-                </div>
-
-                {/* "보기" 버튼 — 외부 이동은 이 버튼으로만 (요구사항 8번) */}
-                {item.href && (
-                  <button
-                    onClick={() => window.open(item.href, "_blank", "noopener noreferrer")}
-                    style={{ flexShrink: 0, fontSize: 11, fontWeight: 600,
-                      color: CLR.blue, background: CLR.blueL,
-                      border: `1px solid ${CLR.blueB}`, borderRadius: 6,
-                      padding: "4px 10px", cursor: "pointer",
-                      whiteSpace: "nowrap" }}>
-                    {item.btnLabel} ↗
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-
-        {/* 전체 완료 메시지 */}
-        {allChecked && (
-          <div style={{ padding: "14px 16px", background: CLR.greenL,
-            borderTop: `1px solid ${CLR.greenB}`, textAlign: "center" }}>
-            <p style={{ fontSize: 14, fontWeight: 700, color: CLR.green, margin: "0 0 3px" }}>
-              ✅ 기본 확인이 모두 완료됐어요!
-            </p>
-            <p style={{ fontSize: 11, color: "#4ade80", margin: 0 }}>
-              안전한 계약을 위한 기본 확인이 완료되었습니다.
-            </p>
-          </div>
-        )}
-      </Card>
-
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          저장 버튼
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <FairSaveBtn r={r} f={f} onBack={onBack} uid={currentUserId} />
 
 
 

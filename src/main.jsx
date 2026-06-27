@@ -1277,6 +1277,33 @@ function ComingSoon({ title, desc }) {
   );
 }
 
+// ── 분석결과 상단 저장 버튼 ──
+function SaveHeaderBtn({ data }) {
+  const [saved, setSaved] = React.useState(false);
+  if (!data) return <div style={{ width: 50 }}/>;
+  const r = data.engine; const f = data.ff;
+  const handleSave = () => {
+    saveAnalysis({
+      id: `fair_${f.complexName}_${f.areaExclusive}_${Date.now()}`,
+      type: "fair", complexName: f.complexName,
+      area: f.areaExclusive ? `전용 ${f.areaExclusive}㎡` : "",
+      region: f.region, savedAt: new Date().toISOString(),
+      currentPrice: Number(f.currentPrice) || 0,
+      aiFairPrice: r.fairPrice || 0,
+      summary: `AI 적정가 ${r.fairPrice ? Math.round(r.fairPrice/10000) + "억" : ""}`,
+    });
+    setSaved(true);
+  };
+  return (
+    <button onClick={handleSave} disabled={saved}
+      style={{ fontSize: 12, fontWeight: 600, padding: "5px 12px",
+        borderRadius: 20, border: "none", cursor: saved ? "default" : "pointer",
+        background: saved ? "#e2e8f0" : "#5b52e0", color: saved ? "#94a3b8" : "#fff" }}>
+      {saved ? "✓ 저장됨" : "저장"}
+    </button>
+  );
+}
+
 function AppInner() {
   const [ptype, setPtype] = useState("apartment");
   const [aptTab, setAptTab] = useState("home");
@@ -1415,7 +1442,7 @@ function AppInner() {
                   <span style={{ fontSize:13, fontWeight:500 }}>이전으로</span>
                 </button>
                 <span style={{ flex:1, textAlign:"center", fontSize:14, fontWeight:700, color:"#1a1650" }}>분석 결과</span>
-                <div style={{ width:70 }}/>
+                <SaveHeaderBtn data={chatResultData} />
               </div>
               <div style={{ padding:"0 0 80px" }}>
                 <FairValueResult
