@@ -1,94 +1,63 @@
 /**
- * ValueLens Conversation Engine — responseGenerator.js
+ * ValueLens Conversation Engine — responseGenerator.js v2
  *
- * 상태와 결과에 따라 자연스러운 응답 문구를 생성한다.
- * "검색 결과입니다" 가 아니라
- * 공인중개사가 실제로 말할 법한 문장을 목표로 한다.
+ * UX Policy 8개 규칙 준수 응답 생성기.
  *
- * ★ 이 파일은 응답 생성만 담당한다. 계산 로직 없음.
+ * 원칙:
+ *   ① 이미 아는 정보 다시 묻지 않음
+ *   ② 한 번에 하나만 질문
+ *   ③ DB 실제 정보 사용
+ *   ④ 실패 시 이유 설명
+ *   ⑤ 복수 후보 자동선택 금지
+ *   ⑥ 사람 언어 이해
+ *   ⑦ 짧고 명확
+ *   ⑧ 같은 질문 반복 금지
+ *
+ * ★ 계산 로직 없음.
  */
 
-import { areaGroupLabel, findBestAreaGroup } from './candidateSelector.js';
 import { sqmToPyeong } from './intentClassifier.js';
+import { areaGroupLabel, findBestAreaGroup } from './candidateSelector.js';
 
-// ─────────────────────────────────────────────
-// 응답 타입 정의
-// ─────────────────────────────────────────────
 export const RESPONSE_TYPES = {
-  // 단지 관련
-  CANDIDATES_LIST:     "candidates_list",    // 후보 단지 목록 제시
-  COMPLEX_CONFIRMED:   "complex_confirmed",  // 단지 확정
-  NOT_FOUND:           "not_found",          // 단지 못 찾음
-
-  // 면적 관련
-  AREA_LIST:           "area_list",          // 면적 목록 제시
-  AREA_CONFIRMED:      "area_confirmed",     // 면적 확정
-  AREA_NOT_FOUND:      "area_not_found",     // 해당 면적 없음
-  READY_TO_ANALYZE:    "ready_to_analyze",   // 분석 준비 완료
-
-  // 분석 결과
-  ANALYSIS_RESULT:     "analysis_result",    // 적정가 분석 결과
-  JEONSE_RESULT:       "jeonse_result",      // 전세 정보
-
-  // 컨텍스트
-  CONTEXT_RESET:       "context_reset",      // 초기화
-  REGION_CHANGED:      "region_changed",     // 지역 변경
-  NEED_MORE_INFO:      "need_more_info",     // 정보 부족
-
-  // 에러
-  ERROR:               "error",
+  CANDIDATES_LIST:   "candidates_list",
+  AREA_LIST:         "area_list",
+  AREA_CONFIRMED:    "area_confirmed",
+  READY_TO_ANALYZE:  "ready_to_analyze",
+  NOT_FOUND:         "not_found",
+  AREA_NOT_FOUND:    "area_not_found",
+  REGION_CHANGED:    "region_changed",
+  CONTEXT_RESET:     "context_reset",
+  NEED_MORE_INFO:    "need_more_info",
+  JEONSE_RESULT:     "jeonse_result",
+  ERROR:             "error",
 };
 
 // ─────────────────────────────────────────────
-// 핵심 응답 생성 함수들
+// Rule 3: DB 실제 평형 목록 제시
+// "몇 평인가요?" 금지 → "이 단지에는 N평, M평이 있습니다" 사용
 // ─────────────────────────────────────────────
+export function responseAreaList(complex, areaGroups, areaHint = null, isRepeat = false) {
+  if (!areaGroups || areaGroups.length === 0) {
+    return responseError("평형 데이터를 가져오지 못했어요.");
+  }
 
-/**
- * 후보 단지 목록 응답
- */
-export function responseCandidateList(candidates, query, reason = "") {
-  const count = candidates.length;
+  const name  = complex.complex_name;
+  const list  = areaGroups.map((g, i) => `${i + 1}. **${areaGroupLabel(g)}**`).join("\n");
 
+  // Rule 8: 반복 질문 시 힌트 포함
   let intro;
-  if (reason === "no_area_data") {
-    intro = `**${candidates[0]?.complex_name}** 단지를 찾았는데, 현재 면적 데이터가 없어요.`;
-  } else {
-    intro = count === 1
-      ? `**${candidates[0]?.complex_name}** 단지를 찾았어요.`
-      : `"${query}"로 ${count}개 단지가 검색됐어요. 어떤 단지를 보실 건가요?`;
-  }
-
-  const list = candidates.map((c, i) => {
-    const sigungu = c.sigungu_short || extractGuDong(c.sigungu);
-    const built   = c.build_year ? `${c.build_year}년` : "";
-    const cnt     = c.sale_cnt > 0 ? `거래 ${c.sale_cnt}건` : "거래 적음";
-    return `${i + 1}. **${c.complex_name}** — ${sigungu} ${built} (${cnt})`;
-  }).join("\n");
-
-  return {
-    type:       RESPONSE_TYPES.CANDIDATES_LIST,
-    text:       `${intro}\n\n${list}`,
-    candidates,
-    ui:         "candidate_list",
-  };
-}
-
-/**
- * 면적 목록 응답
- * 실제 DB에 있는 면적만 보여준다.
- */
-export function responseAreaList(complex, areaGroups, areaHint = null) {
-  const name = complex.complex_name;
-
-  let intro = `**${name}**에는 아래 평형이 있어요. 분석할 평형을 선택해 주세요.`;
-  if (areaHint) {
+  if (isRepeat && areaHint) {
     const best = findBestAreaGroup(areaGroups, areaHint);
-    if (best && best.diff > 8) {
-      intro = `**${name}**에 ${areaHint}㎡ 평형은 없어요. 아래 평형 중 선택해 주세요.`;
+    if (best && best.diff <= 15) {
+      intro = `혹시 **${areaGroupLabel(best.group)}** 말씀이신가요?\n아니면 아래에서 선택해 주세요.`;
+    } else {
+      intro = `**${name}**의 평형을 선택해 주세요.`;
     }
+  } else {
+    // Rule 3: DB 실제 정보로 질문 (금지: "몇 평인가요?")
+    intro = `**${name}**에는 아래 평형이 있어요.`;
   }
-
-  const list = areaGroups.map((g, i) => `${i + 1}. ${areaGroupLabel(g)}`).join("\n");
 
   return {
     type:       RESPONSE_TYPES.AREA_LIST,
@@ -99,63 +68,123 @@ export function responseAreaList(complex, areaGroups, areaHint = null) {
   };
 }
 
-/**
- * 단지+면적 확정 응답 (분석 준비 완료)
- */
+// ─────────────────────────────────────────────
+// Rule 4: 후보 목록 — 이유 포함
+// ─────────────────────────────────────────────
+export function responseCandidateList(candidates, query, reason = "") {
+  const count = candidates.length;
+
+  // 이유별 안내 문구 (Rule 4: 왜 여러 개인지 설명)
+  const reasonText = {
+    multiple_candidates: `"${query}"와 비슷한 단지가 ${count}개 있어요.`,
+    auto_top:            null,  // 자동선택이므로 안내 불필요
+    next:                `다른 단지를 보여드릴게요.`,
+    deny_remaining:      `남은 후보예요.`,
+    no_area_data:        null,
+  }[reason] || `"${query}"로 ${count}개 단지가 검색됐어요.`;
+
+  if (!reasonText) {
+    // auto_top: 자동선택, 응답 불필요 (analyze로 직행)
+    return null;
+  }
+
+  const list = candidates.map((c, i) => {
+    const sigungu = c.sigungu_short || extractGuDong(c.sigungu);
+    const built   = c.build_year ? `${c.build_year}년` : "";
+    const cnt     = (c.sale_cnt || 0) > 0 ? `거래 ${c.sale_cnt}건` : "데이터 확인 중";
+    return `${i + 1}. **${c.complex_name}** ${sigungu} ${built} (${cnt})`.trim();
+  }).join("\n");
+
+  // Rule 7: 짧게 — 선택 안내 1줄만
+  return {
+    type:       RESPONSE_TYPES.CANDIDATES_LIST,
+    text:       `${reasonText}\n\n${list}\n\n번호를 입력해 주세요.`,
+    candidates,
+    ui:         "candidate_list",
+  };
+}
+
+// ─────────────────────────────────────────────
+// Rule 1: 단지+평형 확보 → 즉시 분석 (질문 없음)
+// ─────────────────────────────────────────────
 export function responseReadyToAnalyze(complex, areaSqm) {
   const name   = complex.complex_name;
   const pyeong = sqmToPyeong(areaSqm);
-  const sigungu = complex.sigungu_short || extractGuDong(complex.sigungu);
 
   return {
-    type:       RESPONSE_TYPES.READY_TO_ANALYZE,
-    text:       `**${name}** ${pyeong}평 (${areaSqm}㎡) 분석할게요.\n잠깐만요...`,
+    type:      RESPONSE_TYPES.READY_TO_ANALYZE,
+    text:      `**${name}** ${pyeong}평 분석할게요.`,  // Rule 7: 짧게
     complex,
     areaSqm,
-    ui:         "analyzing",
+    ui:        "analyzing",
   };
 }
 
-/**
- * 단지를 못 찾았을 때
- */
+// ─────────────────────────────────────────────
+// Rule 4: 실패 시 반드시 이유 설명
+// "찾을 수 없습니다" 단독 금지
+// ─────────────────────────────────────────────
 export function responseNotFound(query, reason = "not_found") {
-  const messages = {
+  // Rule 4: 이유 코드별 명확한 설명
+  const explanations = {
     not_found: [
-      `"${query}"와 일치하는 단지를 찾지 못했어요.`,
-      `더 구체적으로 입력해 주세요.`,
-      `예: 지역명 + 단지명 (잠실 엘스, 수성구 래미안 등)`,
+      `**"${query}"** 단지를 찾지 못했어요.`,
+      ``,
+      `이런 이유일 수 있어요:`,
+      `• 단지명이 DB 등록명과 다를 수 있어요 (예: 헤링턴→해링턴)`,
+      `• 지역명을 함께 입력하면 정확도가 높아져요`,
+      `  예: 잠실 엘스, 수성구 래미안, 송도 더샵`,
     ].join("\n"),
+
     db_blank: [
-      `"${query}" 단지는 확인됐는데, 현재 거래 데이터가 없어요.`,
-      `데이터 준비 중인 단지일 수 있어요.`,
+      `**"${query}"** 단지는 찾았는데, 거래 데이터가 없어요.`,
+      ``,
+      `최근 거래가 없거나 데이터 준비 중인 단지예요.`,
+      `다른 단지를 검색해 볼까요?`,
     ].join("\n"),
+
     new_construction: [
-      `"${query}"는 신축 단지로 아직 실거래 데이터가 준비되지 않았어요.`,
-      `입주 후 거래가 쌓이면 분석이 가능해져요.`,
+      `**"${query}"**는 신축 단지예요.`,
+      ``,
+      `입주 후 실거래 데이터가 쌓이면 분석할 수 있어요.`,
+    ].join("\n"),
+
+    no_recent_deals: [
+      `**"${query}"** 단지는 있는데, 최근 거래가 없어요.`,
+      ``,
+      `거래가 드문 단지거나 데이터가 준비 중이에요.`,
     ].join("\n"),
   };
 
   return {
-    type:   RESPONSE_TYPES.NOT_FOUND,
-    text:   messages[reason] || messages.not_found,
+    type:  RESPONSE_TYPES.NOT_FOUND,
+    text:  explanations[reason] || explanations.not_found,
     query,
-    ui:     "message",
+    ui:    "message",
   };
 }
 
-/**
- * 해당 평형이 없을 때
- */
+// ─────────────────────────────────────────────
+// Rule 3+4: 해당 평형 없을 때 — DB 실제 평형 안내
+// ─────────────────────────────────────────────
 export function responseAreaNotFound(complex, requestedSqm, areaGroups) {
   const name   = complex.complex_name;
   const pyeong = sqmToPyeong(requestedSqm);
 
-  let text = `**${name}**에는 ${pyeong}평(${requestedSqm}㎡) 거래 데이터가 없어요.`;
+  // Rule 4: 이유 설명
+  let text = `**${name}**에 ${pyeong}평(${requestedSqm}㎡) 데이터가 없어요.`;
+
+  // Rule 3: DB 실제 있는 평형 제시
   if (areaGroups.length > 0) {
-    const list = areaGroups.map(g => areaGroupLabel(g)).join(", ");
-    text += `\n\n현재 데이터가 있는 평형: ${list}`;
-    text += `\n\n다른 평형으로 보실 건가요?`;
+    const available = areaGroups.map(g => areaGroupLabel(g)).join(", ");
+    text += `\n\n있는 평형: ${available}`;
+
+    // Rule 7: 짧게 — 다음 행동 명확하게
+    if (areaGroups.length === 1) {
+      text += `\n\n${areaGroupLabel(areaGroups[0])}으로 분석할까요?`;
+    } else {
+      text += `\n\n어떤 평형을 볼까요?`;
+    }
   }
 
   return {
@@ -163,130 +192,109 @@ export function responseAreaNotFound(complex, requestedSqm, areaGroups) {
     text,
     complex,
     areaGroups,
-    ui:         "area_list",
+    ui:         areaGroups.length > 0 ? "area_list" : "message",
   };
 }
 
-/**
- * 지역 변경 응답
- */
+// ─────────────────────────────────────────────
+// Rule 6+7: 지역 변경 — 자연스럽고 짧게
+// ─────────────────────────────────────────────
 export function responseRegionChanged(newRegion) {
   return {
     type: RESPONSE_TYPES.REGION_CHANGED,
-    text: `**${newRegion}** 지역으로 변경할게요. 어떤 단지를 보실 건가요?`,
+    // Rule 7: 짧게, 다음 행동 명확
+    text: `**${newRegion}**으로 바꿨어요. 어떤 단지를 보실 건가요?`,
     ui:   "message",
   };
 }
 
-/**
- * 컨텍스트 초기화
- */
+// ─────────────────────────────────────────────
+// Rule 6: 초기화 — 자연스럽게
+// ─────────────────────────────────────────────
 export function responseReset() {
   return {
     type: RESPONSE_TYPES.CONTEXT_RESET,
-    text: `처음부터 다시 시작할게요. 어떤 아파트를 알아보시나요?`,
+    text: `다시 시작할게요. 어떤 아파트를 알아보시나요?`,
     ui:   "message",
   };
 }
 
-/**
- * 전세 정보 요청 (단지/면적 미확정 시)
- */
-export function responseNeedComplex(purpose = "jeonse") {
-  const purposeText = {
+// ─────────────────────────────────────────────
+// Rule 1: 단지 질문 — 이미 있으면 호출 안 됨
+// ─────────────────────────────────────────────
+export function responseNeedComplex(purpose = "analysis", isRepeat = false) {
+  const purposeHint = {
     jeonse:   "전세 정보",
     recent:   "최근 거래",
-    school:   "학군 정보",
-    buy:      "매수 의견",
+    buy:      "매수 분석",
     analysis: "분석",
   }[purpose] || "분석";
 
+  // Rule 8: 반복 시 예시 포함
+  const example = isRepeat
+    ? `\n예: 잠실 엘스, 반포자이 84, 헬리오시티 국평`
+    : `\n단지명을 입력해 주세요.`;
+
   return {
     type: RESPONSE_TYPES.NEED_MORE_INFO,
-    text: `${purposeText}를 보려면 먼저 단지와 평형을 알려주세요.\n예: 잠실 엘스 84, 반포자이 34평`,
+    text: `${purposeHint}를 위해 단지를 알려주세요.${example}`,
     ui:   "message",
   };
 }
 
-/**
- * 전세 정보 응답
- */
-export function responseJeonseInfo(complex, areaSqm, jeonseData) {
-  const name   = complex.complex_name;
-  const pyeong = sqmToPyeong(areaSqm);
-
-  if (!jeonseData || !jeonseData.price) {
-    return {
-      type: RESPONSE_TYPES.JEONSE_RESULT,
-      text: `**${name}** ${pyeong}평 전세 데이터가 충분하지 않아요.`,
-      ui:   "message",
-    };
-  }
-
-  const price = formatWon(jeonseData.price);
-  const ratio = jeonseData.ratio ? `전세가율 ${(jeonseData.ratio * 100).toFixed(0)}%` : "";
-
-  return {
-    type: RESPONSE_TYPES.JEONSE_RESULT,
-    text: [
-      `**${name}** ${pyeong}평 전세`,
-      ``,
-      `전세 시세: **${price}**`,
-      ratio,
-      `(최근 ${jeonseData.usedCount || ""}건 기준)`,
-    ].filter(Boolean).join("\n"),
-    ui: "jeonse_result",
-  };
-}
-
-/**
- * 인사 응답
- */
+// ─────────────────────────────────────────────
+// 인사 — 짧고 안내 명확
+// ─────────────────────────────────────────────
 export function responseGreeting() {
   return {
     type: RESPONSE_TYPES.NEED_MORE_INFO,
-    text: `안녕하세요! 어떤 아파트를 알아보시나요?\n\n단지명과 평형을 말씀해 주세요.\n예: 잠실 엘스 84, 반포자이 34평, 헬리오시티 국평`,
+    // Rule 7: 짧게 + 예시로 다음 행동 명확
+    text: `안녕하세요! 어떤 아파트를 알아보시나요?\n\n예: 잠실 엘스 84, 반포자이 34평, 헬리오 국평`,
     ui:   "message",
   };
 }
 
-/**
- * Unknown intent 응답
- */
+// ─────────────────────────────────────────────
+// Unknown — Context 기반 맞춤 안내
+// ─────────────────────────────────────────────
 export function responseUnknown(state) {
-  const hasComplex = !!state.currentComplex;
-  const hasArea    = !!state.currentArea;
+  const hasComplex = !!state?.currentComplex;
+  const hasArea    = !!state?.currentArea;
 
+  // Rule 1: 이미 있는 정보 다시 묻지 않음
   if (hasComplex && !hasArea) {
+    // 단지 있음 → 평형만 물음 (단지 다시 묻지 않음)
     return {
       type: RESPONSE_TYPES.NEED_MORE_INFO,
-      text: `평형을 알려주세요. 숫자로 입력하시면 돼요.\n예: 84, 34평, 국평`,
+      text: `평형을 알려주세요.`,
       ui:   "message",
     };
   }
 
   if (hasComplex && hasArea) {
+    // 둘 다 있음 → 목적만 물음
     return {
       type: RESPONSE_TYPES.NEED_MORE_INFO,
-      text: `무엇이 궁금하신가요?\n• 적정가 분석\n• 전세 정보\n• 최근 거래\n• 매수 의견`,
+      // Rule 7: 메뉴 형식으로 짧게
+      text: `무엇이 궁금하세요?\n• 적정가\n• 전세\n• 최근 거래\n• 매수 의견`,
       ui:   "menu",
     };
   }
 
   return {
     type: RESPONSE_TYPES.NEED_MORE_INFO,
-    text: `어떤 아파트를 알아보시나요?\n단지명을 말씀해 주세요.`,
+    text: `어떤 아파트를 알아보시나요?`,
     ui:   "message",
   };
 }
 
-/**
- * 에러 응답
- */
+// ─────────────────────────────────────────────
+// 에러 — 짧고 다음 행동 명확
+// ─────────────────────────────────────────────
 export function responseError(detail = "") {
   return {
     type: RESPONSE_TYPES.ERROR,
-    text: `잠깐 문제가 생겼어요. 다시 말씀해 주시겠어요?${detail ? `\n(${detail})` : ""}`,
+    text: detail || `잠깐 문제가 생겼어요. 다시 말씀해 주세요.`,
     ui:   "message",
   };
 }
@@ -297,12 +305,5 @@ export function responseError(detail = "") {
 function extractGuDong(sigungu) {
   if (!sigungu) return "";
   const parts = sigungu.split(" ");
-  return parts.slice(1).join(" ") || parts[0];
-}
-
-function formatWon(man) {
-  if (!man) return "-";
-  const n = Number(man);
-  if (n >= 10000) return `${(n / 10000).toFixed(1)}억`;
-  return `${n.toLocaleString()}만원`;
+  return parts.slice(1, 3).join(" ") || parts[0];
 }

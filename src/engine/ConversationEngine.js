@@ -64,6 +64,8 @@ import {
 } from './responseGenerator.js';
 
 import { searchComplexFromSupabase } from '../search/supabase.js';
+import { applyUXPolicy, auditResponseUX, calcConversationMetrics } from './uxPolicy.js';
+export { calcConversationMetrics };
 
 // ─────────────────────────────────────────────
 // 엔진 생성
@@ -89,22 +91,35 @@ async function process(input, state = createConversationState()) {
   const decision = applyPolicy(intent, extracted, s, text);
   logPolicy(decision, s);
 
+  // 3.5. UX Policy 적용 (Phase 1.8)
+  // 8개 UX 규칙 검사 → 위반 시 action 또는 응답 교정
+  const uxResult = applyUXPolicy(decision, s, text);
+  const finalDecision = uxResult.decision;
+  if (uxResult.hasViolation) {
+    console.log("[UX Policy] 위반:", uxResult.violations, "→ 교정:", uxResult.overrideApplied);
+  }
+
   // 4. Action 실행
   let response;
-  [s, response] = await execute(decision, intent, extracted, text, s);
+  [s, response] = await execute(finalDecision, intent, extracted, text, s);
 
   // 5. AI 응답 히스토리 추가
   s = addHistory(s, "ai", response.text, intent);
   s = { ...s, lastIntent: intent };
 
   // 6. 디버그 메타 첨부 (개발/QA용)
+  // UX 사후 감사
+  const uxAudit = auditResponseUX(response, s, s.history.filter(h => h.role === "ai").map(h => ({ text: h.text })));
+
   response._debug = {
     intent,
     confidence,
-    action:  decision.action,
-    rule:    decision.rule,
-    reason:  decision.reason,
-    state:   summarizeState(s),
+    action:     finalDecision.action,
+    rule:       finalDecision.rule,
+    reason:     finalDecision.reason,
+    uxViolations: uxResult.violations,
+    uxAudit:    uxAudit.violations,
+    state:      summarizeState(s),
   };
 
   return { state: s, response };
