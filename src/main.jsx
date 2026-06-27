@@ -157,16 +157,7 @@ function AuthGate({ children }) {
     </div>
   );
 
-  return (
-    <div>
-      <div style={{ position:"fixed", top:"8px", right:"12px", zIndex:9999 }}>
-        <button onClick={handleLogout} style={{ fontSize:"12px", color:"#ff4444", background:"#ff444420", border:"none", padding:"4px 12px", borderRadius:"20px", cursor:"pointer" }}>
-          로그아웃
-        </button>
-      </div>
-      {children}
-    </div>
-  );
+  return <>{children}</>;
 }
 
 
@@ -684,19 +675,19 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
             {/* 로그인/로그아웃 버튼 */}
             {currentUserEmail ? (
               <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }}
-                style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"5px 11px", display:"flex", alignItems:"center", gap:5, cursor:"pointer" }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9994d8" strokeWidth="2" strokeLinecap="round">
+                style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:8, padding:"6px 12px", display:"flex", alignItems:"center", gap:5, cursor:"pointer" }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#c4bfff" strokeWidth="2" strokeLinecap="round">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
                 </svg>
-                <span style={{ fontSize:10, color:"#9994d8" }}>로그아웃</span>
+                <span style={{ fontSize:11, color:"#c4bfff", fontWeight:500 }}>로그아웃</span>
               </button>
             ) : (
               <button onClick={() => onNavigate && onNavigate("login")}
-                style={{ background:"rgba(91,82,224,0.2)", border:"1px solid rgba(123,111,255,0.3)", borderRadius:8, padding:"5px 11px", display:"flex", alignItems:"center", gap:5, cursor:"pointer" }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7b6fff" strokeWidth="2" strokeLinecap="round">
+                style={{ background:"rgba(123,111,255,0.25)", border:"1px solid rgba(123,111,255,0.4)", borderRadius:8, padding:"6px 12px", display:"flex", alignItems:"center", gap:5, cursor:"pointer" }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a89fff" strokeWidth="2" strokeLinecap="round">
                   <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
                 </svg>
-                <span style={{ fontSize:10, color:"#7b6fff" }}>로그인</span>
+                <span style={{ fontSize:11, color:"#a89fff", fontWeight:500 }}>로그인</span>
               </button>
             )}
           </div>
@@ -730,8 +721,8 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
 
       {/* ── 채팅창 안내 문구 + 최근 분석 ── */}
       <div style={{ padding:"14px 16px 8px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-          {/* 상징마크 (나중에 이미지로 교체 시 이 div만 수정) */}
+        {/* 안내 문구 센터 */}
+        <div style={{ display:"flex", alignItems:"center", gap:7, flex:1, justifyContent:"center" }}>
           <div id="brand-mark-sub" style={{ width:20, height:20, borderRadius:6, background:"linear-gradient(135deg,#5b52e0,#7b6fff)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
@@ -742,12 +733,13 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
             찾아입니다. 궁금한 아파트를 아래서 물어보세요.
           </p>
         </div>
+        {/* 최근 분석 버튼 — 눈에 띄게 */}
         <button onClick={() => onNavigate && onNavigate("adv")}
-          style={{ background:"none", border:"1px solid #d4d0f0", borderRadius:7, padding:"4px 9px", display:"flex", alignItems:"center", gap:4, cursor:"pointer" }}>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9994d8" strokeWidth="2" strokeLinecap="round">
+          style={{ background:"#5b52e0", border:"none", borderRadius:8, padding:"6px 11px", display:"flex", alignItems:"center", gap:4, cursor:"pointer", flexShrink:0 }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
             <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
           </svg>
-          <span style={{ fontSize:10, color:"#9994d8" }}>최근 분석</span>
+          <span style={{ fontSize:11, color:"#fff", fontWeight:600 }}>최근 분석</span>
         </button>
       </div>
 
