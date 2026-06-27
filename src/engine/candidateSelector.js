@@ -46,9 +46,16 @@ export function evaluateCandidates(complexes, areaHint = null, state = {}) {
     const top = sorted[0];
     const second = sorted[1];
 
+    // 압도적 1위 판별
+    // 1. sale_cnt 기준 3배 이상
+    // 2. 같은 단지 prefix (마포래미안푸르지오1~4단지 등 분리단지) — 최다 거래 자동 선택
+    const topName = (top.complex_name || "").replace(/\d+단지|\d+차$/, "").trim();
+    const secondName = (second.complex_name || "").replace(/\d+단지|\d+차$/, "").trim();
+    const isSameBase = topName === secondName && topName.length >= 4;
+
     const isOverwhelming =
-      (top.sale_cnt || 0) > 50 &&
-      (top.sale_cnt || 0) > (second.sale_cnt || 0) * 3;
+      isSameBase ||  // 같은 단지 분리세대 → 최다 거래 자동 선택
+      ((top.sale_cnt || 0) > 50 && (top.sale_cnt || 0) > (second.sale_cnt || 0) * 3);
 
     if (!isOverwhelming) {
       return {

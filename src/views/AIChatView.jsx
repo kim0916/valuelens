@@ -14,6 +14,11 @@ import { LocationPicker } from './LocationPicker.jsx';
 import { FairValueResult } from './FairValueResult.jsx';
 import { createSessionMemory, processUserInput } from '../agent/AgentCore.js';
 import { routeTool } from '../agent/ToolRouter.js';
+// ── Phase 2: Conversation Engine ──
+import { createConversationEngine } from '../engine/ConversationEngine.js';
+import { createConversationState } from '../engine/conversationState.js';
+import { RESPONSE_TYPES } from '../engine/responseGenerator.js';
+import { ACTIONS } from '../engine/conversationPolicy.js';
 
 // ── parseIntent (AIChatView 전용) ──
 function parseIntent(raw) {
@@ -153,6 +158,11 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   const [agentSessionMemory, setAgentSessionMemory] = React.useState(() => createSessionMemory());
   const agentMemoryRef = React.useRef(createSessionMemory()); // state 비동기 문제 방지
 
+  // ── Phase 2: Conversation State (Context 유지) ──
+  const convEngineRef  = React.useRef(createConversationEngine());
+  const convStateRef   = React.useRef(createConversationState());
+  const [convState, setConvState] = React.useState(() => createConversationState());
+
   // agentInitial: AgentHome에서 질문 텍스트를 받아 AIChatView 안에서 처리
   React.useEffect(() => {
     if (agentInitial) {
@@ -220,65 +230,117 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     setPendingIntent(null);
     addMsg({ role: "user", type: "text", content: text });
 
-    // AgentCore 처리 — status 기반 4분기
-    // ref로 항상 최신 memory 사용 (React state 비동기 문제 방지)
-    const ar = processUserInput(text, agentMemoryRef.current);
-    agentMemoryRef.current = ar.memory;  // 동기 업데이트
-    setAgentSessionMemory(ar.memory);    // UI 렌더링용
+    // ── Phase 2: ConversationEngine 기반 처리 ──
+    // 매 입력을 새 검색으로 처리하는 방식 폐기
+    // ConversationState를 유지하며 Intent → Policy → UX Policy → Action 순으로 처리
+    addMsg({ role: "ai", type: "thinking", content: "생각 중..." });
 
-    // ── missing: 메시지만 표시, 이동 없음 ──
-    if (ar.status === "missing") {
-      addMsg({ role: "ai", type: "text", content: ar.message });
-      return;
+    try {
+      const { state: newState, response } = await convEngineRef.current.process(
+        text,
+        convStateRef.current,
+      );
+
+      // State 동기 업데이트 (ref = 동기, setState = 렌더링용)
+      convStateRef.current = newState;
+      setConvState(newState);
+
+      // 개발 모드 디버그 출력
+      if (import.meta.env.DEV && response._debug) {
+        console.log(
+          `[CE] intent=${response._debug.intent} | rule=${response._debug.rule} | action=${response._debug.action}`,
+          '\n     reason:', response._debug.reason,
+          '\n     state:', response._debug.state,
+        );
+      }
+
+      // ── Action별 화면 처리 ──
+      await handleEngineResponse(response, newState);
+
+    } catch (e) {
+      console.error('[AIChatView] ConversationEngine 오류:', e);
+      replaceLastAI({ role: "ai", type: "text", content: "잠깐 문제가 생겼어요. 다시 말씀해 주세요." });
     }
+  }
 
-    // ── guide: 안내만 표시, 이동 없음 ──
-    if (ar.status === "guide") {
-      addMsg({ role: "ai", type: "text", content: ar.message });
-      return;
-    }
+  // ── ConversationEngine 응답 → 메시지 렌더링 ──
+  async function handleEngineResponse(response, state) {
+    const action = response._debug?.action;
+    const type   = response.type;
 
-    // ── ready: goal별 처리 ──
-    if (ar.status === "ready") {
-      addMsg({ role: "ai", type: "thinking", content: "분석 중..." });
+    // 분석 준비 완료 → runAnalysis 실행
+    if (type === RESPONSE_TYPES.READY_TO_ANALYZE || action === ACTIONS.ANALYZE_NOW) {
+      const complex  = state.currentComplex;
+      const areaSqm  = state.currentArea;
+      const purpose  = state.purpose || "fair";
 
-      // fair/buy → 기존 routeIntent 재사용 (부분명 검색 + 후보 카드 + runAnalysis)
-      if (ar.goal === "fair" || ar.goal === "buy") {
-        const mem = ar.memory;
-        const rawQuery = ar.params.complexQuery || ar.params.complexName || text;
-        const intent = {
-          intent: ar.goal === "buy" ? "buy" : "fair",
-          complexName: rawQuery,
-          region: mem.region || "",
-          dong: "",
-          pyeong: mem.area ? parseFloat(mem.area) : null,
-          areaSqm: mem.area ? (mem.area.includes("평")
-            ? Math.round(parseFloat(mem.area) * 3.305785)
-            : parseFloat(mem.area)) : null,
-          price: mem.buyPrice || 0,
-        };
-        await routeIntent(intent, rawQuery);
+      if (!complex || !areaSqm) {
+        replaceLastAI({ role: "ai", type: "text", content: response.text || "분석 준비 중..." });
         return;
       }
 
-      // reco/loan 등 → ToolRouter
-      try {
-        const tr = await routeTool(ar.goal, ar.memory, ar.params);
-        if (tr.ok && tr.summary?.conclusion) {
-          replaceLastAI({ type: "agent_result", summary: tr.summary, rawData: tr.rawData });
-        } else {
-          const errMsg = tr.summary?.conclusion || "분석을 완료하지 못했습니다.";
-          replaceLastAI({ type: "text", content: errMsg + "\n다시 시도하거나 단지명/평형을 확인해주세요." });
-        }
-      } catch (e) {
-        replaceLastAI({ type: "text", content: "분석 중 오류가 발생했어요.\n잠시 후 다시 시도해주세요." });
-      }
+      replaceLastAI({ role: "ai", type: "thinking", content: response.text || "분석 중..." });
+
+      await runAnalysis(complex, {
+        intent:   purpose === "buy" ? "buy" : "fair",
+        areaSqm,
+        pyeong:   null,
+      });
       return;
     }
 
-    // ── unknown: 안내 메시지, 이동 없음 ──
-    addMsg({ role: "ai", type: "text", content: ar.message ||
-      "말씀하신 내용을 이해하지 못했어요.\n단지명, 예산, 지역을 포함해서 다시 말씀해주세요." });
+    // 전세/최근거래 분석
+    if (action === ACTIONS.ANALYZE_JEONSE || action === ACTIONS.ANALYZE_RECENT || action === ACTIONS.ANALYZE_BUY) {
+      const complex = state.currentComplex;
+      const areaSqm = state.currentArea;
+      if (!complex || !areaSqm) {
+        replaceLastAI({ role: "ai", type: "text", content: response.text });
+        return;
+      }
+      replaceLastAI({ role: "ai", type: "thinking", content: response.text || "조회 중..." });
+      const purpose = action === ACTIONS.ANALYZE_JEONSE ? "jeonse"
+                    : action === ACTIONS.ANALYZE_BUY    ? "buy"
+                    : "fair";
+      await runAnalysis(complex, { intent: purpose, areaSqm });
+      return;
+    }
+
+    // 후보 목록 → candidates 타입 메시지
+    if (type === RESPONSE_TYPES.CANDIDATES_LIST) {
+      replaceLastAI({
+        role: "ai",
+        type: "candidates",
+        content: response.text.split("\n")[0].replace(/\*\*/g, ""),
+        data: response.candidates || [],
+        onSelect: (c) => {
+          // 후보 클릭 시 ConversationEngine에 번호 전달
+          const idx = (response.candidates || []).indexOf(c);
+          handleSend(String(idx + 1));
+        },
+        intent: { intent: "fair" },
+      });
+      return;
+    }
+
+    // 면적 목록 → area_chips 타입 메시지
+    if (type === RESPONSE_TYPES.AREA_LIST) {
+      replaceLastAI({
+        role: "ai",
+        type: "area_chips",
+        content: response.text.split("\n")[0].replace(/\*\*/g, ""),
+        areaGroups: response.areaGroups || [],
+        complex:    response.complex,
+        onSelect: (areaSqm) => handleSend(String(Math.round(areaSqm))),
+      });
+      return;
+    }
+
+    // 일반 텍스트 응답
+    replaceLastAI({
+      role: "ai",
+      type: "text",
+      content: response.text?.replace(/\*\*/g, "") || "...",
+    });
   }
 
   async function routeIntent(intent, rawText) {
@@ -718,6 +780,45 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      );
+    }
+
+    if (msg.type === "area_chips") {
+      // Rule 3: DB 실제 평형 버튼으로 제시
+      return (
+        <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
+          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN,
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
+            <CI d="star" s={13} color="#fff" />
+          </div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <p style={{ fontSize:14, color:BRAND, margin:"0 0 10px", lineHeight:1.55, letterSpacing:"-0.01em" }}>
+              {msg.content}
+            </p>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
+              {(msg.areaGroups || []).map((g, i) => {
+                const pyeong = Math.round(g.anchor / 3.305785);
+                const sqm    = g.anchor.toFixed(1);
+                return (
+                  <button key={i}
+                    onClick={() => msg.onSelect && msg.onSelect(g.anchor)}
+                    style={{
+                      padding:"8px 14px", borderRadius:20,
+                      border:`1px solid ${BRAND_BORDER}`,
+                      background:"#fff", cursor:"pointer",
+                      fontSize:13, fontWeight:500, color:BRAND,
+                      transition:"all 0.1s",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background=BRAND; e.currentTarget.style.color="#fff"; e.currentTarget.style.borderColor=BRAND; }}
+                    onMouseLeave={e => { e.currentTarget.style.background="#fff"; e.currentTarget.style.color=BRAND; e.currentTarget.style.borderColor=BRAND_BORDER; }}
+                  >
+                    {pyeong}평 ({sqm}㎡)
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       );
