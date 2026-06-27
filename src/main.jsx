@@ -460,7 +460,7 @@ function BuyerDecisionCard({ bd, r, f }) {
           </div>
         )}
       </div>
-      <div className="bg-slate-50 px-5 py-2.5 text-[11px] leading-relaxed text-slate-400">본 분석은 공개 데이터와 사용자 입력값 기반 참고용이며, 실제 감정평가·투자자문·매수 권유가 아닙니다. 최종 의사결정은 사용자 본인의 책임입니다.</div>
+      <div className="bg-slate-50 px-5 py-2.5 text-[11px] leading-relaxed text-slate-400">본 분석은 공개 실거래 데이터 기반 참고용이며, 실제 감정평가·투자자문·매수 권유가 아닙니다. 최종 의사결정은 본인 판단 하에 하시기 바랍니다.</div>
 
       {/* ── 하단 탭바 ── */}
       <div style={{
@@ -856,7 +856,7 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
         <p style={{ fontSize:10, color:"#b0acd8", lineHeight:1.7, margin:0, textAlign:"center" }}>
           본 분석은 공개 실거래 데이터 기반 참고용이며,<br/>
           실제 감정평가·투자자문·매수 권유가 아닙니다.<br/>
-          최종 의사결정은 전문가 상담 후 본인 책임 하에 하시기 바랍니다.
+          최종 의사결정은 본인 판단 하에 하시기 바랍니다.
         </p>
       </div>
 
