@@ -855,16 +855,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                   {visible.map((c, i) => (
                     <button key={i}
                       onClick={async () => {
-                        addMsg({ role:"user", type:"text", content: c.complex_name });
+                        // 후보 선택 → ConversationEngine으로 보내서 평형 질문
                         if (msg.onSelect) msg.onSelect(c);
-                        addMsg({ role:"ai", type:"thinking", content:"잠깐만요, 확인해볼게요~ 🔍" });
-                        const intent = msg.intent || { intent:"fair" };
-                        if (!intent.areaSqm && c.area_list) {
-                          const al = typeof c.area_list === "string" ? JSON.parse(c.area_list) : c.area_list;
-                          const sorted = [...al].map(Number).filter(Boolean).sort((a,b)=>a-b);
-                          intent.areaSqm = sorted[Math.floor(sorted.length/2)];
-                        }
-                        await runAnalysis(c, intent);
                       }}
                       style={{
                         background:"#fff", border:`0.5px solid ${BRAND_BORDER}`,
