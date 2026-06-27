@@ -400,7 +400,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         onSelect: async (areaSqm) => {
           // 버튼 클릭 → 텍스트 파싱 없이 직접 면적 확정
           const complex = convStateRef.current.currentComplex;
-          const pyeong = Math.round(areaSqm / 3.305785);
+          const pyeong = Math.floor((areaSqm * 1.35) / 3.305785);
           addMsg({ role: "user", type: "text", content: `${pyeong}평 (${areaSqm}㎡)` });
           // ConversationEngine state 직접 업데이트
           const { updateArea } = await import('../engine/conversationState.js');
@@ -888,7 +888,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             </p>
             <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
               {(msg.areaGroups || []).map((g, i) => {
-                const pyeong = Math.round(g.anchor / 3.305785);
+                const pyeong = Math.floor((g.anchor * 1.35) / 3.305785);
                 const sqm    = g.anchor.toFixed(1);
                 return (
                   <button key={i}
