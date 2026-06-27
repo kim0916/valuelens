@@ -87,11 +87,12 @@ function getFairRange(r, trust, fb) {
 function getWhyCards(r, trust) {
   const cards = [];
 
-  // 거래 충분도
-  if ((r.saleUsed || 0) >= 5) {
-    cards.push("최근 동일 평형 거래가 충분합니다.");
-  } else if ((r.saleUsed || 0) > 0) {
-    cards.push(`최근 동일 평형 거래가 ${r.saleUsed}건으로 적은 편입니다.`);
+  // 거래 충분도 (건수 포함)
+  const saleUsed = r.saleUsed || 0;
+  if (saleUsed >= 5) {
+    cards.push(`최근 동일 평형 거래 ${saleUsed}건 기준입니다.`);
+  } else if (saleUsed > 0) {
+    cards.push(`최근 동일 평형 거래가 ${saleUsed}건으로 적은 편입니다.`);
   } else {
     cards.push("최근 거래 데이터가 매우 부족합니다.");
   }
@@ -432,61 +433,18 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
         </Card>
       )}
 
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          4) 현재 시세
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <Card>
-        <SLabel>현재 시세</SLabel>
-        <div style={{ display: "grid",
-          gridTemplateColumns: f.currentPrice ? "1fr 1fr" : "1fr",
-          gap: 1, background: CLR.border, margin: "0 0 0 0" }}>
-          {/* 최근 실거래 시세 */}
-          <div style={{ background: "#fff", padding: "12px 16px" }}>
-            <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 4px" }}>
-              최근 실거래 시세
-            </p>
-            <p style={{ fontSize: 17, fontWeight: 700, color: "#334155", margin: 0 }}>
-              {r.saleMedian ? won(r.saleMedian) : r.saleFair ? won(r.saleFair) : "—"}
-            </p>
-            <p style={{ fontSize: 10, color: CLR.muted, margin: "3px 0 0" }}>
-              {r.saleUsed || 0}건 기준
+      {/* 전세가율 — 단독 카드 */}
+      {r.actualRatio && (
+        <Card>
+          <div style={{ padding: "12px 16px", display: "flex",
+            alignItems: "center", justifyContent: "space-between" }}>
+            <p style={{ fontSize: 13, color: CLR.muted, margin: 0 }}>전세가율</p>
+            <p style={{ fontSize: 16, fontWeight: 700, color: "#334155", margin: 0 }}>
+              {Math.round(r.actualRatio * 100)}%
             </p>
           </div>
-          {/* 현재 매물가 */}
-          {f.currentPrice && (
-            <div style={{ background: "#fff", padding: "12px 16px" }}>
-              <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 4px" }}>
-                {f._userInputPrice ? "현재 매물가" : "현재 시세"}
-              </p>
-              <p style={{ fontSize: 17, fontWeight: 700, color: "#334155", margin: 0 }}>
-                {f._userInputPrice ? "" : "약 "}{won(Number(f.currentPrice))}
-              </p>
-              <p style={{ fontSize: 10, color: CLR.muted, margin: "2px 0 0" }}>
-                {f._userInputPrice ? "입력하신 매물가" : "최근 실거래 평균가격입니다"}
-              </p>
-              {!hold && r.gapRatio != null && (
-                <p style={{ fontSize: 10, fontWeight: 600, margin: "3px 0 0",
-                  color: r.gapRatio < 0 ? CLR.green : CLR.red }}>
-                  적정가 대비 {r.gapRatio < 0 ? "낮음" : "높음"}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-        {/* 전세가율 */}
-        {r.actualRatio && (
-          <>
-            <Divider />
-            <div style={{ padding: "10px 16px", display: "flex",
-              alignItems: "center", justifyContent: "space-between" }}>
-              <p style={{ fontSize: 11, color: CLR.muted, margin: 0 }}>전세가율</p>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "#334155", margin: 0 }}>
-                {Math.round(r.actualRatio * 100)}%
-              </p>
-            </div>
-          </>
-        )}
-      </Card>
+        </Card>
+      )}
 
 
 
