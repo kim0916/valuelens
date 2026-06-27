@@ -184,24 +184,9 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   const inputRef   = React.useRef(null);
   const fileRef    = React.useRef(null);
 
-  // placeholder 순환 + 예시 힌트 (동일 배열 공유)
-  const PHS = [
-    "잠실엘스 84평 얼마야?",
-    "반포자이 지금 사도 돼?",
-    "7억으로 송도 추천해줘",
-    "헬리오시티 전세 얼마야?",
-    "강남 출퇴근 좋은 곳 알려줘",
-    "홍제현대 25평 적정가는?",
-    "수성구 래미안 34평 시세",
-    "아이 학군 좋은 곳 추천해줘",
-    "대치 은마 76평 얼마야?",
-    "마래푸 84 지금 비싼가?",
-  ];
-  const [phIdx, setPhIdx] = React.useState(0);
-  React.useEffect(() => {
-    const t = setInterval(() => setPhIdx(i => (i+1) % PHS.length), 3500);
-    return () => clearInterval(t);
-  }, []);
+  // placeholder 고정
+  const PHS = ["단지명이나 지역을 입력해보세요"];
+  const phIdx = 0;
 
   // 스크롤 하단 유지
   React.useEffect(() => {
