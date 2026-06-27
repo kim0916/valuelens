@@ -845,45 +845,55 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             <p style={{ fontSize:14, color:BRAND, margin:"0 0 10px", lineHeight:1.55, letterSpacing:"-0.01em" }}>
               {msg.content}
             </p>
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              {(msg.data||[]).map((c, i) => (
-                <button key={i}
-                  onClick={async () => {
-                    addMsg({ role:"user", type:"text", content: c.complex_name });
-                    if (msg.onSelect) msg.onSelect(c);
-                    addMsg({ role:"ai", type:"thinking", content:"분석 중..." });
-                    // runAnalysis로 연결 → result 타입 → FairValueResult 직접 렌더링
-                    const intent = msg.intent || { intent:"fair" };
-                    // areaSqm이 없으면 area_list 중앙값으로 보정
-                    if (!intent.areaSqm && c.area_list) {
-                      const al = typeof c.area_list === "string" ? JSON.parse(c.area_list) : c.area_list;
-                      const sorted = [...al].map(Number).filter(Boolean).sort((a,b)=>a-b);
-                      intent.areaSqm = sorted[Math.floor(sorted.length/2)];
-                    }
-                    console.log("[candidates click] intent.areaSqm:", intent.areaSqm, "area:", intent.pyeong);
-                    await runAnalysis(c, intent);
-                  }}
-                  style={{
-                    background:"#fff", border:`0.5px solid ${BRAND_BORDER}`,
-                    borderRadius:12, padding:"10px 14px",
-                    display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10,
-                    cursor:"pointer", textAlign:"left", transition:"background 0.1s",
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background="#fafaf8"}
-                  onMouseLeave={e => e.currentTarget.style.background="#fff"}
-                >
-                  <div style={{ minWidth:0 }}>
-                    <p style={{ fontSize:13, fontWeight:500, color:BRAND, margin:0, letterSpacing:"-0.01em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                      {c.complex_name}
-                    </p>
-                    <p style={{ fontSize:11, color:BRAND_MUTED, margin:"3px 0 0" }}>
-                      {c.sigungu?.split(" ").slice(-2).join(" ")}{c.legal_dong ? ` · ${c.legal_dong}` : ""}{c.build_year ? ` · ${c.build_year}년` : ""}
-                    </p>
-                  </div>
-                  <CI d="right" s={13} color={BRAND_MUTED} />
-                </button>
-              ))}
-            </div>
+            {(() => {
+              const [showAll, setShowAll] = React.useState(false);
+              const items = msg.data || [];
+              const visible = showAll ? items : items.slice(0, 5);
+              return (
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {visible.map((c, i) => (
+                    <button key={i}
+                      onClick={async () => {
+                        addMsg({ role:"user", type:"text", content: c.complex_name });
+                        if (msg.onSelect) msg.onSelect(c);
+                        addMsg({ role:"ai", type:"thinking", content:"잠깐만요, 확인해볼게요~ 🔍" });
+                        const intent = msg.intent || { intent:"fair" };
+                        if (!intent.areaSqm && c.area_list) {
+                          const al = typeof c.area_list === "string" ? JSON.parse(c.area_list) : c.area_list;
+                          const sorted = [...al].map(Number).filter(Boolean).sort((a,b)=>a-b);
+                          intent.areaSqm = sorted[Math.floor(sorted.length/2)];
+                        }
+                        await runAnalysis(c, intent);
+                      }}
+                      style={{
+                        background:"#fff", border:`0.5px solid ${BRAND_BORDER}`,
+                        borderRadius:12, padding:"10px 14px",
+                        display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10,
+                        cursor:"pointer", textAlign:"left", transition:"background 0.1s",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background="#fafaf8"}
+                      onMouseLeave={e => e.currentTarget.style.background="#fff"}
+                    >
+                      <div style={{ minWidth:0 }}>
+                        <p style={{ fontSize:13, fontWeight:500, color:BRAND, margin:0, letterSpacing:"-0.01em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                          {c.complex_name}
+                        </p>
+                        <p style={{ fontSize:11, color:BRAND_MUTED, margin:"3px 0 0" }}>
+                          {c.sigungu?.split(" ").slice(-2).join(" ")}{c.legal_dong ? ` · ${c.legal_dong}` : ""}{c.build_year ? ` · ${c.build_year}년` : ""}
+                        </p>
+                      </div>
+                      <CI d="right" s={13} color={BRAND_MUTED} />
+                    </button>
+                  ))}
+                  {!showAll && items.length > 5 && (
+                    <button onClick={() => setShowAll(true)}
+                      style={{ background:"none", border:`0.5px solid ${BRAND_BORDER}`, borderRadius:12, padding:"9px 14px", cursor:"pointer", fontSize:12, color:"#5b52e0", fontWeight:500 }}>
+                      더 보기 ({items.length - 5}개 더)
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       );
