@@ -313,10 +313,16 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       const { _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose } = ps;
       const priceMatch = text.match(/(\d+(?:\.\d+)?)\s*억/);
       const manMatch   = text.match(/(\d{4,})\s*만?$/);
+      const numOnly    = text.match(/^(\d+(?:\.\d+)?)$/);  // "2", "25", "7.5" 단독 숫자
       const noPrice    = /몰라|없어|없음|패스|그냥|skip|모르|상관없/i.test(text);
       let currentPrice = null;
       if (priceMatch) currentPrice = Math.round(Number(priceMatch[1]) * 10000);
       else if (manMatch) currentPrice = Number(manMatch[1]);
+      else if (numOnly) {
+        const n = Number(numOnly[1]);
+        if (n >= 1000) currentPrice = n;           // 5000 → 5000만원
+        else if (n >= 1) currentPrice = Math.round(n * 10000); // 2 → 2억, 7.5 → 7.5억
+      }
       convStateRef.current = { ...ps, _pendingPrice: false, _pendingComplex: null, _pendingArea: null, _pendingPurpose: null };
       addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
       if (noPrice || !currentPrice) {
