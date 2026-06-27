@@ -1463,6 +1463,20 @@ function AppInner() {
                       }}));
                     }, 100);
                   }}
+                  onPriceUpdate={(newPrice) => {
+                    // 매물가 수정 → 재계산
+                    const d = chatResultData;
+                    if (!d) return;
+                    import('../engine/analyze.js').then(({ analyze }) => {
+                      const newFf = { ...d.ff, currentPrice: newPrice, _userInputPrice: true };
+                      const newEngine = analyze(newFf);
+                      newEngine.jeonseCalc = d.engine.jeonseCalc;
+                      newEngine.saleCalc   = d.engine.saleCalc;
+                      newEngine.saleCount  = d.engine.saleCount;
+                      newEngine.saleMedian = d.engine.saleMedian;
+                      setChatResultData({ ...d, ff: newFf, engine: newEngine });
+                    });
+                  }}
                   onBuyAnalysis={() => {
                     // 현재 단지/면적으로 바로 매수 분석
                     const d = chatResultData;
