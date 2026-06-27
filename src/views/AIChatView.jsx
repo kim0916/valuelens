@@ -178,6 +178,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   const [input, setInput]         = React.useState("");
   const [listening, setListening] = React.useState(false);
   const [advOpen, setAdvOpen]     = React.useState(false);  // 고급 검색 접기
+  const [showAllMap, setShowAllMap] = React.useState({});  // 후보 더보기 상태
   const [pendingIntent, setPendingIntent] = React.useState(null); // 후보 선택 대기
 
   const bottomRef  = React.useRef(null);
@@ -846,8 +847,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
               {msg.content}
             </p>
             {(() => {
-              const [showAll, setShowAll] = React.useState(false);
               const items = msg.data || [];
+              const showAll = showAllMap[msg.id] || false;
               const visible = showAll ? items : items.slice(0, 5);
               return (
                 <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
@@ -886,7 +887,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                     </button>
                   ))}
                   {!showAll && items.length > 5 && (
-                    <button onClick={() => setShowAll(true)}
+                    <button onClick={() => setShowAllMap(p => ({...p, [msg.id]: true}))}
                       style={{ background:"none", border:`0.5px solid ${BRAND_BORDER}`, borderRadius:12, padding:"9px 14px", cursor:"pointer", fontSize:12, color:"#5b52e0", fontWeight:500 }}>
                       더 보기 ({items.length - 5}개 더)
                     </button>
