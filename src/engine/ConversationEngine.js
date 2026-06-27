@@ -290,13 +290,19 @@ async function execute(decision, intent, extracted, rawText, state) {
 
     // ── 새 단지 Context (Rule 7, 1, 2) ──
     case ACTIONS.NEW_COMPLEX:
-    case ACTIONS.SHOW_CANDIDATES:
+    case ACTIONS.SHOW_CANDIDATES: {
+      // NLU에서 추출한 region을 state에 먼저 반영 (마포구 래미안 등)
+      const regionFromNLU = extracted.region || extracted._nlu?.sigungu || null;
+      const stateWithRegion = regionFromNLU
+        ? { ...state, region: regionFromNLU }
+        : state;
       return await handleSearch(
         params.query || rawText,
         params.areaSqm || extracted.areaSqm || null,
-        state,
+        stateWithRegion,
         decision.rule,
       );
+    }
 
     // ── Unknown → AI fallback ──
     default: {
