@@ -380,12 +380,22 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
         <Card>
           <SLabel>적정 가격 범위</SLabel>
           <div style={{ padding: "0 16px 16px" }}>
-            {/* 범위 강조 박스 */}
+            {/* 범위 강조 박스 — 이유 버튼 포함 */}
             <div style={{ background: CLR.greenL, border: `1px solid ${CLR.greenB}`,
               borderRadius: 12, padding: "14px 16px", marginBottom: 10 }}>
-              <p style={{ fontSize: 11, color: "#166534", margin: "0 0 5px" }}>
-                AI 추정 적정 범위
-              </p>
+              {/* 타이틀 + 이유 버튼 */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
+                <p style={{ fontSize: 11, color: "#166534", margin: 0 }}>
+                  AI 추정 적정 범위
+                </p>
+                <button
+                  onClick={() => setWhyOpen(v => !v)}
+                  style={{ fontSize: 11, fontWeight: 600, color: CLR.green,
+                    background: "rgba(255,255,255,0.6)", border: `1px solid ${CLR.greenB}`,
+                    borderRadius: 20, padding: "3px 9px", cursor: "pointer" }}>
+                  {whyOpen ? "접기 ▲" : "이유 ▼"}
+                </button>
+              </div>
               <p style={{ fontSize: 22, fontWeight: 800, color: CLR.green, margin: 0,
                 letterSpacing: "-0.02em" }}>
                 약 {won(fairRange.low)} ~ {won(fairRange.high)}
@@ -394,6 +404,23 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
                 기준값 {won(fairRange.base)} ·&nbsp;
                 데이터 안정성 {stability.displayLabel} 기준
               </p>
+
+              {/* 이유 내용 — 펼치면 박스 안에 */}
+              {whyOpen && (
+                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6,
+                  borderTop: `1px solid ${CLR.greenB}`, paddingTop: 10 }}>
+                  {whyCards.map((text, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                      <span style={{ fontSize: 12, flexShrink: 0 }}>
+                        {text.includes("부족") || text.includes("적은") || text.includes("높은") ? "⚠️" : "✅"}
+                      </span>
+                      <p style={{ fontSize: 12, color: "#166534", margin: 0, lineHeight: 1.55 }}>
+                        {text}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* 범위 설명 */}
@@ -401,38 +428,6 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
               단일 숫자가 아닌 범위로 표시합니다.
               데이터 안정성에 따라 범위가 달라질 수 있습니다.
             </p>
-
-            {/* 이유 펼치기 버튼 */}
-            <button
-              onClick={() => setWhyOpen(v => !v)}
-              style={{ marginTop: 10, width: "100%", background: "none",
-                border: `1px solid ${CLR.border}`, borderRadius: 10,
-                padding: "8px 12px", cursor: "pointer", display: "flex",
-                alignItems: "center", justifyContent: "space-between",
-                fontSize: 12, fontWeight: 600, color: "#475569" }}>
-              이 범위가 적정가인 이유
-              <span style={{ fontSize: 11, color: CLR.muted }}>
-                {whyOpen ? "접기 ▲" : "이유 ▼"}
-              </span>
-            </button>
-
-            {/* 이유 내용 */}
-            {whyOpen && (
-              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                {whyCards.map((text, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8,
-                    background: CLR.bg, borderRadius: 8, padding: "9px 11px",
-                    border: `1px solid ${CLR.border}` }}>
-                    <span style={{ fontSize: 13, flexShrink: 0 }}>
-                      {text.includes("부족") || text.includes("적은") || text.includes("높은") ? "⚠️" : "✅"}
-                    </span>
-                    <p style={{ fontSize: 12, color: "#334155", margin: 0, lineHeight: 1.55 }}>
-                      {text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </Card>
       )}
