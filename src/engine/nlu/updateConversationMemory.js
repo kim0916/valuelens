@@ -64,8 +64,15 @@ const NON_SEARCH_INTENTS = new Set([
  * 검색하면 안 되는 입력을 단지명으로 검색하는 오류 방지
  */
 export function shouldSearch(intent, entities, state) {
-  // 명시적으로 검색 불필요한 intent
-  if (NON_SEARCH_INTENTS.has(intent)) return false;
+  // 명시적으로 검색 불필요한 intent — 단, 단지가 없고 complexQuery가 있으면 검색 필요
+  if (NON_SEARCH_INTENTS.has(intent)) {
+    // 예외: 단지 미확정 + complexQuery 있음 → 단지 먼저 찾아야
+    const hasNoComplex = !state.currentComplex;
+    const hasComplexHint = !!(entities.complexQuery || entities.brand);
+    const hasRegion = !!(entities.sigungu || entities.regionArea || entities.dong);
+    if (hasNoComplex && (hasComplexHint || hasRegion)) return true;
+    return false;
+  }
 
   // 면적만 있고 단지명 없으면 검색 안 함 (area-only 입력 방지)
   if (entities.areaSqm != null && !entities.complexQuery && !entities.sigungu) return false;

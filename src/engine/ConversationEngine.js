@@ -342,6 +342,15 @@ function bridgeNLUToLegacy(nlu, rawText, state) {
     mappedIntent = "recommend_complex";  // execute()에서 ACTIONS.RECOMMEND로 처리
   }
 
+  // price_analysis / jeonse_info 등 + 단지 없음 + complexQuery 있음
+  // → 검색 먼저 해야 하므로 search_complex로 라우팅
+  const analysisIntentsNeedSearch = new Set([
+    LI.PRICE_ANALYSIS, LI.JEONSE_INFO, LI.BUY_OPINION, LI.RECENT_DEALS, LI.PRICE_OPINION
+  ]);
+  if (analysisIntentsNeedSearch.has(mappedIntent) && nlu.shouldSearch && !state.currentComplex) {
+    mappedIntent = LI.SEARCH_COMPLEX;
+  }
+
   // LARGER/SMALLER_AREA: 면적 힌트 계산
   let areaSqmOverride = nlu.areaSqm;
   if (nlu.intent === I.LARGER_AREA && state.currentArea) {
