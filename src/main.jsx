@@ -1378,54 +1378,6 @@ function AppInner() {
   return (
     <div className="min-h-screen" style={{ background: isHome ? BRAND_BG : "#f1f0ec" }}>
 
-      {/* ── Nav (홈 아닐 때 서브탭만) ── */}
-      {!isHome && <nav style={{
-        position: "sticky", top: 0, zIndex: 10,
-        background: `rgba(250,250,248,0.93)`, backdropFilter: "blur(12px)",
-        borderBottom: `0.5px solid ${BRAND_BORDER}`,
-        WebkitBackdropFilter: "blur(12px)",
-      }}>
-        <div style={{ maxWidth: 640, margin: "0 auto", padding: "0 16px" }}>
-
-          {/* Sub tabs — 홈이 아닐 때만 */}
-          {!isHome && subTabs && (
-            <div style={{
-              display: "flex", gap: 4, overflowX: "auto", paddingBottom: 10,
-              scrollbarWidth: "none", msOverflowStyle: "none",
-            }}>
-              {/* 홈 버튼 */}
-              {ptype === "apartment" && (
-                <button
-                  onClick={() => setAptTab("home")}
-                  style={{
-                    flexShrink: 0, fontSize: 12, fontWeight: 500,
-                    padding: "5px 10px", borderRadius: 8, border: "none", cursor: "pointer",
-                    background: "transparent", color: BRAND_MID,
-                    display: "flex", alignItems: "center", gap: 4,
-                  }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                    <polyline points="9 22 9 12 15 12 15 22"/>
-                  </svg>
-                </button>
-              )}
-              {subTabs.map(([k, l]) => (
-                <button key={k} onClick={() => setSub(k)}
-                  style={{
-                    flexShrink: 0, fontSize: 12, fontWeight: 500,
-                    padding: "5px 12px", borderRadius: 8, border: "none", cursor: "pointer",
-                    background: curSub === k ? BRAND : "transparent",
-                    color: curSub === k ? "#fff" : BRAND_MID,
-                    transition: "all 0.15s",
-                  }}
-                >{l}</button>
-              ))}
-            </div>
-          )}
-        </div>
-      </nav>}
-
       {/* ── Main ── */}
       <main style={{ maxWidth: 640, margin: "0 auto", padding: isHome ? "0" : "24px 16px" }}>
         {ptype === "apartment" && (<>

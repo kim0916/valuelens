@@ -1004,15 +1004,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         }
       `}</style>
 
-      {/* ── 상단 헤더 ── */}
-      <div style={{ padding:"20px 24px 12px", borderBottom:`0.5px solid ${BRAND_BORDER}`, background:BRAND_BG, flexShrink:0 }}>
-        <p style={{ fontSize:10, fontWeight:600, letterSpacing:"0.13em", color:BRAND_GREEN, textTransform:"uppercase", margin:"0 0 1px" }}>
-          ValueLens AI
-        </p>
-        <p style={{ fontSize:10, fontWeight:400, letterSpacing:"0.09em", color:BRAND_MUTED, textTransform:"uppercase", margin:0 }}>
-          부동산 AI 에이전트
-        </p>
-      </div>
+
 
       {/* ── 메시지 영역 ── */}
       <div style={{ flex:1, overflowY:"auto", padding:"20px 20px 8px" }}>
