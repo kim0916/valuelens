@@ -145,7 +145,7 @@ const PATTERNS = [
   [NLU_INTENTS.RECOMMEND_COMPLEX, [
     // 지역 + 조건 + 아파트/단지/집 패턴 (순서 무관)
     /[가-힣]+\s+(?:\d+평대|\d+평|\d+억|국평|소형|대형|중형).+(?:아파트|단지|집|매물)/,
-    /(?:아파트|단지|집|매물).+(?:얼마야|적정가|시세|비싼가|싼가|추천|보여)/,
+    /(?:아파트|단지|집|매물).+(?:추천|보여)/,  // 적정가/시세는 price_analysis에서 처리
     // 예산 패턴 (지역 없어도)
     /^\d+(?:\.\d+)?억(대|\s*이하|\s*이상|\s*정도|\s*까지|\s*안에서|~)?\s*(추천|아파트|단지|보여)?$/,
     /\d+~\d+억\s*(아파트|단지|추천|보여)?/,
@@ -273,6 +273,7 @@ const PATTERNS = [
     /시세\s*(얼마|확인)/,
     /분석\s*(해줘|해주세요)/,
     /비싸|싸게|적당한지/,
+    /[가-힣].+(?:아파트|단지).+(?:적정가|시세|얼마)/,  // 홍제아파트 적정가
   ]],
 
   [NLU_INTENTS.GREETING, [
@@ -324,12 +325,10 @@ export function classifyUserIntent(text, entities = {}, state = {}) {
   }
 
   // ── Rule C: 단지명이 명확할 때만 search_complex ──
-  // 단지명이 있더라도 지역+조건 패턴이 함께 있으면 recommend 우선
   const hasGenericObjectWord = /아파트|단지|집|매물/.test(lower);
   const hasConditionWithObject = hasArea2 && hasGenericObjectWord;
 
   if (hasConditionWithObject && hasRegion) {
-    // Rule B + Rule A: 지역+조건+아파트/단지 → recommend (단지명 아님)
     return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.87 };
   }
 
@@ -338,8 +337,13 @@ export function classifyUserIntent(text, entities = {}, state = {}) {
     return { intent: NLU_INTENTS.SEARCH_COMPLEX, confidence: hasArea2 ? 0.88 : 0.75 };
   }
   if (hasComplex2 && !hasBrand && hasRegion && !hasGenericObjectWord) {
-    // 단지명 + 지역 → search (단지명이 구체적)
+    // 단지명 + 지역 → search
     return { intent: NLU_INTENTS.SEARCH_COMPLEX, confidence: 0.82 };
+  }
+
+  // ── 추가: complexQuery만 있고 지역/브랜드 없으면 → search ──
+  if (hasComplex2 && !hasRegion && !hasBrand && !hasGenericObjectWord) {
+    return { intent: NLU_INTENTS.SEARCH_COMPLEX, confidence: 0.75 };
   }
 
   // ── Rule D: 브랜드명 + 지역 → 후보 추천 ──
