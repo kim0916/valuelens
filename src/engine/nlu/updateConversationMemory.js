@@ -64,13 +64,23 @@ const NON_SEARCH_INTENTS = new Set([
  * 검색하면 안 되는 입력을 단지명으로 검색하는 오류 방지
  */
 export function shouldSearch(intent, entities, state) {
-  // 명시적으로 검색 불필요한 intent — 단, 단지가 없고 complexQuery가 있으면 검색 필요
+  // 명시적으로 검색 불필요한 intent — 단, 아래 예외 적용
   if (NON_SEARCH_INTENTS.has(intent)) {
-    // 예외: 단지 미확정 + complexQuery 있음 → 단지 먼저 찾아야
-    const hasNoComplex = !state.currentComplex;
     const hasComplexHint = !!(entities.complexQuery || entities.brand);
     const hasRegion = !!(entities.sigungu || entities.regionArea || entities.dong);
-    if (hasNoComplex && (hasComplexHint || hasRegion)) return true;
+
+    // 예외 1: 단지 미확정 + complexQuery/지역 있음 → 단지 먼저 검색
+    if (!state.currentComplex && (hasComplexHint || hasRegion)) return true;
+
+    // 예외 2: 단지 확정됐는데 다른 단지명 입력 → 새 단지 검색 (Rule 7)
+    // 단, complexQuery가 실제로 있을 때만 (후속 질문은 complexQuery 없음)
+    if (state.currentComplex && hasComplexHint && entities.complexQuery) {
+      const curName = (state.currentComplex.complex_name || "").replace(/\s/g, "");
+      const newQuery = (entities.complexQuery || "").replace(/\s/g, "");
+      const isSame = newQuery.length >= 2 && curName.includes(newQuery.slice(0, 3));
+      if (!isSame && newQuery.length >= 2) return true;  // 다른 단지 → 검색 필요
+    }
+
     return false;
   }
 

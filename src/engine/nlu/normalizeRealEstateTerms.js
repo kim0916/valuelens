@@ -22,7 +22,7 @@ export const BRAND_NORMALIZE = {
   // 해링턴/헤링턴
   '헤링턴': '해링턴', '헤링톤': '해링턴', '해링톤': '해링턴',
   // 힐스테이트
-  '힐스': '힐스테이트', '힐테이트': '힐스테이트', '이편한': 'e편한세상',
+  '힐스테이': '힐스테이트', '힐테이트': '힐스테이트', '이편한': 'e편한세상',  // '힐스'는 제거 (힐스테이트 안에 포함되어 오작동)
   // 자이
   'xi': '자이', 'XI': '자이',
   // 아이파크
@@ -269,8 +269,10 @@ export function normalizeText(text) {
   // 전각 문자 → 반각
   t = t.replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
 
-  // 브랜드 정규화
+  // 브랜드 정규화 (이미 정확한 이름 포함된 경우 스킵)
   for (const [from, to] of Object.entries(BRAND_NORMALIZE)) {
+    // "to"가 이미 텍스트에 있으면 치환 불필요 (힐스→힐스테이트 중복 방지)
+    if (t.includes(to)) continue;
     const re = new RegExp(from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
     t = t.replace(re, to);
   }
