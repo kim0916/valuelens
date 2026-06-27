@@ -178,14 +178,8 @@ async function execute(decision, intent, extracted, rawText, state) {
       }
 
       const ns = updateArea(state, best.group.anchor);
-      if (params.thenAnalyze) {
-        return [ns, responseReadyToAnalyze(ns.currentComplex, ns.currentArea)];
-      }
-      return [ns, {
-        type: RESPONSE_TYPES.AREA_CONFIRMED,
-        text: `${sqmToPyeong(best.group.anchor)}평(${best.group.anchor}㎡)으로 설정했어요.`,
-        ui:   "message",
-      }];
+      // 평형 확정 후 매물가 질문으로 (자동 분석 금지)
+      return [ns, responseReadyToAnalyze(ns.currentComplex, ns.currentArea)];
     }
 
     // ── 평형 질문 (Rule 2, 3) ──
@@ -462,11 +456,7 @@ async function handleSearch(query, areaHint, state, ruleHint = 0) {
     // ── 단 1건 or 압도적 1위 → 단지 확정 ──
     const ns = updateComplex(searchState, evaluation.selected, hint);
 
-    // Rule 1: 평형까지 자동 결정됨
-    if (evaluation.strategy === "ready" && evaluation.selectedArea) {
-      const ns2 = updateArea(ns, evaluation.selectedArea);
-      return [ns2, responseReadyToAnalyze(evaluation.selected, evaluation.selectedArea)];
-    }
+    // 단지 확정 후 항상 평형 목록 보여주기 (자동 분석 금지)
 
     // Rule 2: 단지만 확정, 평형 질문
     return handlePostComplex(ns, hint);
