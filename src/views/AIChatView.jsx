@@ -1027,7 +1027,6 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             </div>
             <div>
               <p style={{ fontSize:13, fontWeight:700, color:"#fff", margin:0, letterSpacing:"-0.01em" }}>안녕하세요! 어떤 아파트가 궁금하세요?</p>
-              <p style={{ fontSize:10, color:"#9994d8", margin:0 }}>실제거래가격 기반 아파트 전문</p>
             </div>
           </div>
         </div>
