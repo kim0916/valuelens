@@ -96,7 +96,7 @@ function resolveWithComplex(complex, areaHint, reason) {
   // 면적 힌트로 자동 선택 시도
   if (areaHint) {
     const best = findBestAreaGroup(areaGroups, areaHint);
-    if (best && best.diff <= 8) {
+    if (best && best.diff <= 15) {  // 허용 오차 확대
       return {
         strategy:   "ready",
         selected:   complex,

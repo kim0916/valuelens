@@ -323,7 +323,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         content: response.text.split("\n")[0].replace(/\*\*/g, ""),
         areaGroups: response.areaGroups || [],
         complex:    response.complex,
-        onSelect: (areaSqm) => handleSend(String(Math.round(areaSqm))),
+        onSelect: (areaSqm) => handleSend(String(areaSqm)),  // 정확한 값 전송
       });
       return;
     }

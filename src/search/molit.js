@@ -117,11 +117,11 @@ async function fetchMolitData(lawdCd, complexName, areaExclusive, months = 24, e
   const filterByAreaGroup = (items, target) => {
     if (!target) return { filtered: items, tol: -1, isExpanded: false };
     if (Array.isArray(target)) {
-      const filtered = items.filter(i => target.some(a => Math.abs(Number(i.excluUseAr) - a) <= 3));
+      const filtered = items.filter(i => target.some(a => Math.abs(Number(i.excluUseAr) - a) <= 10));
       return { filtered, tol: 3, isExpanded: false };
     }
     // 1차: ±3㎡
-    const primary = items.filter(i => Math.abs(Number(i.excluUseAr) - Number(target)) <= 3);
+    const primary = items.filter(i => Math.abs(Number(i.excluUseAr) - Number(target)) <= 10);
     if (primary.length >= 3) return { filtered: primary, tol: 3, isExpanded: false };
     // 2차: 거래 3건 미만일 때만 확장 (보조 데이터 플래그)
     for (const t of AREA_STEPS_EXPAND) {
