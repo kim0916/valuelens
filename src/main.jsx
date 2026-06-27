@@ -730,32 +730,7 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
         </div>
       </div>
 
-      {/* ── 예시 질문 힌트 (회전, 클릭하면 입력창에 채워짐) ── */}
-      <div style={{ padding:"20px 16px 0" }}>
-        <p style={{ fontSize:11, color:"#9994d8", margin:"0 0 10px", letterSpacing:"0.04em" }}>이런 것도 물어보세요</p>
-        <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-          {[
-            placeholders[phIdx],
-            placeholders[(phIdx+1) % placeholders.length],
-            placeholders[(phIdx+2) % placeholders.length],
-          ].map((ex, i) => (
-            <div key={i}
-              onClick={() => setQuery(ex)}
-              style={{
-                padding:"11px 14px", borderRadius:12,
-                border:"1px solid #e4e1f8", background:"#fff",
-                fontSize:13, color: i===0 ? "#1a1650" : "#9994d8",
-                opacity: i===0 ? 0.9 : 0.5,
-                cursor:"pointer", letterSpacing:"-0.008em",
-                transition:"opacity 0.3s",
-                userSelect:"none",
-              }}
-            >
-              {ex}
-            </div>
-          ))}
-        </div>
-      </div>
+
 
       {/* ── 오늘의 AI 섹션 ── */}
       <div style={{ padding:"20px 16px 0" }}>
