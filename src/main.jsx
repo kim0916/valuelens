@@ -730,18 +730,29 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
         </div>
       </div>
 
-      {/* ── 질문형 빠른 시작 카드 ── */}
+      {/* ── 예시 질문 힌트 (회전, 클릭하면 입력창에 채워짐) ── */}
       <div style={{ padding:"20px 16px 0" }}>
         <p style={{ fontSize:11, color:"#9994d8", margin:"0 0 10px", letterSpacing:"0.04em" }}>이런 것도 물어보세요</p>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-          {quickCards.map(q => (
-            <button key={q} onClick={() => handleQuickCard(q)} style={{
-              background: query===q ? "#ede9fe" : "#fff",
-              border:`1px solid ${query===q?"#7b6fff":"#e4e1f8"}`,
-              borderRadius:14, padding:"12px 12px", textAlign:"left", cursor:"pointer", transition:"all 0.12s",
-            }}>
-              <p style={{ fontSize:12, color:query===q?"#5b21b6":"#1a1650", margin:0, lineHeight:1.4, fontWeight:query===q?600:500 }}>{q}</p>
-            </button>
+        <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+          {[
+            placeholders[phIdx],
+            placeholders[(phIdx+1) % placeholders.length],
+            placeholders[(phIdx+2) % placeholders.length],
+          ].map((ex, i) => (
+            <div key={i}
+              onClick={() => setQuery(ex)}
+              style={{
+                padding:"11px 14px", borderRadius:12,
+                border:"1px solid #e4e1f8", background:"#fff",
+                fontSize:13, color: i===0 ? "#1a1650" : "#9994d8",
+                opacity: i===0 ? 0.9 : 0.5,
+                cursor:"pointer", letterSpacing:"-0.008em",
+                transition:"opacity 0.3s",
+                userSelect:"none",
+              }}
+            >
+              {ex}
+            </div>
           ))}
         </div>
       </div>

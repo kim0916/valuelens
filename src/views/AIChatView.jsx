@@ -189,13 +189,18 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   const inputRef   = React.useRef(null);
   const fileRef    = React.useRef(null);
 
-  // placeholder 순환
+  // placeholder 순환 + 예시 힌트 (동일 배열 공유)
   const PHS = [
-    "공릉동 동부 25평 얼마야?",
-    "잠실 리센츠 지금 사도 돼?",
-    "내 집 9억에 팔까?",
-    "7억으로 노원구 추천해줘",
-    "대치 래미안 84㎡ 적정가",
+    "잠실엘스 84평 얼마야?",
+    "반포자이 지금 사도 돼?",
+    "7억으로 송도 추천해줘",
+    "헬리오시티 전세 얼마야?",
+    "강남 출퇴근 좋은 곳 알려줘",
+    "홍제현대 25평 적정가는?",
+    "수성구 래미안 34평 시세",
+    "아이 학군 좋은 곳 추천해줘",
+    "대치 은마 76평 얼마야?",
+    "마래푸 84 지금 비싼가?",
   ];
   const [phIdx, setPhIdx] = React.useState(0);
   React.useEffect(() => {
@@ -1037,25 +1042,30 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           </div>
         )}
 
-        {/* 빈 상태 — 예시 질문 */}
+        {/* 빈 상태 — 회전 힌트 텍스트 */}
         {msgs.length <= 1 && (
-          <div style={{ marginTop:20 }}>
-            <p style={{ fontSize:10, fontWeight:500, letterSpacing:"0.07em", color:BRAND_MUTED, textTransform:"uppercase", marginBottom:8 }}>
-              질문 예시
+          <div style={{ marginTop:24, textAlign:"center" }}>
+            <p style={{ fontSize:11, color:BRAND_MUTED, marginBottom:12, letterSpacing:"0.02em" }}>
+              이런 것도 물어보세요
             </p>
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              {[
-                "공릉동 동부 25평 얼마야?",
-                "잠실 리센츠 34평 지금 사도 돼?",
-                "7억으로 노원구 추천해줘",
-              ].map((ex,i) => (
-                <button key={i} onClick={() => handleSend(ex)}
-                  style={{ padding:"10px 14px", borderRadius:12, border:`0.5px solid ${BRAND_BORDER}`, background:"#fff", fontSize:13, color:BRAND_MID, cursor:"pointer", textAlign:"left", letterSpacing:"-0.008em", transition:"background 0.1s" }}
-                  onMouseEnter={e => e.currentTarget.style.background="#f5f5f3"}
-                  onMouseLeave={e => e.currentTarget.style.background="#fff"}
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {[PHS[phIdx], PHS[(phIdx+1) % PHS.length], PHS[(phIdx+2) % PHS.length]].map((ex, i) => (
+                <div key={i}
+                  onClick={() => { setInput(ex); inputRef.current?.focus(); }}
+                  style={{
+                    padding:"11px 16px", borderRadius:12,
+                    border:`0.5px solid ${BRAND_BORDER}`,
+                    background:"#fff",
+                    fontSize:13, color: i === 0 ? BRAND_MID : BRAND_MUTED,
+                    cursor:"pointer", textAlign:"left",
+                    letterSpacing:"-0.008em",
+                    opacity: i === 0 ? 0.85 : 0.45,
+                    transition:"opacity 0.3s",
+                    userSelect:"none",
+                  }}
                 >
                   {ex}
-                </button>
+                </div>
               ))}
             </div>
           </div>
