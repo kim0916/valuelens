@@ -300,14 +300,23 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
             {f.buildYear ? ` · ${f.buildYear}년` : ""}
           </p>
 
-          {/* 판단 텍스트 — 알파벳 등급 제거, 쉬운 표현만 */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-            <span style={{ width: 11, height: 11, borderRadius: "50%",
-              background: verdict.clr, flexShrink: 0, display: "inline-block" }} />
-            <span style={{ fontSize: 26, fontWeight: 800, color: verdict.clr,
-              letterSpacing: "-0.025em", lineHeight: 1.1 }}>
-              {verdict.text}
-            </span>
+          {/* 판단 텍스트 + 근거 버튼 */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ width: 11, height: 11, borderRadius: "50%",
+                background: verdict.clr, flexShrink: 0, display: "inline-block" }} />
+              <span style={{ fontSize: 26, fontWeight: 800, color: verdict.clr,
+                letterSpacing: "-0.025em", lineHeight: 1.1 }}>
+                {verdict.text}
+              </span>
+            </div>
+            <button
+              onClick={() => setDetailOpen(v => !v)}
+              style={{ fontSize: 11, fontWeight: 600, color: verdict.clr,
+                background: "rgba(255,255,255,0.6)", border: `1px solid ${verdict.brClr}`,
+                borderRadius: 20, padding: "4px 10px", cursor: "pointer", flexShrink: 0 }}>
+              {detailOpen ? "근거 접기 ▲" : "근거 보기 ▼"}
+            </button>
           </div>
 
           {/* 적정가 대비 % */}
@@ -587,18 +596,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
           상세 분석 접기/펼치기
           (엔진 상세값 — 일반 사용자용 아님)
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <button
-        onClick={() => setDetailOpen(v => !v)}
-        style={{ width: "100%", background: "#fff", border: `1px solid ${CLR.border}`,
-          borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center",
-          justifyContent: "space-between", cursor: "pointer", marginBottom: 10,
-          boxShadow: "0 1px 4px rgba(0,0,0,0.04)", fontSize: 13,
-          fontWeight: 600, color: "#475569" }}>
-        상세 분석 보기 (산출 근거)
-        <span style={{ fontSize: 12, color: CLR.muted }}>
-          {detailOpen ? "접기 ▲" : "펼치기 ▼"}
-        </span>
-      </button>
+
 
       {detailOpen && (
         <Card>
