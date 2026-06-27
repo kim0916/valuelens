@@ -1,6 +1,6 @@
-// ValueLens — FairValueResult Phase 3
-// ★ 계산 로직(r.*, 엔진 값) 수정 금지. 렌더링/UX만 변경.
-// ★ props / 함수명 / import 변경 금지.
+// ValueLens — FairValueResult
+// Phase 3 Result UX Final
+// ★ props / 함수명 / import 변경 금지 / 계산 로직 수정 금지
 
 import React from 'react';
 import { NAVY } from '../constants/brand.js';
@@ -13,80 +13,173 @@ import {
   InputWarnings, MarketTypeBadge, FairSaveBtn,
 } from './shared.jsx';
 
-// ─── 색상 상수 ───
-const GREEN  = "#2F6F4F";
-const AMBER  = "#C97B22";
-const RED    = "#DC2626";
-const MUTED  = "#94a3b8";
-const BG     = "#FAFAF8";
-const BORDER = "#e8e4df";
+// ── 색상 정책 (요구사항 9번) ──
+const CLR = {
+  green:  "#2F6F4F",   // 저평가 / 긍정
+  greenL: "#f0fdf4",   // 저평가 배경
+  greenB: "#bbf7d0",   // 저평가 테두리
+  blue:   "#1d4ed8",   // 적정 범위
+  blueL:  "#eff6ff",   // 적정 범위 배경
+  blueB:  "#bfdbfe",   // 적정 범위 테두리
+  red:    "#dc2626",   // 고평가
+  redL:   "#fef2f2",   // 고평가 배경
+  redB:   "#fecaca",   // 고평가 테두리
+  gray:   "#64748b",   // 데이터 부족
+  grayL:  "#f8fafc",   // 데이터 부족 배경
+  grayB:  "#e2e8f0",   // 데이터 부족 테두리
+  amber:  "#C97B22",   // 주의/경고
+  amberL: "#fffbeb",
+  amberB: "#fde68a",
+  muted:  "#94a3b8",
+  border: "#e8e4df",
+  bg:     "#FAFAF8",
+};
 
+// ── 판단 정의 (A/B/C/D/E 알파벳 메인 제거, 쉬운 표현만) ──
+function getVerdict(r) {
+  const hold = r.engineMode === "hold";
+  const gap  = r.gapRatio;
+  if (hold)         return { text:"데이터 부족",  clr:CLR.gray,  bgClr:CLR.grayL,  brClr:CLR.grayB };
+  if (gap < -0.08)  return { text:"저평가",       clr:CLR.green, bgClr:CLR.greenL, brClr:CLR.greenB };
+  if (gap < 0.05)   return { text:"적정 범위",    clr:CLR.blue,  bgClr:CLR.blueL,  brClr:CLR.blueB };
+  if (gap < 0.12)   return { text:"고평가 주의",  clr:CLR.amber, bgClr:CLR.amberL, brClr:CLR.amberB };
+  return              { text:"고평가",            clr:CLR.red,   bgClr:CLR.redL,   brClr:CLR.redB };
+}
+
+// ── AI 한 줄 결론 (요구사항 4번) ──
+function getAISummary(r, trust) {
+  const hold = r.engineMode === "hold";
+  const gap  = r.gapRatio;
+  const stable = trust?.grade === "A" || trust?.grade === "B";
+
+  if (hold) return "최근 거래 데이터가 부족하여 참고용으로만 확인해 주세요.";
+
+  if (gap < -0.08) return stable
+    ? "현재 가격은 분석 기준보다 낮은 구간입니다. 최근 거래 데이터도 안정적으로 확보되었습니다."
+    : "현재 가격은 분석 기준보다 낮은 구간입니다. 거래 데이터가 적어 추가 확인을 권장합니다.";
+
+  if (gap < 0.05) return stable
+    ? "현재 가격은 적정 범위 안에 있습니다. 최근 거래 데이터도 충분하여 비교적 안정적으로 분석되었습니다."
+    : "현재 가격은 적정 범위 안에 있습니다. 거래 데이터가 다소 적어 참고용으로 확인해 주세요.";
+
+  if (gap < 0.12) return "현재 가격은 분석 기준보다 높은 구간입니다. 가격 협상 또는 추가 확인이 필요합니다.";
+  return "현재 가격은 분석 기준을 크게 상회합니다. 신중한 검토가 필요합니다.";
+}
+
+// ── 적정가 범위 (요구사항 3번: 데이터 안정성 따라 다른 오차율) ──
+function getFairRange(r, trust, fb) {
+  const fp = r.fairPrice;
+  if (!fp) return null;
+
+  // fb(computeFairBands)가 이미 계산된 범위 → 그대로 사용
+  // 단, 데이터 안정성에 따라 범위를 조정
+  const grade = trust?.grade || "C";
+  const ratio = grade === "A" ? 0.05 : grade === "B" ? 0.07 : 0.10;
+
+  // fb.conservative / fb.aggressive 가 있으면 활용, 없으면 자체 계산
+  const low  = fb?.conservative || Math.round(fp * (1 - ratio));
+  const high = fb?.aggressive   || Math.round(fp * (1 + ratio));
+
+  return { low, high, base: fb?.base || fp };
+}
+
+// ── 판단 이유 카드 (요구사항 5번: 전문용어 없이 4개 이하) ──
+function getWhyCards(r, trust) {
+  const cards = [];
+
+  // 거래 충분도
+  if ((r.saleUsed || 0) >= 5) {
+    cards.push("최근 동일 평형 거래가 충분합니다.");
+  } else if ((r.saleUsed || 0) > 0) {
+    cards.push(`최근 동일 평형 거래가 ${r.saleUsed}건으로 적은 편입니다.`);
+  } else {
+    cards.push("최근 거래 데이터가 매우 부족합니다.");
+  }
+
+  // 적정 범위 여부
+  const gap = r.gapRatio;
+  if (gap == null) {
+    cards.push("가격 분석을 위한 데이터가 충분하지 않습니다.");
+  } else if (Math.abs(gap) <= 0.05) {
+    cards.push("현재 가격은 적정 범위 안에 있습니다.");
+  } else if (gap < 0) {
+    cards.push("현재 가격은 분석 기준보다 낮은 수준입니다.");
+  } else {
+    cards.push("현재 가격은 분석 기준보다 높은 수준입니다.");
+  }
+
+  // 분석 방식 (전문용어 제거)
+  const mode = r.engineMode;
+  if (mode === "blend")  cards.push("최근 매매·전세 거래를 함께 반영했습니다.");
+  else if (mode === "sale")   cards.push("최근 매매 거래 흐름을 기반으로 분석했습니다.");
+  else if (mode === "jeonse") cards.push("최근 전세 거래 흐름을 기반으로 분석했습니다.");
+
+  // 이상 거래 제외 여부
+  const jExcl = r.basis?.jeonse?.excluded || 0;
+  const sExcl = r.basis?.sale?.excluded   || 0;
+  if ((jExcl + sExcl) > 0) {
+    cards.push("이상 거래를 제외하고 분석했습니다.");
+  }
+
+  // 프리미엄 반영
+  if (r.isPremium) cards.push("단지 특성에 따른 프리미엄을 반영했습니다.");
+
+  return cards.slice(0, 4);
+}
+
+// ── 데이터 안정성 텍스트 (요구사항 6번) ──
+function getStability(trust) {
+  const g = trust?.grade || "C";
+  const desc = trust?.gradeDesc || "";
+  const label = trust?.gradeLabel || "낮음";
+  const clr =
+    g === "A" ? CLR.green :
+    g === "B" ? "#16a34a" :
+    g === "C" ? CLR.amber :
+    CLR.red;
+
+  // 화면용 등급 (A/B/C/D → 높음/보통/낮음)
+  const displayLabel =
+    g === "A" ? "높음" :
+    g === "B" ? "보통" :
+    "낮음";  // C, D 모두 "낮음" (요구사항: 매우 낮음은 숨김)
+
+  const barW =
+    g === "A" ? "100%" :
+    g === "B" ? "65%"  :
+    g === "C" ? "35%"  :
+    "15%";
+
+  return { displayLabel, clr, desc, barW };
+}
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 메인 컴포넌트
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId }) {
   const [detailOpen, setDetailOpen] = React.useState(false);
-  const [checkDone, setCheckDone]   = React.useState({});
+  const [checkState, setCheckState] = React.useState({});  // { id: boolean }
 
-  // ── 계산 (엔진 값 그대로 사용 — 수정 금지) ──
-  const mc      = classifyApartmentMarket(f, r);
-  const trust   = computeDataTrust(r, f.deals, f.saleDeals);
-  const fb      = computeFairBands(r, mc);
-  const hold    = r.engineMode === "hold";
+  // ── 계산 (엔진 값 수정 금지) ──
+  const mc          = classifyApartmentMarket(f, r);
+  const trust       = computeDataTrust(r, f.deals, f.saleDeals);
+  const fb          = computeFairBands(r, mc);
+  const hold        = r.engineMode === "hold";
   const isLowData   = mc.specialMarketType === "lowData";
   const isAbnormal  = mc.specialMarketType === "abnormalInput";
   const provisional = hold || isLowData || isAbnormal;
+
+  const verdict    = getVerdict(r);
+  const aiSummary  = getAISummary(r, trust);
+  const fairRange  = getFairRange(r, trust, fb);
+  const whyCards   = getWhyCards(r, trust);
+  const stability  = getStability(trust);
+
   const jb = (r.basis && r.basis.jeonse) || {};
   const sb = (r.basis && r.basis.sale)   || {};
-  const jkb = r.jeonseCalc ? r.jeonseCalc.kbWeight : null;
-  const skb = r.saleCalc   ? r.saleCalc.kbWeight   : null;
-
-  // ── 결론 텍스트 ──
-  const verdict = hold
-    ? { label: "판단 보류",   color: MUTED,  bg: "#f1f5f9", desc: "데이터가 부족해 정확한 분석이 어렵습니다." }
-    : r.gapRatio < -0.08
-    ? { label: "저평가",      color: GREEN,  bg: "#f0fdf4", desc: "적정가보다 낮은 수준입니다." }
-    : r.gapRatio < -0.02
-    ? { label: "적정 범위",   color: GREEN,  bg: "#f0fdf4", desc: "적정 범위 안에 있습니다." }
-    : r.gapRatio < 0.05
-    ? { label: "적정 범위",   color: "#334155", bg: "#f8fafc", desc: "시장 평균에 가까운 수준입니다." }
-    : r.gapRatio < 0.12
-    ? { label: "고평가 주의", color: AMBER,  bg: "#fffbeb", desc: "적정가보다 다소 높은 수준입니다." }
-    : { label: "고평가",      color: RED,    bg: "#fef2f2", desc: "적정가를 크게 상회하는 수준입니다." };
-
-  // ── 데이터 안정성 텍스트 (신뢰도 → 데이터 안정성) ──
-  const stability = (() => {
-    const g = trust?.grade || "C";
-    return {
-      A: { label:"높음",     color: GREEN,      reason: `매매 ${r.saleUsed||0}건·전세 ${r.jeonseUsed||0}건 기준. 거래가 충분해 분석 안정성이 높습니다.` },
-      B: { label:"보통",     color: "#16a34a",  reason: `매매 ${r.saleUsed||0}건·전세 ${r.jeonseUsed||0}건 기준. 분석에 충분하나 추가 확인을 권장합니다.` },
-      C: { label:"낮음",     color: AMBER,      reason: `거래 표본이 적습니다. 결과를 참고용으로만 활용하세요.` },
-      D: { label:"매우 낮음",color: RED,        reason: `데이터가 매우 부족합니다. 신중하게 해석하세요.` },
-    }[g] || { label:"낮음", color: AMBER, reason: "데이터가 제한적입니다." };
-  })();
-
-  // ── 판단 이유 카드 데이터 ──
-  const whyCards = (() => {
-    const cards = [];
-    if (r.saleUsed >= 5) cards.push({ icon:"✅", text:"최근 거래가 충분합니다." });
-    else if (r.saleUsed > 0) cards.push({ icon:"⚠️", text:`매매 거래가 적습니다 (${r.saleUsed}건).` });
-    if (r.jeonseUsed >= 3) cards.push({ icon:"✅", text:"동일 평형 전세 데이터가 확보됐습니다." });
-    else if (r.jeonseUsed > 0) cards.push({ icon:"⚠️", text:`전세 거래가 적습니다 (${r.jeonseUsed}건).` });
-    const mode = r.engineMode;
-    if (mode === "blend")  cards.push({ icon:"📊", text:"매매·전세 데이터를 혼합해 분석했습니다." });
-    if (mode === "sale")   cards.push({ icon:"📊", text:"매매 거래 기준으로 분석했습니다." });
-    if (mode === "jeonse") cards.push({ icon:"📊", text:"전세 시세 기준으로 분석했습니다." });
-    if (r.isPremium)       cards.push({ icon:"⭐", text:"재건축·학군·희소성 프리미엄이 반영됐습니다." });
-    if (jkb != null && jkb >= 0.6) cards.push({ icon:"⚠️", text:"KB시세 의존도가 높습니다. 참고용으로 활용하세요." });
-    if (r.dataWarnings?.length > 0) cards.push({ icon:"⚠️", text: r.dataWarnings[0] });
-    return cards.slice(0, 4);
-  })();
-
-  // ── 체크리스트 항목 ──
-  const CHECKLIST = [
-    { id:"deals",    icon:"🔍", text:"국토부 실거래가 직접 확인",  sub:"최신 실거래가를 직접 확인하세요",             href:"https://rt.molit.go.kr" },
-    { id:"registry", icon:"📋", text:"등기사항 확인",               sub:"대법원 인터넷등기소에서 권리관계 확인",       href:"https://www.iros.go.kr" },
-    { id:"building", icon:"🏛️", text:"건축물대장 확인",             sub:"정부24에서 건축물 현황 확인",                href:"https://www.gov.kr" },
-    { id:"loan",     icon:"💰", text:"대출 한도 확인",               sub:"실제 대출 가능 금액을 확인하세요",            href: null },
-    { id:"contract", icon:"📝", text:"계약 전 체크리스트",          sub:"등기·세금·특약사항 등 최종 점검",            href: null },
-  ];
+  const jkb = r.jeonseCalc?.kbWeight;
+  const skb = r.saleCalc?.kbWeight;
 
   React.useEffect(() => {
     writeSearchLog({
@@ -100,373 +193,506 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── 섹션 컴포넌트 ───
+  // ── 체크리스트 (요구사항 8번) ──
+  const CHECKLIST = [
+    {
+      id: "deals",
+      text: "최신 실거래 확인",
+      sub: "국토부 실거래가 공개시스템",
+      href: "https://rt.molit.go.kr",
+      btnLabel: "국토부 실거래",
+    },
+    {
+      id: "registry",
+      text: "등기사항 확인",
+      sub: "권리관계·근저당·가처분 등",
+      href: "https://www.iros.go.kr",
+      btnLabel: "대법원 등기소",
+    },
+    {
+      id: "building",
+      text: "건축물대장 확인",
+      sub: "용도·위반건축물·변경이력",
+      href: "https://www.gov.kr/mw/AA020InfoCappView.do?HighCtgCD=A09010&CappBizCD=14000000003",
+      btnLabel: "정부24 건축물대장",
+    },
+    {
+      id: "loan",
+      text: "대출 가능 금액 확인",
+      sub: "DSR·LTV 기준 실제 가능 한도",
+      href: null,
+      btnLabel: null,
+    },
+    {
+      id: "special",
+      text: "계약 특약 확인",
+      sub: "잔금일·하자·전입신고 등 특약사항",
+      href: null,
+      btnLabel: null,
+    },
+  ];
+
+  const allChecked = CHECKLIST.every(c => checkState[c.id]);
+  const checkedCount = CHECKLIST.filter(c => checkState[c.id]).length;
+
+  // ── 레이아웃 헬퍼 ──
   const Card = ({ children, style = {} }) => (
-    <div style={{ background:"#fff", borderRadius:16, border:`1px solid ${BORDER}`,
-      boxShadow:"0 1px 8px rgba(0,0,0,0.05)", marginBottom:12, overflow:"hidden", ...style }}>
+    <div style={{
+      background: "#fff", borderRadius: 14,
+      border: `1px solid ${CLR.border}`,
+      boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
+      marginBottom: 10, overflow: "hidden", ...style,
+    }}>
       {children}
     </div>
   );
 
-  const SectionTitle = ({ children }) => (
-    <p style={{ fontSize:11, fontWeight:600, color:"#94a3b8", letterSpacing:"0.06em",
-      textTransform:"uppercase", margin:"0 0 10px", padding:"14px 16px 0" }}>
+  const SLabel = ({ children }) => (
+    <p style={{ fontSize: 10, fontWeight: 600, color: CLR.muted,
+      letterSpacing: "0.07em", textTransform: "uppercase", margin: "14px 16px 8px" }}>
       {children}
     </p>
   );
 
+  const Divider = () => <div style={{ height: 1, background: CLR.border }} />;
+
   return (
-    <div style={{ fontFamily:"-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif", padding:"0 0 32px" }}>
+    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif",
+      padding: "0 0 40px" }}>
 
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          ① 현재 가격 판단 — 가장 크게
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <Card style={{ borderTop:`3px solid ${verdict.color}` }}>
-        <div style={{ padding:"20px 16px 16px", background: verdict.bg }}>
-          {/* 단지명 */}
-          <p style={{ fontSize:12, color:MUTED, margin:"0 0 10px" }}>
-            {f.complexName} · {Number(f.areaExclusive) > 0 ? `전용 ${f.areaExclusive}㎡` : ""}
-          </p>
-
-          {/* 결론 레이블 — 최우선 */}
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
-            <span style={{ display:"inline-block", width:10, height:10, borderRadius:"50%",
-              background: verdict.color, flexShrink:0 }} />
-            <span style={{ fontSize:26, fontWeight:800, color: verdict.color, letterSpacing:"-0.02em",
-              lineHeight:1.1 }}>
-              {verdict.label}
-            </span>
-          </div>
-          <p style={{ fontSize:14, color:"#475569", margin:0, lineHeight:1.6 }}>
-            {verdict.desc}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          1) AI 한 줄 결론
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <Card>
+        <div style={{ padding: "14px 16px", background: CLR.bg,
+          display: "flex", alignItems: "flex-start", gap: 10 }}>
+          <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>💬</span>
+          <p style={{ fontSize: 13, color: "#334155", margin: 0,
+            lineHeight: 1.65, letterSpacing: "-0.008em" }}>
+            {aiSummary}
           </p>
         </div>
+      </Card>
 
-        {/* 등급 배지 */}
-        {!hold && (
-          <div style={{ padding:"8px 16px", borderTop:`1px solid ${BORDER}`,
-            display:"flex", alignItems:"center", gap:6 }}>
-            <span style={{ fontSize:13, fontWeight:600, color:"#334155" }}>
-              {r.buyGrade}등급
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          2) 현재 가격 판단 (메인, 가장 크게)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <Card style={{ borderTop: `3px solid ${verdict.clr}` }}>
+        <div style={{ padding: "18px 16px 14px", background: verdict.bgClr }}>
+          {/* 단지·면적 */}
+          <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 10px" }}>
+            {f.complexName}
+            {Number(f.areaExclusive) > 0 ? ` · 전용 ${f.areaExclusive}㎡` : ""}
+            {f.buildYear ? ` · ${f.buildYear}년` : ""}
+          </p>
+
+          {/* 판단 텍스트 — 알파벳 등급 제거, 쉬운 표현만 */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <span style={{ width: 11, height: 11, borderRadius: "50%",
+              background: verdict.clr, flexShrink: 0, display: "inline-block" }} />
+            <span style={{ fontSize: 26, fontWeight: 800, color: verdict.clr,
+              letterSpacing: "-0.025em", lineHeight: 1.1 }}>
+              {verdict.text}
             </span>
-            <span style={{ fontSize:12, color:MUTED }}>·</span>
-            <span style={{ fontSize:12, color:"#64748b" }}>
-              {{ A:"매우 저평가", B:"저평가", C:"적정 가격", D:"고평가 주의", E:"고평가" }[r.buyGrade] || ""}
-            </span>
-            {r.gapRatio != null && (
-              <span style={{ marginLeft:"auto", fontSize:12, fontWeight:600,
-                color: r.gapRatio < 0 ? GREEN : RED }}>
+          </div>
+
+          {/* 적정가 대비 % */}
+          {!hold && r.gapRatio != null && (
+            <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
+              적정 기준 대비&nbsp;
+              <span style={{ fontWeight: 700, color: verdict.clr }}>
                 {r.gapRatio < 0 ? "▼" : "▲"} {Math.abs(r.gapRatio * 100).toFixed(1)}%
               </span>
-            )}
+              &nbsp;{r.gapRatio < 0 ? "낮은 수준" : "높은 수준"}
+            </p>
+          )}
+          {hold && (
+            <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.6 }}>
+              {r.holdReason || "거래 데이터 부족으로 정확한 분석이 어렵습니다."}
+            </p>
+          )}
+        </div>
+      </Card>
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          3) 적정 가격 범위 (단일 숫자 제거, 범위로)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {!provisional && fairRange && (
+        <Card>
+          <SLabel>적정 가격 범위</SLabel>
+          <div style={{ padding: "0 16px 16px" }}>
+            {/* 범위 강조 박스 */}
+            <div style={{ background: CLR.greenL, border: `1px solid ${CLR.greenB}`,
+              borderRadius: 12, padding: "14px 16px", marginBottom: 10 }}>
+              <p style={{ fontSize: 11, color: "#166534", margin: "0 0 5px" }}>
+                AI 추정 적정 범위
+              </p>
+              <p style={{ fontSize: 22, fontWeight: 800, color: CLR.green, margin: 0,
+                letterSpacing: "-0.02em" }}>
+                약 {won(fairRange.low)} ~ {won(fairRange.high)}
+              </p>
+              <p style={{ fontSize: 11, color: "#4ade80", margin: "5px 0 0" }}>
+                기준값 {won(fairRange.base)} ·&nbsp;
+                데이터 안정성 {stability.displayLabel} 기준
+              </p>
+            </div>
+
+            {/* 범위 설명 */}
+            <p style={{ fontSize: 11, color: CLR.muted, margin: 0, lineHeight: 1.6 }}>
+              단일 숫자가 아닌 범위로 표시합니다.
+              데이터 안정성에 따라 범위가 달라질 수 있습니다.
+            </p>
           </div>
+        </Card>
+      )}
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          4) 현재 시세
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <Card>
+        <SLabel>현재 시세</SLabel>
+        <div style={{ display: "grid",
+          gridTemplateColumns: f.currentPrice ? "1fr 1fr" : "1fr",
+          gap: 1, background: CLR.border, margin: "0 0 0 0" }}>
+          {/* 최근 실거래 시세 */}
+          <div style={{ background: "#fff", padding: "12px 16px" }}>
+            <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 4px" }}>
+              최근 실거래 시세
+            </p>
+            <p style={{ fontSize: 17, fontWeight: 700, color: "#334155", margin: 0 }}>
+              {r.saleMedian ? won(r.saleMedian) : r.saleFair ? won(r.saleFair) : "—"}
+            </p>
+            <p style={{ fontSize: 10, color: CLR.muted, margin: "3px 0 0" }}>
+              {r.saleUsed || 0}건 기준
+            </p>
+          </div>
+          {/* 현재 매물가 */}
+          {f.currentPrice && (
+            <div style={{ background: "#fff", padding: "12px 16px" }}>
+              <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 4px" }}>
+                현재 매물가
+              </p>
+              <p style={{ fontSize: 17, fontWeight: 700, color: "#334155", margin: 0 }}>
+                {won(Number(f.currentPrice))}
+              </p>
+              {!hold && r.gapRatio != null && (
+                <p style={{ fontSize: 10, fontWeight: 600, margin: "3px 0 0",
+                  color: r.gapRatio < 0 ? CLR.green : CLR.red }}>
+                  적정가 대비 {r.gapRatio < 0 ? "낮음" : "높음"}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+        {/* 전세가율 */}
+        {r.actualRatio && (
+          <>
+            <Divider />
+            <div style={{ padding: "10px 16px", display: "flex",
+              alignItems: "center", justifyContent: "space-between" }}>
+              <p style={{ fontSize: 11, color: CLR.muted, margin: 0 }}>전세가율</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "#334155", margin: 0 }}>
+                {Math.round(r.actualRatio * 100)}%
+              </p>
+            </div>
+          </>
         )}
       </Card>
 
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          ② 적정가 범위 — 단일 숫자 아닌 범위로
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {!provisional && (
-        <Card>
-          <SectionTitle>적정 가격 범위</SectionTitle>
-          <div style={{ padding:"0 16px 16px" }}>
-            {/* 범위 강조 */}
-            <div style={{ background:"#f0fdf4", borderRadius:12, padding:"14px 16px",
-              border:`1px solid #bbf7d0`, marginBottom:12 }}>
-              <p style={{ fontSize:12, color:"#166534", margin:"0 0 4px" }}>AI 추정 적정 범위</p>
-              <p style={{ fontSize:22, fontWeight:800, color: GREEN, margin:0, letterSpacing:"-0.02em" }}>
-                약 {won(fb.conservative)} ~ {won(fb.aggressive)}
-              </p>
-              <p style={{ fontSize:11, color:"#4ade80", margin:"4px 0 0" }}>
-                기준가 {won(fb.base)}
-              </p>
-            </div>
-
-            {/* 현재가 vs 적정가 비교 */}
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-              <div style={{ background: BG, borderRadius:10, padding:"10px 12px",
-                border:`1px solid ${BORDER}` }}>
-                <p style={{ fontSize:11, color:MUTED, margin:"0 0 4px" }}>현재 시세</p>
-                <p style={{ fontSize:17, fontWeight:700, color:"#334155", margin:0 }}>
-                  {r.saleMedian ? won(r.saleMedian) : r.saleFair ? won(r.saleFair) : "—"}
-                </p>
-                <p style={{ fontSize:10, color:MUTED, margin:"2px 0 0" }}>최근 거래 기준</p>
-              </div>
-              <div style={{ background: BG, borderRadius:10, padding:"10px 12px",
-                border:`1px solid ${BORDER}` }}>
-                <p style={{ fontSize:11, color:MUTED, margin:"0 0 4px" }}>현재 매물가</p>
-                <p style={{ fontSize:17, fontWeight:700, color:"#334155", margin:0 }}>
-                  {won(Number(f.currentPrice))}
-                </p>
-                <p style={{ fontSize:10, color: r.gapRatio < 0 ? GREEN : RED, margin:"2px 0 0", fontWeight:600 }}>
-                  적정가 대비 {r.gapRatio < 0 ? "낮음" : "높음"}
-                </p>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* 판단 보류 카드 */}
-      {provisional && (
-        <Card>
-          <div style={{ padding:"16px", background:"#fffbeb", borderBottom:`1px solid #fde68a` }}>
-            <p style={{ fontSize:13, fontWeight:700, color:"#92400e", margin:"0 0 4px" }}>
-              ⚠️ {isAbnormal ? "입력값 확인 필요" : "데이터 부족"}
-            </p>
-            <p style={{ fontSize:12, color:"#b45309", margin:0, lineHeight:1.6 }}>
-              {isAbnormal ? "현재가가 시세와 크게 차이납니다. 입력값을 다시 확인해주세요." : r.holdReason}
-            </p>
-          </div>
-          {r.fairPrice && (
-            <div style={{ padding:"14px 16px", textAlign:"center" }}>
-              <p style={{ fontSize:11, color:MUTED, margin:"0 0 4px" }}>참고가 (신뢰도 낮음)</p>
-              <p style={{ fontSize:22, fontWeight:800, color:MUTED, margin:0 }}>{won(r.fairPrice)}</p>
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          ③ 왜 이렇게 판단했나요? 카드
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {whyCards.length > 0 && (
-        <Card>
-          <SectionTitle>왜 이렇게 판단했나요?</SectionTitle>
-          <div style={{ padding:"0 16px 14px", display:"flex", flexDirection:"column", gap:8 }}>
-            {whyCards.map((c, i) => (
-              <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:8,
-                background: BG, borderRadius:10, padding:"10px 12px", border:`1px solid ${BORDER}` }}>
-                <span style={{ fontSize:15, flexShrink:0, marginTop:1 }}>{c.icon}</span>
-                <p style={{ fontSize:13, color:"#334155", margin:0, lineHeight:1.5 }}>{c.text}</p>
-              </div>
-            ))}
-            {r.headline && (
-              <p style={{ fontSize:12, color:"#64748b", margin:"4px 0 0", lineHeight:1.6, paddingLeft:2 }}>
-                {r.headline}
-              </p>
-            )}
-          </div>
-        </Card>
-      )}
-
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          ④ 데이터 안정성 (신뢰도 대체)
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          5) 왜 이렇게 판단했나요?
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <Card>
-        <SectionTitle>데이터 안정성</SectionTitle>
-        <div style={{ padding:"0 16px 14px" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
-            <span style={{ fontSize:17, fontWeight:800, color: stability.color }}>
-              {stability.label}
-            </span>
-            <div style={{ flex:1, height:6, borderRadius:99, background:"#f1f5f9", overflow:"hidden" }}>
-              <div style={{ height:"100%", borderRadius:99, background: stability.color,
-                width: { 높음:"100%", 보통:"70%", 낮음:"40%", "매우 낮음":"15%" }[stability.label] || "30%",
-                transition:"width 0.5s" }} />
+        <SLabel>왜 이렇게 판단했나요?</SLabel>
+        <div style={{ padding: "0 16px 14px", display: "flex", flexDirection: "column", gap: 7 }}>
+          {whyCards.map((text, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 9,
+              background: CLR.bg, borderRadius: 10, padding: "10px 12px",
+              border: `1px solid ${CLR.border}` }}>
+              <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>
+                {text.startsWith("최근 동일") && !text.includes("부족") ? "✅"
+                  : text.includes("적정 범위") ? "✅"
+                  : text.includes("충분") ? "✅"
+                  : "⚠️"}
+              </span>
+              <p style={{ fontSize: 13, color: "#334155", margin: 0, lineHeight: 1.55 }}>
+                {text}
+              </p>
             </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          6) 데이터 안정성 (신뢰도 표현 제거)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <Card>
+        <SLabel>데이터 안정성</SLabel>
+        <div style={{ padding: "0 16px 14px" }}>
+          {/* 등급 + 바 */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <span style={{ fontSize: 16, fontWeight: 800, color: stability.clr,
+              minWidth: 36 }}>
+              {stability.displayLabel}
+            </span>
+            <div style={{ flex: 1, height: 6, borderRadius: 99,
+              background: "#f1f5f9", overflow: "hidden" }}>
+              <div style={{ height: "100%", borderRadius: 99,
+                background: stability.clr, width: stability.barW,
+                transition: "width 0.6s ease" }} />
+            </div>
+            <span style={{ fontSize: 11, color: CLR.muted, flexShrink: 0 }}>
+              거래 {(r.saleUsed||0) + (r.jeonseUsed||0)}건
+            </span>
           </div>
-          <p style={{ fontSize:12, color:"#64748b", margin:0, lineHeight:1.6 }}>
-            {stability.reason}
+          {/* 이유 — 엔진의 gradeDesc 그대로 (전문용어 없는 문구) */}
+          <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.65 }}>
+            {stability.desc}
           </p>
         </div>
       </Card>
 
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          ⑤ 주의사항
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <Card style={{ border:`1px solid #fed7aa` }}>
-        <div style={{ padding:"14px 16px", background:"#fffbeb" }}>
-          <p style={{ fontSize:12, fontWeight:700, color:"#92400e", margin:"0 0 8px" }}>
-            ⚠️ 주의사항
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          7) 주의사항
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <Card style={{ border: `1px solid ${CLR.amberB}` }}>
+        <div style={{ padding: "14px 16px", background: CLR.amberL }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#92400e",
+            margin: "0 0 10px", display: "flex", alignItems: "center", gap: 6 }}>
+            <span>⚠️</span> 주의사항
           </p>
           {[
-            "최근 실거래 기준 분석입니다. 층·향·수리상태에 따라 실제 거래가는 다를 수 있습니다.",
-            "실제 계약 전에는 최신 매물·등기사항·건축물대장을 반드시 함께 확인하시기 바랍니다.",
-            "본 결과는 참고용 분석이며 감정평가서·투자자문·매수 권유가 아닙니다.",
+            "본 결과는 최근 거래 데이터를 기반으로 분석한 참고 자료입니다.",
+            "실제 거래가격은 층, 향, 내부 상태, 협상 여부에 따라 달라질 수 있습니다.",
+            "계약 전에는 최신 실거래, 매물 상태, 등기사항, 건축물대장을 반드시 확인하시기 바랍니다.",
           ].map((t, i) => (
-            <p key={i} style={{ fontSize:12, color:"#b45309", margin:"4px 0 0", lineHeight:1.6,
-              paddingLeft:12, position:"relative" }}>
-              <span style={{ position:"absolute", left:0 }}>·</span>
+            <p key={i} style={{ fontSize: 12, color: "#b45309",
+              margin: i === 0 ? 0 : "5px 0 0", lineHeight: 1.65,
+              paddingLeft: 12, position: "relative" }}>
+              <span style={{ position: "absolute", left: 0 }}>·</span>
               {t}
             </p>
           ))}
         </div>
       </Card>
 
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          ⑥ 계약 전 체크리스트 (핵심 추가)
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <Card style={{ border:`1px solid #bfdbfe` }}>
-        <div style={{ padding:"14px 16px 6px", borderBottom:`1px solid ${BORDER}` }}>
-          <p style={{ fontSize:13, fontWeight:700, color:"#1e40af", margin:0 }}>
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          8) 계약 전 체크리스트
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <Card style={{ border: `1px solid ${CLR.blueB}` }}>
+        {/* 헤더 */}
+        <div style={{ padding: "14px 16px 12px", borderBottom: `1px solid ${CLR.border}` }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#1e40af",
+            margin: "0 0 3px" }}>
             📋 계약 전 확인 체크리스트
           </p>
-          <p style={{ fontSize:11, color:MUTED, margin:"3px 0 0" }}>
-            계약 전 반드시 확인해야 할 항목들
+          <p style={{ fontSize: 11, color: CLR.muted, margin: 0 }}>
+            {checkedCount}/{CHECKLIST.length} 완료 · 계약 전 반드시 확인해야 할 항목
           </p>
         </div>
-        <div style={{ padding:"8px 0" }}>
-          {CHECKLIST.map((item) => {
-            const done = checkDone[item.id];
-            const content = (
-              <div
-                key={item.id}
-                onClick={() => {
-                  setCheckDone(prev => ({ ...prev, [item.id]: !prev[item.id] }));
-                  if (item.href) window.open(item.href, "_blank", "noopener");
-                }}
-                style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 16px",
-                  cursor:"pointer", borderBottom:`1px solid ${BORDER}`,
-                  background: done ? "#f0fdf4" : "transparent",
-                  transition:"background 0.15s" }}>
-                {/* 체크박스 */}
-                <div style={{ width:22, height:22, borderRadius:6, flexShrink:0,
-                  border: done ? "none" : `2px solid ${BORDER}`,
-                  background: done ? GREEN : "transparent",
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  transition:"all 0.2s" }}>
+
+        {/* 항목들 */}
+        {CHECKLIST.map((item, idx) => {
+          const done = !!checkState[item.id];
+          return (
+            <div key={item.id} style={{
+              borderBottom: idx < CHECKLIST.length - 1 ? `1px solid ${CLR.border}` : "none",
+              background: done ? "#f0fdf4" : "#fff",
+              transition: "background 0.2s",
+            }}>
+              <div style={{ display: "flex", alignItems: "center",
+                gap: 12, padding: "12px 16px" }}>
+                {/* 체크박스 — 탭 시 체크만 (요구사항: 체크 눌러도 외부 이동 안 함) */}
+                <button
+                  onClick={() => setCheckState(p => ({ ...p, [item.id]: !p[item.id] }))}
+                  style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                    border: done ? "none" : `2px solid ${CLR.border}`,
+                    background: done ? CLR.green : "transparent",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "pointer", transition: "all 0.2s", padding: 0 }}>
                   {done && (
                     <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                      <path d="M2 6.5l3 3 6-6" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M2 6.5l3 3 6-6" stroke="#fff"
+                        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
-                </div>
-                {/* 아이콘 + 텍스트 */}
-                <div style={{ flex:1, minWidth:0 }}>
-                  <p style={{ fontSize:13, fontWeight: done ? 400 : 600,
-                    color: done ? "#64748b" : "#1e293b",
-                    margin:0, textDecoration: done ? "line-through" : "none",
-                    display:"flex", alignItems:"center", gap:6 }}>
-                    <span>{item.icon}</span>
+                </button>
+
+                {/* 텍스트 */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: done ? 400 : 600,
+                    color: done ? "#64748b" : "#1e293b", margin: 0,
+                    textDecoration: done ? "line-through" : "none" }}>
                     {item.text}
                   </p>
-                  <p style={{ fontSize:11, color:MUTED, margin:"2px 0 0" }}>{item.sub}</p>
+                  <p style={{ fontSize: 11, color: CLR.muted, margin: "2px 0 0" }}>
+                    {item.sub}
+                  </p>
                 </div>
-                {/* 링크 아이콘 */}
-                {item.href && !done && (
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink:0 }}>
-                    <path d="M5.5 2.5H2.5v9h9v-3M8 2.5h3.5v3.5M11.5 2.5L6 8" stroke={MUTED}
-                      strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+
+                {/* "보기" 버튼 — 외부 이동은 이 버튼으로만 (요구사항 8번) */}
+                {item.href && (
+                  <button
+                    onClick={() => window.open(item.href, "_blank", "noopener noreferrer")}
+                    style={{ flexShrink: 0, fontSize: 11, fontWeight: 600,
+                      color: CLR.blue, background: CLR.blueL,
+                      border: `1px solid ${CLR.blueB}`, borderRadius: 6,
+                      padding: "4px 10px", cursor: "pointer",
+                      whiteSpace: "nowrap" }}>
+                    {item.btnLabel} ↗
+                  </button>
                 )}
               </div>
-            );
-            return content;
-          })}
-          {/* 완료 메시지 */}
-          {Object.values(checkDone).filter(Boolean).length === CHECKLIST.length && (
-            <div style={{ padding:"14px 16px", textAlign:"center", background:"#f0fdf4" }}>
-              <p style={{ fontSize:13, fontWeight:700, color: GREEN, margin:0 }}>
-                ✅ 모든 항목을 확인했습니다!
-              </p>
-              <p style={{ fontSize:11, color:"#4ade80", margin:"4px 0 0" }}>
-                안전한 계약을 위한 준비가 됐어요.
-              </p>
             </div>
-          )}
-        </div>
+          );
+        })}
+
+        {/* 전체 완료 메시지 */}
+        {allChecked && (
+          <div style={{ padding: "14px 16px", background: CLR.greenL,
+            borderTop: `1px solid ${CLR.greenB}`, textAlign: "center" }}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: CLR.green, margin: "0 0 3px" }}>
+              ✅ 기본 확인이 모두 완료됐어요!
+            </p>
+            <p style={{ fontSize: 11, color: "#4ade80", margin: 0 }}>
+              안전한 계약을 위한 기본 확인이 완료되었습니다.
+            </p>
+          </div>
+        )}
       </Card>
 
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          상세 분석 (접기/펼치기)
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          저장 버튼
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <FairSaveBtn r={r} f={f} onBack={onBack} uid={currentUserId} />
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          상세 분석 접기/펼치기
+          (엔진 상세값 — 일반 사용자용 아님)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <button
         onClick={() => setDetailOpen(v => !v)}
-        style={{ width:"100%", background:"#fff", border:`1px solid ${BORDER}`,
-          borderRadius:12, padding:"13px 16px", display:"flex", alignItems:"center",
-          justifyContent:"space-between", cursor:"pointer", marginBottom:12,
-          boxShadow:"0 1px 4px rgba(0,0,0,0.04)", fontSize:13, fontWeight:600,
-          color:"#475569" }}>
-        상세 분석 보기 (산출 근거 · 분석 방식)
-        <span style={{ fontSize:12, color:MUTED }}>{detailOpen ? "접기 ▲" : "펼치기 ▼"}</span>
+        style={{ width: "100%", background: "#fff", border: `1px solid ${CLR.border}`,
+          borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center",
+          justifyContent: "space-between", cursor: "pointer", marginBottom: 10,
+          boxShadow: "0 1px 4px rgba(0,0,0,0.04)", fontSize: 13,
+          fontWeight: 600, color: "#475569" }}>
+        상세 분석 보기 (산출 근거)
+        <span style={{ fontSize: 12, color: CLR.muted }}>
+          {detailOpen ? "접기 ▲" : "펼치기 ▼"}
+        </span>
       </button>
 
       {detailOpen && (
         <Card>
-          {/* 4개 지표 그리드 */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:1,
-            background: BORDER }}>
+          {/* 핵심 지표 4개 */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr",
+            gap: 1, background: CLR.border }}>
             {[
-              { label:"분석 기준 전세 시세", value: r.jeonseFair ? `${won(r.jeonseFair)} (${r.jeonseUsed}건)` : "—" },
-              { label:"분석 기준 매매 시세", value: r.saleFair  ? `${won(r.saleFair)} (${r.saleUsed}건)` : "—" },
-              { label:"적정가 산출 방식",    value: r.isPremium ? "프리미엄 반영" : r.modeName || r.engineMode || "—" },
-              { label:"전세가율",            value: r.actualRatio ? `${(r.actualRatio*100).toFixed(1)}%` : "—" },
+              { l: "전세 시세 기준", v: r.jeonseFair ? `${won(r.jeonseFair)} (${r.jeonseUsed}건)` : "—" },
+              { l: "매매 시세 기준", v: r.saleFair   ? `${won(r.saleFair)} (${r.saleUsed}건)` : "—" },
+              { l: "분석 방식",
+                v: r.isPremium ? "프리미엄 반영"
+                  : r.engineMode === "blend"  ? "매매·전세 혼합"
+                  : r.engineMode === "sale"   ? "매매 거래 기준"
+                  : r.engineMode === "jeonse" ? "전세 거래 기준"
+                  : "—" },
+              { l: "적정가 대비",  v: r.gapRatio != null ? `${r.gapRatio < 0 ? "▼" : "▲"} ${Math.abs(r.gapRatio * 100).toFixed(1)}%` : "—" },
             ].map((row, i) => (
-              <div key={i} style={{ background:"#fff", padding:"12px 14px" }}>
-                <p style={{ fontSize:11, color:MUTED, margin:"0 0 3px" }}>{row.label}</p>
-                <p style={{ fontSize:13, fontWeight:600, color:"#334155", margin:0 }}>{row.value}</p>
+              <div key={i} style={{ background: "#fff", padding: "12px 14px" }}>
+                <p style={{ fontSize: 11, color: CLR.muted, margin: "0 0 3px" }}>{row.l}</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: "#334155", margin: 0 }}>{row.v}</p>
               </div>
             ))}
           </div>
 
-          {/* 데이터 경고 */}
-          {r.dataWarnings?.length > 0 && (
-            <div style={{ padding:"12px 14px", background:"#fffbeb", borderTop:`1px solid ${BORDER}` }}>
-              {r.dataWarnings.map((w, i) => (
-                <p key={i} style={{ fontSize:12, color:"#b45309", margin: i ? "4px 0 0" : 0 }}>
-                  ⚠️ {w}
-                </p>
-              ))}
-            </div>
-          )}
-
           {/* 적정가 범위 3단 */}
           {!provisional && fb && (
-            <div style={{ borderTop:`1px solid ${BORDER}` }}>
-              <div style={{ padding:"10px 14px 6px", background: BG }}>
-                <p style={{ fontSize:11, color:MUTED, margin:0 }}>적정가 범위 (보수 / 기준 / 상단)</p>
+            <>
+              <Divider />
+              <div style={{ padding: "10px 14px 6px" }}>
+                <p style={{ fontSize: 11, color: CLR.muted, margin: 0 }}>
+                  적정가 범위 — 보수 / 기준 / 상단
+                </p>
               </div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr",
-                gap:1, background: BORDER }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
+                gap: 1, background: CLR.border }}>
                 {[
-                  { l:"보수 적정가", v: won(fb.conservative), c: GREEN },
-                  { l:"기준 적정가", v: won(fb.base),         c: NAVY  },
-                  { l:"상단 참고가", v: won(fb.aggressive),   c: AMBER },
+                  { l: "보수",  v: won(fb.conservative), c: CLR.green },
+                  { l: "기준",  v: won(fb.base),          c: NAVY },
+                  { l: "상단",  v: won(fb.aggressive),    c: CLR.amber },
                 ].map((col, i) => (
-                  <div key={i} style={{ background:"#fff", padding:"10px", textAlign:"center" }}>
-                    <p style={{ fontSize:10, color:MUTED, margin:"0 0 3px" }}>{col.l}</p>
-                    <p style={{ fontSize:14, fontWeight:700, color:col.c, margin:0 }}>{col.v}</p>
+                  <div key={i} style={{ background: "#fff", padding: "10px 8px",
+                    textAlign: "center" }}>
+                    <p style={{ fontSize: 10, color: CLR.muted, margin: "0 0 3px" }}>{col.l}</p>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: col.c, margin: 0 }}>{col.v}</p>
                   </div>
                 ))}
               </div>
-              <p style={{ fontSize:11, color:MUTED, padding:"8px 14px", margin:0 }}>
-                상단 참고가는 매수 권장가가 아닙니다.
+              <p style={{ fontSize: 11, color: CLR.muted, padding: "8px 14px",
+                margin: 0 }}>
+                상단은 매수 권장가가 아닌 참고값입니다.
               </p>
-            </div>
+            </>
           )}
 
-          {/* 기타 배지들 */}
-          <div style={{ padding:"12px 14px", borderTop:`1px solid ${BORDER}` }}>
-            <DataTrustBadge trust={trust} />
-          </div>
-          <div style={{ padding:"0 14px 12px" }}>
+          {/* 데이터 경고 */}
+          {r.dataWarnings?.length > 0 && (
+            <>
+              <Divider />
+              <div style={{ padding: "12px 14px", background: CLR.amberL }}>
+                {r.dataWarnings.map((w, i) => (
+                  <p key={i} style={{ fontSize: 12, color: "#b45309",
+                    margin: i ? "4px 0 0" : 0 }}>
+                    ⚠️ {w}
+                  </p>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* KB시세 경고 */}
+          {((jkb != null && jkb >= 0.6) || (skb != null && skb >= 0.6)) && (
+            <>
+              <Divider />
+              <div style={{ padding: "10px 14px", background: CLR.amberL }}>
+                <p style={{ fontSize: 12, color: "#b45309", margin: 0 }}>
+                  ⚠️ 실거래 표본이 적어 보조 데이터 의존도가 높습니다. 결과를 보수적으로 해석하세요.
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* 기존 배지들 유지 */}
+          <div style={{ padding: "12px 14px" }}>
             <MarketTypeBadge mc={mc} />
           </div>
           <InputWarnings r={r} f={f} />
         </Card>
       )}
 
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          하단 CTA
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <FairSaveBtn r={r} f={f} onBack={onBack} uid={currentUserId} />
-
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:10 }}>
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          하단 네비게이션
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr",
+        gap: 10, marginTop: 10 }}>
         <button onClick={onBack}
-          style={{ borderRadius:12, border:`1px solid ${BORDER}`, background:"#fff",
-            padding:"14px", fontSize:13, fontWeight:600, color:"#475569", cursor:"pointer" }}>
+          style={{ borderRadius: 12, border: `1px solid ${CLR.border}`,
+            background: "#fff", padding: "13px", fontSize: 13,
+            fontWeight: 600, color: "#475569", cursor: "pointer" }}>
           ← 다시 검색
         </button>
         <button onClick={onNewSearch}
-          style={{ borderRadius:12, border:`1px solid #bfdbfe`, background:"#eff6ff",
-            padding:"14px", fontSize:13, fontWeight:600, color:"#1d4ed8", cursor:"pointer" }}>
+          style={{ borderRadius: 12, border: `1px solid ${CLR.blueB}`,
+            background: CLR.blueL, padding: "13px", fontSize: 13,
+            fontWeight: 600, color: CLR.blue, cursor: "pointer" }}>
           다른 단지 분석
         </button>
       </div>
       <button onClick={onHome}
-        style={{ width:"100%", borderRadius:12, background:"#1e293b", color:"#fff",
-          padding:"14px", fontSize:13, fontWeight:600, cursor:"pointer", marginTop:10, border:"none" }}>
+        style={{ width: "100%", borderRadius: 12, background: "#1e293b",
+          color: "#fff", padding: "14px", fontSize: 13, fontWeight: 600,
+          cursor: "pointer", marginTop: 10, border: "none" }}>
         처음으로
       </button>
 
