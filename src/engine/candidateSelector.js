@@ -61,7 +61,7 @@ export function evaluateCandidates(complexes, areaHint = null, state = {}) {
       return {
         strategy:   "ask_candidate",
         selected:   null,
-        candidates: sorted.slice(0, 5), // 상위 5개 (더보기로 추가)
+        candidates: sorted,           // 전체 목록 (UI에서 5개씩 표시)
         areaGroups: [],
         reason:     "multiple_candidates",
       };
