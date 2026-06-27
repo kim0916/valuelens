@@ -434,6 +434,15 @@ function bridgeNLUToLegacy(nlu, rawText, state) {
   if (nlu.intent === I.SMALLER_AREA && state.currentArea) {
     areaSqmOverride = Math.round(state.currentArea * 0.75);
   }
+  // 다른평형 요청인데 currentArea 없으면 → 평형 목록 다시 표시
+  if ((nlu.intent === I.LARGER_AREA || nlu.intent === I.SMALLER_AREA) && !areaSqmOverride && state.currentComplex) {
+    const s = addHistory(state, "user", input);
+    return { state: s, response: {
+      type: RESPONSE_TYPES.NEED_MORE_INFO,
+      text: `**${state.currentComplex.complex_name}** 몇 평 찾으세요?`,
+      ui: "message",
+    }};
+  }
 
   // extracted 구성 (기존 형식 + NLU 확장)
   const extracted = {
