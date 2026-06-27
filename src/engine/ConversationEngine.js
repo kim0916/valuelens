@@ -415,6 +415,40 @@ async function handleRecommendSearch(nlu, state) {
 }
 
 // ─────────────────────────────────────────────
+// 최근 실거래 면적 조회 (area_list 정제용)
+// ─────────────────────────────────────────────
+async function fetchRecentDealsAreas(complex) {
+  const BASE = typeof window !== 'undefined' ? '' : 'https://valuelens-rouge.vercel.app';
+  const res = await fetch(`${BASE}/api/supabase`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'deals',
+      complex_name: complex.complex_name,
+      sigungu: complex.sigungu || '',
+      months: 24,  // 24개월 이내 거래된 면적만
+    }),
+  });
+  const data = await res.json();
+  const allDeals = [
+    ...(data.saleDeals || []),
+    ...(data.rentDeals || []),
+    ...(data.deals || []),
+  ];
+  if (!allDeals.length) return [];
+  
+  // 실제 거래된 전용면적만 추출 (중복 제거)
+  const areas = [...new Set(
+    allDeals
+      .map(d => Number(d.area_exclusive || d.area_sqm || 0))
+      .filter(a => a > 20 && a < 500)
+      .map(a => Math.round(a * 100) / 100)
+  )].sort((a, b) => a - b);
+  
+  return areas;
+}
+
+// ─────────────────────────────────────────────
 // 단지 검색 + Policy 재적용
 // ─────────────────────────────────────────────
 async function handleSearch(query, areaHint, state, ruleHint = 0) {
@@ -441,6 +475,16 @@ async function handleSearch(query, areaHint, state, ruleHint = 0) {
     const res      = await searchComplexFromSupabase(query, state.region || "", "");
     const complexes = res.complexes || [];
     const hint     = res.areaHint || areaHint || searchState.lastAreaHint;
+    
+    // 단지 확정 시 최근 실거래 면적으로 area_list 보완
+    if (complexes.length === 1) {
+      try {
+        const recentAreas = await fetchRecentDealsAreas(complexes[0]);
+        if (recentAreas.length > 0) {
+          complexes[0] = { ...complexes[0], area_list: JSON.stringify(recentAreas) };
+        }
+      } catch(e) { /* fallback to original area_list */ }
+    }
 
     // 검색 후 Policy 재적용 (Rule 1 / 2 / 4 분기)
     const postDecision = applyPostSearchPolicy(complexes, hint, searchState);
