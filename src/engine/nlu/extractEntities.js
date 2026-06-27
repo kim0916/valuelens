@@ -128,12 +128,20 @@ export function extractComplexName(text, state = {}) {
     const cleaned = textForComplex
       .replace(/\d+(?:평대|평형|평|㎡|억|만)/g, '')  // 평형/예산 제거
       .replace(/추천|적정가|시세|얼마야|보여줘|알려줘|비싼가|괜찮아|비교|얼마|국평|국민평형/g, '')
+      // ★ "아파트/단지" suffix 제거 후 앞 단어 추출 (홍제아파트→홍제)
       .replace(/\s+/g, ' ').trim();
 
     if (cleaned.length >= 2) {
       const m = cleaned.match(/^([가-힣]{2,10}(?:[A-Za-z0-9가-힣]{0,8})?)/);
       if (m && m[1]) {
-        const candidate = m[1].trim();
+        let candidate = m[1].trim();
+        // "아파트/단지" suffix 제거 (홍제아파트→홍제, 동부아파트→동부)
+        for (const suffix of ['아파트', '단지', '빌라', '오피스텔']) {
+          if (candidate.endsWith(suffix) && candidate.length > suffix.length) {
+            candidate = candidate.slice(0, -suffix.length).trim();
+            break;
+          }
+        }
         const isGeneric = GENERIC_WORDS.some(w => candidate === w || candidate.endsWith(w));
         if (!isGeneric && candidate.length >= 2) {
           complexQuery = candidate;
@@ -143,10 +151,23 @@ export function extractComplexName(text, state = {}) {
   }
 
   // ★ Rule A: "아파트/단지/집/매물"이 complexQuery의 전부라면 제거
+  // 단, "홍제아파트" 같이 앞에 수식어가 있으면 수식어를 complexQuery로 사용
   const GENERIC_ONLY = ['아파트', '단지', '집', '매물', '부동산', '빌라', '오피스텔'];
-  if (complexQuery && GENERIC_ONLY.includes(complexQuery.replace(/\s/g, ''))) {
-    complexQuery = null;
-    complexName  = null;
+  if (complexQuery) {
+    const cleaned = complexQuery.replace(/\s/g, '');
+    if (GENERIC_ONLY.includes(cleaned)) {
+      complexQuery = null;
+      complexName  = null;
+    } else {
+      // "홍제아파트" → "홍제" 추출
+      for (const g of GENERIC_ONLY) {
+        if (complexQuery.endsWith(g) && complexQuery.length > g.length) {
+          complexQuery = complexQuery.slice(0, -g.length).trim();
+          complexName  = complexQuery;
+          break;
+        }
+      }
+    }
   }
 
   return { complexName, complexQuery, brand, hasComplexHint: !!(complexName || complexQuery) };
