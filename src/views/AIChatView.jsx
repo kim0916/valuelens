@@ -214,6 +214,68 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     if (!text) return;
     setInput("");
     setPendingIntent(null);
+
+    // ── pending 상태 체크 (매물가/데이터없음 입력 대기 중) ──
+    const ps = convStateRef.current;
+
+    // 데이터 없음 → 매물가+전세가 입력 대기
+    if (ps?._pendingNoData) {
+      addMsg({ role: "user", type: "text", content: text });
+      const { _pendingComplex: complex, _pendingArea: areaSqm, _pendingJeonse: existingJeonse } = ps;
+      const saleMatch   = text.match(/(\d+(?:\.\d+)?)\s*억/);
+      const jeonseMatch = text.match(/전세\s*(\d+(?:\.\d+)?)\s*억/);
+      const salePrice   = saleMatch   ? Math.round(Number(saleMatch[1])   * 10000) : null;
+      const jeonsePrice = jeonseMatch ? Math.round(Number(jeonseMatch[1]) * 10000) : null;
+      convStateRef.current = { ...ps, _pendingNoData: false };
+      if (!salePrice) {
+        addMsg({ role: "ai", type: "text", content: "매물가를 알려주세요.\n예: '7.5억' 또는 '매물가 7.5억, 전세 4억'" });
+        convStateRef.current = { ...ps };
+        return;
+      }
+      const jPrice = jeonsePrice || (existingJeonse?.length > 0
+        ? existingJeonse.map(d=>d.price).sort((a,b)=>a-b)[Math.floor(existingJeonse.length/2)]
+        : null);
+      addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+      if (jPrice && salePrice) {
+        const ratio = (jPrice / salePrice * 100).toFixed(0);
+        const level = ratio >= 60 ? "안정적인" : ratio >= 50 ? "보통" : "낮은";
+        const approxMin = Math.round(jPrice / 0.65 / 100) * 100;
+        const approxMax = Math.round(jPrice / 0.50 / 100) * 100;
+        replaceLastAI({ type: "text", content:
+          `**${complex?.complex_name}** ${areaSqm ? `${Math.round(areaSqm/3.3058)}평` : ""} 대략 분석이에요.\n\n` +
+          `• 매물가: ${salePrice/10000}억 / 전세가: ${jPrice/10000}억\n` +
+          `• 전세가율: ${ratio}% (${level} 수준)\n\n` +
+          `전세가 기준으로 보면 **대략 ${approxMin/10000}억~${approxMax/10000}억** 수준이에요.\n\n` +
+          `⚠️ 실거래 없는 단지라 참고용이에요.`
+        });
+      } else {
+        replaceLastAI({ type: "text", content:
+          `매물가 ${salePrice/10000}억 확인했어요.\n전세가도 알려주시면 더 정확히 분석해드릴 수 있어요!`
+        });
+      }
+      return;
+    }
+
+    // 매물가 입력 대기
+    if (ps?._pendingPrice) {
+      addMsg({ role: "user", type: "text", content: text });
+      const { _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose } = ps;
+      const priceMatch = text.match(/(\d+(?:\.\d+)?)\s*억/);
+      const manMatch   = text.match(/(\d{4,})\s*만?$/);
+      const noPrice    = /몰라|없어|없음|패스|그냥|skip|모르|상관없/i.test(text);
+      let currentPrice = null;
+      if (priceMatch) currentPrice = Math.round(Number(priceMatch[1]) * 10000);
+      else if (manMatch) currentPrice = Number(manMatch[1]);
+      convStateRef.current = { ...ps, _pendingPrice: false, _pendingComplex: null, _pendingArea: null, _pendingPurpose: null };
+      addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+      if (noPrice || !currentPrice) {
+        await runAnalysis(complex, { intent: purpose === "buy" ? "buy" : "fair", areaSqm, currentPrice: null });
+      } else {
+        await runAnalysis(complex, { intent: purpose === "buy" ? "buy" : "fair", areaSqm, currentPrice });
+      }
+      return;
+    }
+
     addMsg({ role: "user", type: "text", content: text });
 
     // ── Phase 2: ConversationEngine 기반 처리 ──
