@@ -1062,26 +1062,6 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
 
 
-        {/* 고급 검색 접기 */}
-        <div style={{ marginTop:24 }}>
-          <button onClick={() => setAdvOpen(v=>!v)}
-            style={{ display:"flex", alignItems:"center", gap:5, background:"none", border:"none", cursor:"pointer", color:BRAND_MUTED, fontSize:11, padding:0, letterSpacing:"0.02em" }}>
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-              style={{ transition:"transform 0.2s", transform: advOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-            지역으로 찾기
-          </button>
-          {advOpen && (
-            <div style={{ marginTop:10, padding:16, borderRadius:13, border:`0.5px solid ${BRAND_BORDER}`, background:"#fff" }}>
-              <LocationPicker initialQuery="" onComplete={({ sido, sigungu, dong, complexName, exactAptNm, complexId, buildYear, areaList }) => {
-                setAdvOpen(false);
-                onNavigate("fair", { complexName, region: sigungu, dong, searchQuery: complexName });
-              }} />
-            </div>
-          )}
-        </div>
-
         <div ref={bottomRef} style={{ height:8 }} />
       </div>
 
