@@ -300,21 +300,31 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
             {f.buildYear ? ` · ${f.buildYear}년` : ""}
           </p>
 
-          {/* 판단 텍스트 + 근거 버튼 */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ width: 11, height: 11, borderRadius: "50%",
-                background: verdict.clr, flexShrink: 0, display: "inline-block" }} />
-              <span style={{ fontSize: 26, fontWeight: 800, color: verdict.clr,
-                letterSpacing: "-0.025em", lineHeight: 1.1 }}>
-                {verdict.text}
-              </span>
+          {/* 판단 텍스트 + 금액 + 근거 버튼 */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ width: 11, height: 11, borderRadius: "50%",
+                  background: verdict.clr, flexShrink: 0, display: "inline-block" }} />
+                <span style={{ fontSize: 26, fontWeight: 800, color: verdict.clr,
+                  letterSpacing: "-0.025em", lineHeight: 1.1 }}>
+                  {verdict.text}
+                </span>
+              </div>
+              {f.currentPrice > 0 && (
+                <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0 21px" }}>
+                  {f._userInputPrice ? "입력가 " : "실거래 평균 "}
+                  <span style={{ fontWeight: 700, color: "#334155" }}>
+                    {won(Number(f.currentPrice))}
+                  </span>
+                </p>
+              )}
             </div>
             <button
               onClick={() => setDetailOpen(v => !v)}
               style={{ fontSize: 11, fontWeight: 600, color: verdict.clr,
                 background: "rgba(255,255,255,0.6)", border: `1px solid ${verdict.brClr}`,
-                borderRadius: 20, padding: "4px 10px", cursor: "pointer", flexShrink: 0 }}>
+                borderRadius: 20, padding: "4px 10px", cursor: "pointer", flexShrink: 0, marginTop: 2 }}>
               {detailOpen ? "근거 접기 ▲" : "근거 보기 ▼"}
             </button>
           </div>
