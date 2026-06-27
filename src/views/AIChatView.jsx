@@ -367,10 +367,22 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         type: "candidates",
         content: response.text.split("\n")[0].replace(/\*\*/g, ""),
         data: response.candidates || [],
-        onSelect: (c) => {
-          // 후보 클릭 시 ConversationEngine에 번호 전달
+        onSelect: async (c) => {
+          // 후보 클릭 시 ConversationEngine에 직접 index 전달 (NLU 파싱 우회)
           const idx = (response.candidates || []).indexOf(c);
-          handleSend(String(idx + 1));
+          addMsg({ role: "user", type: "text", content: c.complex_name || String(idx + 1) });
+          addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+          try {
+            const { state: newState, response: res } = await convEngineRef.current.process(
+              `__SELECT_CANDIDATE__${idx}`,
+              convStateRef.current,
+            );
+            convStateRef.current = newState;
+            setConvState(newState);
+            renderResponse(res);
+          } catch(e) {
+            console.error("[AIChatView] 후보 선택 오류:", e);
+          }
         },
         intent: { intent: "fair" },
       });

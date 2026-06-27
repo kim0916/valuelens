@@ -83,6 +83,19 @@ async function process(input, state = createConversationState()) {
   const text = (input || "").trim();
   if (!text) return { state, response: responseUnknown(state) };
 
+  // ── 직접 후보 선택 (UI 버튼 클릭, NLU 우회) ──
+  const selectMatch = text.match(/^__SELECT_CANDIDATE__(\d+)$/);
+  if (selectMatch) {
+    const idx = parseInt(selectMatch[1], 10);
+    const result = selectByIndex(state, idx);
+    if (!result.ok) {
+      return { state, response: { type: RESPONSE_TYPES.ERROR, text: "선택할 후보가 없어요.", ui: "message" } };
+    }
+    const ns = updateComplex(state, result.complex, state.lastAreaHint);
+    const [finalState, response] = await handlePostComplex(ns, state.lastAreaHint);
+    return { state: finalState, response };
+  }
+
   // 1. 히스토리 추가
   let s = addHistory(state, "user", text);
 
