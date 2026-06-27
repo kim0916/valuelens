@@ -1002,7 +1002,10 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           </svg>
           <span style={{ fontSize:13, fontWeight:500 }}>홈</span>
         </button>
-        <span style={{ flex:1, textAlign:"center", fontSize:14, fontWeight:700, color:"#1a1650", letterSpacing:"-0.01em" }}>찾아!AI</span>
+        <div style={{ flex:1, textAlign:"center" }}>
+          <p style={{ fontSize:14, fontWeight:700, color:"#1a1650", margin:0, letterSpacing:"-0.01em" }}>찾아!AI</p>
+          <p style={{ fontSize:10, color:"#9994d8", margin:0 }}>실제거래가격 기반</p>
+        </div>
         <div style={{ width:60 }}/>{/* 균형용 */}
       </div>
 
