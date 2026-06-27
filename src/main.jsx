@@ -1452,10 +1452,15 @@ function AppInner() {
                   onNewSearch={() => { setAptTab("ai"); setChatResultData(null); }}
                   complexInfo={chatResultData.complex}
                   onAskMore={(text) => {
+                    const d = chatResultData;
                     setChatResultData(null);
                     setAptTab("ai");
                     setTimeout(() => {
-                      window.dispatchEvent(new CustomEvent("valuelens:ask", { detail: { text } }));
+                      window.dispatchEvent(new CustomEvent("valuelens:ask", { detail: {
+                        text,
+                        complex: d?.complex,
+                        areaSqm: d?.ff?.areaExclusive,
+                      }}));
                     }, 100);
                   }}
                   onBuyAnalysis={() => {

@@ -196,9 +196,28 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
   // 결과지에서 질문 이벤트 수신
   React.useEffect(() => {
-    const handler = (e) => {
-      const text = e.detail?.text;
-      if (text) handleSend(text);
+    const handler = async (e) => {
+      const { text, complex, areaSqm } = e.detail || {};
+      if (!text) return;
+
+      // 단지 컨텍스트 복원
+      if (complex) {
+        const { updateComplex, updateArea } = await import('../engine/conversationState.js');
+        const complexObj = {
+          id: null,
+          complex_name: complex.name,
+          sigungu: complex.sigungu,
+          legal_dong: complex.dong,
+          build_year: complex.buildYear,
+          area_list: areaSqm ? [areaSqm] : [],
+        };
+        let s = updateComplex(convStateRef.current, complexObj, areaSqm);
+        if (areaSqm) s = updateArea(s, areaSqm);
+        convStateRef.current = s;
+        setConvState(s);
+      }
+
+      handleSend(text);
     };
     window.addEventListener("valuelens:ask", handler);
     return () => window.removeEventListener("valuelens:ask", handler);
