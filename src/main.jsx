@@ -807,18 +807,16 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
         </div>
       </div>
 
-      {/* ── 최근 분석 / 빈 상태 ── */}
-      <div style={{ padding:"20px 16px 0" }}>
+      {/* ── 최근 분석 ── */}
+      {recentList.length > 0 && <div style={{ padding:"20px 16px 0" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           <p style={{ fontSize:13, fontWeight:700, color:"#1a1650", margin:0 }}>
-            {recentList.length > 0 ? "최근 분석" : "이런 질문을 해보세요"}
+            최근 분석
           </p>
-          {recentList.length > 0 && (
-            <button onClick={()=>onNavigate&&onNavigate("adv")} style={{ background:"none", border:"none", fontSize:11, color:PURPLE, cursor:"pointer" }}>전체 보기 ›</button>
-          )}
+          <button onClick={()=>onNavigate&&onNavigate("adv")} style={{ background:"none", border:"none", fontSize:11, color:PURPLE, cursor:"pointer" }}>전체 보기 ›</button>
         </div>
 
-        {recentList.length > 0 ? (
+        {recentList.length > 0 && (
           <div style={{ display:"flex", gap:8, overflowX:"auto", scrollbarWidth:"none", paddingBottom:4 }}>
             {recentList.map((h, i) => {
               const tc = typeBadge[h.analysisType]||{bg:"#f0effe",text:PURPLE};
@@ -835,18 +833,8 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
               );
             })}
           </div>
-        ) : (
-          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-            {exampleCards.map(({ q, label }) => (
-              <button key={q} onClick={() => handleQuickCard(q)} style={{ background:"#fff", border:"1px solid #e4e1f8", borderRadius:12, padding:"11px 14px", display:"flex", alignItems:"center", gap:10, textAlign:"left", cursor:"pointer", width:"100%" }}>
-                <span style={{ fontSize:16 }}>💬</span>
-                <span style={{ fontSize:12, color:"#1a1650", flex:1, fontWeight:500 }}>{q}</span>
-                <span style={{ fontSize:9, background:"#f0effe", color:PURPLE, borderRadius:4, padding:"2px 6px", flexShrink:0 }}>{label}</span>
-              </button>
-            ))}
-          </div>
         )}
-      </div>
+      </div>}
 
     </div>
   );
