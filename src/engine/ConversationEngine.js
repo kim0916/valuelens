@@ -291,10 +291,10 @@ async function execute(decision, intent, extracted, rawText, state) {
     // ── 새 단지 Context (Rule 7, 1, 2) ──
     case ACTIONS.NEW_COMPLEX:
     case ACTIONS.SHOW_CANDIDATES: {
-      // NLU에서 추출한 region을 state에 먼저 반영 (마포구 래미안 등)
-      const regionFromNLU = extracted.region || extracted._nlu?.sigungu || null;
-      const stateWithRegion = regionFromNLU
-        ? { ...state, region: regionFromNLU }
+      // NLU에서 추출한 sigungu를 우선 사용 (마포구, 영등포구 등 정확한 구 단위)
+      const sigunguFromNLU = extracted._nlu?.sigungu || extracted.region || null;
+      const stateWithRegion = sigunguFromNLU
+        ? { ...state, region: sigunguFromNLU }
         : state;
       return await handleSearch(
         params.query || rawText,
