@@ -1451,6 +1451,13 @@ function AppInner() {
                   onBack={() => { setAptTab("ai"); setChatResultData(null); }}
                   onNewSearch={() => { setAptTab("ai"); setChatResultData(null); }}
                   complexInfo={chatResultData.complex}
+                  onAskMore={(text) => {
+                    setChatResultData(null);
+                    setAptTab("ai");
+                    setTimeout(() => {
+                      window.dispatchEvent(new CustomEvent("valuelens:ask", { detail: { text } }));
+                    }, 100);
+                  }}
                 />
               </div>
             </div>

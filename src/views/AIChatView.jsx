@@ -194,6 +194,16 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs]);
 
+  // 결과지에서 질문 이벤트 수신
+  React.useEffect(() => {
+    const handler = (e) => {
+      const text = e.detail?.text;
+      if (text) handleSend(text);
+    };
+    window.addEventListener("valuelens:ask", handler);
+    return () => window.removeEventListener("valuelens:ask", handler);
+  }, []);
+
   // ── 메시지 추가 헬퍼 ──
   function addMsg(msg) {
     setMsgs(prev => [...prev, { id: Date.now() + Math.random(), ...msg }]);

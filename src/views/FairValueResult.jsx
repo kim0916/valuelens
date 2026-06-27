@@ -172,7 +172,7 @@ function getStability(trust) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 메인 컴포넌트
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId }) {
+function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId, onAskMore }) {
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [whyOpen, setWhyOpen] = React.useState(false);
 
@@ -529,6 +529,71 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
 
       {/* AI 안내 */}
       <AiNotice />
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          하단 채팅창 (결과 보고 바로 질문)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {onAskMore && <ResultChatBar complex={f.complexName} onSend={onAskMore} />}
+    </div>
+  );
+}
+
+// ── 결과지 하단 채팅바 ──
+function ResultChatBar({ complex, onSend }) {
+  const [text, setText] = React.useState("");
+  const chips = ["전세는?", "다른 평형은?", "매수 의견은?", "최근 거래 흐름은?"];
+
+  const handleSend = () => {
+    const t = text.trim();
+    if (!t) return;
+    onSend(t);
+    setText("");
+  };
+
+  return (
+    <div style={{
+      position: "sticky", bottom: 60, margin: "16px 0 0",
+      background: "#fff", borderRadius: 16,
+      border: "1px solid #e2e8f0",
+      boxShadow: "0 -2px 16px rgba(0,0,0,0.08)",
+      padding: "12px 14px",
+      zIndex: 20,
+    }}>
+      {/* 빠른 질문 칩 */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+        {chips.map((c, i) => (
+          <button key={i} onClick={() => onSend(c)}
+            style={{ fontSize: 12, fontWeight: 500, padding: "5px 12px",
+              borderRadius: 20, border: "1px solid #e2e8f0",
+              background: "#f8fafc", color: "#334155", cursor: "pointer" }}>
+            {c}
+          </button>
+        ))}
+      </div>
+      {/* 입력창 */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <input
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
+          placeholder={`${complex || "이 아파트"}에 대해 더 궁금한 점은?`}
+          style={{ flex: 1, border: "1px solid #e2e8f0", borderRadius: 22,
+            padding: "9px 14px", fontSize: 13, outline: "none",
+            background: "#f8fafc", color: "#1e293b" }}
+        />
+        <button onClick={handleSend}
+          style={{ width: 36, height: 36, borderRadius: "50%",
+            background: text.trim() ? "#5b52e0" : "#e2e8f0",
+            border: "none", cursor: text.trim() ? "pointer" : "default",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "background 0.2s", flexShrink: 0 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }
