@@ -1006,6 +1006,16 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
 
 
+      {/* ── 찾아!AI 헤더 ── */}
+      <div style={{ padding:"14px 20px 12px", borderBottom:`0.5px solid #e8e4f0`, background:"#faf8ff", flexShrink:0 }}>
+        <p style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", color:"#5b52e0", margin:"0 0 2px" }}>
+          찾아!AI
+        </p>
+        <p style={{ fontSize:10, fontWeight:400, letterSpacing:"0.04em", color:"#9994d8", margin:0 }}>
+          실거래가 기반 아파트 전문
+        </p>
+      </div>
+
       {/* ── 메시지 영역 ── */}
       <div style={{ flex:1, overflowY:"auto", padding:"20px 20px 8px" }}>
 
