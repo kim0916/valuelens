@@ -84,7 +84,7 @@ function getFairRange(r, trust, fb) {
 }
 
 // ── 판단 이유 카드 (요구사항 5번: 전문용어 없이 4개 이하) ──
-function getWhyCards(r, trust) {
+function getWhyCards(r, trust, f = {}) {
   const cards = [];
 
   // 거래 충분도 (건수 포함)
@@ -122,8 +122,21 @@ function getWhyCards(r, trust) {
     cards.push("이상 거래를 제외하고 분석했습니다.");
   }
 
-  // 프리미엄 반영
-  if (r.isPremium) cards.push("단지 특성에 따른 프리미엄을 반영했습니다.");
+  // 프리미엄 반영 — 일반어로 설명
+  if (r.isPremium) {
+    const region = f.region || "";
+    const buildYear = f.buildYear || 0;
+    const ratio = r.actualRatio || 0;
+    if (["강남구","서초구","송파구"].some(g => region.includes(g))) {
+      cards.push("강남권 입지 특성상 매매가가 높게 형성됩니다.");
+    } else if (buildYear && Number(buildYear) <= 1995) {
+      cards.push("재건축 기대감이 반영된 가격대입니다.");
+    } else if (ratio < 0.35) {
+      cards.push("전세가 대비 매매가가 높은 고가 단지입니다.");
+    } else {
+      cards.push("입지·단지 특성으로 시세가 높게 형성됩니다.");
+    }
+  }
 
   return cards.slice(0, 4);
 }
@@ -188,7 +201,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
   const verdict    = getVerdict(r);
   const aiSummary  = getAISummary(r, trust);
   const fairRange  = getFairRange(r, trust, fb);
-  const whyCards   = getWhyCards(r, trust);
+  const whyCards   = getWhyCards(r, trust, f);
   const stability  = getStability(trust);
 
   const jb = (r.basis && r.basis.jeonse) || {};
