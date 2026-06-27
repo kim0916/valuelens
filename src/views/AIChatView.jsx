@@ -613,110 +613,108 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   }
 
   // ── 결과 카드 컴포넌트 ──
+  // Phase 3 ResultCard — 3초 안에 결론 이해 UX
   function ResultCard({ data, intent }) {
     const { complex, engine } = data;
     if (!engine) return null;
 
-    const grade    = engine.fairGrade || engine.buyGrade || "C";
-    const GC       = GRADE_COLOR[grade] || "#44403c";
-    const GB       = GRADE_BG[grade]    || "#fafaf8";
-    const GBR      = GRADE_BR[grade]    || BRAND_BORDER;
+    const grade = engine.buyGrade || engine.fairGrade || "C";
+    const gapRatio = engine.gapRatio;
+    const hold = engine.engineMode === "hold";
 
-    const fairPrice  = engine.fairPrice  ? Math.round(engine.fairPrice  / 10000 * 10) / 10 : null;
-    const saleMedian = engine.saleMedian ? Math.round(engine.saleMedian / 10000 * 10) / 10 : null;
-    const jeonseRatio = engine.jeonseRatio ? Math.round(engine.jeonseRatio * 100) : null;
+    // 결론
+    const verdict = hold
+      ? { label:"판단 보류", color:"#94a3b8", bg:"#f1f5f9" }
+      : gapRatio < -0.08 ? { label:"저평가",      color:"#2F6F4F", bg:"#f0fdf4" }
+      : gapRatio < 0.05  ? { label:"적정 범위",   color:"#334155", bg:"#f8fafc" }
+      : gapRatio < 0.12  ? { label:"고평가 주의", color:"#C97B22", bg:"#fffbeb" }
+      :                    { label:"고평가",       color:"#DC2626", bg:"#fef2f2" };
+
+    const won = m => !m || isNaN(Number(m)) || Number(m)===0 ? "—"
+      : m >= 10000 ? (Math.round((m/10000)*100)/100).toLocaleString()+"억" : Number(m).toLocaleString()+"만원";
 
     const INTENT_TAB = { fair:"fair", buy:"buy", sell:"sell", recommend:"reco" };
 
     return (
-      <div style={{
-        background: "#fff", borderRadius: 16,
-        border: `0.5px solid ${BRAND_BORDER}`,
-        boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-        overflow: "hidden", marginTop: 4,
-      }}>
-        {/* 상단 헤더 */}
-        <div style={{ padding: "14px 16px 10px", borderBottom: `0.5px solid ${BRAND_BORDER}` }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
-            <div style={{ minWidth:0 }}>
-              <p style={{ fontSize:15, fontWeight:600, color:BRAND, margin:0, letterSpacing:"-0.012em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                {complex.name}
-              </p>
-              <p style={{ fontSize:11, color:BRAND_MUTED, margin:"3px 0 0" }}>
-                {complex.sigungu?.split(" ").slice(-1)[0]} · {complex.areaExclusive ? `${complex.areaExclusive}㎡` : ""}{complex.buildYear ? ` · ${complex.buildYear}년` : ""}
-              </p>
-            </div>
-            <span style={{ fontSize:18, fontWeight:700, color:GC, background:GB, border:`0.5px solid ${GBR}`, borderRadius:10, padding:"4px 12px", flexShrink:0 }}>
-              {grade}
-            </span>
-          </div>
-        </div>
+      <div style={{ background:"#fff", borderRadius:16, border:`1px solid #e8e4df`,
+        boxShadow:"0 2px 12px rgba(0,0,0,0.06)", overflow:"hidden", marginTop:4 }}>
 
-        {/* 수치 */}
-        <div style={{ padding:"12px 16px", display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px 16px" }}>
-          {saleMedian && (
-            <div>
-              <p style={{ fontSize:10, color:BRAND_MUTED, margin:0, letterSpacing:"0.04em", textTransform:"uppercase" }}>실거래 중간값</p>
-              <p style={{ fontSize:16, fontWeight:600, color:BRAND, margin:"3px 0 0" }}>{saleMedian}억</p>
-            </div>
-          )}
-          {fairPrice && (
-            <div>
-              <p style={{ fontSize:10, color:BRAND_MUTED, margin:0, letterSpacing:"0.04em", textTransform:"uppercase" }}>AI 적정가</p>
-              <p style={{ fontSize:16, fontWeight:600, color:BRAND_GREEN, margin:"3px 0 0" }}>{fairPrice}억</p>
-            </div>
-          )}
-          {jeonseRatio && (
-            <div>
-              <p style={{ fontSize:10, color:BRAND_MUTED, margin:0, letterSpacing:"0.04em", textTransform:"uppercase" }}>전세가율</p>
-              <p style={{ fontSize:16, fontWeight:600, color:BRAND, margin:"3px 0 0" }}>{jeonseRatio}%</p>
-            </div>
-          )}
-          {engine.saleCount && (
-            <div>
-              <p style={{ fontSize:10, color:BRAND_MUTED, margin:0, letterSpacing:"0.04em", textTransform:"uppercase" }}>12개월 거래</p>
-              <p style={{ fontSize:16, fontWeight:600, color:BRAND, margin:"3px 0 0" }}>{engine.saleCount}건</p>
-            </div>
+        {/* ① 결론 — 가장 크게 */}
+        <div style={{ padding:"16px", background:verdict.bg,
+          borderLeft:`3px solid ${verdict.color}`, borderBottom:`1px solid #e8e4df` }}>
+          <p style={{ fontSize:11, color:"#94a3b8", margin:"0 0 8px" }}>
+            {complex.name} · {complex.areaExclusive ? `전용 ${complex.areaExclusive}㎡` : ""}
+          </p>
+          <p style={{ fontSize:22, fontWeight:800, color:verdict.color, margin:"0 0 4px",
+            letterSpacing:"-0.02em" }}>
+            {verdict.label}
+          </p>
+          {!hold && gapRatio != null && (
+            <p style={{ fontSize:12, color:"#64748b", margin:0 }}>
+              적정가 대비 {gapRatio < 0 ? "▼" : "▲"} {Math.abs(gapRatio*100).toFixed(1)}% {gapRatio < 0 ? "낮음" : "높음"}
+            </p>
           )}
         </div>
 
-        {/* 한줄 요약 */}
-        {engine.headline && (
-          <div style={{ padding:"0 16px 12px" }}>
-            <p style={{ fontSize:12, color:BRAND_MID, margin:0, lineHeight:1.6, letterSpacing:"-0.008em" }}>
-              {engine.headline}
+        {/* ② 적정가 범위 */}
+        {!hold && engine.fairPrice && (
+          <div style={{ padding:"12px 16px", borderBottom:`1px solid #e8e4df` }}>
+            <p style={{ fontSize:11, color:"#94a3b8", margin:"0 0 4px" }}>AI 추정 적정 범위</p>
+            <p style={{ fontSize:16, fontWeight:700, color:"#2F6F4F", margin:0 }}>
+              약 {won(Math.round(engine.fairPrice*0.93))} ~ {won(Math.round(engine.fairPrice*1.07))}
             </p>
           </div>
         )}
 
+        {/* ③ 현재 시세 */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr",
+          borderBottom:`1px solid #e8e4df` }}>
+          {engine.saleMedian && (
+            <div style={{ padding:"10px 14px", borderRight:`1px solid #e8e4df` }}>
+              <p style={{ fontSize:11, color:"#94a3b8", margin:"0 0 3px" }}>최근 시세</p>
+              <p style={{ fontSize:15, fontWeight:700, color:"#334155", margin:0 }}>
+                {won(engine.saleMedian)}
+              </p>
+            </div>
+          )}
+          {engine.jeonseRatio && (
+            <div style={{ padding:"10px 14px" }}>
+              <p style={{ fontSize:11, color:"#94a3b8", margin:"0 0 3px" }}>전세가율</p>
+              <p style={{ fontSize:15, fontWeight:700, color:"#334155", margin:0 }}>
+                {Math.round(engine.jeonseRatio*100)}%
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* ④ 데이터 안정성 */}
+        <div style={{ padding:"10px 14px", borderBottom:`1px solid #e8e4df`,
+          display:"flex", alignItems:"center", gap:8 }}>
+          <p style={{ fontSize:11, color:"#94a3b8", margin:0 }}>데이터 안정성</p>
+          <span style={{ fontSize:12, fontWeight:600,
+            color: engine.saleUsed >= 5 ? "#2F6F4F" : engine.saleUsed >= 2 ? "#C97B22" : "#DC2626" }}>
+            {engine.saleUsed >= 5 ? "높음" : engine.saleUsed >= 2 ? "보통" : "낮음"}
+          </span>
+          <p style={{ fontSize:11, color:"#94a3b8", margin:0, marginLeft:"auto" }}>
+            거래 {engine.saleUsed||0}건 기준
+          </p>
+        </div>
+
         {/* 상세 보기 버튼 */}
-        <div style={{ padding:"0 16px 14px" }}>
+        <div style={{ padding:"12px 14px" }}>
           <button
             onClick={() => onNavigate(INTENT_TAB[intent?.intent] || "fair", {
-              complexName: complex.name,
-              region: complex.sigungu,
-              dong: complex.dong,
+              complexName: complex.name, region: complex.sigungu, dong: complex.dong,
               areaSqm: complex.areaExclusive,
-              // agentResult: BuyView/FairValueResult 직행용
               agentResult: engine ? { analysisResult: engine, form: {
-                complexName: complex.name,
-                region: complex.sigungu,
-                dong: complex.dong || "",
-                areaExclusive: complex.areaExclusive ? String(complex.areaExclusive) : "",
+                complexName: complex.name, region: complex.sigungu,
+                dong: complex.dong || "", areaExclusive: complex.areaExclusive ? String(complex.areaExclusive) : "",
               }} : undefined,
             })}
-            style={{
-              width:"100%", height:38, borderRadius:10,
-              background:BRAND, color:"#fff", border:"none", cursor:"pointer",
-              fontSize:13, fontWeight:500, letterSpacing:"-0.01em",
-              display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-              transition:"opacity 0.12s",
-            }}
-            onMouseEnter={e => e.currentTarget.style.opacity="0.85"}
-            onMouseLeave={e => e.currentTarget.style.opacity="1"}
-          >
-            상세 분석 보기
-            <CI d="right" s={12} color="#fff" />
+            style={{ width:"100%", height:40, borderRadius:10, background:BRAND, color:"#fff",
+              border:"none", cursor:"pointer", fontSize:13, fontWeight:600,
+              display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+            상세 분석 · 체크리스트 보기 →
           </button>
         </div>
       </div>

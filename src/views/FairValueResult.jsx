@@ -1,6 +1,6 @@
-// ValueLens — FairValueResult
-// Phase 1-E: main.jsx에서 분리
-// props / 함수명 / className / 계산 흐름 변경 금지
+// ValueLens — FairValueResult Phase 3
+// ★ 계산 로직(r.*, 엔진 값) 수정 금지. 렌더링/UX만 변경.
+// ★ props / 함수명 / import 변경 금지.
 
 import React from 'react';
 import { NAVY } from '../constants/brand.js';
@@ -13,21 +13,81 @@ import {
   InputWarnings, MarketTypeBadge, FairSaveBtn,
 } from './shared.jsx';
 
+// ─── 색상 상수 ───
+const GREEN  = "#2F6F4F";
+const AMBER  = "#C97B22";
+const RED    = "#DC2626";
+const MUTED  = "#94a3b8";
+const BG     = "#FAFAF8";
+const BORDER = "#e8e4df";
+
 function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId }) {
   const [detailOpen, setDetailOpen] = React.useState(false);
-  const [fairDetailOpen, setFairDetailOpen] = React.useState(false);
-  const mc = classifyApartmentMarket(f, r);
-  const hold = r.engineMode === "hold";
-  const isLowData = mc.specialMarketType === "lowData";
-  const isAbnormal = mc.specialMarketType === "abnormalInput";
-  const isSpecial = ["redevelopment", "primePremium", "investmentPremium", "policyDriven"].includes(mc.specialMarketType);
-  const provisional = hold || isLowData || isAbnormal; // 적정가 확정 금지 → 참고가/판단보류
-  const jb = (r.basis && r.basis.jeonse) || {}, sb = (r.basis && r.basis.sale) || {};
-  const jkb = r.jeonseCalc ? r.jeonseCalc.kbWeight : null, skb = r.saleCalc ? r.saleCalc.kbWeight : null;
-  const kbHeavy = (jkb != null && jkb >= 0.6) || (skb != null && skb >= 0.6);
-  const Row = ({ l, v }) => <div className="flex justify-between border-t border-slate-100 px-4 py-2.5 text-sm"><span className="text-slate-500">{l}</span><span className="font-semibold text-slate-800">{v}</span></div>;
-  const Big = ({ l, v, tone }) => <div className="bg-orange-50 px-4 py-4 text-center"><p className="text-xs text-orange-500">{l}</p><p className={`mt-1 text-xl font-extrabold ${tone || "text-slate-800"}`}>{v}</p></div>;
-  const trust = computeDataTrust(r, f.deals, f.saleDeals);
+  const [checkDone, setCheckDone]   = React.useState({});
+
+  // ── 계산 (엔진 값 그대로 사용 — 수정 금지) ──
+  const mc      = classifyApartmentMarket(f, r);
+  const trust   = computeDataTrust(r, f.deals, f.saleDeals);
+  const fb      = computeFairBands(r, mc);
+  const hold    = r.engineMode === "hold";
+  const isLowData   = mc.specialMarketType === "lowData";
+  const isAbnormal  = mc.specialMarketType === "abnormalInput";
+  const provisional = hold || isLowData || isAbnormal;
+  const jb = (r.basis && r.basis.jeonse) || {};
+  const sb = (r.basis && r.basis.sale)   || {};
+  const jkb = r.jeonseCalc ? r.jeonseCalc.kbWeight : null;
+  const skb = r.saleCalc   ? r.saleCalc.kbWeight   : null;
+
+  // ── 결론 텍스트 ──
+  const verdict = hold
+    ? { label: "판단 보류",   color: MUTED,  bg: "#f1f5f9", desc: "데이터가 부족해 정확한 분석이 어렵습니다." }
+    : r.gapRatio < -0.08
+    ? { label: "저평가",      color: GREEN,  bg: "#f0fdf4", desc: "적정가보다 낮은 수준입니다." }
+    : r.gapRatio < -0.02
+    ? { label: "적정 범위",   color: GREEN,  bg: "#f0fdf4", desc: "적정 범위 안에 있습니다." }
+    : r.gapRatio < 0.05
+    ? { label: "적정 범위",   color: "#334155", bg: "#f8fafc", desc: "시장 평균에 가까운 수준입니다." }
+    : r.gapRatio < 0.12
+    ? { label: "고평가 주의", color: AMBER,  bg: "#fffbeb", desc: "적정가보다 다소 높은 수준입니다." }
+    : { label: "고평가",      color: RED,    bg: "#fef2f2", desc: "적정가를 크게 상회하는 수준입니다." };
+
+  // ── 데이터 안정성 텍스트 (신뢰도 → 데이터 안정성) ──
+  const stability = (() => {
+    const g = trust?.grade || "C";
+    return {
+      A: { label:"높음",     color: GREEN,      reason: `매매 ${r.saleUsed||0}건·전세 ${r.jeonseUsed||0}건 기준. 거래가 충분해 분석 안정성이 높습니다.` },
+      B: { label:"보통",     color: "#16a34a",  reason: `매매 ${r.saleUsed||0}건·전세 ${r.jeonseUsed||0}건 기준. 분석에 충분하나 추가 확인을 권장합니다.` },
+      C: { label:"낮음",     color: AMBER,      reason: `거래 표본이 적습니다. 결과를 참고용으로만 활용하세요.` },
+      D: { label:"매우 낮음",color: RED,        reason: `데이터가 매우 부족합니다. 신중하게 해석하세요.` },
+    }[g] || { label:"낮음", color: AMBER, reason: "데이터가 제한적입니다." };
+  })();
+
+  // ── 판단 이유 카드 데이터 ──
+  const whyCards = (() => {
+    const cards = [];
+    if (r.saleUsed >= 5) cards.push({ icon:"✅", text:"최근 거래가 충분합니다." });
+    else if (r.saleUsed > 0) cards.push({ icon:"⚠️", text:`매매 거래가 적습니다 (${r.saleUsed}건).` });
+    if (r.jeonseUsed >= 3) cards.push({ icon:"✅", text:"동일 평형 전세 데이터가 확보됐습니다." });
+    else if (r.jeonseUsed > 0) cards.push({ icon:"⚠️", text:`전세 거래가 적습니다 (${r.jeonseUsed}건).` });
+    const mode = r.engineMode;
+    if (mode === "blend")  cards.push({ icon:"📊", text:"매매·전세 데이터를 혼합해 분석했습니다." });
+    if (mode === "sale")   cards.push({ icon:"📊", text:"매매 거래 기준으로 분석했습니다." });
+    if (mode === "jeonse") cards.push({ icon:"📊", text:"전세 시세 기준으로 분석했습니다." });
+    if (r.isPremium)       cards.push({ icon:"⭐", text:"재건축·학군·희소성 프리미엄이 반영됐습니다." });
+    if (jkb != null && jkb >= 0.6) cards.push({ icon:"⚠️", text:"KB시세 의존도가 높습니다. 참고용으로 활용하세요." });
+    if (r.dataWarnings?.length > 0) cards.push({ icon:"⚠️", text: r.dataWarnings[0] });
+    return cards.slice(0, 4);
+  })();
+
+  // ── 체크리스트 항목 ──
+  const CHECKLIST = [
+    { id:"deals",    icon:"🔍", text:"국토부 실거래가 직접 확인",  sub:"최신 실거래가를 직접 확인하세요",             href:"https://rt.molit.go.kr" },
+    { id:"registry", icon:"📋", text:"등기사항 확인",               sub:"대법원 인터넷등기소에서 권리관계 확인",       href:"https://www.iros.go.kr" },
+    { id:"building", icon:"🏛️", text:"건축물대장 확인",             sub:"정부24에서 건축물 현황 확인",                href:"https://www.gov.kr" },
+    { id:"loan",     icon:"💰", text:"대출 한도 확인",               sub:"실제 대출 가능 금액을 확인하세요",            href: null },
+    { id:"contract", icon:"📝", text:"계약 전 체크리스트",          sub:"등기·세금·특약사항 등 최종 점검",            href: null },
+  ];
+
   React.useEffect(() => {
     writeSearchLog({
       region: f.region, dong: f.dong, complex_name: f.complexName,
@@ -40,393 +100,379 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ─── 섹션 컴포넌트 ───
+  const Card = ({ children, style = {} }) => (
+    <div style={{ background:"#fff", borderRadius:16, border:`1px solid ${BORDER}`,
+      boxShadow:"0 1px 8px rgba(0,0,0,0.05)", marginBottom:12, overflow:"hidden", ...style }}>
+      {children}
+    </div>
+  );
+
+  const SectionTitle = ({ children }) => (
+    <p style={{ fontSize:11, fontWeight:600, color:"#94a3b8", letterSpacing:"0.06em",
+      textTransform:"uppercase", margin:"0 0 10px", padding:"14px 16px 0" }}>
+      {children}
+    </p>
+  );
+
   return (
-    <>
-      {/* ── 결론 카드 (Image 2 스타일) ── */}
-      <div className="mb-4 overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-200 bg-white">
-        {/* 등급 + 한줄 설명 */}
-        <div className="px-5 py-4 border-b border-slate-100" style={{borderLeft: `4px solid ${hold ? '#94a3b8' : r.gapRatio < -0.05 ? '#2F6F4F' : r.gapRatio > 0.05 ? '#C97B22' : '#2F6F4F'}`}}>
-          <p className="text-xs text-slate-400 mb-1">{f.complexName} · {f.dong}{Number(f.areaExclusive) > 0 ? ` 전용 ${f.areaExclusive}㎡` : ""}</p>
-          <div className="flex items-center gap-2 mb-1">
-            <span style={{width:10,height:10,borderRadius:'50%',background: hold ? '#94a3b8' : r.gapRatio < -0.05 ? '#2F6F4F' : r.gapRatio > 0.05 ? '#C97B22' : '#64748b',flexShrink:0,display:'inline-block'}}/>
-            <span className="text-lg font-bold text-slate-900">
-              {hold ? "판단 보류" : `${r.buyGrade}등급 · ${{A:"매우 저평가",B:"저평가",C:"적정 가격",D:"고평가 주의",E:"고평가"}[r.buyGrade]||""}`}
+    <div style={{ fontFamily:"-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif", padding:"0 0 32px" }}>
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          ① 현재 가격 판단 — 가장 크게
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <Card style={{ borderTop:`3px solid ${verdict.color}` }}>
+        <div style={{ padding:"20px 16px 16px", background: verdict.bg }}>
+          {/* 단지명 */}
+          <p style={{ fontSize:12, color:MUTED, margin:"0 0 10px" }}>
+            {f.complexName} · {Number(f.areaExclusive) > 0 ? `전용 ${f.areaExclusive}㎡` : ""}
+          </p>
+
+          {/* 결론 레이블 — 최우선 */}
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+            <span style={{ display:"inline-block", width:10, height:10, borderRadius:"50%",
+              background: verdict.color, flexShrink:0 }} />
+            <span style={{ fontSize:26, fontWeight:800, color: verdict.color, letterSpacing:"-0.02em",
+              lineHeight:1.1 }}>
+              {verdict.label}
             </span>
           </div>
-          <p className="text-sm text-slate-500">
-            {hold ? r.holdReason : r.gapRatio < 0 ? "현재 매물가가 시장 적정가보다 낮습니다" : "현재 매물가가 시장 적정가보다 높습니다"}
+          <p style={{ fontSize:14, color:"#475569", margin:0, lineHeight:1.6 }}>
+            {verdict.desc}
           </p>
         </div>
 
-        {/* 적정가 범위 + 현재 매물가 나란히 */}
+        {/* 등급 배지 */}
         {!hold && (
-          <div className="grid grid-cols-2 divide-x divide-slate-100 px-0">
-            <div className="px-4 py-3">
-              <p className="text-xs text-slate-400 mb-1">적정가 (추정 범위)</p>
-              <p className="text-base font-bold text-emerald-700">{won(r.fairPrice)}</p>
-              {(() => { const fb = computeFairBands(r, classifyApartmentMarket(f, r)); return (
-                <p className="text-xs text-slate-400 mt-0.5">{won(fb.conservative)} ~ {won(fb.aggressive)}</p>
-              ); })()}
-            </div>
-            <div className="px-4 py-3">
-              <p className="text-xs text-slate-400 mb-1">현재 매물가</p>
-              <p className="text-base font-bold text-slate-800">{won(Number(f.currentPrice))}</p>
-              <p className={`text-xs mt-0.5 font-semibold ${r.gapRatio < 0 ? "text-emerald-600" : "text-red-500"}`}>
-                {r.gapRatio < 0 ? "↓" : "↑"} {Math.abs(r.gapRatio * 100).toFixed(1)}% {r.gapRatio < 0 ? "낮음" : "높음"}
+          <div style={{ padding:"8px 16px", borderTop:`1px solid ${BORDER}`,
+            display:"flex", alignItems:"center", gap:6 }}>
+            <span style={{ fontSize:13, fontWeight:600, color:"#334155" }}>
+              {r.buyGrade}등급
+            </span>
+            <span style={{ fontSize:12, color:MUTED }}>·</span>
+            <span style={{ fontSize:12, color:"#64748b" }}>
+              {{ A:"매우 저평가", B:"저평가", C:"적정 가격", D:"고평가 주의", E:"고평가" }[r.buyGrade] || ""}
+            </span>
+            {r.gapRatio != null && (
+              <span style={{ marginLeft:"auto", fontSize:12, fontWeight:600,
+                color: r.gapRatio < 0 ? GREEN : RED }}>
+                {r.gapRatio < 0 ? "▼" : "▲"} {Math.abs(r.gapRatio * 100).toFixed(1)}%
+              </span>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          ② 적정가 범위 — 단일 숫자 아닌 범위로
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {!provisional && (
+        <Card>
+          <SectionTitle>적정 가격 범위</SectionTitle>
+          <div style={{ padding:"0 16px 16px" }}>
+            {/* 범위 강조 */}
+            <div style={{ background:"#f0fdf4", borderRadius:12, padding:"14px 16px",
+              border:`1px solid #bbf7d0`, marginBottom:12 }}>
+              <p style={{ fontSize:12, color:"#166534", margin:"0 0 4px" }}>AI 추정 적정 범위</p>
+              <p style={{ fontSize:22, fontWeight:800, color: GREEN, margin:0, letterSpacing:"-0.02em" }}>
+                약 {won(fb.conservative)} ~ {won(fb.aggressive)}
+              </p>
+              <p style={{ fontSize:11, color:"#4ade80", margin:"4px 0 0" }}>
+                기준가 {won(fb.base)}
               </p>
             </div>
-          </div>
-        )}
 
-        {/* 한줄 결론 */}
-        {!hold && (
-          <div className={`px-4 py-2.5 text-sm font-semibold border-t border-slate-100 flex items-center gap-2 ${r.gapRatio < -0.05 ? "bg-emerald-50 text-emerald-800" : r.gapRatio > 0.05 ? "bg-amber-50 text-amber-800" : "bg-slate-50 text-slate-700"}`}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{flexShrink:0}}>
-              <path d="M3 8.5l2 2L11 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            {r.headline}
+            {/* 현재가 vs 적정가 비교 */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+              <div style={{ background: BG, borderRadius:10, padding:"10px 12px",
+                border:`1px solid ${BORDER}` }}>
+                <p style={{ fontSize:11, color:MUTED, margin:"0 0 4px" }}>현재 시세</p>
+                <p style={{ fontSize:17, fontWeight:700, color:"#334155", margin:0 }}>
+                  {r.saleMedian ? won(r.saleMedian) : r.saleFair ? won(r.saleFair) : "—"}
+                </p>
+                <p style={{ fontSize:10, color:MUTED, margin:"2px 0 0" }}>최근 거래 기준</p>
+              </div>
+              <div style={{ background: BG, borderRadius:10, padding:"10px 12px",
+                border:`1px solid ${BORDER}` }}>
+                <p style={{ fontSize:11, color:MUTED, margin:"0 0 4px" }}>현재 매물가</p>
+                <p style={{ fontSize:17, fontWeight:700, color:"#334155", margin:0 }}>
+                  {won(Number(f.currentPrice))}
+                </p>
+                <p style={{ fontSize:10, color: r.gapRatio < 0 ? GREEN : RED, margin:"2px 0 0", fontWeight:600 }}>
+                  적정가 대비 {r.gapRatio < 0 ? "낮음" : "높음"}
+                </p>
+              </div>
+            </div>
           </div>
-        )}
-        {hold && (
-          <div className="px-4 py-2.5 text-sm font-semibold border-t border-amber-100 bg-amber-50 text-amber-800">
-            데이터 부족으로 정확한 분석이 어렵습니다
-          </div>
-        )}
-      </div>
+        </Card>
+      )}
 
-      {/* ── AI 판단 이유 ── */}
-      {!provisional && (
-        <div className="mb-4 rounded-2xl border border-slate-100 bg-white shadow-sm px-4 py-3">
-          <p className="text-xs font-semibold text-slate-500 mb-1.5">이렇게 판단한 이유</p>
-          <p className="text-sm text-slate-700 leading-relaxed">{r.reasons?.[0] ? r.reasons[0].replace(/전세가율|전세|월세|환산|엔진|jeonse|blend|sale/g, '').replace(/\s+/g,' ').trim() : r.headline}</p>
-          {r.reasons?.[1] && (
-            <p className="text-xs text-slate-400 mt-1 leading-relaxed">{r.reasons[1].replace(/전세가율|전세|월세|환산|엔진|jeonse|blend|sale/g,'').replace(/\s+/g,' ').trim()}</p>
+      {/* 판단 보류 카드 */}
+      {provisional && (
+        <Card>
+          <div style={{ padding:"16px", background:"#fffbeb", borderBottom:`1px solid #fde68a` }}>
+            <p style={{ fontSize:13, fontWeight:700, color:"#92400e", margin:"0 0 4px" }}>
+              ⚠️ {isAbnormal ? "입력값 확인 필요" : "데이터 부족"}
+            </p>
+            <p style={{ fontSize:12, color:"#b45309", margin:0, lineHeight:1.6 }}>
+              {isAbnormal ? "현재가가 시세와 크게 차이납니다. 입력값을 다시 확인해주세요." : r.holdReason}
+            </p>
+          </div>
+          {r.fairPrice && (
+            <div style={{ padding:"14px 16px", textAlign:"center" }}>
+              <p style={{ fontSize:11, color:MUTED, margin:"0 0 4px" }}>참고가 (신뢰도 낮음)</p>
+              <p style={{ fontSize:22, fontWeight:800, color:MUTED, margin:0 }}>{won(r.fairPrice)}</p>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          ③ 왜 이렇게 판단했나요? 카드
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {whyCards.length > 0 && (
+        <Card>
+          <SectionTitle>왜 이렇게 판단했나요?</SectionTitle>
+          <div style={{ padding:"0 16px 14px", display:"flex", flexDirection:"column", gap:8 }}>
+            {whyCards.map((c, i) => (
+              <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:8,
+                background: BG, borderRadius:10, padding:"10px 12px", border:`1px solid ${BORDER}` }}>
+                <span style={{ fontSize:15, flexShrink:0, marginTop:1 }}>{c.icon}</span>
+                <p style={{ fontSize:13, color:"#334155", margin:0, lineHeight:1.5 }}>{c.text}</p>
+              </div>
+            ))}
+            {r.headline && (
+              <p style={{ fontSize:12, color:"#64748b", margin:"4px 0 0", lineHeight:1.6, paddingLeft:2 }}>
+                {r.headline}
+              </p>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          ④ 데이터 안정성 (신뢰도 대체)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <Card>
+        <SectionTitle>데이터 안정성</SectionTitle>
+        <div style={{ padding:"0 16px 14px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+            <span style={{ fontSize:17, fontWeight:800, color: stability.color }}>
+              {stability.label}
+            </span>
+            <div style={{ flex:1, height:6, borderRadius:99, background:"#f1f5f9", overflow:"hidden" }}>
+              <div style={{ height:"100%", borderRadius:99, background: stability.color,
+                width: { 높음:"100%", 보통:"70%", 낮음:"40%", "매우 낮음":"15%" }[stability.label] || "30%",
+                transition:"width 0.5s" }} />
+            </div>
+          </div>
+          <p style={{ fontSize:12, color:"#64748b", margin:0, lineHeight:1.6 }}>
+            {stability.reason}
+          </p>
+        </div>
+      </Card>
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          ⑤ 주의사항
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <Card style={{ border:`1px solid #fed7aa` }}>
+        <div style={{ padding:"14px 16px", background:"#fffbeb" }}>
+          <p style={{ fontSize:12, fontWeight:700, color:"#92400e", margin:"0 0 8px" }}>
+            ⚠️ 주의사항
+          </p>
+          {[
+            "최근 실거래 기준 분석입니다. 층·향·수리상태에 따라 실제 거래가는 다를 수 있습니다.",
+            "실제 계약 전에는 최신 매물·등기사항·건축물대장을 반드시 함께 확인하시기 바랍니다.",
+            "본 결과는 참고용 분석이며 감정평가서·투자자문·매수 권유가 아닙니다.",
+          ].map((t, i) => (
+            <p key={i} style={{ fontSize:12, color:"#b45309", margin:"4px 0 0", lineHeight:1.6,
+              paddingLeft:12, position:"relative" }}>
+              <span style={{ position:"absolute", left:0 }}>·</span>
+              {t}
+            </p>
+          ))}
+        </div>
+      </Card>
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          ⑥ 계약 전 체크리스트 (핵심 추가)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <Card style={{ border:`1px solid #bfdbfe` }}>
+        <div style={{ padding:"14px 16px 6px", borderBottom:`1px solid ${BORDER}` }}>
+          <p style={{ fontSize:13, fontWeight:700, color:"#1e40af", margin:0 }}>
+            📋 계약 전 확인 체크리스트
+          </p>
+          <p style={{ fontSize:11, color:MUTED, margin:"3px 0 0" }}>
+            계약 전 반드시 확인해야 할 항목들
+          </p>
+        </div>
+        <div style={{ padding:"8px 0" }}>
+          {CHECKLIST.map((item) => {
+            const done = checkDone[item.id];
+            const content = (
+              <div
+                key={item.id}
+                onClick={() => {
+                  setCheckDone(prev => ({ ...prev, [item.id]: !prev[item.id] }));
+                  if (item.href) window.open(item.href, "_blank", "noopener");
+                }}
+                style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 16px",
+                  cursor:"pointer", borderBottom:`1px solid ${BORDER}`,
+                  background: done ? "#f0fdf4" : "transparent",
+                  transition:"background 0.15s" }}>
+                {/* 체크박스 */}
+                <div style={{ width:22, height:22, borderRadius:6, flexShrink:0,
+                  border: done ? "none" : `2px solid ${BORDER}`,
+                  background: done ? GREEN : "transparent",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  transition:"all 0.2s" }}>
+                  {done && (
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                      <path d="M2 6.5l3 3 6-6" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+                {/* 아이콘 + 텍스트 */}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:13, fontWeight: done ? 400 : 600,
+                    color: done ? "#64748b" : "#1e293b",
+                    margin:0, textDecoration: done ? "line-through" : "none",
+                    display:"flex", alignItems:"center", gap:6 }}>
+                    <span>{item.icon}</span>
+                    {item.text}
+                  </p>
+                  <p style={{ fontSize:11, color:MUTED, margin:"2px 0 0" }}>{item.sub}</p>
+                </div>
+                {/* 링크 아이콘 */}
+                {item.href && !done && (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink:0 }}>
+                    <path d="M5.5 2.5H2.5v9h9v-3M8 2.5h3.5v3.5M11.5 2.5L6 8" stroke={MUTED}
+                      strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+            );
+            return content;
+          })}
+          {/* 완료 메시지 */}
+          {Object.values(checkDone).filter(Boolean).length === CHECKLIST.length && (
+            <div style={{ padding:"14px 16px", textAlign:"center", background:"#f0fdf4" }}>
+              <p style={{ fontSize:13, fontWeight:700, color: GREEN, margin:0 }}>
+                ✅ 모든 항목을 확인했습니다!
+              </p>
+              <p style={{ fontSize:11, color:"#4ade80", margin:"4px 0 0" }}>
+                안전한 계약을 위한 준비가 됐어요.
+              </p>
+            </div>
           )}
         </div>
-      )}
+      </Card>
 
-      {/* ── 데이터 안정성 ── */}
-      <div className="mb-4"><DataTrustBadge trust={trust} /></div>
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          상세 분석 (접기/펼치기)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <button
+        onClick={() => setDetailOpen(v => !v)}
+        style={{ width:"100%", background:"#fff", border:`1px solid ${BORDER}`,
+          borderRadius:12, padding:"13px 16px", display:"flex", alignItems:"center",
+          justifyContent:"space-between", cursor:"pointer", marginBottom:12,
+          boxShadow:"0 1px 4px rgba(0,0,0,0.04)", fontSize:13, fontWeight:600,
+          color:"#475569" }}>
+        상세 분석 보기 (산출 근거 · 분석 방식)
+        <span style={{ fontSize:12, color:MUTED }}>{detailOpen ? "접기 ▲" : "펼치기 ▼"}</span>
+      </button>
 
-      <FairSaveBtn r={r} f={f} onBack={onBack} uid={currentUserId} />
-      <InputWarnings r={r} f={f} />
-      <div className="mb-4"><MarketTypeBadge mc={mc} /></div>
-
-      {/* ── 상세 분석 접기/펼치기 ── */}
-      <>
-            <button onClick={() => setDetailOpen(v => !v)}
-              className="mb-3 flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100">
-              <span className="text-xs font-semibold text-slate-600">상세 분석 보기 (전세가율 · 산출방식 · 적정가 범위)</span>
-              <span className="text-xs text-slate-400">{detailOpen ? "접기 ▲" : "펼치기 ▼"}</span>
-            </button>
-            {detailOpen && (
-              <>
-      {/* ── 백테스트 v3: 핵심 지표 4개 카드 ── */}
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">분석 기준 전세 시세</p>
-          <p className="mt-1 text-base font-bold text-slate-800">
-            {r.jeonseUsed > 0 && r.basis?.jeonse?.value ? won(r.basis.jeonse.value) : "—"}
-          </p>
-          <p className="text-[10px] text-slate-400">{r.jeonseUsed}건 기준</p>
-          <p className="mt-1 text-[10px] leading-tight text-slate-400">최근 전세 거래의 평균 시세입니다.</p>
-        </div>
-        <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">분석 기준 매매 시세</p>
-          <p className="mt-1 text-base font-bold text-slate-800">
-            {r.saleFair ? won(r.saleFair) : "—"}
-          </p>
-          <p className="text-[10px] text-slate-400">{r.saleUsed}건 기준</p>
-          <p className="mt-1 text-[10px] leading-tight text-slate-400">최근 매매 거래의 평균 시세입니다.</p>
-        </div>
-        <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">데이터 안정성</p>
-          <p className={`mt-1 text-base font-bold ${trust?.grade === 'A' ? 'text-emerald-700' : trust?.grade === 'B' ? 'text-amber-700' : 'text-orange-700'}`}>
-            {trust?.gradeLabel || r.dataConfLabel}
-          </p>
-          <p className="text-[10px] text-slate-400">
-            {trust?.grade === 'A' ? '거래 충분' : trust?.grade === 'B' ? '거래 보통' : '거래 부족'}
-          </p>
-          <p className="mt-1 text-[10px] leading-tight text-slate-400">분석에 사용된 데이터 품질입니다.</p>
-        </div>
-        <div className="rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-slate-100">
-          <p className="text-[11px] text-slate-400">분석 방식</p>
-          <p className="mt-1 text-sm font-bold text-slate-800">
-            {r.isPremium ? "프리미엄 반영" :
-             r.engineMode === "jeonse" ? "시세 중심" :
-             r.engineMode === "blend"  ? "혼합 분석" :
-             r.engineMode === "sale"   ? "거래가 중심" : "보류"}
-          </p>
-          <p className="mt-1 text-[10px] leading-tight text-slate-400">
-            {r.isPremium ? "단지 특성 추가 반영" :
-             r.engineMode === "jeonse" ? "임대 거래 기준으로 계산했습니다." :
-             r.engineMode === "blend"  ? "임대·매매 혼합으로 계산했습니다." :
-             r.engineMode === "sale"   ? "매매 거래 기준으로 계산했습니다." : "—"}
-          </p>
-        </div>
-      </div>
-      {r.dataWarnings && r.dataWarnings.length > 0 && (
-        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-sm font-bold text-amber-800">데이터 부족 — 분석 신뢰 낮음</p>
-          {r.dataWarnings.map((w, i) => (
-            <p key={i} className="mt-1 text-xs text-amber-700">· {w}</p>
-          ))}
-          <p className="mt-1.5 text-[11px] text-amber-600">실거래를 보강하거나 KB시세를 입력하면 정확도가 높아집니다.</p>
-        </div>
-      )}
-      {provisional ? (
-        <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
-          <div className="px-6 py-6 text-white" style={{ backgroundColor: NAVY }}>
-            <p className="text-sm text-slate-300">{f.complexName} · {f.dong} {Number(f.areaExclusive) > 0 ? (() => { const opt=(areaOptions||[]).find(o=>String(o.areaSqm)===String(f.areaExclusive)); const {mainLabel}=areaButtonLabel(f.areaExclusive, opt?.supplySqm); return `${mainLabel} (전용 ${f.areaExclusive}㎡)`; })() : (f.pyeong ? `${f.pyeong}평형` : "")}</p>
-            <h1 className="mt-2 text-xl font-bold">{isAbnormal ? "입력값 확인 필요" : "데이터 부족으로 신뢰도 있는 분석이 어렵습니다"}</h1>
-            <p className="mt-1.5 text-sm text-amber-300">{isAbnormal ? "현재가가 정제 시세와 크게 차이납니다. 값 확인 후 다시 분석하세요." : r.holdReason}</p>
-            {!isAbnormal && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="rounded-lg bg-white/15 px-2.5 py-1.5 text-xs text-slate-200">다른 면적 선택</span>
-                <span className="rounded-lg bg-white/15 px-2.5 py-1.5 text-xs text-slate-200">KB시세 직접 입력</span>
+      {detailOpen && (
+        <Card>
+          {/* 4개 지표 그리드 */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:1,
+            background: BORDER }}>
+            {[
+              { label:"분석 기준 전세 시세", value: r.jeonseFair ? `${won(r.jeonseFair)} (${r.jeonseUsed}건)` : "—" },
+              { label:"분석 기준 매매 시세", value: r.saleFair  ? `${won(r.saleFair)} (${r.saleUsed}건)` : "—" },
+              { label:"적정가 산출 방식",    value: r.isPremium ? "프리미엄 반영" : r.modeName || r.engineMode || "—" },
+              { label:"전세가율",            value: r.actualRatio ? `${(r.actualRatio*100).toFixed(1)}%` : "—" },
+            ].map((row, i) => (
+              <div key={i} style={{ background:"#fff", padding:"12px 14px" }}>
+                <p style={{ fontSize:11, color:MUTED, margin:"0 0 3px" }}>{row.label}</p>
+                <p style={{ fontSize:13, fontWeight:600, color:"#334155", margin:0 }}>{row.value}</p>
               </div>
-            )}
-          </div>
-          <div className="px-6 py-5 text-center">
-            <p className="text-xs text-slate-400">참고가 (신뢰도 낮음 · 확정 아님)</p>
-            <p className="mt-1 text-3xl font-extrabold text-slate-700">{won(r.fairPrice)}</p>
-          </div>
-        </section>
-      ) : isSpecial ? (
-        <>
-          <section className="overflow-hidden rounded-3xl shadow-lg ring-1 ring-orange-200">
-            <div className="px-6 py-5 text-white" style={{ backgroundColor: NAVY }}>
-              <p className="text-sm text-slate-300">{f.complexName} · {f.dong} {Number(f.areaExclusive) > 0 ? (() => { const opt=(areaOptions||[]).find(o=>String(o.areaSqm)===String(f.areaExclusive)); const {mainLabel}=areaButtonLabel(f.areaExclusive, opt?.supplySqm); return `${mainLabel} (전용 ${f.areaExclusive}㎡)`; })() : (f.pyeong ? `${f.pyeong}평형` : "")}</p>
-              <h1 className="mt-1 text-lg font-bold">특수시장 — 가격 4분리 표시</h1>
-            </div>
-            <div className="grid grid-cols-2 gap-px bg-orange-100">
-              <Big l="실사용 적정가" v={won(mc.intrinsicFairPrice)} />
-              <Big l="시장 기준가" v={won(mc.marketReferencePrice)} />
-              <Big l="프리미엄 금액" v={won(mc.premiumAmount)} tone="text-amber-600" />
-              <Big l="프리미엄 비율" v={`${(mc.premiumRatio * 100).toFixed(0)}%`} tone="text-amber-600" />
-            </div>
-            <div className="bg-white px-5 py-3 text-center"><p className="text-xs text-slate-400">프리미엄 반영가 (엔진 산출)</p><p className="mt-0.5 text-lg font-bold" style={{ color: NAVY }}>{won(r.fairPrice)}</p></div>
-          </section>
-          <p className="mt-3 rounded-2xl bg-orange-50 p-4 text-xs leading-relaxed text-orange-800 ring-1 ring-orange-100">이 단지는 실사용 가치보다 재건축·학군·희소성·투자수요 프리미엄이 반영된 단지입니다. 일반 전세 기반 적정가만으로 저평가/고평가를 단정하기 어렵습니다.</p>
-        </>
-      ) : (
-        <section className="overflow-hidden rounded-3xl bg-white shadow-lg ring-1 ring-slate-200">
-          <div className="px-6 py-6 text-white" style={{ backgroundColor: NAVY }}>
-            <p className="text-sm text-slate-300">{f.complexName} · {f.dong} {Number(f.areaExclusive) > 0 ? (() => { const opt=(areaOptions||[]).find(o=>String(o.areaSqm)===String(f.areaExclusive)); const {mainLabel}=areaButtonLabel(f.areaExclusive, opt?.supplySqm); return `${mainLabel} (전용 ${f.areaExclusive}㎡)`; })() : (f.pyeong ? `${f.pyeong}평형` : "")}</p>
-            <p className="mt-2 text-xs text-slate-300">엔진 산출 적정가</p>
-            <p className="text-3xl font-extrabold">{won(r.fairPrice)}</p>
-            <span className="mt-2 inline-block rounded-md bg-white/10 px-2 py-0.5 text-xs text-slate-200">{r.modeName}</span>
-          </div>
-          <div className="grid grid-cols-3 divide-x divide-slate-100">
-            <div className="px-4 py-4 text-center"><p className="text-xs text-slate-400">현재 매물가</p><p className="mt-1 text-base font-bold text-slate-800">{won(Number(f.currentPrice))}</p></div>
-            <div className="px-4 py-4 text-center"><p className="text-xs text-slate-400">안전마진가</p><p className="mt-1 text-base font-bold text-slate-800">{won(r.safetyPrice)}</p></div>
-            <div className="px-4 py-4 text-center"><p className="text-xs text-slate-400">적정가 대비</p><p className={`mt-1 text-base font-bold ${r.gapRatio > 0 ? "text-red-600" : "text-emerald-600"}`}>{pct(r.gapRatio)}</p></div>
-          </div>
-        </section>
-      )}
-
-      {!provisional && (() => { const fb = computeFairBands(r, mc); return (
-        <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
-          <div className="px-4 py-2.5" style={{ backgroundColor: "#f1f5f9" }}><p className="text-sm font-bold text-slate-700">적정가 범위 <span className="font-normal text-slate-400">(보수 / 기준 / 공격)</span></p></div>
-          <div className="grid grid-cols-3 divide-x divide-slate-100">
-            <div className="px-3 py-3 text-center"><p className="text-[11px] text-slate-400">보수 적정가</p><p className="mt-0.5 text-base font-bold text-emerald-600">{won(fb.conservative)}</p></div>
-            <div className="px-3 py-3 text-center"><p className="text-[11px] text-slate-400">기준 적정가</p><p className="mt-0.5 text-base font-bold" style={{ color: NAVY }}>{won(fb.base)}</p></div>
-            <div className="px-3 py-3 text-center"><p className="text-[11px] text-slate-400">상단 참고가</p><p className="mt-0.5 text-base font-bold text-amber-600">{won(fb.aggressive)}</p></div>
-          </div>
-          <p className="px-4 pb-3 text-[11px] text-slate-400">상단 참고가는 매수 권장가가 아니라 {fb.special ? "시장 프리미엄이 유지될 때의 상단" : "단기 상단"} 참고값입니다.</p>
-        </div>
-      ); })()}
-
-      {isSpecial && (
-        <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
-          <div className="px-4 py-2.5" style={{ backgroundColor: "#fff7ed" }}><p className="text-sm font-bold text-orange-700">프리미엄 구성 <span className="font-normal text-orange-400">(추정)</span></p></div>
-          <div className="grid grid-cols-2 gap-px bg-slate-100">
-            {[["학군", mc.premiumBreakdown.schoolPremium], ["재건축", mc.premiumBreakdown.redevelopmentPremium], ["희소성", mc.premiumBreakdown.scarcityPremium], ["입지", mc.premiumBreakdown.locationPremium], ["투자수요", mc.premiumBreakdown.investorDemandPremium], ["정책", mc.premiumBreakdown.policyPremium]].map(([l, v]) => (
-              <div key={l} className="flex items-center justify-between bg-white px-4 py-2.5 text-sm"><span className="text-slate-500">{l}</span><span className="font-semibold text-amber-600">{won(v)}</span></div>
             ))}
           </div>
-          <p className="px-4 py-2 text-[11px] text-slate-400">프리미엄 총액 {won(mc.premiumAmount)}의 추정 구성입니다. TODO(API): 학군·정비사업·희소성 실데이터 연동 시 정밀화.</p>
-        </div>
-      )}
 
-      {isSpecial && (
-        <div className="mt-4 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100">
-          <div className="flex items-center justify-between"><p className="text-sm font-bold text-slate-700">재건축 단계</p><span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{RECON[mc.reconstructionStage].label} · {mc.stageScore}점</span></div>
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${mc.stageScore}%`, backgroundColor: NAVY }} /></div>
-          <p className="mt-2 text-[11px] text-slate-400">재건축 단계는 적정가를 직접 바꾸지 않고 프리미엄·시장 위험도·매수 판단에만 반영됩니다. 현재 연식 기반 추정값 · TODO(API): 정비사업 고시·조합 정보 연동 예정.</p>
-        </div>
-      )}
+          {/* 데이터 경고 */}
+          {r.dataWarnings?.length > 0 && (
+            <div style={{ padding:"12px 14px", background:"#fffbeb", borderTop:`1px solid ${BORDER}` }}>
+              {r.dataWarnings.map((w, i) => (
+                <p key={i} style={{ fontSize:12, color:"#b45309", margin: i ? "4px 0 0" : 0 }}>
+                  ⚠️ {w}
+                </p>
+              ))}
+            </div>
+          )}
 
-      {/* 적정가 산출 근거 */}
-      <div className="mt-5 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
-        <div className="px-4 py-3" style={{ backgroundColor: "#f1f5f9" }}>
-          <p className="text-sm font-bold text-slate-700">적정가 산출 근거</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">AI가 실거래 데이터를 분석해 산출한 기준값입니다.</p>
-        </div>
+          {/* 적정가 범위 3단 */}
+          {!provisional && fb && (
+            <div style={{ borderTop:`1px solid ${BORDER}` }}>
+              <div style={{ padding:"10px 14px 6px", background: BG }}>
+                <p style={{ fontSize:11, color:MUTED, margin:0 }}>적정가 범위 (보수 / 기준 / 상단)</p>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr",
+                gap:1, background: BORDER }}>
+                {[
+                  { l:"보수 적정가", v: won(fb.conservative), c: GREEN },
+                  { l:"기준 적정가", v: won(fb.base),         c: NAVY  },
+                  { l:"상단 참고가", v: won(fb.aggressive),   c: AMBER },
+                ].map((col, i) => (
+                  <div key={i} style={{ background:"#fff", padding:"10px", textAlign:"center" }}>
+                    <p style={{ fontSize:10, color:MUTED, margin:"0 0 3px" }}>{col.l}</p>
+                    <p style={{ fontSize:14, fontWeight:700, color:col.c, margin:0 }}>{col.v}</p>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize:11, color:MUTED, padding:"8px 14px", margin:0 }}>
+                상단 참고가는 매수 권장가가 아닙니다.
+              </p>
+            </div>
+          )}
 
-        {/* ── 핵심 4개 기본 노출 ── */}
-        <Row l="분석 기준 전세 시세" v={r.jeonseFair ? `${won(r.jeonseFair)} (${r.jeonseUsed}건)` : "—"} />
-        <Row l="분석 기준 매매 시세" v={r.saleFair ? `${won(r.saleFair)} (${r.saleUsed}건)` : "—"} />
-        <Row l="데이터 안정성" v={trust?.gradeLabel || r.dataConfLabel} />
-
-        {/* ── 상세 분석 접힘 ── */}
-        {(() => {
-          const fs = (() => { const fl = { redevelopment: 65, primePremium: 70, investmentPremium: 65, policyDriven: 65, semiPremium: 70 }[mc.specialMarketType]; return fl != null ? Math.max(r.modelConf, fl) : r.modelConf; })();
-          const mrLevel = (isLowData || isAbnormal) ? "평가 불가" : mc.specialMarketType === "investmentPremium" ? "매우높음" : isSpecial ? "높음" : mc.specialMarketType === "semiPremium" ? "보통" : "낮음";
-          return (
-            <>
-              <button onClick={() => setFairDetailOpen(v => !v)}
-                className="flex w-full items-center justify-between border-t border-slate-100 px-4 py-3 text-left">
-                <span className="text-xs font-semibold text-slate-500">상세 분석 보기</span>
-                <span className="text-xs text-slate-400">{fairDetailOpen ? "접기 ▲" : "펼치기 ▼"}</span>
-              </button>
-              {fairDetailOpen && (
-                <div className="border-t border-slate-100">
-                  <Row l="적정가 산출 방식" v={r.isPremium ? "프리미엄 반영" : r.engineMode === "jeonse" ? "전세 시세 중심" : r.engineMode === "blend" ? "전세·매매 혼합" : r.engineMode === "sale" ? "매매 시세 중심" : "—"} />
-                  <Row l="사용 거래 수 (전세/매매)" v={`${jb.used ?? 0} / ${sb.used ?? 0} 건`} />
-                  <Row l="제외 거래 수 (전세/매매)" v={`${jb.excluded ?? 0} / ${sb.excluded ?? 0} 건`} />
-                  <Row l="KB시세 가중치 (전세/매매)" v={`${jkb != null ? Math.round(jkb * 100) + "%" : "—"} / ${skb != null ? Math.round(skb * 100) + "%" : "—"}`} />
-                  <Row l="거래 데이터 충분도" v={`${fs} · ${fs >= 80 ? "높음" : fs >= 60 ? "보통" : fs >= 40 ? "낮음" : "매우낮음"}`} />
-                  <Row l="시장 환경 분석" v={mrLevel} />
-                  <Row l="단지 특성" v={r.isPremium ? "재건축·학군·희소성 영향" : "일반"} />
-                  {kbHeavy && <div className="bg-amber-50 px-4 py-2 text-xs text-amber-700">⚠ 실거래 표본이 적어 KB시세 의존도가 높습니다 — 신뢰도를 보수적으로 해석하세요.</div>}
-                </div>
-              )}
-            </>
-          );
-        })()}
-      </div>
-
-      <p className="mt-5 px-2 text-[11px] leading-relaxed text-slate-400">시장 위험도는 계산 오류를 의미하지 않습니다. 재건축, 정책, 공급, 프리미엄 등에 따른 가격 변동성 위험을 의미합니다. 본 적정가는 공개 데이터와 입력값 기반 참고용 계산이며, 집 자체의 가치 평가에 한정됩니다. 매수 판단·자금·대출·세금은 매수 탭에서 확인하세요.</p>
-              </>
-            )}
-      </>
-
-      {/* ── PDF 리포트 저장 ── */}
-      <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
-        <button
-          onClick={() => {
-            const date = new Date().toLocaleDateString("ko-KR");
-            const gp = r.gapRatio != null ? `${Math.abs(r.gapRatio * 100).toFixed(1)}%` : "—";
-            const gradeLabel = { A:"매우 저평가", B:"저평가", C:"적정 가격", D:"고평가 주의", E:"고평가", 보류:"판단 보류" }[r.buyGrade] || r.buyGrade;
-            const text = `ValueLens 적정가 평가 리포트
-${"=".repeat(40)}
-발행일: ${date}
-단지: ${f.complexName || "—"} ${f.dong ? `· ${f.dong}` : ""} ${Number(f.areaExclusive) > 0 ? `전용 ${f.areaExclusive}㎡` : ""}
-
-[적정가 평가 결과]
-  가격 평가 등급: ${r.buyGrade}등급 · ${gradeLabel}
-  현재 매물가: ${won(Number(f.currentPrice))}
-  AI 적정가: ${r.engineMode === "hold" ? "판단 보류" : won(r.fairPrice)}
-  ${r.gapRatio < 0 ? "저평가율" : "고평가율"}: ${r.engineMode === "hold" ? "보류" : gp}
-  보수적 참고가: ${r.safetyPrice ? won(r.safetyPrice) : "—"}
-  분석 엔진: ${r.modeName || "—"}
-
-[적정가 산출 근거]
-${r.basis && r.basis.steps && r.basis.steps.length ? r.basis.steps.map(s => `  · ${s}`).join("\n") : "  · 데이터 부족으로 산출 보류"}
-
-[데이터 현황]
-  전세 표본: ${r.jeonseUsed || 0}건 · 신뢰도 ${r.dataConfLabel || "—"}
-  매매 표본: ${r.saleUsed || 0}건
-  시장충격: ${r.shock?.level || "—"}
-
-${"=".repeat(40)}
-본 보고서는 가격평가 참고자료이며,
-감정평가서 · 투자자문 · 매수·매도 권유가 아닙니다.
-공개 데이터와 사용자 입력값 기반의 참고용 분석이며,
-실제 가격은 층·향·수리상태·시장상황에 따라 다를 수 있습니다.
-최종 의사결정은 현장 확인 후 본인이 내려야 합니다.
-
-이 리포트를 활용하기 전 확인하세요
-================================
-□ 공인중개사에게 현장 시세를 확인했나요?
-□ 동일 단지 실거래가를 국토부 실거래가 공개시스템에서 직접 확인했나요?
-□ 층·향·수리상태·동 위치에 따른 가격 차이를 고려했나요?
-
-본 리포트는 AI 가격 적정성 참고자료이며
-전문가 상담을 대체하지 않습니다.
-
-━━━━━━━━━━━━━━━━━━
-ValueLens 이용 전 확인사항
-
-본 결과는 공공데이터, 사용자 입력,
-AI 분석을 기반으로 생성된
-가격평가 참고자료입니다.
-
-감정평가서가 아닙니다.
-투자자문이 아닙니다.
-매수·매도 권유가 아닙니다.
-
-실제 거래 전에는
-공인중개사, 세무사, 금융기관 등
-전문가와 확인하시기 바랍니다.
-━━━━━━━━━━━━━━━━━━
-Powered by ValueLens
-
-[분석 주의사항 — ValueLens 엔진 v3]
-본 리포트는 국토부 실거래 및 입력 데이터를 바탕으로 한 참고용 분석입니다.
-ValueLens의 적정가는 보장 가격이나 감정평가액이 아니며,
-매수·매도 결정은 사용자의 최종 판단과 전문가 상담을 통해 진행해야 합니다.
-특히 데이터 부족, 전세가율 이상치, 재건축·학군·희소성 영향 단지는
-분석 신뢰도가 낮을 수 있습니다.`;
-            const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `ValueLens_적정가_${f.complexName || "평가"}_${date.replace(/\./g, "")}.txt`;
-            a.click();
-            URL.revokeObjectURL(url);
-          }}
-          className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-slate-50"
-        >
-          <div>
-            <p className="text-sm font-bold text-slate-800">적정가 평가 리포트 저장</p>
-            <p className="mt-0.5 text-xs text-slate-400">등급·AI 적정가·산출 근거·데이터 현황 포함 · 계산식 제외</p>
+          {/* 기타 배지들 */}
+          <div style={{ padding:"12px 14px", borderTop:`1px solid ${BORDER}` }}>
+            <DataTrustBadge trust={trust} />
           </div>
-          <span className="text-xs text-slate-400">다운로드 ↓</span>
+          <div style={{ padding:"0 14px 12px" }}>
+            <MarketTypeBadge mc={mc} />
+          </div>
+          <InputWarnings r={r} f={f} />
+        </Card>
+      )}
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          하단 CTA
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <FairSaveBtn r={r} f={f} onBack={onBack} uid={currentUserId} />
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:10 }}>
+        <button onClick={onBack}
+          style={{ borderRadius:12, border:`1px solid ${BORDER}`, background:"#fff",
+            padding:"14px", fontSize:13, fontWeight:600, color:"#475569", cursor:"pointer" }}>
+          ← 다시 검색
+        </button>
+        <button onClick={onNewSearch}
+          style={{ borderRadius:12, border:`1px solid #bfdbfe`, background:"#eff6ff",
+            padding:"14px", fontSize:13, fontWeight:600, color:"#1d4ed8", cursor:"pointer" }}>
+          다른 단지 분석
         </button>
       </div>
+      <button onClick={onHome}
+        style={{ width:"100%", borderRadius:12, background:"#1e293b", color:"#fff",
+          padding:"14px", fontSize:13, fontWeight:600, cursor:"pointer", marginTop:10, border:"none" }}>
+        처음으로
+      </button>
 
-      {/* ── 유의사항 ── */}
-      <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-        <div className="flex items-center gap-1.5 mb-2">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{flexShrink:0}}>
-            <path d="M7 2L1.5 12h11L7 2z" stroke="#C97B22" strokeWidth="1.2" fill="none" strokeLinejoin="round"/>
-            <path d="M7 6v3M7 10.5v.5" stroke="#C97B22" strokeWidth="1.2" strokeLinecap="round"/>
-          </svg>
-          <p className="text-xs font-semibold text-amber-800">유의사항</p>
-        </div>
-        <ul className="space-y-1">
-          {["본 결과는 최근 거래 데이터를 기반으로 분석한 참고 자료입니다.", "시장 상황이나 개별 매물의 특성에 따라 실제 거래가격은 달라질 수 있습니다.", "중요한 의사결정 전에는 최신 실거래와 매물 상태를 반드시 확인하시기 바랍니다."].map((t,i) => (
-            <li key={i} className="flex items-start gap-1.5 text-xs text-amber-800">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{flexShrink:0,marginTop:2}}>
-                <path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="#C97B22" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              {t}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* ── 하단 네비게이션 CTA ── */}
-      <div className="mt-6 space-y-3">
-        <FairSaveBtn r={r} f={f} onBack={onBack} showFull uid={currentUserId} />
-        <div className="grid grid-cols-2 gap-3">
-          <button onClick={onBack}
-            className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-600 active:bg-slate-50">
-            ← 다시 검색
-          </button>
-          <button onClick={onNewSearch}
-            className="rounded-2xl border border-blue-100 bg-blue-50 py-4 text-sm font-bold text-blue-700 active:bg-blue-100">
-            다른 단지 분석
-          </button>
-        </div>
-        <button onClick={onHome}
-          className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-bold text-white active:bg-slate-700">
-          처음으로
-        </button>
-      </div>
-    </>
+      {/* AI 안내 */}
+      <AiNotice />
+    </div>
   );
 }
 
