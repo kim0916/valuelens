@@ -124,13 +124,14 @@ function getWhyCards(r, trust, f = {}) {
 
   // 프리미엄 반영 — 일반어로 설명
   if (r.isPremium) {
-    const region = f.region || "";
-    const buildYear = f.buildYear || 0;
+    const region = (f.region || "").toString();
+    const buildYear = Number(f.buildYear) || 0;
     const ratio = r.actualRatio || 0;
+    console.log("[WhyCards] isPremium 진입:", { region, buildYear, ratio });
     if (["강남구","서초구","송파구"].some(g => region.includes(g))) {
       cards.push("강남권 입지 특성상 매매가가 높게 형성됩니다.");
-    } else if (buildYear && Number(buildYear) <= 1995) {
-      cards.push("재건축 기대감이 반영된 가격대입니다.");
+    } else if (buildYear > 0 && buildYear <= 1995) {
+      cards.push(`${buildYear}년 준공 구축으로 재건축 기대감이 반영된 가격대입니다.`);
     } else if (ratio < 0.35) {
       cards.push("전세가 대비 매매가가 높은 고가 단지입니다.");
     } else {
