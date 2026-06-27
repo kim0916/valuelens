@@ -262,7 +262,7 @@ export function responseNeedComplex(purpose = "analysis", isRepeat = false) {
 export function responseGreeting() {
   return {
     type: RESPONSE_TYPES.NEED_MORE_INFO,
-    text: `어서오세요! 어떤 아파트 알아보세요?\n\n예: 잠실 엘스, 반포자이, 홍제현대`,
+    text: `안녕하세요! 어떤 아파트가 궁금하세요?`,
     ui:   "message",
   };
 }
