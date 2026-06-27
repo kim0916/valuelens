@@ -697,8 +697,6 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
             추천부터 적정가, 계약 체크까지 AI가 함께 도와드립니다.
           </p>
         </div>
-        {/* 하단 페이드 아웃 */}
-        <div style={{ position:"absolute", bottom:0, left:0, right:0, height:40, background:"linear-gradient(to bottom, transparent, #f0effe)" }}/>
       </div>
 
       {/* ── AI 선제 응답 말풍선 ── */}
@@ -719,19 +717,17 @@ function AgentHome({ onNavigate, history, currentUserId, currentUserEmail, onAIQ
       )}
 
       {/* ── 채팅창 안내 문구 ── */}
-      <div style={{ padding:"12px 16px 8px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-          {/* 상징마크 (brand-mark와 동일, 나중에 이미지로 교체) */}
-          <div style={{ width:20, height:20, borderRadius:6, background:"linear-gradient(135deg,#5b52e0,#7b6fff)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-              <circle cx="12" cy="10" r="3"/>
-            </svg>
-          </div>
-          <p style={{ fontSize:12, color:"#6b67b0", margin:0, letterSpacing:"-0.01em", fontWeight:500 }}>
-            찾아입니다. 궁금한 아파트를 아래서 물어보세요.
-          </p>
+      <div style={{ padding:"14px 16px 8px", display:"flex", alignItems:"center", justifyContent:"center", gap:7 }}>
+        {/* 상징마크 (나중에 이미지로 교체 시 이 div만 수정) */}
+        <div id="brand-mark-sub" style={{ width:20, height:20, borderRadius:6, background:"linear-gradient(135deg,#5b52e0,#7b6fff)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
         </div>
+        <p style={{ fontSize:12, color:"#6b67b0", margin:0, letterSpacing:"-0.01em", fontWeight:500 }}>
+          찾아입니다. 궁금한 아파트를 아래서 물어보세요.
+        </p>
       </div>
 
       {/* ── 입력창 ── */}

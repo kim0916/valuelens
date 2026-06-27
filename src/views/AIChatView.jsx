@@ -1042,34 +1042,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           </div>
         )}
 
-        {/* 빈 상태 — 회전 힌트 텍스트 */}
-        {msgs.length <= 1 && (
-          <div style={{ marginTop:24, textAlign:"center" }}>
-            <p style={{ fontSize:11, color:BRAND_MUTED, marginBottom:12, letterSpacing:"0.02em" }}>
-              이런 것도 물어보세요
-            </p>
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              {[PHS[phIdx], PHS[(phIdx+1) % PHS.length], PHS[(phIdx+2) % PHS.length]].map((ex, i) => (
-                <div key={i}
-                  onClick={() => { setInput(ex); inputRef.current?.focus(); }}
-                  style={{
-                    padding:"11px 16px", borderRadius:12,
-                    border:`0.5px solid ${BRAND_BORDER}`,
-                    background:"#fff",
-                    fontSize:13, color: i === 0 ? BRAND_MID : BRAND_MUTED,
-                    cursor:"pointer", textAlign:"left",
-                    letterSpacing:"-0.008em",
-                    opacity: i === 0 ? 0.85 : 0.45,
-                    transition:"opacity 0.3s",
-                    userSelect:"none",
-                  }}
-                >
-                  {ex}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
 
         {/* 고급 검색 접기 */}
         <div style={{ marginTop:24 }}>
