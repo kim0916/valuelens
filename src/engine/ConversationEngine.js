@@ -285,10 +285,72 @@ async function execute(decision, intent, extracted, rawText, state) {
         decision.rule,
       );
 
-    // ── Unknown ──
-    default:
-      return [state, responseUnknown(state)];
+    // ── Unknown → AI fallback ──
+    default: {
+      // 1차: 규칙 기반으로 처리 가능하면 그대로
+      const ruleRes = responseUnknown(state);
+      // 컨텍스트가 없는 경우(어떤 아파트인지조차 모름)만 AI로 넘김
+      // 단지/면적 있으면 규칙 응답으로 충분
+      if (state?.currentComplex || state?.currentArea) {
+        return [state, ruleRes];
+      }
+      // 2차: AI fallback (공인중개사 말투)
+      try {
+        const aiRes = await callAIFallback(rawText, state);
+        if (aiRes) return [state, aiRes];
+      } catch (e) {
+        console.warn('[ConversationEngine] AI fallback 실패:', e?.message);
+      }
+      return [state, ruleRes];
+    }
   }
+}
+
+// ─────────────────────────────────────────────
+// AI Fallback — 공인중개사 말투로 자유 응답
+// ─────────────────────────────────────────────
+async function callAIFallback(userText, state) {
+  const SYSTEM = `당신은 10년 경력의 공인중개사 AI 어시스턴트입니다.
+ValueLens 앱 안에서 사용자의 부동산 질문에 답합니다.
+
+규칙:
+- 짧고 친근하게 (3문장 이내)
+- 존댓말, 편안한 말투
+- 아파트 매매/전세/적정가/계약 전문
+- 모르는 건 솔직히 "확인이 어렵네요"
+- 앱 기능으로 해결 가능하면 "앱에서 확인해보세요" 유도
+- 이모지 1개 이하로 절제`;
+
+  const context = state?.currentComplex
+    ? `현재 대화 중인 단지: ${state.currentComplex.complex_name}`
+    : '';
+
+  const messages = [
+    ...(context ? [{ role: 'user', content: context }] : []),
+    { role: 'user', content: userText },
+  ];
+
+  const res = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 300,
+      system: SYSTEM,
+      messages,
+    }),
+  });
+
+  if (!res.ok) return null;
+  const data = await res.json();
+  const text = data?.content?.[0]?.text?.trim();
+  if (!text) return null;
+
+  return {
+    type: 'ai_fallback',
+    text,
+    ui: 'message',
+  };
 }
 
 // ─────────────────────────────────────────────
