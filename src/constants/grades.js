@@ -13,6 +13,6 @@ const GS = {
 const won = (m) => { if (!m || isNaN(Number(m)) || Number(m) === 0) return "—"; return m >= 10000 ? (Math.round((m / 10000) * 100) / 100).toLocaleString() + "억" : Number(m).toLocaleString() + "만원"; };
 const pct = (r) => (r > 0 ? "+" : "") + (r * 100).toFixed(1) + "%";
 // 전용㎡ → 네이버 방식 평형 (Math.floor)
-const typicalPyeong = (sqm) => { sqm = Number(sqm)||0; if(sqm<=0) return 0; return Math.floor(sqm/3.305785); };
+const typicalPyeong = (sqm) => { sqm = Number(sqm)||0; if(sqm<=0) return 0; return Math.floor((sqm*1.35)/3.305785); };
 
 export { GRADES, LABEL, GS, won, pct, typicalPyeong };

@@ -1225,11 +1225,11 @@ function supplyAreaInfo(exclusiveSqm, supplySqm) {
   const excl = Number(exclusiveSqm) || 0;
   if (supplySqm && Number(supplySqm) > 0) {
     const supply = Math.round(Number(supplySqm));
-    return { supply, pyeong: Math.round(supply / 3.3058), estimated: false };
+    return { supply, pyeong: Math.floor(supply / 3.3058), estimated: false };
   }
-  // 공급면적 모르면 전용 ÷ 0.77 추정 (전용률 77% 가정 → 33평 정확)
-  const supply = excl > 0 ? Math.round(excl / 0.77) : 0;
-  return { supply, pyeong: supply > 0 ? Math.round(supply / 3.3058) : 0, estimated: true };
+  // 공급면적 모르면 전용 × 1.35 추정 (네이버 평수와 근접)
+  const supply = excl > 0 ? Math.round(excl * 1.35) : 0;
+  return { supply, pyeong: supply > 0 ? Math.floor(supply / 3.3058) : 0, estimated: true };
 }
 
 // 면적 버튼 라벨: 네이버 방식 — 공급면적(109㎡) 기준 + 하단 "전용 84.97㎡"
@@ -1237,17 +1237,17 @@ function areaButtonLabel(exclusiveSqm, supplySqm) {
   const excl = Number(exclusiveSqm) || 0;
   const supply = supplySqm && Number(supplySqm) > 0 ? Math.round(Number(supplySqm)) : null;
   if (supply) {
-    const supplyPyeong = Math.round(supply / 3.3058);
+    const supplyPyeong = Math.floor(supply / 3.3058);
     return {
       mainLabel: `${supply}㎡ (${supplyPyeong}평)`,
       subLabel: `전용 ${excl}㎡ 기준 분석`,
     };
   }
-  // 공급면적 없으면 전용 × 1.35 추정
-  const estSupply = excl > 0 ? Math.round(excl / 0.77) : 0;
-  const estPyeong = estSupply > 0 ? Math.round(estSupply / 3.3058) : 0;
+  // 공급면적 없으면 전용 × 1.35 추정 (네이버 평수 근접)
+  const estSupply = excl > 0 ? Math.round(excl * 1.35) : 0;
+  const estPyeong = estSupply > 0 ? Math.floor(estSupply / 3.3058) : 0;
   return {
-    mainLabel: estSupply > 0 ? `${estSupply}㎡ (${estPyeong}평, 추정)` : `전용 ${excl}㎡`,
+    mainLabel: estSupply > 0 ? `${estSupply}㎡ (${estPyeong}평)` : `전용 ${excl}㎡`,
     subLabel: excl > 0 ? `전용 ${excl}㎡ 기준 분석` : "",
   };
 }
