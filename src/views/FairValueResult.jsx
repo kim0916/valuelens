@@ -674,23 +674,62 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
         </div>
       )}
 
-      {onAskMore && (
-        <ResultChatBar
-          complex={f.complexName}
-          onSend={onAskMore}
-          onBuyAnalysis={onBuyAnalysis}
-          f={f}
-          areaOptions={areaOptions}
-          onNewSearch={onNewSearch}
-        />
-      )}
+      {onAskMore && (() => {
+        // Step1: FairValueResult → ResultChatBar context 전달
+        const analysisContext = {
+          complexName:  f.complexName  || '',
+          region:       f.region       || '',
+          sigungu:      f.region       || '',
+          dong:         f.dong         || '',
+          selectedArea: f.areaExclusive || f.selectedArea || null,
+          pyeong:       f.areaExclusive ? Math.floor((Number(f.areaExclusive) * 1.35) / 3.305785) : null,
+          fairValue:    r.fairPrice    || null,
+          currentPrice: f.currentPrice || null,
+          dealData:     f.deals        || f.saleDeals || [],
+          source:       f.dataSource   || 'unknown',
+          analysisType: r.engineMode   || 'unknown',
+        };
+        return (
+          <ResultChatBar
+            complex={f.complexName}
+            onSend={onAskMore}
+            onBuyAnalysis={onBuyAnalysis}
+            f={f}
+            areaOptions={areaOptions}
+            onNewSearch={onNewSearch}
+            analysisContext={analysisContext}
+          />
+        );
+      })()}
     </div>
   );
 }
 
 // ── 결과지 하단 Quick Action 바 ──
 // ConversationEngine 연결 없음 — 독자 State Machine (안정 버전)
-function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSearch }) {
+function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSearch, analysisContext }) {
+  // Step1: analysisContext 우선 사용, fallback은 기존 f/complex
+  const ctx = analysisContext || {};
+  const ctxComplex  = ctx.complexName  || complex || '';
+  const ctxRegion   = ctx.region       || f?.region || '';
+  const ctxDong     = ctx.dong         || f?.dong   || '';
+  const ctxArea     = ctx.selectedArea || f?.areaExclusive || null;
+  const ctxPyeong   = ctx.pyeong       || null;
+  const ctxFairVal  = ctx.fairValue    || null;
+  const ctxCurPrice = ctx.currentPrice || null;
+  const ctxSource   = ctx.source       || 'unknown';
+  const ctxMode     = ctx.analysisType || 'unknown';
+
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.log('[ResultChatBar] analysisContext:', {
+      complexName: ctxComplex, region: ctxRegion, dong: ctxDong,
+      selectedArea: ctxArea, pyeong: ctxPyeong,
+      fairValue: ctxFairVal, currentPrice: ctxCurPrice,
+      source: ctxSource, analysisType: ctxMode,
+    });
+  }
+
   const [text, setText] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [msgs, setMsgs] = React.useState([]);
@@ -844,7 +883,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
     }
 
     if (/다른\s*평형|평형\s*바꿔|다른\s*평수/.test(t)) {
-      const currentSqm = f?.areaExclusive || 0;
+      const currentSqm = ctxArea || 0;
       const rawOpts = areaOptions || f?.areaOptions || f?._aiAreaOptions;
       if (!rawOpts) { addAI('평형 정보를 불러오지 못했습니다. 다시 시도해 주세요.'); return; }
       const others = rawOpts.filter(a => Math.abs(Number(a.areaSqm) - currentSqm) > 3);
@@ -854,7 +893,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
       if (others.length === 1) {
         addAI(`${others[0].pyeong}평 말씀하시는 거죠?\n맞으면 "응" 또는 "${others[0].pyeong}평"이라고 입력해 주세요.`);
       } else {
-        addAI(`${f?.complexName || complex}는 ${names}도 분석 가능합니다.\n어떤 평형이 궁금하세요?`);
+        addAI(`${ctxComplex}는 ${names}도 분석 가능합니다.\n어떤 평형이 궁금하세요?`);
       }
       return;
     }
@@ -864,8 +903,8 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
     if (complexMatch) {
       const query = complexMatch[1].trim();
       const regionMatch = t.match(/([가-힣]{2,4}(?:동|구|시))\s+(.+)/);
-      const sigunguHint = regionMatch ? regionMatch[1] : (f?.region || '');
-      const dongHint    = regionMatch ? null : (f?.dong || '');
+      const sigunguHint = regionMatch ? regionMatch[1] : ctxRegion;
+      const dongHint    = regionMatch ? null : ctxDong;
       const complexQuery = regionMatch ? regionMatch[2].replace(/[은는이가을를]?\??$/, '').trim() : query;
       addAI(`${complexQuery} 검색합니다...`);
       await searchComplex(complexQuery, sigunguHint, dongHint);
@@ -879,7 +918,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
   const chips = ['매수 의견은?', '다른 평형은?', '최근 거래 흐름은?', '전세는?'];
   const placeholder = step === 'await_price' ? '매물가 입력 (예: 8억, 모름)'
     : step === 'await_area' ? `평형 입력 (예: ${pendingAreas.map(a=>a.pyeong+'평').join(', ')})`
-    : `${complex || '이 아파트'}에 대해 더 궁금한 점은?`;
+    : `${ctxComplex || '이 아파트'}에 대해 더 궁금한 점은?`;
 
   return (
     <div style={{
