@@ -107,14 +107,20 @@ async function process(input, state = createConversationState()) {
   //     NLU 신규 Intent를 기존 Policy가 이해할 수 있는 형태로 변환
   const { intent, extracted, confidence } = bridgeNLUToLegacy(nlu, text, s);
 
-  // 다른평형 요청인데 currentArea 없으면 → 평형 질문으로 fallback
-  if ((intent === "larger_area" || intent === "smaller_area") && !extracted.areaSqm && s.currentComplex) {
-    const ns = addHistory(s, "ai", `**${s.currentComplex.complex_name}** 몇 평 찾으세요?`, intent);
-    return { state: ns, response: {
-      type: RESPONSE_TYPES.NEED_MORE_INFO,
-      text: `**${s.currentComplex.complex_name}** 몇 평 찾으세요?`,
-      ui: "message",
-    }};
+  // 다른평형 요청 → 평형 목록 보여주기
+  if ((intent === "larger_area" || intent === "smaller_area") && s.currentComplex) {
+    const areaGroups = getAreaGroups(s);
+    if (areaGroups.length > 0) {
+      const response = responseAreaList(s.currentComplex, areaGroups, null);
+      return { state: s, response };
+    }
+  }
+
+  // price_analysis인데 단지 컨텍스트 없으면 → 검색으로 전환
+  if (intent === "price_analysis" && !s.currentComplex && extracted.complexQuery) {
+    extracted.intent = "search_complex";
+    const [ns, response] = await handleSearch(extracted.complexQuery, extracted.areaSqm || null, s, 0);
+    return { state: ns, response };
   }
 
   // 3. Policy 적용 → Action 결정
