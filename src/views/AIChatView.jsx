@@ -462,9 +462,10 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             onSelect: async (choice) => {
               addMsg({ role: "user", type: "text", content: choice });
               if (choice === '전세' || choice === '계약 전 체크') {
-                replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                addMsg({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
                 return;
               }
+              addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
               await askAreaThenPrice(cx, choice === '매수 의견' ? 'buy' : 'fair');
             },
           });
@@ -562,7 +563,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         const summaryLine = locationStr
           ? `${locationStr} ${cxName} ${inputPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`
           : `${cxName} ${inputPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`;
-        replaceLastAI({ role: "ai", type: "text",
+        addMsg({ role: "ai", type: "text",
           content: summaryLine + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.' });
         return;
       }
@@ -626,6 +627,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                 }
                 const purpose = choice === '매수 의견' ? 'buy' : 'fair';
                 convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
+                addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
                 await askAreaThenPrice(cx, purpose);
               },
             });
@@ -1345,7 +1347,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         _pendingPurpose: intentStr,
         _expectedAnswerType: null,
       };
-      replaceLastAI({
+      addMsg({
         role: 'ai', type: 'text',
         content: `${cxName} ${pyeong}평 현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.`,
       });
@@ -1361,7 +1363,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       _pendingPurpose: intentStr,
     };
     const pyeongList = areaGroups.map(g => `${g.pyeong}평`).join(', ');
-    replaceLastAI({
+    // addMsg 사용 — thinking 자리 교체가 아니라 새 메시지 추가
+    addMsg({
       role: 'ai', type: 'area_chips',
       content: `${cxName}는 ${pyeongList} 분석 가능합니다.\n어떤 평형을 확인할까요?`,
       areaGroups,
@@ -1393,7 +1396,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         const summaryLine = locationStr
           ? `${locationStr} ${cxName} ${chipPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`
           : `${cxName} ${chipPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`;
-        replaceLastAI({
+        addMsg({
           role: 'ai', type: 'text',
           content: summaryLine + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.',
         });
