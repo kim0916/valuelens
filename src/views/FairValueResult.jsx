@@ -187,6 +187,12 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
   const [priceInput, setPriceInput] = React.useState(
     f.currentPrice > 0 ? (f.currentPrice / 10000).toString() : ""
   );
+  // f.currentPrice 변경 시 입력값 동기화
+  React.useEffect(() => {
+    if (!priceEdit && f.currentPrice > 0) {
+      setPriceInput((f.currentPrice / 10000).toString());
+    }
+  }, [f.currentPrice]);
 
   // 체크리스트 localStorage 저장 (단지명+면적 기반 key)
   const checkKey = `vl_check_${(f.complexName||"").replace(/\s/g,"")}_${f.areaExclusive||0}`;
@@ -352,11 +358,12 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
                         onClick={() => {
                           const p = parsePriceStr(priceInput);
                           if (p && onPriceUpdate) { onPriceUpdate(p); setPriceEdit(false); }
+                          else if (!p) setPriceEdit(false);
                         }}
                         style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px",
-                          borderRadius: 8, border: "none", background: "#5b52e0",
+                          borderRadius: 8, border: "none", background: "#2F6F4F",
                           color: "#fff", cursor: "pointer" }}>
-                        수정
+                        확인
                       </button>
                       <button onClick={() => setPriceEdit(false)}
                         style={{ fontSize: 12, color: "#94a3b8", background: "none",
