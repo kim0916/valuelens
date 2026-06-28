@@ -1454,7 +1454,7 @@ function AppInner() {
                   complexInfo={chatResultData.complex}
                   onAskMore={async (text) => {
                     const d = chatResultData;
-                    if (!d) return;
+                    if (!d || typeof text !== 'string') return;
                     const complexObj = {
                       complex_name: d.complex.name,
                       sigungu: d.complex.sigungu,

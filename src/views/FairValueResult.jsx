@@ -745,7 +745,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
             padding: "9px 14px", fontSize: 13, outline: "none",
             background: "#f8fafc", color: "#1e293b" }}
         />
-        <button onClick={handleSend}
+        <button onClick={() => handleSend()}
           style={{ width: 36, height: 36, borderRadius: "50%",
             background: text.trim() ? "#5b52e0" : "#e2e8f0",
             border: "none", cursor: text.trim() ? "pointer" : "default",
