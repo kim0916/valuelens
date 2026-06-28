@@ -126,11 +126,17 @@ async function process(input, state = createConversationState()) {
   }
 
   // price_analysis인데 단지 컨텍스트 없으면 → 검색으로 전환
-  if (intent === "price_analysis" && !s.currentComplex && extracted.complexQuery) {
-    const regionFromExtracted = extracted._nlu?.sigungu || extracted.region || null;
-    const stateForSearch = regionFromExtracted ? { ...s, region: regionFromExtracted } : s;
-    const [ns, response] = await handleSearch(extracted.complexQuery, extracted.areaSqm || null, stateForSearch, 0, extracted.dong || "");
-    return { state: ns, response };
+  if (intent === "price_analysis" && !s.currentComplex) {
+    // complexQuery 없으면 원문에서 의도어 제거해서 검색어로 사용
+    // 의도어만 제거 (단독 조사는 건드리지 않음)
+    const searchQuery = extracted.complexQuery ||
+      text.replace(/적정가는?|시세는?|얼마야|얼마에요|가격은?|어때요?|어떠해|알려줘|확인해줘/g, '').replace(/[은는이가을를]$/, '').trim();
+    if (searchQuery && searchQuery.length >= 2) {
+      const regionFromExtracted = extracted._nlu?.sigungu || extracted.region || null;
+      const stateForSearch = regionFromExtracted ? { ...s, region: regionFromExtracted } : s;
+      const [ns, response] = await handleSearch(searchQuery, extracted.areaSqm || null, stateForSearch, 0, extracted.dong || "");
+      return { state: ns, response };
+    }
   }
 
   // extracted 지역정보 → state 자동 반영 (dong/sigungu/region 파이프라인)
