@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test:nlu": "node src/engine/nlu/__tests__/nlu.test.js",
     "preview": "vite preview"
   },
   "dependencies": {
