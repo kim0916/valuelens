@@ -513,7 +513,9 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       addMsg({ role: "user", type: "text", content: text });
       const { _pendingComplex: complex, _pendingArea: areaSqm, _pendingJeonse: existingJeonse } = ps;
       const jeonseMatch = text.match(/전세\s*(\d+(?:\.\d+)?)\s*억/);
-      const salePrice   = /몰라|없어|모르|상관없/i.test(text) ? null : parsePriceInput(text);
+      // isNoPrice 강화: 구어체 가격 모름 표현 포함
+      const _isNoPrice_nd = /몰라|모름|모르겠|없어|없음|상관없|그냥|패스|skip|시세로|시세몰라|가격몰라|잘\s*모르/i.test(text);
+      const salePrice   = _isNoPrice_nd ? null : parsePriceInput(text);
       const jeonsePrice = jeonseMatch ? Math.round(Number(jeonseMatch[1]) * 10000) : null;
       convStateRef.current = { ...ps, _pendingNoData: false };
       if (!salePrice) {
@@ -548,7 +550,9 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     // 매물가 입력 대기
     if (ps?._pendingPrice) {
       const currentPrice = parsePriceInput(text);
-      const noPrice = /몰라|없어|없음|패스|그냥|skip|모르|상관없|모름/i.test(text);
+      // isNoPrice 강화 (QA 위험패턴 1번 수정)
+      // "시세로", "그냥 해줘", "없어", "가격 몰라", "시세 몰라", "모르겠어" 포함
+      const noPrice = /몰라|모름|모르겠|없어|없음|패스|그냥|skip|상관없|시세로|시세\s*몰라|가격\s*몰라|잘\s*모르/i.test(text);
 
       // 가격이 아닌 새 검색어 → _pendingPrice 해제 후 일반 흐름으로
       if (!currentPrice && !noPrice) {
