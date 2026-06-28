@@ -28,6 +28,9 @@ const CLR = {
   grayL:  "#f8fafc",   // 데이터 부족 배경
   grayB:  "#e2e8f0",   // 데이터 부족 테두리
   amber:  "#C97B22",   // 주의/경고
+  orange: "#ea580c",   // 입력값 확인 필요
+  orangeL:"#fff7ed",   // 입력값 확인 필요 배경
+  orangeB:"#fed7aa",   // 입력값 확인 필요 테두리
   amberL: "#fffbeb",
   amberB: "#fde68a",
   muted:  "#94a3b8",
@@ -39,7 +42,14 @@ const CLR = {
 function getVerdict(r) {
   const hold = r.engineMode === "hold";
   const gap  = r.gapRatio;
-  if (hold)         return { text:"데이터 부족",  clr:CLR.gray,  bgClr:CLR.grayL,  brClr:CLR.grayB };
+  // ★ 데이터 부족 vs 입력값 확인 필요 분리
+  // hold인데 실거래 데이터가 충분(saleUsed>=3)하면 → 입력값 확인 필요
+  // hold이고 데이터가 실제로 없으면 → 데이터 부족
+  if (hold) {
+    const hasData = (r.saleUsed || 0) >= 3;
+    if (hasData) return { text:"입력값 확인 필요", clr:CLR.orange, bgClr:CLR.orangeL, brClr:CLR.orangeB, isInputError: true };
+    return { text:"데이터 부족", clr:CLR.gray, bgClr:CLR.grayL, brClr:CLR.grayB };
+  }
   if (gap < -0.08)  return { text:"저평가",       clr:CLR.green, bgClr:CLR.greenL, brClr:CLR.greenB };
   if (gap < 0.05)   return { text:"적정 범위",    clr:CLR.blue,  bgClr:CLR.blueL,  brClr:CLR.blueB };
   if (gap < 0.12)   return { text:"고평가 주의",  clr:CLR.amber, bgClr:CLR.amberL, brClr:CLR.amberB };
@@ -52,7 +62,11 @@ function getAISummary(r, trust) {
   const gap  = r.gapRatio;
   const stable = trust?.grade === "A" || trust?.grade === "B";
 
-  if (hold) return "최근 거래 데이터가 부족하여 참고용으로만 확인해 주세요.";
+  if (hold) {
+    const hasData = (r.saleUsed || 0) >= 3;
+    if (hasData) return "입력하신 가격이 실거래 기반 적정가와 크게 차이납니다. 금액 단위 또는 선택 면적을 확인해 주세요.";
+    return "최근 거래 데이터가 부족하여 참고용으로만 확인해 주세요.";
+  }
 
   if (gap < -0.08) return stable
     ? "현재 가격은 분석 기준보다 낮은 구간입니다. 최근 거래 데이터도 안정적으로 확보되었습니다."
@@ -421,7 +435,18 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
               &nbsp;{r.gapRatio < 0 ? "낮은 수준" : "높은 수준"}
             </p>
           )}
-          {hold && (
+          {hold && verdict.isInputError && (
+            <div style={{ fontSize: 12, color: "#92400e", margin: 0, lineHeight: 1.7, background: "#fffbeb", borderRadius: 8, padding: "10px 14px" }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>입력하신 가격이 최근 실거래 기반 적정가와 크게 차이납니다.</div>
+              <div style={{ color: "#78350f", marginBottom: 6 }}>데이터 부족이 아니라, 금액 단위 또는 선택한 면적 확인이 필요합니다.</div>
+              <div style={{ color: "#92400e" }}>
+                · 입력 금액 단위가 맞는지 확인<br/>
+                · 선택한 평형/전용면적이 맞는지 확인<br/>
+                · 같은 단지의 다른 면적 거래가 섞이지 않았는지 확인
+              </div>
+            </div>
+          )}
+          {hold && !verdict.isInputError && (
             <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.6 }}>
               {r.holdReason || "거래 데이터 부족으로 정확한 분석이 어렵습니다."}
             </p>
