@@ -320,3 +320,27 @@ function extractGuDong(sigungu) {
   const parts = sigungu.split(" ");
   return parts.slice(1, 3).join(" ") || parts[0];
 }
+
+// ── 목적 질문 (단지+평형 확정 후, 의도 키워드 없을 때) ──
+export function responseAskPurpose(complex, areaSqm) {
+  const name   = complex.complex_name;
+  const pyeong = sqmToPyeong(areaSqm);
+  return {
+    type: RESPONSE_TYPES.NEED_MORE_INFO,
+    text: `**${name}** ${pyeong}평으로 무엇을 확인할까요?`,
+    ui:   "ask_purpose",
+    complex,
+    areaSqm,
+    choices: ["적정가", "매수 의견", "전세"],
+  };
+}
+
+// ── 매도 우회 안내 ──
+export function responseSellRedirect() {
+  return {
+    type: RESPONSE_TYPES.NEED_MORE_INFO,
+    text: "매도 분석은 현재 정확도 개선 중입니다.\n\n지금은 직접적인 '매도 추천/보류' 판단 대신,\n적정가·최근 거래 흐름·가격 위치를 기준으로 참고 정보를 제공해 드립니다.\n\n먼저 적정가를 확인해 보시겠어요?",
+    ui:   "sell_redirect",
+    choices: ["적정가 보기", "최근 거래 보기"],
+  };
+}
