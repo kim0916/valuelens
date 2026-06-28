@@ -542,6 +542,52 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         return;
       }
 
+      // ── confirm_analysis: 요약 확인 대기 ──
+      // [분석 시작] 버튼 또는 텍스트로 확인/취소
+      if (eat === 'confirm_analysis') {
+        const confirmText = text.trim();
+        // 확인 표현
+        const isConfirm = /^(네|응|예|ㄴ|ㄱ|고|굿|ok|yes|시작|진행|해줘|해주세요|바로|분석|좋아|좋아요|계속|ㅇ|맞아|맞아요)$/i.test(confirmText)
+          || /분석\s*(시작|해줘|해주세요|진행)/.test(confirmText)
+          || /시작|진행|바로\s*해/.test(confirmText);
+        // 취소 표현
+        const isCancel = /^(아니|아니오|취소|cancel|no|다시|다른|처음|그만|stop)/.test(confirmText)
+          || /다른\s*(평형|단지|아파트)/.test(confirmText);
+
+        if (isCancel) {
+          addMsg({ role: "user", type: "text", content: text });
+          convStateRef.current = { ...ps, _expectedAnswerType: null,
+            _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
+            _confirmPrice: null };
+          addMsg({ role: "ai", type: "text",
+            content: "알겠습니다. 처음부터 다시 시작할까요?\n분석할 아파트 단지명을 입력해 주세요." });
+          return;
+        }
+
+        if (isConfirm) {
+          addMsg({ role: "user", type: "text", content: text });
+          const st = ps;
+          convStateRef.current = { ...st, _expectedAnswerType: null,
+            _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
+            _confirmPrice: null, _confirmInputPyeong: null };
+          addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+          await runAnalysis(st._confirmComplex, {
+            intent: st._confirmPurpose === "buy" ? "buy" : "fair",
+            areaSqm: st._confirmArea,
+            currentPrice: st._confirmPrice,
+            skipAreaCheck: true,
+            _pendingInputPyeong: st._confirmInputPyeong,
+          });
+          return;
+        }
+
+        // 모호한 입력 → 다시 안내
+        addMsg({ role: "user", type: "text", content: text });
+        addMsg({ role: "ai", type: "text",
+          content: '"분석 시작" 또는 [분석 시작] 버튼을 눌러주세요.\n취소하려면 "취소" 또는 "다른 단지"라고 입력해 주세요.' });
+        return;
+      }
+
       // ── region_or_dong: 후보 목록 상태에서 지역/동 필터 ──
       // 원본 검색어(_pendingCandidateQuery) 유지, 새 검색 금지
       if (eat === 'region_or_dong') {
@@ -670,10 +716,37 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         const summaryMsg = noPrice
           ? `알겠습니다.\n${[ecLoc, ecName].filter(Boolean).join(' ')}${ecPyeong ? ' ' + ecPyeong + '평' : ''} 최근 실거래 데이터를 기준으로 ${ecPurposeKr}를 분석해드리겠습니다.`
           : `알겠습니다.\n${[ecLoc, ecName].filter(Boolean).join(' ')}${ecPyeong ? ' ' + ecPyeong + '평' : ''} 매물가 ${currentPrice ? (currentPrice/10000).toFixed(1) + '억' : ''}을 기준으로 ${ecPurposeKr}를 분석해드리겠습니다.`;
-        addMsg({ role: "ai", type: "text", content: summaryMsg });
-        addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+        // ── confirm_analysis: 요약 확인 후 [분석 시작] 버튼 표시 ──
+        // runAnalysis 직행 금지 — 사용자 확인 후 실행
         if (noPrice) convStateRef.current = { ...convStateRef.current, _forcedNoPrice: true };
-        await runAnalysis(effectiveComplex, { intent: purpose === "buy" ? "buy" : "fair", areaSqm, currentPrice: noPrice ? null : currentPrice, skipAreaCheck: true });
+        convStateRef.current = {
+          ...convStateRef.current,
+          _expectedAnswerType: 'confirm_analysis',
+          _confirmComplex:  effectiveComplex,
+          _confirmArea:     areaSqm,
+          _confirmPurpose:  purpose,
+          _confirmPrice:    noPrice ? null : currentPrice,
+          _confirmInputPyeong: ecPyeong,
+        };
+        addMsg({
+          role: "ai", type: "confirm_analysis",
+          content: summaryMsg,
+          onConfirm: async () => {
+            // [분석 시작] 버튼 클릭 핸들러
+            const st = convStateRef.current;
+            convStateRef.current = { ...st, _expectedAnswerType: null,
+              _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
+              _confirmPrice: null, _confirmInputPyeong: null };
+            addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+            await runAnalysis(st._confirmComplex, {
+              intent: st._confirmPurpose === "buy" ? "buy" : "fair",
+              areaSqm: st._confirmArea,
+              currentPrice: st._confirmPrice,
+              skipAreaCheck: true,
+              _pendingInputPyeong: st._confirmInputPyeong,
+            });
+          },
+        });
         return;
       }
     }
@@ -1767,6 +1840,36 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
               ))}
             </div>
             <p style={{ fontSize:11, color:BRAND_MUTED, margin:"4px 0 0" }}>{msg.content}</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (msg.type === "confirm_analysis") {
+      return (
+        <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
+          <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN,
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+          </div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <p style={{ fontSize:14, color:BRAND, margin:"0 0 12px", whiteSpace:"pre-line", lineHeight:1.6 }}>
+              {msg.content}
+            </p>
+            <button
+              onClick={async () => {
+                if (msg.onConfirm) await msg.onConfirm();
+              }}
+              style={{
+                padding:"10px 24px", borderRadius:20,
+                background:BRAND_GREEN, color:"#fff",
+                border:"none", cursor:"pointer",
+                fontSize:14, fontWeight:700,
+                letterSpacing:"-0.01em",
+              }}
+            >
+              분석 시작
+            </button>
           </div>
         </div>
       );
