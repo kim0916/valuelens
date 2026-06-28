@@ -74,14 +74,66 @@ export { calcConversationMetrics };
 // ─────────────────────────────────────────────
 // 엔진 생성
 // ─────────────────────────────────────────────
-export function createConversationEngine() {
-  return { process };
+/**
+ * createConversationEngine({ mode, context })
+ *
+ * mode: "home"   — HomeView / AIChatView. 처음 검색부터 시작.
+ * mode: "result" — FairValueResult ResultChatBar. 현재 분석 context 이어가기.
+ *
+ * context (mode:"result" 전용):
+ *   { complexName, sigungu, dong, complexId, areaSqm, currentPrice, availableAreas, areaOptions }
+ */
+export function createConversationEngine({ mode = "home", context = null } = {}) {
+  // result 모드: 현재 분석 context를 ConversationState에 주입
+  let initialState = null;
+  if (mode === "result" && context) {
+    initialState = buildResultInitialState(context);
+  }
+
+  return {
+    mode,
+    process: (input, state) => {
+      const s = state || initialState || createConversationState();
+      return process(input, s, mode);
+    },
+    getInitialState: () => initialState || createConversationState(),
+  };
+}
+
+/**
+ * result 모드 초기 state 빌더
+ * FairValueResult의 현재 분석 정보를 ConversationState에 주입
+ */
+function buildResultInitialState(ctx) {
+  const base = createConversationState();
+  if (!ctx) return base;
+
+  // complex 객체 조립 — conversationState.updateComplex 형식과 호환
+  const complex = ctx.complexName ? {
+    complex_name: ctx.complexName,
+    sigungu:      ctx.sigungu      || "",
+    legal_dong:   ctx.dong         || "",
+    id:           ctx.complexId    || null,
+    area_list:    ctx.areaOptions?.map(a => a.areaSqm) || (ctx.areaSqm ? [ctx.areaSqm] : []),
+    build_year:   ctx.buildYear    || null,
+  } : null;
+
+  return {
+    ...base,
+    region:         ctx.sigungu    || ctx.dong || null,
+    currentComplex: complex ? { ...complex, _areaList: complex.area_list } : null,
+    currentArea:    ctx.areaSqm    || null,
+    purpose:        ctx.purpose    || null,
+    // result 모드 전용 플래그
+    _mode:          "result",
+    _fairValueCtx:  ctx,
+  };
 }
 
 // ─────────────────────────────────────────────
 // 메인 처리 함수
 // ─────────────────────────────────────────────
-async function process(input, state = createConversationState()) {
+async function process(input, state = createConversationState(), mode = "home") {
   const text = (input || "").trim();
   if (!text) return { state, response: responseUnknown(state) };
 
@@ -242,8 +294,8 @@ async function execute(decision, intent, extracted, rawText, state) {
       }
 
       const ns = updateArea(state, best.group.anchor);
-      // 평형 확정 후 목적 확인 or 바로 분석
-      return handlePostArea(ns, intent);
+      // 평형 확정 후 목적 확인 or 바로 분석 (mode 전달)
+      return handlePostArea(ns, intent, mode);
     }
 
     // ── 평형 질문 (Rule 2, 3) ──
@@ -711,20 +763,26 @@ function handlePostComplex(state, areaHint) {
 // 평형 확정 후 처리 — 목적 확인
 // 의도 키워드가 없으면 "무엇을 확인할까요?" 묻기
 // ─────────────────────────────────────────────
-function handlePostArea(state, intent) {
+function handlePostArea(state, intent, mode = "home") {
   const complex  = state.currentComplex;
   const areaSqm  = state.currentArea;
   const purpose  = state.purpose || null;
 
-  // 매수 의도가 명확하면 바로 분석 준비
-  const isBuy  = purpose === "buy"  || /buy_opinion/.test(intent);
-  const isFair = purpose === "fair" || /price_analysis|price_opinion/.test(intent);
+  // 매수/적정가/전세 의도 명확하면 바로 분석 준비
+  const isBuy    = purpose === "buy"    || /buy_opinion/.test(intent);
+  const isFair   = purpose === "fair"   || /price_analysis|price_opinion/.test(intent);
   const isJeonse = purpose === "jeonse" || /jeonse_info/.test(intent);
 
   if (isBuy || isFair || isJeonse) {
     return [state, responseReadyToAnalyze(complex, areaSqm)];
   }
 
-  // 의도 불명확 → 목적 질문
+  // result 모드: 의도 불명확해도 바로 적정가 분석 (이미 결과지에 있으므로 재질문 최소화)
+  if (mode === "result") {
+    const ns = { ...state, purpose: "fair" };
+    return [ns, responseReadyToAnalyze(complex, areaSqm)];
+  }
+
+  // home 모드: 의도 불명확 → 목적 질문
   return [state, responseAskPurpose(complex, areaSqm)];
 }
