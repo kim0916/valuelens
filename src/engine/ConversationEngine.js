@@ -152,7 +152,7 @@ async function process(input, state = createConversationState()) {
 
   // 5. AI 응답 히스토리 추가
   s = addHistory(s, "ai", response.text, intent);
-  s = { ...s, lastIntent: intent };
+  s = { ...s, lastIntent: intent, lastDong: extracted.dong || s.lastDong || "" };
 
   // 6. 디버그 메타 첨부 (개발/QA용)
   // UX 사후 감사
@@ -547,6 +547,7 @@ function bridgeNLUToLegacy(nlu, rawText, state) {
     areaSqm:      areaSqmOverride,
     pyeong:       areaSqmOverride ? Math.round(areaSqmOverride / 3.305785) : null,
     region:       nlu.region || nlu.sigungu,
+    dong:         nlu.dong || null,
     index:        nlu.selectedIndex,
     complexQuery: nlu.complexQuery,
     query:        nlu.complexQuery || rawText,
@@ -620,7 +621,8 @@ async function handleSearch(query, areaHint, state, ruleHint = 0) {
       lastAreaHint:      areaHint || state.lastAreaHint,
     };
 
-    const res      = await searchComplexFromSupabase(query, state.region || "", "");
+    const dongHint = state.lastDong || "";
+    const res      = await searchComplexFromSupabase(query, state.region || "", dongHint);
     const complexes = res.complexes || [];
     const hint     = res.areaHint || areaHint || searchState.lastAreaHint;
 
