@@ -352,23 +352,25 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
     // 매물가 입력 대기
     if (ps?._pendingPrice) {
-      addMsg({ role: "user", type: "text", content: text });
-      const { _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose } = ps;
-      // 매물가 파싱 — 다양한 입력 형식 처리
+      const currentPrice = parsePriceInput(text);
       const noPrice = /몰라|없어|없음|패스|그냥|skip|모르|상관없|모름/i.test(text);
-      const currentPrice = noPrice ? null : parsePriceInput(text);
-      convStateRef.current = { ...ps, _pendingPrice: false, _pendingComplex: null, _pendingArea: null, _pendingPurpose: null };
-      if (!complex) {
-        replaceLastAI({ type: "text", content: "어떤 아파트를 분석할까요? 단지명을 알려주세요." });
+
+      // 가격이 아닌 새 검색어 → _pendingPrice 해제 후 일반 흐름으로
+      if (!currentPrice && !noPrice) {
+        convStateRef.current = { ...ps, _pendingPrice: false, _pendingComplex: null, _pendingArea: null, _pendingPurpose: null };
+        // 아래 일반 흐름으로 계속 진행 (return 없음)
+      } else {
+        addMsg({ role: "user", type: "text", content: text });
+        const { _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose } = ps;
+        convStateRef.current = { ...ps, _pendingPrice: false, _pendingComplex: null, _pendingArea: null, _pendingPurpose: null };
+        if (!complex) {
+          replaceLastAI({ type: "text", content: "어떤 아파트를 분석할까요? 단지명을 알려주세요." });
+          return;
+        }
+        addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+        await runAnalysis(complex, { intent: purpose === "buy" ? "buy" : "fair", areaSqm, currentPrice: noPrice ? null : currentPrice });
         return;
       }
-      addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-      if (noPrice || !currentPrice) {
-        await runAnalysis(complex, { intent: purpose === "buy" ? "buy" : "fair", areaSqm, currentPrice: null });
-      } else {
-        await runAnalysis(complex, { intent: purpose === "buy" ? "buy" : "fair", areaSqm, currentPrice });
-      }
-      return;
     }
 
     addMsg({ role: "user", type: "text", content: text });
