@@ -778,6 +778,9 @@ const PATTERNS = [
   // recommend_complex — 추천 요청
   [NLU_INTENTS.RECOMMEND_COMPLEX, [
     /전세가율.*(추천|아파트|단지)/,   // NLU-0060: 전세가율+추천은 recommend 우선
+    // QA 위험패턴 2번: 신축/구축 + 추천 조합 (좁게 — 추천 의도 명시된 경우만)
+    /(신축|구축).*(추천|찾아줘|골라줘|보여줘)/,
+    /(추천|찾아줘|골라줘).*(신축|구축)/,
     /추천\s*(해줘|해주세요|해봐|좀|아파트|단지)/,
     /(어디가|어떤\s*곳|어떤\s*아파트|좋은\s*곳|살\s*만한\s*곳)\s*(좋|나은|나아|좋아|괜찮)/,
     /(어디가|뭐가)\s*(더\s*)?(나은|좋은|좋아|나아)/,
@@ -992,6 +995,10 @@ const PATTERNS = [
     /얼마야|얼마임|얼마에요|얼마예요|얼마죠/,
     /시세\s*(얼마|확인|가|는|알려)/,
     /분석\s*(해줘|해주세요|해봐|부탁)/,
+    // QA 위험패턴 3번: "비싸게/싸게 사는 거야?" → price_analysis (cheaper_option 오분류 방지)
+    // "사는 거야", "사는 건가", "구입" 컨텍스트가 있으면 price_analysis
+    /(비싸게|싸게)\s*사는\s*(거야|건가|거예요|건가요)/,
+    /이\s*가격\s*(비싼|싼)\s*(거야|건가|거예요|건가요|편이야|편인가)?/,
     /비싸|싸게|적당한지|적당해|적당하게/,
     /[가-힣].+(?:아파트|단지).+(?:적정가|시세|얼마)/,
     /가격\s*(분석|확인|어떠|어때|알려)/,
@@ -1039,9 +1046,15 @@ function classifyUserIntent(text, entities = {}, state = {}) {
 
   // 1. 패턴 매칭
   // NLU-0060 fix: "전세가율/전세...추천" → jeonse_info 오분류 방지
-  // 추천 키워드가 명시된 경우 recommend_complex 우선
   if (/추천/.test(lower) && /(전세가율|전세가|전세\s*수익)/.test(lower)) {
     return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.88 };
+  }
+
+  // QA 위험패턴 3번 fix: "비싸게/싸게 사는 거야?" → cheaper_option 오분류 방지
+  // "사는 거야/구입" 컨텍스트 → price_analysis 우선
+  if (/(비싸게|싸게)\s*사는\s*(거야|건가|거예요|건가요)/.test(lower) ||
+      /이\s*가격\s*(비싼|싼)\s*(거야|건가|거예요|건가요|편이야|편인가)?/.test(lower)) {
+    return { intent: NLU_INTENTS.PRICE_ANALYSIS, confidence: 0.90 };
   }
 
   for (const [intent, patterns] of PATTERNS) {
