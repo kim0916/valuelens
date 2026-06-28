@@ -1467,7 +1467,7 @@ function AppInner() {
                     // 매물가 수정 → 재계산
                     const d = chatResultData;
                     if (!d) return;
-                    import('../engine/analyze.js').then(({ analyze }) => {
+                    import('./engine/analyze.js').then(({ analyze }) => {
                       const newFf = { ...d.ff, currentPrice: newPrice, _userInputPrice: true };
                       const newEngine = analyze(newFf);
                       newEngine.jeonseCalc = d.engine.jeonseCalc;
