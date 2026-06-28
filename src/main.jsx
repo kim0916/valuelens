@@ -1463,26 +1463,63 @@ function AppInner() {
                       area_list: d.ff.areaExclusive ? [d.ff.areaExclusive] : [],
                       id: null,
                     };
+                    const curPrice = d.ff.currentPrice;
+                    const areaSqm = d.ff.areaExclusive;
+                    const complexName = d.complex.name;
+                    const fairPrice = d.engine.fairPrice;
 
-                    if (/전세|보증금/.test(text)) {
-                      // 전세 → 결과지 업데이트
-                      const result = await runAnalysisService(complexObj, d.ff.areaExclusive, null, false);
+                    // AI에게 의도 분류 요청
+                    const intentRes = await fetch('/api/ai', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        model: 'claude-haiku-4-5-20251001',
+                        max_tokens: 400,
+                        system: `당신은 부동산 앱 어시스턴트입니다.
+현재 컨텍스트:
+- 단지: ${complexName}
+- 면적: ${areaSqm}㎡ (${areaSqm ? Math.floor(areaSqm/3.305785) : '?'}평)
+- 현재가: ${curPrice ? Math.round(curPrice/10000*10)/10 : '?'}억
+- AI 적정가: ${fairPrice ? Math.round(fairPrice/10000*10)/10 : '?'}억
+
+사용자 질문을 분석해서 반드시 JSON만 반환하세요 (다른 텍스트 없이):
+{
+  "intent": "fair"|"buy"|"jeonse"|"area_change"|"deal_history"|"loan"|"chat",
+  "answer": "chat일 때만 3문장 이내 답변, 나머지는 null"
+}
+
+intent 기준:
+- fair: 적정가/매매가/시세/가격 관련
+- buy: 매수/살까/투자 관련  
+- jeonse: 전세/보증금 관련
+- area_change: 다른평형/평수변경 관련
+- deal_history: 최근거래/실거래 관련
+- loan: 대출/담보대출/LTV 관련
+- chat: 위 외 모든 질문`,
+                        messages: [{ role: 'user', content: text }],
+                      }),
+                    });
+
+                    let intent = 'chat';
+                    let aiAnswer = null;
+
+                    if (intentRes.ok) {
+                      const intentData = await intentRes.json();
+                      const raw = intentData?.content?.[0]?.text?.trim();
+                      try {
+                        const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+                        intent = parsed.intent || 'chat';
+                        aiAnswer = parsed.answer || null;
+                      } catch(e) {}
+                    }
+
+                    // 의도별 처리
+                    if (intent === 'fair') {
+                      const result = await runAnalysisService(complexObj, areaSqm, curPrice, d.ff._userInputPrice);
                       if (result) setChatResultData({ ...d, engine: result.engine, ff: result.ff });
 
-                    } else if (/다른\s*평형|평형\s*바꿔|큰\s*거|작은\s*거/.test(text)) {
-                      // 다른 평형 → 결과지 안에 평형 선택 표시
-                      const areaOpts = d.ff.areaOptions || [];
-                      if (areaOpts.length > 1) {
-                        setChatResultData({ ...d, _showAreaPicker: true });
-                      }
-
-                    } else if (/최근\s*거래|거래\s*흐름/.test(text)) {
-                      // 최근 거래 → 거래 목록 펼치기 (detailOpen은 ResultChatBar 인라인 AI로)
-                      setChatResultData({ ...d, _forceDetailOpen: true });
-
-                    } else if (/살까|살만|매수|사도|매수\s*의견/.test(text)) {
-                      // 매수 → 매수 분석 후 결과지 업데이트
-                      const result = await runAnalysisService(complexObj, d.ff.areaExclusive, d.ff.currentPrice, d.ff._userInputPrice);
+                    } else if (intent === 'buy') {
+                      const result = await runAnalysisService(complexObj, areaSqm, curPrice, d.ff._userInputPrice);
                       if (result) {
                         const { analyze } = await import('./engine/analyze.js');
                         const buyFf = { ...result.ff, purpose: 'buy' };
@@ -1491,8 +1528,37 @@ function AppInner() {
                         buyEngine.saleCalc = result.engine.saleCalc;
                         setChatResultData({ ...d, engine: buyEngine, ff: buyFf });
                       }
+
+                    } else if (intent === 'jeonse') {
+                      const result = await runAnalysisService(complexObj, areaSqm, null, false);
+                      if (result) setChatResultData({ ...d, engine: result.engine, ff: result.ff });
+
+                    } else if (intent === 'area_change') {
+                      const areaOpts = d.ff.areaOptions || [];
+                      if (areaOpts.length > 1) setChatResultData({ ...d, _showAreaPicker: true });
+
+                    } else if (intent === 'deal_history') {
+                      setChatResultData({ ...d, _forceDetailOpen: true });
+
+                    } else if (intent === 'loan') {
+                      // 대출 계산 — LTV 70% 기준
+                      const loanAmt = curPrice ? Math.round(curPrice * 0.7 / 10000 * 10) / 10 : null;
+                      const loanMsg = loanAmt
+                        ? `${complexName} ${Math.floor(areaSqm/3.305785)}평 (${Math.round(curPrice/10000*10)/10}억 기준)
+
+` +
+                          `• LTV 70% 적용 시 최대 **${loanAmt}억** 대출 가능
+` +
+                          `• 월 상환액 (30년, 4%): 약 **${Math.round(loanAmt*10000*0.004778/10)}만원**
+` +
+                          `• 실제 한도는 소득·규제지역에 따라 다를 수 있어요`
+                        : '현재 매물가 정보가 없어서 대출 계산이 어려워요.';
+                      setChatResultData({ ...d, _chatReply: loanMsg });
+
+                    } else {
+                      // 자유 질문 → AI 답변 결과지에 표시
+                      if (aiAnswer) setChatResultData({ ...d, _chatReply: aiAnswer });
                     }
-                    // 그 외 자유질문 → ResultChatBar 인라인 AI 처리
                   }}
                   onPriceUpdate={(newPrice) => {
                     // 매물가 수정 → 재계산

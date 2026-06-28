@@ -185,6 +185,14 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
   React.useEffect(() => {
     if (f._forceDetailOpen) setDetailOpen(true);
   }, [f._forceDetailOpen]);
+
+  // AI 채팅 답변 상태
+  const [inlineChatReply, setInlineChatReply] = React.useState(null);
+  React.useEffect(() => {
+    if (f._chatReply) {
+      setInlineChatReply(f._chatReply);
+    }
+  }, [f._chatReply]);
   const [whyOpen, setWhyOpen] = React.useState(false);
   const [priceEdit, setPriceEdit] = React.useState(false);
   const [priceInput, setPriceInput] = React.useState(
@@ -606,6 +614,23 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           하단 채팅창 (결과 보고 바로 질문)
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {/* AI 인라인 채팅 답변 */}
+      {inlineChatReply && (
+        <div style={{ margin: "8px 0", padding: "14px 16px",
+          background: "#f0fdf4", borderRadius: 12,
+          border: "1px solid #bbf7d0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <p style={{ fontSize: 13, color: "#166534", margin: 0, lineHeight: 1.7,
+              whiteSpace: "pre-wrap" }}>
+              {inlineChatReply.replace(/\*\*/g, '')}
+            </p>
+            <button onClick={() => setInlineChatReply(null)}
+              style={{ fontSize: 11, color: "#94a3b8", background: "none",
+                border: "none", cursor: "pointer", flexShrink: 0, marginLeft: 8 }}>✕</button>
+          </div>
+        </div>
+      )}
+
       {/* 다른 평형 선택 */}
       {f._showAreaPicker && areaOptions.length > 1 && (
         <div style={{ padding: "12px 16px", background: "#f8fafc",
@@ -646,10 +671,9 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
     if (!t) return;
     if (!chipText) setText("");
 
-    // 모든 질문 → onSend로 넘김 (main.jsx에서 결과지 업데이트 처리, 채팅창 이동 없음)
+    // 모든 질문 → onSend로 (main.jsx에서 컨텍스트 기반 처리)
     onSend(t); return;
 
-    // 자유 질문 → 결과지 안에서 AI 답변
     setLoading(true);
     setAiReply(null);
     try {
