@@ -1023,3 +1023,5 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
     </div>
   );
 }
+
+export { FairValueResult };
