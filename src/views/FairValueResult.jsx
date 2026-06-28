@@ -465,7 +465,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
               {/* 타이틀 + 이유 버튼 */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
                 <p style={{ fontSize: 11, color: "#166534", margin: 0 }}>
-                  AI 추정 적정 범위
+                  매매 시세 기준
                 </p>
                 <button
                   onClick={() => setWhyOpen(v => !v)}
