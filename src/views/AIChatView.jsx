@@ -358,6 +358,10 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       const noPrice = /몰라|없어|없음|패스|그냥|skip|모르|상관없|모름/i.test(text);
       const currentPrice = noPrice ? null : parsePriceInput(text);
       convStateRef.current = { ...ps, _pendingPrice: false, _pendingComplex: null, _pendingArea: null, _pendingPurpose: null };
+      if (!complex) {
+        replaceLastAI({ type: "text", content: "어떤 아파트를 분석할까요? 단지명을 알려주세요." });
+        return;
+      }
       addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
       if (noPrice || !currentPrice) {
         await runAnalysis(complex, { intent: purpose === "buy" ? "buy" : "fair", areaSqm, currentPrice: null });
