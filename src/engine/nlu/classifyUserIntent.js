@@ -425,9 +425,10 @@ export function classifyUserIntent(text, entities = {}, state = {}) {
     return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.85 };
   }
 
-  // 지역만 → 추천 (후보 조회)
-  if (hasRegion && !hasComplex2 && !hasBrand) {
-    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.70 };
+  // 지역만 → 추천이 아니라 목적 질문 (공인중개사 방식)
+  // 사용자가 지역만 말했을 때 바로 추천 리스트 보여주지 않음
+  if (hasRegion && !hasComplex2 && !hasBrand && !hasBudget && !hasArea2 && !hasFamily && !hasPurpose) {
+    return { intent: NLU_INTENTS.ASK_PURPOSE, confidence: 0.72 };
   }
 
   // 예산 + 가족/목적 → 추천
