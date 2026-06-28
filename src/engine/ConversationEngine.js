@@ -502,7 +502,7 @@ async function handleRecommendSearch(nlu, state) {
     const resp = buildRecommendResponse(candidates, nlu, meta);
 
     if (candidates.length === 0) {
-      return [state, { type: RESPONSE_TYPES.NOT_FOUND, text: resp.text, ui: "message" }];
+      return await tryAIFallback(nlu.complexQuery || nlu.sigungu || "부동산", state);
     }
 
     // 후보 목록 반환 (자동 분석 금지)
@@ -561,9 +561,9 @@ async function handleSearch(query, areaHint, state, ruleHint = 0) {
     const postDecision = applyPostSearchPolicy(complexes, hint, searchState);
     logPolicy(postDecision, searchState);
 
-    // ── 검색 결과 없음 ──
+    // ── 검색 결과 없음 → AI fallback 시도 ──
     if (complexes.length === 0) {
-      return [searchState, responseNotFound(query)];
+      return await tryAIFallback(query, searchState);
     }
 
     // ── Rule 4: 복수 후보 → 선택 (evaluateCandidates가 압도적 1위 판별) ──
