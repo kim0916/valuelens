@@ -1321,6 +1321,13 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     }
 
     // 평형 여러 개 → area_chips 표시
+    // ★ _expectedAnswerType:'area' 세팅 — 텍스트 "24평" 입력도 EAT area 블록에서 처리
+    convStateRef.current = {
+      ...convStateRef.current,
+      _expectedAnswerType: 'area',
+      _pendingComplex: cx,
+      _pendingPurpose: intentStr,
+    };
     const pyeongList = areaGroups.map(g => `${g.pyeong}평`).join(', ');
     replaceLastAI({
       role: 'ai', type: 'area_chips',
