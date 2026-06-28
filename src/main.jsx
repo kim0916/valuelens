@@ -1462,11 +1462,16 @@ function AppInner() {
                         area_list: d.ff.areaOptions?.map(a => a.areaSqm) || [opts.areaSqm],
                         id: null,
                       };
-                      const result = await runAnalysisService(complexObj, opts.areaSqm, null, false);
+                      // price: 사용자 입력가 (null이면 실거래 중앙값 사용)
+                      const inputPrice = opts.price || null;
+                      const result = await runAnalysisService(complexObj, opts.areaSqm, inputPrice, !!inputPrice);
                       if (result) {
                         setChatResultData({ ...d,
                           engine: result.engine,
                           ff: { ...result.ff, areaOptions: d.ff.areaOptions },
+                          complex: { ...d.complex,
+                            areaExclusive: Math.round(opts.areaSqm),
+                          },
                         });
                       }
                     } else {
