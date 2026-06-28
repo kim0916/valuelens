@@ -434,7 +434,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr",
               gap: 1, background: CLR.border }}>
               {[
-                { l: "전세가 역산 기준", v: r.jeonseFair ? `${won(r.jeonseFair)} (${r.jeonseUsed}건)` : "—" },
+                // 전세가 역산값은 부정확할 수 있어 표시 안 함
                 { l: "매매 시세 기준", v: r.saleFair   ? `${won(r.saleFair)} (${r.saleUsed}건)` : "—" },
                 { l: "분석 방식",
                   v: r.isPremium
