@@ -671,7 +671,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         });
         // 입력 대기 상태 세팅
         convStateRef.current = {
-          ...s,
+          ...convStateRef.current,
           _pendingNoData: true,
           _pendingComplex: complex,
           _pendingArea: targetArea,
