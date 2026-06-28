@@ -576,30 +576,30 @@ export default async function handler(req, res) {
           if (nameNoSpace.startsWith(region)) {
             const brandPart = nameNoSpace.slice(region.length);
             if (brandPart.length >= 2) {
-              console.log(\`[search] fallback2.6: region="\${region}" brand="\${brandPart}"\`);
+              console.log(`[search] fallback2.6: region="\${region}" brand="\${brandPart}"`);
               const { data: fb26Data } = await supabase
                 .from('realestate_complexes')
                 .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
-                .ilike('complex_name', \`%\${brandPart}%\`)
-                .ilike('sigungu', \`%\${region}%\`)
+                .ilike('complex_name', `%\${brandPart}%`)
+                .ilike('sigungu', `%\${region}%`)
                 .order('sale_cnt', { ascending: false })
                 .limit(Math.min(limit, 10));
               if (fb26Data && fb26Data.length > 0) {
                 data = fb26Data;
-                console.log(\`[search] fallback2.6 성공: \${fb26Data.length}건\`);
+                console.log(`[search] fallback2.6 성공: \${fb26Data.length}건`);
                 break;
               }
               // sigungu로 안 되면 legal_dong으로도 시도
               const { data: fb26bData } = await supabase
                 .from('realestate_complexes')
                 .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
-                .ilike('complex_name', \`%\${brandPart}%\`)
-                .ilike('legal_dong', \`%\${region}%\`)
+                .ilike('complex_name', `%\${brandPart}%`)
+                .ilike('legal_dong', `%\${region}%`)
                 .order('sale_cnt', { ascending: false })
                 .limit(Math.min(limit, 10));
               if (fb26bData && fb26bData.length > 0) {
                 data = fb26bData;
-                console.log(\`[search] fallback2.6b 성공: \${fb26bData.length}건\`);
+                console.log(`[search] fallback2.6b 성공: \${fb26bData.length}건`);
                 break;
               }
             }
