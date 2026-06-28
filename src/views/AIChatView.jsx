@@ -808,7 +808,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       if (aiPrice) {
         convStateRef.current = { ...convStateRef.current, _aiParsedPrice: null, _aiParsedIntent: null };
         replaceLastAI({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-        await runAnalysis(complex, { intent: aiIntent === "buy" ? "buy" : "fair", areaSqm, currentPrice: aiPrice }, skipAreaCheck: true });
+        await runAnalysis(complex, { intent: aiIntent === "buy" ? "buy" : "fair", areaSqm, currentPrice: aiPrice, skipAreaCheck: true });
         return;
       }
 
