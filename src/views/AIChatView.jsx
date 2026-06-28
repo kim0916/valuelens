@@ -652,7 +652,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         const isJeonse   = /전세/i.test(purposeText);
         const isContract = /계약|등기|체크/i.test(purposeText);
 
-        if (purposeComplex && (isBuy || isPriceAna || isJeonse || isContract)) {
+        if (purposeComplex && typeof purposeComplex === 'object' && (isBuy || isPriceAna || isJeonse || isContract)) {
           addMsg({ role: "user", type: "text", content: text });
           convStateRef.current = { ...ps, _expectedAnswerType: null, _pendingComplex: null };
           if (isJeonse || isContract) {
@@ -734,7 +734,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
         // noPrice면 _forcedNoPrice 세팅 → ask_price 반복 방지
         if (noPrice) convStateRef.current = { ...convStateRef.current, _forcedNoPrice: true };
-        await runAnalysis(effectiveComplex, { intent: purpose === "buy" ? "buy" : "fair", areaSqm, currentPrice: noPrice ? null : currentPrice });
+        await runAnalysis(effectiveComplex, { intent: purpose === "buy" ? "buy" : "fair", areaSqm, currentPrice: noPrice ? null : currentPrice, skipAreaCheck: true });
         return;
       }
     }
@@ -801,7 +801,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       if (aiPrice) {
         convStateRef.current = { ...convStateRef.current, _aiParsedPrice: null, _aiParsedIntent: null };
         replaceLastAI({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-        await runAnalysis(complex, { intent: aiIntent === "buy" ? "buy" : "fair", areaSqm, currentPrice: aiPrice });
+        await runAnalysis(complex, { intent: aiIntent === "buy" ? "buy" : "fair", areaSqm, currentPrice: aiPrice }, skipAreaCheck: true });
         return;
       }
 
@@ -1264,6 +1264,14 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   async function askAreaThenPrice(cx, intentStr) {
     // cx: 단지 객체 (complex_name, area_list, sigungu, ...)
     // intentStr: 'fair' | 'buy'
+
+    // ★ cx null 가드 — cx가 없으면 단지 재입력 요청
+    if (!cx || typeof cx !== 'object') {
+      replaceLastAI({ role: 'ai', type: 'text',
+        content: '분석할 단지를 먼저 선택해 주세요. 단지명을 입력해 주세요.' });
+      return;
+    }
+
     const cxName = cx.complex_name || cx.name || '';
     const areaListRaw = cx.area_list
       ? (typeof cx.area_list === 'string' ? JSON.parse(cx.area_list) : cx.area_list)
@@ -1333,6 +1341,30 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   }
 
   async function runAnalysis(complex, intent) {
+    // ★ 흐름 보호: areaSqm 없으면 평형 질문부터
+    // intent.skipAreaCheck 플래그가 있을 때만 스킵 (내부 재귀 방지)
+    if (!intent.skipAreaCheck && !intent.areaSqm) {
+      await askAreaThenPrice(complex, intent.intent || 'fair');
+      return;
+    }
+    // ★ areaSqm은 있는데 currentPrice가 없으면 가격 질문
+    // _userInputPrice 또는 noPrice 플래그가 없으면 가격 물어봄
+    if (!intent.skipAreaCheck && intent.areaSqm && intent.currentPrice === undefined) {
+      const cxName = complex.complex_name || complex.name || '';
+      const pyeong = typicalPyeong(intent.areaSqm);
+      convStateRef.current = {
+        ...convStateRef.current,
+        _pendingPrice: true,
+        _pendingComplex: complex,
+        _pendingArea: intent.areaSqm,
+        _pendingPurpose: intent.intent || 'fair',
+        _expectedAnswerType: null,
+      };
+      replaceLastAI({ role: 'ai', type: 'text',
+        content: `${cxName} ${pyeong}평 현재 매물가를 알고 계시나요?\n모르시면 "몰라", "시세로", "그냥 해줘"라고 입력해 주세요.` });
+      return;
+    }
+
     replaceLastAI({ type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
 
     try {
