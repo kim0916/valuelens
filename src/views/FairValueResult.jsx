@@ -181,6 +181,10 @@ function parsePriceStr(str) {
 
 function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId, onAskMore, onBuyAnalysis, onPriceUpdate }) {
   const [detailOpen, setDetailOpen] = React.useState(false);
+  // 평형 선택 / 거래 목록 자동 펼치기
+  React.useEffect(() => {
+    if (f._forceDetailOpen) setDetailOpen(true);
+  }, [f._forceDetailOpen]);
   const [whyOpen, setWhyOpen] = React.useState(false);
   const [priceEdit, setPriceEdit] = React.useState(false);
   const [priceInput, setPriceInput] = React.useState(
@@ -602,6 +606,29 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           하단 채팅창 (결과 보고 바로 질문)
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {/* 다른 평형 선택 */}
+      {f._showAreaPicker && areaOptions.length > 1 && (
+        <div style={{ padding: "12px 16px", background: "#f8fafc",
+          borderRadius: 12, border: "1px solid #e2e8f0", marginTop: 8 }}>
+          <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 10px" }}>
+            다른 평형을 선택하세요
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {areaOptions.map((a, i) => (
+              <button key={i}
+                onClick={() => onNewSearch && onNewSearch({ areaSqm: a.areaSqm })}
+                style={{ fontSize: 13, fontWeight: 600, padding: "7px 14px",
+                  borderRadius: 20, border: "1px solid #e2e8f0",
+                  background: a.areaSqm === f.areaExclusive ? "#5b52e0" : "#fff",
+                  color: a.areaSqm === f.areaExclusive ? "#fff" : "#334155",
+                  cursor: "pointer" }}>
+                {a.pyeong}평 ({a.areaSqm}㎡)
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {onAskMore && <ResultChatBar complex={f.complexName} onSend={onAskMore} onBuyAnalysis={onBuyAnalysis} />}
     </div>
   );
@@ -619,9 +646,8 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
     if (!t) return;
     if (!chipText) setText("");
 
-    // 분석 관련 질문 → onSend로 넘김 (main.jsx에서 결과지 업데이트 처리)
-    const isAnalysis = /전세|다른\s*평형|평형|매수|살까|최근\s*거래|거래\s*흐름/.test(t);
-    if (isAnalysis) { onSend(t); return; }
+    // 모든 질문 → onSend로 넘김 (main.jsx에서 결과지 업데이트 처리, 채팅창 이동 없음)
+    onSend(t); return;
 
     // 자유 질문 → 결과지 안에서 AI 답변
     setLoading(true);

@@ -1465,29 +1465,34 @@ function AppInner() {
                     };
 
                     if (/전세|보증금/.test(text)) {
-                      // 전세 → 재분석 후 결과지 업데이트 (채팅창 이동 없음)
+                      // 전세 → 결과지 업데이트
                       const result = await runAnalysisService(complexObj, d.ff.areaExclusive, null, false);
                       if (result) setChatResultData({ ...d, engine: result.engine, ff: result.ff });
 
-                    } else if (/다른\s*평형|평형/.test(text)) {
-                      // 다른 평형 → 채팅으로 (평형 선택 UI가 채팅에 있음)
-                      setChatResultData(null); setAptTab("ai");
-                      setTimeout(() => window.dispatchEvent(new CustomEvent("valuelens:ask", {
-                        detail: { text, complex: d.complex, areaSqm: d.ff.areaExclusive }
-                      })), 80);
+                    } else if (/다른\s*평형|평형\s*바꿔|큰\s*거|작은\s*거/.test(text)) {
+                      // 다른 평형 → 결과지 안에 평형 선택 표시
+                      const areaOpts = d.ff.areaOptions || [];
+                      if (areaOpts.length > 1) {
+                        setChatResultData({ ...d, _showAreaPicker: true });
+                      }
 
                     } else if (/최근\s*거래|거래\s*흐름/.test(text)) {
-                      // 최근 거래 → 거래 목록 펼치기 (결과지 내 detailOpen)
-                      // ResultChatBar에서 이미 인라인 AI로 처리됨
+                      // 최근 거래 → 거래 목록 펼치기 (detailOpen은 ResultChatBar 인라인 AI로)
+                      setChatResultData({ ...d, _forceDetailOpen: true });
 
-                    } else if (/살까|살만|매수|사도/.test(text)) {
-                      // 매수 → 채팅으로
-                      setChatResultData(null); setAptTab("ai");
-                      setTimeout(() => window.dispatchEvent(new CustomEvent("valuelens:buy", {
-                        detail: { complex: d.complex, areaSqm: d.ff.areaExclusive, currentPrice: d.ff.currentPrice }
-                      })), 80);
+                    } else if (/살까|살만|매수|사도|매수\s*의견/.test(text)) {
+                      // 매수 → 매수 분석 후 결과지 업데이트
+                      const result = await runAnalysisService(complexObj, d.ff.areaExclusive, d.ff.currentPrice, d.ff._userInputPrice);
+                      if (result) {
+                        const { analyze } = await import('./engine/analyze.js');
+                        const buyFf = { ...result.ff, purpose: 'buy' };
+                        const buyEngine = analyze(buyFf);
+                        buyEngine.jeonseCalc = result.engine.jeonseCalc;
+                        buyEngine.saleCalc = result.engine.saleCalc;
+                        setChatResultData({ ...d, engine: buyEngine, ff: buyFf });
+                      }
                     }
-                    // 그 외 자유질문 → ResultChatBar 인라인 AI 처리 (채팅창 이동 없음)
+                    // 그 외 자유질문 → ResultChatBar 인라인 AI 처리
                   }}
                   onPriceUpdate={(newPrice) => {
                     // 매물가 수정 → 재계산
