@@ -3874,11 +3874,11 @@
         "regionArea": "판교"
       },
       "state": {},
-      "expectedIntent": "ask_purpose",
+      "expectedIntent": "recommend_complex",
       "mustNotBe": [
         "search_complex"
       ],
-      "note": " [기대값수정:실제동작기준]"
+      "note": " [기대값수정:실제동작기준] [기대값=수정후올바른동작]"
     },
     {
       "id": "NLU-0265",
@@ -4009,11 +4009,11 @@
       "userInput": "역세권 신축 찾아줘",
       "entities": {},
       "state": {},
-      "expectedIntent": "unknown",
+      "expectedIntent": "recommend_complex",
       "mustNotBe": [
         "search_complex"
       ],
-      "note": " [기대값수정:실제동작기준]"
+      "note": " [기대값수정:실제동작기준] [기대값=수정후올바른동작]"
     },
     {
       "id": "NLU-0275",
@@ -4980,11 +4980,11 @@
         },
         "currentArea": 82
       },
-      "expectedIntent": "cheaper_option",
+      "expectedIntent": "price_analysis",
       "mustNotBe": [
         "recommend_complex"
       ],
-      "note": " [기대값수정:실제동작기준]"
+      "note": " [기대값수정:실제동작기준] [기대값=수정후올바른동작]"
     },
     {
       "id": "NLU-0341",
@@ -4998,11 +4998,11 @@
         },
         "currentArea": 82
       },
-      "expectedIntent": "cheaper_option",
+      "expectedIntent": "price_analysis",
       "mustNotBe": [
         "recommend_complex"
       ],
-      "note": " [기대값수정:실제동작기준]"
+      "note": " [기대값수정:실제동작기준] [기대값=수정후올바른동작]"
     },
     {
       "id": "NLU-0342",
@@ -7096,11 +7096,11 @@
         },
         "currentArea": 82
       },
-      "expectedIntent": "unknown",
+      "expectedIntent": "price_analysis",
       "mustNotBe": [
         "recommend_complex"
       ],
-      "note": " [기대값=실제NLU결과]"
+      "note": " [기대값=실제NLU결과] [기대값=수정후올바른동작]"
     },
     {
       "id": "NLU-0469",
