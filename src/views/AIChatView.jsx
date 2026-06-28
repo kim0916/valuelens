@@ -500,26 +500,54 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       // ── area 입력 대기: 텍스트로 평형 입력 ──
       if (eat === 'area') {
         const areaText = text.trim();
-        const pyeongM = areaText.match(/(\d+)\s*평/);
+        // 버그2 수정: 사용자 표시용 평형(inputPyeong)과 내부 areaSqm을 분리
+        const pyeongM = areaText.match(/^(\d+)\s*평?$/);   // "25", "25평" 모두 허용
         const sqmM    = areaText.match(/(\d+(?:\.\d+)?)\s*(?:㎡|m²)/);
         const kokM    = /국민평형|국평/.test(areaText);
         let areaSqm = null;
-        if (pyeongM) areaSqm = Math.round(parseInt(pyeongM[1]) * 3.305785);
-        else if (sqmM) areaSqm = parseFloat(sqmM[1]);
-        else if (kokM) areaSqm = 84;
+        let inputPyeong = null;  // 사용자가 입력한 평형 표시값 (25평 입력 → 25 유지)
+
+        if (pyeongM) {
+          inputPyeong = parseInt(pyeongM[1]);          // 사용자 입력 평형 (표시용)
+          areaSqm = Math.round(inputPyeong * 3.305785); // 내부 전용면적 계산
+        } else if (sqmM) {
+          areaSqm = parseFloat(sqmM[1]);
+          inputPyeong = Math.floor((areaSqm * 1.35) / 3.305785); // ㎡→평 역산
+        } else if (kokM) {
+          areaSqm = 84; inputPyeong = 34;
+        }
 
         if (!areaSqm) {
-          // 평형 파싱 실패 → 다시 요청
-          addMsg({ role: "user", type: "text", content: text });
-          replaceLastAI({ role: "ai", type: "text",
-            content: `평형을 인식하지 못했어요.\n예: 25평, 32평, 84㎡` });
-          return;
+          // 평형 파싱 실패 → 숫자만 입력한 경우도 처리
+          const numOnly = areaText.match(/^(\d+)$/);
+          if (numOnly) {
+            const n = parseInt(numOnly[1]);
+            if (n >= 10 && n <= 200) {
+              // 숫자만 입력 → 평형으로 해석
+              inputPyeong = n;
+              areaSqm = Math.round(n * 3.305785);
+            }
+          }
+          if (!areaSqm) {
+            // 버그1 수정: 파싱 실패 시에만 addMsg
+            addMsg({ role: "user", type: "text", content: text });
+            replaceLastAI({ role: "ai", type: "text",
+              content: `평형을 인식하지 못했어요.\n예: 25평, 32평, 84` });
+            return;
+          }
         }
 
         const cx = ps._pendingComplex || convStateRef.current.currentComplex;
         const intentStr = ps._pendingPurpose || 'fair';
+        const cxName = (cx && (cx.complex_name || cx.name)) || '단지';
+        const dongName = (cx && cx.legal_dong) ? cx.legal_dong : '';
+        const sigunguName = (cx && cx.sigungu) ? cx.sigungu.split(' ').slice(-1)[0] : '';
+
+        // 버그1 수정: addMsg는 여기서 한 번만
         addMsg({ role: "user", type: "text", content: areaText });
-        addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+
+        // 버그3 수정: 바로 runAnalysis 금지, 반드시 가격 질문
+        // 요약 문구 + 가격 질문을 한 메시지로
         convStateRef.current = {
           ...ps,
           _expectedAnswerType: null,
@@ -527,11 +555,15 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           _pendingComplex: cx,
           _pendingArea: areaSqm,
           _pendingPurpose: intentStr,
+          _pendingInputPyeong: inputPyeong,  // 표시용 평형 보존
         };
-        const pyeong = typicalPyeong(areaSqm);
-        const cxName = (cx && (cx.complex_name || cx.name)) || '단지';
+        // 요약 문구 (버그2: inputPyeong으로 표시, areaSqm 아님)
+        const locationStr = [sigunguName, dongName].filter(Boolean).join(' ');
+        const summaryLine = locationStr
+          ? `${locationStr} ${cxName} ${inputPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`
+          : `${cxName} ${inputPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`;
         replaceLastAI({ role: "ai", type: "text",
-          content: `${cxName} ${pyeong}평 현재 매물가를 알고 계시나요?\n모르시면 "몰라", "시세로", "그냥 해줘"라고 입력해 주세요.` });
+          content: summaryLine + '\n\n현재 매물가를 알고 계시나요?\n모르시면 "몰라" 또는 "시세로"라고 입력해 주세요.' });
         return;
       }
 
@@ -1335,20 +1367,35 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       areaGroups,
       complex: cx,
       onSelect: async (areaSqm) => {
-        const pyeong = typicalPyeong(areaSqm);
-        addMsg({ role: 'user', type: 'text', content: `${pyeong}평` });
-        addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+        // 버그1 수정: 칩 클릭 시 _expectedAnswerType을 즉시 null로 → EAT area 재진입 방지
+        // 버그2 수정: areaGroup의 pyeong 값을 직접 표시 (역산 오류 방지)
+        const chipPyeong = areaGroups.find(g => g.areaSqm === areaSqm)?.pyeong
+          || Math.floor((areaSqm * 1.35) / 3.305785);
+
+        // 상태 먼저 변경 → EAT area 블록 재진입 차단
         convStateRef.current = {
           ...convStateRef.current,
+          _expectedAnswerType: null,   // ← 먼저 null로
           _pendingPrice: true,
           _pendingComplex: cx,
           _pendingArea: areaSqm,
           _pendingPurpose: intentStr,
-          _expectedAnswerType: null,
+          _pendingInputPyeong: chipPyeong,
         };
+
+        // 버그1: addMsg는 한 번만
+        addMsg({ role: 'user', type: 'text', content: `${chipPyeong}평` });
+
+        // 요약 + 가격 질문
+        const dongName = (cx && cx.legal_dong) ? cx.legal_dong : '';
+        const sigunguName = (cx && cx.sigungu) ? cx.sigungu.split(' ').slice(-1)[0] : '';
+        const locationStr = [sigunguName, dongName].filter(Boolean).join(' ');
+        const summaryLine = locationStr
+          ? `${locationStr} ${cxName} ${chipPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`
+          : `${cxName} ${chipPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`;
         replaceLastAI({
           role: 'ai', type: 'text',
-          content: `${cxName} ${pyeong}평 현재 매물가를 알고 계시나요?\n모르시면 "몰라", "시세로", "그냥 해줘"라고 입력해 주세요.`,
+          content: summaryLine + '\n\n현재 매물가를 알고 계시나요?\n모르시면 "몰라" 또는 "시세로"라고 입력해 주세요.',
         });
       },
     });
