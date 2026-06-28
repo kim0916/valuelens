@@ -127,7 +127,6 @@ function getWhyCards(r, trust, f = {}) {
     const region = (f.region || "").toString();
     const buildYear = Number(f.buildYear) || 0;
     const ratio = r.actualRatio || 0;
-    console.log("[WhyCards] isPremium 진입 - region:", region, "/ buildYear:", buildYear, "/ ratio:", ratio, "/ f.region:", f.region, "/ f.buildYear:", f.buildYear);
     if (["강남구","서초구","송파구"].some(g => region.includes(g))) {
       cards.push("강남권 입지 특성상 매매가가 높게 형성됩니다.");
     } else if (buildYear > 0 && buildYear <= 1995) {
@@ -615,13 +614,13 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
   const [loading, setLoading] = React.useState(false);
   const chips = ["전세는?", "다른 평형은?", "최근 거래 흐름은?"];
 
-  const handleSend = async () => {
-    const t = text.trim();
+  const handleSend = async (chipText) => {
+    const t = (chipText || text).trim();
     if (!t) return;
-    setText("");
+    if (!chipText) setText("");
 
-    // 분석 관련 질문은 채팅으로 넘김
-    const isAnalysis = /전세|다른평형|다른 평형|평형|매수|살까|최근거래|최근 거래|거래흐름/.test(t);
+    // 분석 관련 질문 → onSend로 넘김 (main.jsx에서 결과지 업데이트 처리)
+    const isAnalysis = /전세|다른\s*평형|평형|매수|살까|최근\s*거래|거래\s*흐름/.test(t);
     if (isAnalysis) { onSend(t); return; }
 
     // 자유 질문 → 결과지 안에서 AI 답변
@@ -666,7 +665,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
           </button>
         )}
         {chips.map((c, i) => (
-          <button key={i} onClick={() => onSend(c)}
+          <button key={i} onClick={() => handleSend(c)}
             style={{ fontSize: 12, fontWeight: 500, padding: "5px 12px",
               borderRadius: 20, border: "1px solid #e2e8f0",
               background: "#f8fafc", color: "#334155", cursor: "pointer" }}>

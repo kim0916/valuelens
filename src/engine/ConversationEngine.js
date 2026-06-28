@@ -127,8 +127,10 @@ async function process(input, state = createConversationState()) {
 
   // price_analysis인데 단지 컨텍스트 없으면 → 검색으로 전환
   if (intent === "price_analysis" && !s.currentComplex && extracted.complexQuery) {
-    extracted.intent = "search_complex";
-    const [ns, response] = await handleSearch(extracted.complexQuery, extracted.areaSqm || null, s, 0);
+    // 지역 정보 state에 반영 후 검색
+    const regionFromExtracted = extracted._nlu?.sigungu || extracted.region || null;
+    const stateForSearch = regionFromExtracted ? { ...s, region: regionFromExtracted } : s;
+    const [ns, response] = await handleSearch(extracted.complexQuery, extracted.areaSqm || null, stateForSearch, 0);
     return { state: ns, response };
   }
 

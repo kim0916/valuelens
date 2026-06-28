@@ -25,6 +25,7 @@ import { LogsView } from './views/LogsView.jsx';
 import { BudgetView } from './views/BudgetView.jsx';
 import { SellResult } from './views/SellResult.jsx';
 import { FairValueResult } from './views/FairValueResult.jsx';
+import { runAnalysisService } from './services/runAnalysisService.js';
 import { BuyResult } from './views/BuyResult.jsx';
 import { ConfirmStep } from './views/ConfirmStep.jsx';
 import { AdvancedView } from './views/AdvancedView.jsx';
@@ -1451,38 +1452,42 @@ function AppInner() {
                   onBack={() => { setAptTab("ai"); setChatResultData(null); }}
                   onNewSearch={() => { setAptTab("ai"); setChatResultData(null); }}
                   complexInfo={chatResultData.complex}
-                  onAskMore={(text) => {
-                    // 결과지 안에서 처리 가능한 질문은 채팅창 안 열고 처리
-                    const JEONSE = /전세|보증금/;
-                    const BUY    = /살까|살만|매수|사도|사는게|사는거/;
-                    const AREA   = /다른평형|평형바꿔|큰거|작은거/;
+                  onAskMore={async (text) => {
                     const d = chatResultData;
+                    if (!d) return;
+                    const complexObj = {
+                      complex_name: d.complex.name,
+                      sigungu: d.complex.sigungu,
+                      legal_dong: d.complex.dong,
+                      build_year: d.complex.buildYear,
+                      area_list: d.ff.areaExclusive ? [d.ff.areaExclusive] : [],
+                      id: null,
+                    };
 
-                    if (JEONSE.test(text)) {
-                      // 전세 → 채팅으로 넘기되 컨텍스트 유지
+                    if (/전세|보증금/.test(text)) {
+                      // 전세 → 재분석 후 결과지 업데이트 (채팅창 이동 없음)
+                      const result = await runAnalysisService(complexObj, d.ff.areaExclusive, null, false);
+                      if (result) setChatResultData({ ...d, engine: result.engine, ff: result.ff });
+
+                    } else if (/다른\s*평형|평형/.test(text)) {
+                      // 다른 평형 → 채팅으로 (평형 선택 UI가 채팅에 있음)
                       setChatResultData(null); setAptTab("ai");
                       setTimeout(() => window.dispatchEvent(new CustomEvent("valuelens:ask", {
-                        detail: { text, complex: d?.complex, areaSqm: d?.ff?.areaExclusive }
-                      })), 100);
-                    } else if (BUY.test(text)) {
-                      // 매수 → onBuyAnalysis와 동일
+                        detail: { text, complex: d.complex, areaSqm: d.ff.areaExclusive }
+                      })), 80);
+
+                    } else if (/최근\s*거래|거래\s*흐름/.test(text)) {
+                      // 최근 거래 → 거래 목록 펼치기 (결과지 내 detailOpen)
+                      // ResultChatBar에서 이미 인라인 AI로 처리됨
+
+                    } else if (/살까|살만|매수|사도/.test(text)) {
+                      // 매수 → 채팅으로
                       setChatResultData(null); setAptTab("ai");
                       setTimeout(() => window.dispatchEvent(new CustomEvent("valuelens:buy", {
-                        detail: { complex: d?.complex, areaSqm: d?.ff?.areaExclusive, currentPrice: d?.ff?.currentPrice }
-                      })), 100);
-                    } else if (AREA.test(text)) {
-                      // 다른 평형 → 채팅으로 넘기되 컨텍스트 유지
-                      setChatResultData(null); setAptTab("ai");
-                      setTimeout(() => window.dispatchEvent(new CustomEvent("valuelens:ask", {
-                        detail: { text, complex: d?.complex, areaSqm: d?.ff?.areaExclusive }
-                      })), 100);
-                    } else {
-                      // 자유 질문 → AI 답변을 결과지 하단 메시지로 표시
-                      setChatResultData(null); setAptTab("ai");
-                      setTimeout(() => window.dispatchEvent(new CustomEvent("valuelens:ask", {
-                        detail: { text, complex: d?.complex, areaSqm: d?.ff?.areaExclusive }
-                      })), 100);
+                        detail: { complex: d.complex, areaSqm: d.ff.areaExclusive, currentPrice: d.ff.currentPrice }
+                      })), 80);
                     }
+                    // 그 외 자유질문 → ResultChatBar 인라인 AI 처리 (채팅창 이동 없음)
                   }}
                   onPriceUpdate={(newPrice) => {
                     // 매물가 수정 → 재계산
