@@ -127,10 +127,9 @@ async function process(input, state = createConversationState()) {
 
   // price_analysis인데 단지 컨텍스트 없으면 → 검색으로 전환
   if (intent === "price_analysis" && !s.currentComplex && extracted.complexQuery) {
-    // 지역 정보 state에 반영 후 검색
     const regionFromExtracted = extracted._nlu?.sigungu || extracted.region || null;
     const stateForSearch = regionFromExtracted ? { ...s, region: regionFromExtracted } : s;
-    const [ns, response] = await handleSearch(extracted.complexQuery, extracted.areaSqm || null, stateForSearch, 0);
+    const [ns, response] = await handleSearch(extracted.complexQuery, extracted.areaSqm || null, stateForSearch, 0, extracted.dong || "");
     return { state: ns, response };
   }
 
@@ -327,6 +326,7 @@ async function execute(decision, intent, extracted, rawText, state) {
         params.areaSqm || extracted.areaSqm || null,
         stateWithRegion,
         decision.rule,
+        extracted.dong || "",
       );
     }
 
@@ -600,7 +600,7 @@ async function handleRecommendSearch(nlu, state) {
 // ─────────────────────────────────────────────
 // 단지 검색 + Policy 재적용
 // ─────────────────────────────────────────────
-async function handleSearch(query, areaHint, state, ruleHint = 0) {
+async function handleSearch(query, areaHint, state, ruleHint = 0, dongHint = "") {
   if (!query || query.trim().length < 2) {
     return [state, {
       type: RESPONSE_TYPES.NEED_MORE_INFO,
@@ -621,8 +621,8 @@ async function handleSearch(query, areaHint, state, ruleHint = 0) {
       lastAreaHint:      areaHint || state.lastAreaHint,
     };
 
-    const dongHint = state.lastDong || "";
-    const res      = await searchComplexFromSupabase(query, state.region || "", dongHint);
+    const dong = dongHint || state.lastDong || "";
+    const res      = await searchComplexFromSupabase(query, state.region || "", dong);
     const complexes = res.complexes || [];
     const hint     = res.areaHint || areaHint || searchState.lastAreaHint;
 
