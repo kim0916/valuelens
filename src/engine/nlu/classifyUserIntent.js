@@ -281,6 +281,8 @@ const PATTERNS = [
     /(매수|구입)\s*(추천|할만|권고)/,
     /살\s*(까|까요|래|래요)\s*\??$/,
     /사\s*(도\s*돼|도\s*될까|도\s*되나)/,
+    /투자\s*(가치|할만|괜찮|해도|하면)/,
+    /투자\s*(가치|성|수익)/,
   ]],
 
   [NLU_INTENTS.PRICE_OPINION, [
@@ -398,6 +400,12 @@ export function classifyUserIntent(text, entities = {}, state = {}) {
   // 면적+아파트 단어+지역 → 추천
   if (hasArea2 && hasGenericObjectWord && hasRegion) {
     return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.87 };
+  }
+
+  // 조건어+아파트+지역 → 추천 (역세권, 학군, 신축 등)
+  const hasConditionWord = /역세권|학군|신축|구축|조용|편리|대단지|브랜드/.test(lower);
+  if (hasConditionWord && hasGenericObjectWord) {
+    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.85 };
   }
 
   // ── Rule B: 지역 + 조건 → 추천 ──

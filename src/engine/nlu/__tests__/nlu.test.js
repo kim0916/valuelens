@@ -70,10 +70,20 @@ const TESTS = [
   ['레미안블레스티지',           'search_complex'],
   ['해링턴플레이스',             'search_complex'],
 
+  // ── 매수의견 추가 패턴 ──
+  ['투자 가치 있어',             'buy_opinion'],
+  ['살만해',                     'buy_opinion'],
+  ['지금 매수 괜찮아',           'buy_opinion'],
+
+  // ── 추천 추가 패턴 ──
+  ['역세권 아파트 강남',         'recommend_complex'],
+  ['30평대 송파구 아파트',       'recommend_complex'],
+
   // ── 기타 ──
   ['응',                         'confirm'],
   ['아니',                       'deny'],
   ['다시',                       'reset'],
+  ['처음으로',                   'reset'],
 ];
 
 let pass = 0, fail = 0;

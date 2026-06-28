@@ -48,7 +48,7 @@ export function extractRegion(text) {
     const filtered = guM.filter(g => !SIDO_LIST.includes(g.replace(/시$/, '')));
     if (filtered[0]) result.sigungu = filtered[0];
   }
-  const dongM = t.match(/([가-힣]{1,4}동(?!\s*아파트|\s*래미안|\s*자이|\s*한화|\s*힐스))/g);
+    const dongM = t.match(/([가-힣]{2,4}동)(?=\s|$|[^가-힣])/g);
   if (dongM && dongM[0]) result.dong = dongM[0];
 
   return result;
@@ -155,6 +155,13 @@ export function extractComplexName(text, state = {}) {
         }
       }
     }
+  }
+
+  // ★ Rule A-0: 조건어가 complexQuery의 전부라면 제거
+  const CONDITION_WORDS = ['역세권', '학군', '신축', '구축', '대단지', '브랜드', '조용', '편리', '투자', '저렴'];
+  if (complexQuery && CONDITION_WORDS.some(w => complexQuery === w)) {
+    complexQuery = null;
+    complexName = null;
   }
 
   // ★ Rule A: "아파트/단지/집/매물"이 complexQuery의 전부라면 제거
