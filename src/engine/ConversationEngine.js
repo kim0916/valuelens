@@ -268,8 +268,7 @@ async function execute(decision, intent, extracted, rawText, state) {
 
     // ── 이전 단계 (Rule 8: 아니) ──
     case ACTIONS.PREV_STEP: {
-      // 현재 사용 안 함 (DENY는 DENY 핸들러에서 처리)
-      return [state, responseUnknown(state)];
+      return await tryAIFallback(rawText, state);
     }
 
     // ── 즉시 분석 (Rule 1, 5) ──
@@ -277,7 +276,7 @@ async function execute(decision, intent, extracted, rawText, state) {
       if (isReadyToAnalyze(state)) {
         return [state, responseReadyToAnalyze(state.currentComplex, state.currentArea)];
       }
-      return [state, responseUnknown(state)];
+      return await tryAIFallback(rawText, state);
 
     // ── 전세 분석 (Rule 5) ──
     case ACTIONS.ANALYZE_JEONSE: {
@@ -331,35 +330,25 @@ async function execute(decision, intent, extracted, rawText, state) {
       );
     }
 
-    // ── Unknown → DB 검색 시도 → AI fallback ──
+    // ── Unknown → DB 검색 → AI fallback ──
     default: {
-      // 컨텍스트 있으면 규칙 응답
+      // 컨텍스트 있으면 AI fallback
       if (state?.currentComplex || state?.currentArea) {
-        return [state, responseUnknown(state)];
+        return await tryAIFallback(rawText, state);
       }
 
       // 1차: rawText 자체를 단지명으로 DB 검색 시도
-      // "잠실래미안", "목동현대" 등 NLU 못 잡은 단지명 커버
       if (rawText.length >= 2 && rawText.length <= 20 && !/[?!。.，,]/.test(rawText)) {
         try {
           const [ns, searchRes] = await handleSearch(rawText, null, state, 0);
-          // 검색 결과가 있으면 (후보 or 단지 찾음)
           if (searchRes && searchRes.type !== 'error' && searchRes.type !== 'unknown') {
             return [ns, searchRes];
           }
-        } catch(e) {
-          // 검색 실패 시 아래로
-        }
+        } catch(e) {}
       }
 
-      // 2차: AI fallback (공인중개사 말투)
-      try {
-        const aiRes = await callAIFallback(rawText, state);
-        if (aiRes) return [state, aiRes];
-      } catch (e) {
-        console.warn('[ConversationEngine] AI fallback 실패:', e?.message);
-      }
-      return [state, responseUnknown(state)];
+      // 2차: AI fallback
+      return await tryAIFallback(rawText, state);
     }
   }
 }
@@ -367,6 +356,17 @@ async function execute(decision, intent, extracted, rawText, state) {
 // ─────────────────────────────────────────────
 // AI Fallback — 공인중개사 말투로 자유 응답
 // ─────────────────────────────────────────────
+// AI fallback을 항상 시도하는 헬퍼
+async function tryAIFallback(rawText, state) {
+  try {
+    const aiRes = await callAIFallback(rawText, state);
+    if (aiRes) return [state, aiRes];
+  } catch(e) {
+    console.warn('[ConversationEngine] AI fallback 실패:', e?.message);
+  }
+  return [state, responseUnknown(state)];
+}
+
 async function callAIFallback(userText, state) {
   const SYSTEM = `당신은 10년 경력의 공인중개사 AI 어시스턴트입니다.
 ValueLens 앱 안에서 사용자의 부동산 질문에 답합니다.
