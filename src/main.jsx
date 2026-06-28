@@ -1508,19 +1508,27 @@ function AppInner() {
                       setChatResultData({ ...d, ff: newFf, engine: newEngine });
                     });
                   }}
-                  onBuyAnalysis={() => {
-                    // 현재 단지/면적으로 바로 매수 분석
+                  onBuyAnalysis={async () => {
+                    // 매수 분석 → 결과지 안에서 처리 (채팅창 이동 없음)
                     const d = chatResultData;
                     if (!d) return;
-                    setChatResultData(null);
-                    setAptTab("ai");
-                    setTimeout(() => {
-                      window.dispatchEvent(new CustomEvent("valuelens:buy", { detail: {
-                        complex: d.complex,
-                        areaSqm: d.ff?.areaExclusive,
-                        currentPrice: d.ff?.currentPrice,
-                      }}));
-                    }, 100);
+                    const complexObj = {
+                      complex_name: d.complex.name,
+                      sigungu: d.complex.sigungu,
+                      legal_dong: d.complex.dong,
+                      build_year: d.complex.buildYear,
+                      area_list: d.ff.areaExclusive ? [d.ff.areaExclusive] : [],
+                      id: null,
+                    };
+                    const result = await runAnalysisService(complexObj, d.ff.areaExclusive, d.ff.currentPrice, d.ff._userInputPrice);
+                    if (result) {
+                      const { analyze } = await import('./engine/analyze.js');
+                      const buyFf = { ...result.ff, purpose: 'buy' };
+                      const buyEngine = analyze(buyFf);
+                      buyEngine.jeonseCalc = result.engine.jeonseCalc;
+                      buyEngine.saleCalc = result.engine.saleCalc;
+                      setChatResultData({ ...d, engine: buyEngine, ff: buyFf });
+                    }
                   }}
                 />
               </div>
