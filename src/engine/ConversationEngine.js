@@ -587,6 +587,7 @@ function bridgeNLUToLegacy(nlu, rawText, state) {
     [I.DATA_MISSING]:      LI.UNKNOWN,
     [I.UNKNOWN_FOLLOWUP]:  LI.UNKNOWN,
     [I.SELL_OPINION]:      "sell_redirect",   // 매도 → SellResult 라우팅 금지
+    [I.ASK_PURPOSE]:       "ask_region_purpose", // 지역만 입력 → 목적 질문
   };
 
   // 기존 Intent는 그대로
@@ -603,6 +604,11 @@ function bridgeNLUToLegacy(nlu, rawText, state) {
   // RECOMMEND_COMPLEX: 신규 action으로 라우팅
   if (nlu.intent === I.RECOMMEND_COMPLEX) {
     mappedIntent = "recommend_complex";  // execute()에서 ACTIONS.RECOMMEND로 처리
+  }
+
+  // ASK_PURPOSE: 지역만 입력 시 목적 질문 (추천 아님)
+  if (nlu.intent === I.ASK_PURPOSE) {
+    mappedIntent = "ask_region_purpose";
   }
 
   // price_analysis / jeonse_info 등 + 단지 없음 + complexQuery 있음
