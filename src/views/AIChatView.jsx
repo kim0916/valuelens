@@ -19,6 +19,7 @@ import { createConversationEngine } from '../engine/ConversationEngine.js';
 import { createConversationState } from '../engine/conversationState.js';
 import { RESPONSE_TYPES } from '../engine/responseGenerator.js';
 import { ACTIONS } from '../engine/conversationPolicy.js';
+import { parseAreaInput, pyeongLabel, filterDealsByArea, sqmToPyeong } from '../constants/areaMapping.js';
 
 // ── 매물가 입력 파싱 (다양한 형식/오타 처리) ──
 function parsePriceInput(text) {
@@ -496,48 +497,19 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       // 절대 금지: runAnalysis 직행
       if (eat === 'area') {
         const areaText = text.trim();
-        // 평형 파싱: "25", "25평", "25평형", "84㎡", "전용84" 모두 처리
-        const pyeongM = areaText.match(/^(\d+)\s*평형?$/) ||
-                         areaText.match(/^(\d+)\s*평대$/);  // "30평대" 처리
-        // ㎡/m2 명시된 경우만 면적으로 처리 (숫자만 있으면 평형으로 처리)
-        const sqmM    = areaText.match(/전용\s*(\d+(?:\.\d+)?)/) ||
-                        areaText.match(/(\d+(?:\.\d+)?)\s*(?:㎡|m2)/i);
-        const numOnly = areaText.match(/^(\d+)$/);
-        const kokM    = /국민평형|국평/.test(areaText);
 
-        let areaSqm    = null;
-        let inputPyeong = null;
+        // ── 평형 파싱: areaMapping 정책 사용 ──
+        // 25 → 25평/59㎡, 84 → 84㎡/33평, 25평 → 59㎡ 등
+        const parsed = parseAreaInput(areaText);
 
-        if (pyeongM) {
-          inputPyeong = parseInt(pyeongM[1]);
-          areaSqm     = Math.round(inputPyeong * 3.305785);
-        } else if (sqmM) {
-          areaSqm     = parseFloat(sqmM[1]);
-          inputPyeong = Math.round(areaSqm / 3.305785);
-        } else if (kokM) {
-          areaSqm = 84; inputPyeong = 25;
-        } else if (numOnly) {
-          const n = parseInt(numOnly[1]);
-          if (n >= 10 && n <= 200) {
-            // 50 이하: 평형으로 해석 (25 → 25평, 82㎡)
-            // 51 이상: 전용면적㎡으로 해석 (84 → 84㎡, 25평)
-            if (n <= 50) {
-              inputPyeong = n;
-              areaSqm     = Math.round(n * 3.305785);
-            } else {
-              areaSqm     = n;
-              inputPyeong = Math.round(n / 3.305785);
-            }
-          }
-        }
-
-        if (!areaSqm) {
-          // 파싱 실패: addMsg(user) 후 재요청
+        if (!parsed) {
           addMsg({ role: "user", type: "text", content: text });
           addMsg({ role: "ai", type: "text",
-            content: `평형을 인식하지 못했어요.\n예: 25, 25평, 84, 84㎡` });
+            content: `평형을 인식하지 못했어요.\n예: 25 (25평), 84 (전용 84㎡), 25평, 84㎡` });
           return;  // _expectedAnswerType 유지 (재시도)
         }
+
+        const { inputPyeong, areaSqm } = parsed;
 
         const cx        = ps._pendingComplex || convStateRef.current.currentComplex;
         const intentStr = ps._pendingPurpose || 'fair';
@@ -1382,27 +1354,12 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       let saleDealsRaw = sbData.saleDeals || sbData.deals?.filter(d => d.deal_type==='sale') || [];
       let rentDealsRaw = sbData.rentDeals || sbData.deals?.filter(d => d.deal_type==='rent') || [];
 
-      // 면적 필터: 정확 매칭 → ±10㎡ → 가장 가까운 면적 fallback
-      // 24평(79㎡) 입력 시 DB에 84㎡만 있어도 매칭되도록
-      const filterArea = (arr) => {
-        if (!targetArea) return arr;
-        // 1차: ±3㎡ 정확 매칭
-        const exact = arr.filter(d => Math.abs(Number(d.area_excl) - targetArea) <= 3);
-        if (exact.length >= 3) return exact;
-        // 2차: ±10㎡ 확장
-        const wide = arr.filter(d => Math.abs(Number(d.area_excl) - targetArea) <= 10);
-        if (wide.length >= 3) return wide;
-        // 3차: DB에 있는 면적 중 가장 가까운 것으로 fallback
-        const areas = [...new Set(arr.map(d => Number(d.area_excl)).filter(Boolean))];
-        if (areas.length === 0) return arr;
-        const closest = areas.reduce((a, b) =>
-          Math.abs(a - targetArea) <= Math.abs(b - targetArea) ? a : b
-        );
-        return arr.filter(d => Math.abs(Number(d.area_excl) - closest) <= 3);
-      };
-
-      const saleFiltered = filterArea(saleDealsRaw);
-      const rentFiltered = filterArea(rentDealsRaw).filter(d => !d.monthly_man || Number(d.monthly_man) === 0);
+      // ── 면적 필터: areaMapping.filterDealsByArea 사용 ──
+      // 규칙: 25평(59㎡) 요청 시 84㎡ 자동 전환 금지
+      // fallback 있으면 사용자에게 확인 후 진행
+      const { matched: saleFiltered, fallbackSqm } = filterDealsByArea(saleDealsRaw, targetArea);
+      const { matched: rentFilteredRaw } = filterDealsByArea(rentDealsRaw, targetArea);
+      const rentFiltered = rentFilteredRaw.filter(d => !d.monthly_man || Number(d.monthly_man) === 0);
 
       // buildAnalysisInput이 요구하는 형식으로 변환
       // { ym, price, floor, areaSqm } — norm() 함수가 ym/price/floor 읽음
@@ -1421,6 +1378,26 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
       const sale   = saleFiltered.map(toSale).filter(d => d.price > 0 && d.ym);
       const jeonse = rentFiltered.map(toRent).filter(d => d.price > 0 && d.ym);
+
+      // ── fallback 처리: 다른 면적이 더 가까운 경우 사용자에게 물어봄 ──
+      if (sale.length < 3 && fallbackSqm && Math.abs(fallbackSqm - targetArea) > 3) {
+        const reqPyeong  = intent._pendingInputPyeong || (targetArea ? Math.round(targetArea/3.3) : null);
+        const reqLabel   = reqPyeong ? `${reqPyeong}평` : `전용 ${targetArea}㎡`;
+        const { pyeong: fbPyeong } = sqmToPyeong(fallbackSqm);
+        const fbLabel    = `${fbPyeong}평 (전용 ${fallbackSqm}㎡)`;
+        replaceLastAI({ type: "text",
+          content: `**${name}** ${reqLabel} 계열의 최근 실거래가 부족합니다.\n\n가장 가까운 **${fbLabel}** 데이터로 분석해드릴까요?\n\n"네" 또는 "${fbLabel}"라고 입력하시면 계속 진행합니다.` });
+        convStateRef.current = {
+          ...convStateRef.current,
+          _pendingNoData: false,
+          _pendingFallbackSqm: fallbackSqm,
+          _pendingFallbackPyeong: fbPyeong,
+          _pendingComplex: complex,
+          _pendingArea: targetArea,
+          _pendingPurpose: intent.intent || 'fair',
+        };
+        return;
+      }
 
       // 거래 부족 → 매물가 + 전세가 입력 요청
       if (sale.length < 3) {
@@ -1750,7 +1727,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
               {(msg.areaGroups || []).map((g, i) => {
                 // 가드: g.anchor null/undefined 방지
                 if (!g || g.anchor == null || !Number.isFinite(g.anchor)) return null;
-                const pyeong = Math.floor((g.anchor * 1.35) / 3.305785);
+                const { pyeong } = sqmToPyeong(g.anchor);
                 const sqm    = g.anchor.toFixed(1);
                 return (
                   <button key={i}
@@ -1765,7 +1742,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                     onMouseEnter={e => { e.currentTarget.style.background=BRAND; e.currentTarget.style.color="#fff"; e.currentTarget.style.borderColor=BRAND; }}
                     onMouseLeave={e => { e.currentTarget.style.background="#fff"; e.currentTarget.style.color=BRAND; e.currentTarget.style.borderColor=BRAND_BORDER; }}
                   >
-                    {pyeong}평 ({sqm}㎡)
+                    {pyeong}평 (전용 {sqm}㎡)
                   </button>
                 );
               })}
