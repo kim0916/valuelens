@@ -20,6 +20,7 @@ import { createConversationState } from '../engine/conversationState.js';
 import { RESPONSE_TYPES } from '../engine/responseGenerator.js';
 import { ACTIONS } from '../engine/conversationPolicy.js';
 import { parseAreaInput, pyeongLabel, filterDealsByArea, sqmToPyeong } from '../constants/areaMapping.js';
+import { resolveMessyInput } from '../engine/MessyInputResolver.js';
 
 // ── 매물가 입력 파싱 (다양한 형식/오타 처리) ──
 function parsePriceInput(text) {
@@ -748,6 +749,82 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           },
         });
         return;
+      }
+    }
+
+    // ── Phase 1.5: MessyInputResolver ──
+    // EAT/pendingPrice 이후, CE 이전에 실행
+    // 자유로운 자연어에서 entity 추출 → pendingContext 누적
+    {
+      const existingCtx = {
+        dong:         convStateRef.current._pendingDong         || null,
+        sigungu:      convStateRef.current._pendingRegion       || null,
+        complexQuery: convStateRef.current._pendingCandidateQuery || null,
+        areaSqm:      convStateRef.current._pendingArea         || null,
+        inputPyeong:  convStateRef.current._pendingInputPyeong  || null,
+        purpose:      convStateRef.current._pendingPurpose      || null,
+      };
+      const { merged, nextAction } = resolveMessyInput(text, existingCtx);
+
+      if (nextAction.type === 'general_question') {
+        // 일반 질문 → CE로 위임
+      } else if (nextAction.type === 'pass_to_ce') {
+        // entity 부족 → CE로 위임
+      } else if (nextAction.type === 'not_supported') {
+        addMsg({ role: 'user', type: 'text', content: text });
+        addMsg({ role: 'ai', type: 'text', content: '해당 기능은 준비 중입니다.' });
+        return;
+      } else if (nextAction.type === 'recommend') {
+        // 추천 → CE로 위임 (추후 MessyInputResolver에서 직접 처리 예정)
+      } else {
+        // ask.complex / ask.purpose / ask.area / ask.price / confirm_analysis
+        // pendingContext 업데이트
+        convStateRef.current = {
+          ...convStateRef.current,
+          _pendingDong:           merged.dong           || convStateRef.current._pendingDong,
+          _pendingRegion:         merged.sigungu        || convStateRef.current._pendingRegion,
+          _pendingCandidateQuery: merged.complexQuery   || convStateRef.current._pendingCandidateQuery,
+          _pendingArea:           merged.areaSqm        || convStateRef.current._pendingArea,
+          _pendingInputPyeong:    merged.inputPyeong    || convStateRef.current._pendingInputPyeong,
+          _pendingPurpose:        merged.purpose        || convStateRef.current._pendingPurpose,
+        };
+
+        if (nextAction.type === 'ask') {
+          addMsg({ role: 'user', type: 'text', content: text });
+          if (nextAction.field === 'complex') {
+            convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'complex' };
+            addMsg({ role: 'ai', type: 'text', content: nextAction.message });
+          } else if (nextAction.field === 'purpose') {
+            convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'purpose',
+              _pendingComplex: { complex_name: merged.complexQuery, legal_dong: merged.dong, sigungu: merged.sigungu } };
+            addMsg({ role: 'ai', type: 'purpose_chips',
+              content: nextAction.message,
+              choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
+              onSelect: async (choice) => {
+                addMsg({ role: 'user', type: 'text', content: choice });
+                const purpose = choice === '매수 의견' ? 'buy' : 'fair';
+                convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'area', _pendingPurpose: purpose };
+                addMsg({ role: 'ai', type: 'text', content: `몇 평형을 확인할까요?\n예: 25평, 84㎡` });
+              },
+            });
+          } else if (nextAction.field === 'area') {
+            convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'area' };
+            addMsg({ role: 'ai', type: 'text', content: nextAction.message });
+          } else if (nextAction.field === 'price') {
+            convStateRef.current = { ...convStateRef.current,
+              _pendingPrice: true,
+              _pendingComplex: { complex_name: merged.complexQuery, legal_dong: merged.dong, sigungu: merged.sigungu, area_list: [] },
+              _pendingArea: merged.areaSqm,
+              _pendingPurpose: merged.purpose || 'fair',
+              _pendingInputPyeong: merged.inputPyeong,
+              _expectedAnswerType: null,
+            };
+            addMsg({ role: 'ai', type: 'text', content: nextAction.message });
+          }
+          return;
+        }
+        // confirm_analysis는 CE로 넘기지 않고 직접 처리하지 않음
+        // (단지 객체가 없으므로 CE가 단지를 찾아서 처리하도록 위임)
       }
     }
 
