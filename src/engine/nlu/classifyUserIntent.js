@@ -77,9 +77,10 @@ const PATTERNS = [
   // explain_reason — "왜" 질문
   [NLU_INTENTS.EXPLAIN_REASON, [
     /왜\s*(분석이|결과가|안\s*나|안\s*돼|이런\s*가격|높|낮|그렇)/,
+    /왜\s*(이런|저런|이렇게|그렇게)\s*(결과|나와|나오)/,  // NLU-0099 수정
     /이유가\s*(뭐|뭔|무엇)/,
     /어떻게\s*(계산|나온|산출)/,
-    /실거래.+이유|이유.+실거래/,  // "실거래 없는 이유"
+    /실거래.+이유|이유.+실거래/,
     /왜\s*안\s*나/,
   ]],
 
@@ -96,13 +97,16 @@ const PATTERNS = [
   [NLU_INTENTS.COMPARE_COMPLEX, [
     /([가-힣a-z]+)\s*(와|랑|하고|과|vs\.?|VS\.?|대비)\s*([가-힣a-z]+)\s*(비교|차이|뭐가\s*나)?/i,
     /비교\s*(해줘|해주세요|해봐|해)/,
-    /(어디가|뭐가)\s*(더\s*)?(나은|좋은|좋아|나아)/,
+    // "(어디가|뭐가) 좋아?" 단독은 recommend로 처리 → 여기서는 제거
+    // 명시적 비교(A vs B, A랑 B)만 COMPARE
   ]],
 
   // recommend_complex — 추천 요청
   [NLU_INTENTS.RECOMMEND_COMPLEX, [
+    /전세가율.*(추천|아파트|단지)/,   // NLU-0060: 전세가율+추천은 recommend 우선
     /추천\s*(해줘|해주세요|해봐|좀|아파트|단지)/,
-    /(어디가|어떤\s*곳|어떤\s*아파트|좋은\s*곳|살\s*만한\s*곳)/,
+    /(어디가|어떤\s*곳|어떤\s*아파트|좋은\s*곳|살\s*만한\s*곳)\s*(좋|나은|나아|좋아|괜찮)/,
+    /(어디가|뭐가)\s*(더\s*)?(나은|좋은|좋아|나아)/,
     /\d+억\s*(대에서|이하에서|안에서|짜리|정도)\s*(추천|검색|보여)/,
     /(아이|가족|학군)\s*(좋은|좋은\s*곳|키우기)/,
     /실거주\s*(로\s*)?(좋은|괜찮은|추천)/,
@@ -190,11 +194,12 @@ const PATTERNS = [
     /살기\s*(좋은|좋아|괜찮은)\s*(곳|동네|아파트)/,
   ]],
 
-  // change_budget
+  // change_budget — 반드시 "변경" 의미가 명시된 경우만
   [NLU_INTENTS.CHANGE_BUDGET, [
     /예산\s*(을\s*|이\s*)?(바꿔|올려|내려|줄여|늘려|변경)/,
     /\d+억\s*(으로|로)\s*(바꿔|변경|낮춰|높여)/,
-    /예산\s*\d+억/,
+    // "예산 N억" 단독은 recommend로 처리 → CHANGE_BUDGET에서 제거
+    // /예산\s*\d+억/,  ← 삭제: "예산 9억 판교 추천" 오인식 방지
   ]],
 
   // change_purpose
@@ -321,6 +326,9 @@ const PATTERNS = [
     /얼마\s*(짜리|정도|쯤)/,
     /시세\s*(파악|알고|보여|알려)/,
     /가격\s*(어때요|어떤가|알아봐)/,
+    /지금\s*(시세|가격)\s*(어때|어때요|어떤가|봐줘|봐)/,  // NLU-0062 수정
+    /가격\s*(어떻게|어때|좋아|괜찮)/,                    // NLU-0063 수정
+    /시세\s*(어때|어때요|어떻게\s*봐)/,
   ]],
 
   [NLU_INTENTS.GREETING, [
@@ -342,7 +350,26 @@ export function classifyUserIntent(text, entities = {}, state = {}) {
   const t     = (text || "").trim();
   const lower = t.toLowerCase().replace(/\s+/g, " ");
 
+  // 0. pendingSlot 우선 처리 — 직전 질문 컨텍스트가 패턴 매칭보다 우선
+  // P0 fix: "25평" 입력이 SMALLER_AREA 패턴에 걸리는 버그 방지
+  if (state.pendingSlot === "area") {
+    const pyeongM = t.match(/(\d+)\s*평/);
+    const sqmM    = t.match(/(\d+(?:\.\d+)?)\s*(?:㎡|m²|m2)/);
+    if (pyeongM || sqmM) {
+      return { intent: NLU_INTENTS.AREA_SELECT, confidence: 0.95 };
+    }
+  }
+  if (state.pendingSlot === "candidate" && /^\d+$/.test(t)) {
+    return { intent: NLU_INTENTS.CANDIDATE_SELECT, confidence: 0.95 };
+  }
+
   // 1. 패턴 매칭
+  // NLU-0060 fix: "전세가율/전세...추천" → jeonse_info 오분류 방지
+  // 추천 키워드가 명시된 경우 recommend_complex 우선
+  if (/추천/.test(lower) && /(전세가율|전세가|전세\s*수익)/.test(lower)) {
+    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.88 };
+  }
+
   for (const [intent, patterns] of PATTERNS) {
     for (const p of patterns) {
       if (p.test(lower)) {
