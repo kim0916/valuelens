@@ -368,6 +368,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           return;
         }
         addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+        // noPrice면 _forcedNoPrice 세팅 → ask_price 반복 방지
+        if (noPrice) convStateRef.current = { ...convStateRef.current, _forcedNoPrice: true };
         await runAnalysis(complex, { intent: purpose === "buy" ? "buy" : "fair", areaSqm, currentPrice: noPrice ? null : currentPrice });
         return;
       }
@@ -435,10 +437,16 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       }
 
       // ask_price: 매물가 질문 → 사용자 답변 대기
-      if (response.ui === "ask_price") {
+      // 단, 이미 "몰라요"로 넘어온 경우(currentPrice=null 명시)는 바로 분석
+      const forcedNoPrice = state._forcedNoPrice || false;
+      if (response.ui === "ask_price" && !forcedNoPrice) {
         convStateRef.current = { ...convStateRef.current, _pendingPrice: true, _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose };
         replaceLastAI({ role: "ai", type: "text", content: response.text });
         return;
+      }
+      // forcedNoPrice면 state 초기화 후 바로 분석으로
+      if (forcedNoPrice) {
+        convStateRef.current = { ...convStateRef.current, _forcedNoPrice: false };
       }
 
       // analyzing: 바로 분석
