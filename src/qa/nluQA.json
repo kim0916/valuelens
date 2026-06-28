@@ -1,0 +1,1481 @@
+{
+  "version": "1.0.0",
+  "description": "classifyUserIntent NLU 단위 테스트",
+  "totalCount": 100,
+  "categories": {
+    "complex_search": 20,
+    "region_input": 20,
+    "recommend": 20,
+    "analysis": 15,
+    "area_price": 15,
+    "followup": 10
+  },
+  "qa": [
+    {
+      "id": "NLU-0001",
+      "category": "complex_search",
+      "userInput": "동부아파트",
+      "entities": {
+        "complexQuery": "동부"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex",
+        "ask_purpose"
+      ],
+      "note": "단지명 단독"
+    },
+    {
+      "id": "NLU-0002",
+      "category": "complex_search",
+      "userInput": "공릉동 동부아파트",
+      "entities": {
+        "complexQuery": "동부",
+        "dong": "공릉동"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "동+단지명"
+    },
+    {
+      "id": "NLU-0003",
+      "category": "complex_search",
+      "userInput": "래미안대치팰리스",
+      "entities": {
+        "complexQuery": "래미안대치팰리스"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "고유단지명"
+    },
+    {
+      "id": "NLU-0004",
+      "category": "complex_search",
+      "userInput": "잠실리센츠",
+      "entities": {
+        "complexQuery": "리센츠"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "단지명"
+    },
+    {
+      "id": "NLU-0005",
+      "category": "complex_search",
+      "userInput": "은마아파트",
+      "entities": {
+        "complexQuery": "은마"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "단지명"
+    },
+    {
+      "id": "NLU-0006",
+      "category": "complex_search",
+      "userInput": "헬리오시티",
+      "entities": {
+        "complexQuery": "헬리오시티"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "단지명"
+    },
+    {
+      "id": "NLU-0007",
+      "category": "complex_search",
+      "userInput": "아크로리버파크",
+      "entities": {
+        "complexQuery": "아크로리버파크"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "단지명"
+    },
+    {
+      "id": "NLU-0008",
+      "category": "complex_search",
+      "userInput": "마포래미안푸르지오",
+      "entities": {
+        "complexQuery": "마포래미안"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "단지명"
+    },
+    {
+      "id": "NLU-0009",
+      "category": "complex_search",
+      "userInput": "잠실파크리오",
+      "entities": {
+        "complexQuery": "잠실파크리오"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "단지명"
+    },
+    {
+      "id": "NLU-0010",
+      "category": "complex_search",
+      "userInput": "동신아파트",
+      "entities": {
+        "complexQuery": "동신"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "단지명"
+    },
+    {
+      "id": "NLU-0011",
+      "category": "complex_search",
+      "userInput": "한보아파트",
+      "entities": {
+        "complexQuery": "한보"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "단지명"
+    },
+    {
+      "id": "NLU-0012",
+      "category": "complex_search",
+      "userInput": "올림픽선수촌아파트",
+      "entities": {
+        "complexQuery": "올림픽선수촌"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "단지명"
+    },
+    {
+      "id": "NLU-0013",
+      "category": "complex_search",
+      "userInput": "광교중흥에스클래스",
+      "entities": {
+        "complexQuery": "광교중흥에스클래스"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "단지명"
+    },
+    {
+      "id": "NLU-0014",
+      "category": "complex_search",
+      "userInput": "판교 봇들마을",
+      "entities": {
+        "complexQuery": "봇들마을"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "지역+단지명"
+    },
+    {
+      "id": "NLU-0015",
+      "category": "complex_search",
+      "userInput": "반포 아크로리버파크",
+      "entities": {
+        "complexQuery": "아크로리버파크",
+        "dong": "반포동"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "지역+단지명"
+    },
+    {
+      "id": "NLU-0016",
+      "category": "complex_search",
+      "userInput": "위례 중흥에스클래스",
+      "entities": {
+        "complexQuery": "중흥에스클래스"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "지역+단지명"
+    },
+    {
+      "id": "NLU-0017",
+      "category": "complex_search",
+      "userInput": "더샵센트럴파크",
+      "entities": {
+        "complexQuery": "더샵센트럴파크"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "단지명"
+    },
+    {
+      "id": "NLU-0018",
+      "category": "complex_search",
+      "userInput": "상계주공7단지",
+      "entities": {
+        "complexQuery": "상계주공7"
+      },
+      "state": {},
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "단지명+숫자"
+    },
+    {
+      "id": "NLU-0019",
+      "category": "complex_search",
+      "userInput": "이 아파트 어때?",
+      "entities": {
+        "complexQuery": null
+      },
+      "state": {
+        "currentComplex": {
+          "id": 1,
+          "complex_name": "동부"
+        }
+      },
+      "expectedIntent": "unknown",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "context 없을 때 unknown이 정상. context 있는 케이스로 분리"
+    },
+    {
+      "id": "NLU-0020",
+      "category": "complex_search",
+      "userInput": "거기 적정가 알려줘",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1
+        }
+      },
+      "expectedIntent": "price_analysis",
+      "mustNotBe": [
+        "recommend_complex",
+        "search_complex"
+      ],
+      "note": "context 활용"
+    },
+    {
+      "id": "NLU-0021",
+      "category": "region_input",
+      "userInput": "우동",
+      "entities": {
+        "dong": "우동"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex",
+        "search_complex"
+      ],
+      "note": "동이름, 대우동삼 금지"
+    },
+    {
+      "id": "NLU-0022",
+      "category": "region_input",
+      "userInput": "공릉동",
+      "entities": {
+        "dong": "공릉동"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "동이름"
+    },
+    {
+      "id": "NLU-0023",
+      "category": "region_input",
+      "userInput": "잠실동",
+      "entities": {
+        "dong": "잠실동"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "동이름"
+    },
+    {
+      "id": "NLU-0024",
+      "category": "region_input",
+      "userInput": "목동",
+      "entities": {
+        "dong": "목동"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "동이름"
+    },
+    {
+      "id": "NLU-0025",
+      "category": "region_input",
+      "userInput": "대치동",
+      "entities": {
+        "dong": "대치동"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "동이름"
+    },
+    {
+      "id": "NLU-0026",
+      "category": "region_input",
+      "userInput": "반포동",
+      "entities": {
+        "dong": "반포동"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "동이름"
+    },
+    {
+      "id": "NLU-0027",
+      "category": "region_input",
+      "userInput": "도곡동",
+      "entities": {
+        "dong": "도곡동"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "동이름"
+    },
+    {
+      "id": "NLU-0028",
+      "category": "region_input",
+      "userInput": "상계동",
+      "entities": {
+        "dong": "상계동"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "동이름"
+    },
+    {
+      "id": "NLU-0029",
+      "category": "region_input",
+      "userInput": "마포구",
+      "entities": {
+        "sigungu": "마포구"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "구이름"
+    },
+    {
+      "id": "NLU-0030",
+      "category": "region_input",
+      "userInput": "강남구",
+      "entities": {
+        "sigungu": "강남구"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "구이름"
+    },
+    {
+      "id": "NLU-0031",
+      "category": "region_input",
+      "userInput": "노원구",
+      "entities": {
+        "sigungu": "노원구"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "구이름"
+    },
+    {
+      "id": "NLU-0032",
+      "category": "region_input",
+      "userInput": "서초구",
+      "entities": {
+        "sigungu": "서초구"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "구이름"
+    },
+    {
+      "id": "NLU-0033",
+      "category": "region_input",
+      "userInput": "송도",
+      "entities": {
+        "regionArea": "송도"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "생활권"
+    },
+    {
+      "id": "NLU-0034",
+      "category": "region_input",
+      "userInput": "판교",
+      "entities": {
+        "regionArea": "판교"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "생활권"
+    },
+    {
+      "id": "NLU-0035",
+      "category": "region_input",
+      "userInput": "분당",
+      "entities": {
+        "regionArea": "분당"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "생활권"
+    },
+    {
+      "id": "NLU-0036",
+      "category": "region_input",
+      "userInput": "광교",
+      "entities": {
+        "regionArea": "광교"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "생활권"
+    },
+    {
+      "id": "NLU-0037",
+      "category": "region_input",
+      "userInput": "위례",
+      "entities": {
+        "regionArea": "위례"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "생활권"
+    },
+    {
+      "id": "NLU-0038",
+      "category": "region_input",
+      "userInput": "동탄",
+      "entities": {
+        "regionArea": "동탄"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "생활권"
+    },
+    {
+      "id": "NLU-0039",
+      "category": "region_input",
+      "userInput": "일산",
+      "entities": {
+        "regionArea": "일산"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "생활권"
+    },
+    {
+      "id": "NLU-0040",
+      "category": "region_input",
+      "userInput": "해운대",
+      "entities": {
+        "regionArea": "해운대"
+      },
+      "state": {},
+      "expectedIntent": "ask_purpose",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "생활권"
+    },
+    {
+      "id": "NLU-0041",
+      "category": "recommend",
+      "userInput": "송도 7억 추천해줘",
+      "entities": {
+        "budget": 70000,
+        "regionArea": "송도"
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex",
+        "ask_purpose"
+      ],
+      "note": "명시적 추천"
+    },
+    {
+      "id": "NLU-0042",
+      "category": "recommend",
+      "userInput": "송도 7억 30평 추천",
+      "entities": {
+        "budget": 70000,
+        "regionArea": "송도",
+        "areaSqm": 99
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "예산+평형"
+    },
+    {
+      "id": "NLU-0043",
+      "category": "recommend",
+      "userInput": "공릉동 7억으로 추천해줘",
+      "entities": {
+        "budget": 70000,
+        "dong": "공릉동"
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "동+예산 추천"
+    },
+    {
+      "id": "NLU-0044",
+      "category": "recommend",
+      "userInput": "8억 이하 아파트 추천",
+      "entities": {
+        "budget": 80000
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "예산 추천"
+    },
+    {
+      "id": "NLU-0045",
+      "category": "recommend",
+      "userInput": "강남 10억 추천",
+      "entities": {
+        "budget": 100000,
+        "sigungu": "강남구"
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "지역+예산"
+    },
+    {
+      "id": "NLU-0046",
+      "category": "recommend",
+      "userInput": "아이 키우기 좋은 아파트 추천해줘",
+      "entities": {
+        "family": "child"
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "가족 조건"
+    },
+    {
+      "id": "NLU-0047",
+      "category": "recommend",
+      "userInput": "역세권 아파트 추천해줘",
+      "entities": {
+        "areaSqm": null
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "조건 추천"
+    },
+    {
+      "id": "NLU-0048",
+      "category": "recommend",
+      "userInput": "6억으로 어디가 좋아?",
+      "entities": {
+        "budget": 60000
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "예산 구어체"
+    },
+    {
+      "id": "NLU-0049",
+      "category": "recommend",
+      "userInput": "예산 9억 판교 추천",
+      "entities": {
+        "budget": 90000,
+        "regionArea": "판교"
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "지역+예산"
+    },
+    {
+      "id": "NLU-0050",
+      "category": "recommend",
+      "userInput": "분당 25평 추천해줘",
+      "entities": {
+        "budget": null,
+        "regionArea": "분당",
+        "areaSqm": 82
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "지역+평형"
+    },
+    {
+      "id": "NLU-0051",
+      "category": "recommend",
+      "userInput": "신축 아파트 추천",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "조건 추천"
+    },
+    {
+      "id": "NLU-0052",
+      "category": "recommend",
+      "userInput": "학군 좋은 곳 추천",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "학군 추천"
+    },
+    {
+      "id": "NLU-0053",
+      "category": "recommend",
+      "userInput": "7억대 30평대 추천",
+      "entities": {
+        "budget": 70000,
+        "areaSqm": 99
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "예산+평형"
+    },
+    {
+      "id": "NLU-0054",
+      "category": "recommend",
+      "userInput": "마포구 8억 추천",
+      "entities": {
+        "budget": 80000,
+        "sigungu": "마포구"
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "지역+예산"
+    },
+    {
+      "id": "NLU-0055",
+      "category": "recommend",
+      "userInput": "5억 이하 인천 추천",
+      "entities": {
+        "budget": 50000
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "예산 추천"
+    },
+    {
+      "id": "NLU-0056",
+      "category": "recommend",
+      "userInput": "재건축 추천해줘",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "재건축 추천"
+    },
+    {
+      "id": "NLU-0057",
+      "category": "recommend",
+      "userInput": "갭투자 좋은 곳 골라줘",
+      "entities": {
+        "purpose": "invest"
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "투자 추천"
+    },
+    {
+      "id": "NLU-0058",
+      "category": "recommend",
+      "userInput": "실거주용 30평대 찾아줘",
+      "entities": {
+        "purpose": "live",
+        "areaSqm": 99
+      },
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "실거주 추천"
+    },
+    {
+      "id": "NLU-0059",
+      "category": "recommend",
+      "userInput": "대단지 역세권 추천",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "조건 추천"
+    },
+    {
+      "id": "NLU-0060",
+      "category": "recommend",
+      "userInput": "전세가율 높은 아파트 추천",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "조건 추천"
+    },
+    {
+      "id": "NLU-0061",
+      "category": "analysis",
+      "userInput": "적정가는?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1
+        }
+      },
+      "expectedIntent": "price_analysis",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "적정가 후속"
+    },
+    {
+      "id": "NLU-0062",
+      "category": "analysis",
+      "userInput": "지금 시세 어때?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1
+        }
+      },
+      "expectedIntent": "price_analysis",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "시세 질문"
+    },
+    {
+      "id": "NLU-0063",
+      "category": "analysis",
+      "userInput": "가격 어떻게 봐?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1
+        }
+      },
+      "expectedIntent": "price_analysis",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "가격 질문"
+    },
+    {
+      "id": "NLU-0064",
+      "category": "analysis",
+      "userInput": "매수 의견",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "buy_opinion",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "매수 질문"
+    },
+    {
+      "id": "NLU-0065",
+      "category": "analysis",
+      "userInput": "살까?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1
+        }
+      },
+      "expectedIntent": "buy_opinion",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "매수 구어체"
+    },
+    {
+      "id": "NLU-0066",
+      "category": "analysis",
+      "userInput": "사도 돼?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1
+        }
+      },
+      "expectedIntent": "buy_opinion",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "매수 구어체"
+    },
+    {
+      "id": "NLU-0067",
+      "category": "analysis",
+      "userInput": "지금 사도 될까?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1
+        }
+      },
+      "expectedIntent": "buy_opinion",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "매수 구어체"
+    },
+    {
+      "id": "NLU-0068",
+      "category": "analysis",
+      "userInput": "전세",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "jeonse_info",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "전세 단독"
+    },
+    {
+      "id": "NLU-0069",
+      "category": "analysis",
+      "userInput": "전세는?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1
+        }
+      },
+      "expectedIntent": "jeonse_info",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "전세 후속"
+    },
+    {
+      "id": "NLU-0070",
+      "category": "analysis",
+      "userInput": "전세가 얼마야?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1
+        }
+      },
+      "expectedIntent": "jeonse_info",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "전세 금액"
+    },
+    {
+      "id": "NLU-0071",
+      "category": "analysis",
+      "userInput": "전세가율 어때?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1
+        }
+      },
+      "expectedIntent": "jeonse_info",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "전세가율"
+    },
+    {
+      "id": "NLU-0072",
+      "category": "analysis",
+      "userInput": "계약 전에 체크할 거 있어?",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "contract_check",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "계약 체크"
+    },
+    {
+      "id": "NLU-0073",
+      "category": "analysis",
+      "userInput": "등기부 확인해야 해?",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "contract_check",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "등기부 언급"
+    },
+    {
+      "id": "NLU-0074",
+      "category": "analysis",
+      "userInput": "계약할 때 주의사항",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "contract_check",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "계약 주의"
+    },
+    {
+      "id": "NLU-0075",
+      "category": "analysis",
+      "userInput": "최근 거래 흐름은?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1
+        }
+      },
+      "expectedIntent": "recent_deals",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "최근 거래"
+    },
+    {
+      "id": "NLU-0076",
+      "category": "area_price",
+      "userInput": "32평",
+      "entities": {
+        "areaSqm": 105
+      },
+      "state": {
+        "pendingSlot": "area"
+      },
+      "expectedIntent": "area_select",
+      "mustNotBe": [
+        "recommend_complex",
+        "search_complex"
+      ],
+      "note": "평형, pendingSlot"
+    },
+    {
+      "id": "NLU-0077",
+      "category": "area_price",
+      "userInput": "25평",
+      "entities": {
+        "areaSqm": 82
+      },
+      "state": {
+        "pendingSlot": "area"
+      },
+      "expectedIntent": "area_select",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "평형, pendingSlot"
+    },
+    {
+      "id": "NLU-0078",
+      "category": "area_price",
+      "userInput": "84㎡",
+      "entities": {
+        "areaSqm": 84
+      },
+      "state": {
+        "pendingSlot": "area"
+      },
+      "expectedIntent": "area_select",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "㎡, pendingSlot"
+    },
+    {
+      "id": "NLU-0079",
+      "category": "area_price",
+      "userInput": "59㎡",
+      "entities": {
+        "areaSqm": 59
+      },
+      "state": {
+        "pendingSlot": "area"
+      },
+      "expectedIntent": "area_select",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "㎡, pendingSlot"
+    },
+    {
+      "id": "NLU-0080",
+      "category": "area_price",
+      "userInput": "34평",
+      "entities": {
+        "areaSqm": 112
+      },
+      "state": {
+        "pendingSlot": "area"
+      },
+      "expectedIntent": "area_select",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "평형, pendingSlot"
+    },
+    {
+      "id": "NLU-0081",
+      "category": "area_price",
+      "userInput": "8억",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "8억 단독: context 없으면 recommend 패턴 매치. EAT 레이어(_pendingPrice)에서 price_input 처리"
+    },
+    {
+      "id": "NLU-0082",
+      "category": "area_price",
+      "userInput": "7.5억",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "7.5억 단독: 동일. EAT 레이어에서 처리"
+    },
+    {
+      "id": "NLU-0083",
+      "category": "area_price",
+      "userInput": "8억 3천",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "unknown",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "8억 3천: NLU 패턴 없음, EAT 레이어에서 처리"
+    },
+    {
+      "id": "NLU-0084",
+      "category": "area_price",
+      "userInput": "85000",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "unknown",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "85000: NLU 패턴 없음, EAT 레이어에서 처리"
+    },
+    {
+      "id": "NLU-0085",
+      "category": "area_price",
+      "userInput": "12억",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "recommend_complex",
+      "mustNotBe": [
+        "search_complex"
+      ],
+      "note": "12억 단독: 동일. EAT 레이어에서 처리"
+    },
+    {
+      "id": "NLU-0086",
+      "category": "area_price",
+      "userInput": "몰라",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "unknown",
+      "mustNotBe": [
+        "recommend_complex",
+        "search_complex",
+        "price_analysis"
+      ],
+      "note": "가격 모름 → UNKNOWN(EAT 처리)"
+    },
+    {
+      "id": "NLU-0087",
+      "category": "area_price",
+      "userInput": "모름",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "unknown",
+      "mustNotBe": [
+        "recommend_complex",
+        "search_complex"
+      ],
+      "note": "가격 모름"
+    },
+    {
+      "id": "NLU-0088",
+      "category": "area_price",
+      "userInput": "상관없어",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "unknown",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "가격 모름"
+    },
+    {
+      "id": "NLU-0089",
+      "category": "area_price",
+      "userInput": "패스",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "unknown",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "가격 모름"
+    },
+    {
+      "id": "NLU-0090",
+      "category": "area_price",
+      "userInput": "실거래로",
+      "entities": {},
+      "state": {},
+      "expectedIntent": "recent_deals",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "실거래로: recent_deals 매치가 올바름"
+    },
+    {
+      "id": "NLU-0091",
+      "category": "followup",
+      "userInput": "다른 평형은?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1,
+          "complex_name": "동부아파트"
+        },
+        "currentArea": 82
+      },
+      "expectedIntent": "larger_area",
+      "mustNotBe": [
+        "recommend_complex",
+        "search_complex"
+      ],
+      "note": "다른 평형은?: larger_area가 NLU 레벨에서 더 정확"
+    },
+    {
+      "id": "NLU-0092",
+      "category": "followup",
+      "userInput": "35평으로 바꿔줘",
+      "entities": {
+        "areaSqm": 115
+      },
+      "state": {
+        "currentComplex": {
+          "id": 1,
+          "complex_name": "동부아파트"
+        },
+        "currentArea": 82
+      },
+      "expectedIntent": "change_area",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "평형 변경"
+    },
+    {
+      "id": "NLU-0093",
+      "category": "followup",
+      "userInput": "더 큰 평수는?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1,
+          "complex_name": "동부아파트"
+        },
+        "currentArea": 82
+      },
+      "expectedIntent": "larger_area",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "더 큰 평형"
+    },
+    {
+      "id": "NLU-0094",
+      "category": "followup",
+      "userInput": "더 작은 평수는?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1,
+          "complex_name": "동부아파트"
+        },
+        "currentArea": 82
+      },
+      "expectedIntent": "smaller_area",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "더 작은 평형"
+    },
+    {
+      "id": "NLU-0095",
+      "category": "followup",
+      "userInput": "동신아파트는?",
+      "entities": {
+        "complexQuery": "동신"
+      },
+      "state": {
+        "currentComplex": {
+          "id": 1,
+          "complex_name": "동부아파트"
+        },
+        "currentArea": 82
+      },
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex",
+        "ask_purpose"
+      ],
+      "note": "후속 단지검색"
+    },
+    {
+      "id": "NLU-0096",
+      "category": "followup",
+      "userInput": "한보아파트 어때?",
+      "entities": {
+        "complexQuery": "한보"
+      },
+      "state": {
+        "currentComplex": {
+          "id": 1,
+          "complex_name": "동부아파트"
+        },
+        "currentArea": 82
+      },
+      "expectedIntent": "search_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "후속 단지검색"
+    },
+    {
+      "id": "NLU-0097",
+      "category": "followup",
+      "userInput": "비슷한 단지 있어?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1,
+          "complex_name": "동부아파트"
+        },
+        "currentArea": 82
+      },
+      "expectedIntent": "similar_complex",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "비슷한 단지"
+    },
+    {
+      "id": "NLU-0098",
+      "category": "followup",
+      "userInput": "더 싼 데는?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1,
+          "complex_name": "동부아파트"
+        },
+        "currentArea": 82
+      },
+      "expectedIntent": "cheaper_option",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "더 싼 대안"
+    },
+    {
+      "id": "NLU-0099",
+      "category": "followup",
+      "userInput": "왜 이런 결과가 나와?",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1,
+          "complex_name": "동부아파트"
+        },
+        "currentArea": 82
+      },
+      "expectedIntent": "explain_reason",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "결과 이유"
+    },
+    {
+      "id": "NLU-0100",
+      "category": "followup",
+      "userInput": "다시 분석해줘",
+      "entities": {},
+      "state": {
+        "currentComplex": {
+          "id": 1,
+          "complex_name": "동부아파트"
+        },
+        "currentArea": 82
+      },
+      "expectedIntent": "reset",
+      "mustNotBe": [
+        "recommend_complex"
+      ],
+      "note": "재분석"
+    }
+  ]
+}
