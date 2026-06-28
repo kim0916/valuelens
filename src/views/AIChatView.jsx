@@ -760,7 +760,9 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           },
           intent,
           engine: res,
-          ff: { ...builtFf, saleDeals: sale, jeonseDeals: jeonse },
+          ff: { ...builtFf, saleDeals: sale, jeonseDeals: jeonse,
+            // ★ Quick Action "다른 평형은?" 용 — ResultChatBar까지 전달
+            areaOptions: rawData.areaOptions || [] },
         });
       }
 
