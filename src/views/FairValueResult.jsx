@@ -688,41 +688,18 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
   );
 }
 
-// ── 결과지 ResultChatBar — ConversationEngine mode:"result" 연결 ──
-// AI API 호출 없음. ConversationEngine이 intent를 처리.
-// ResultChatBar는 UI + 실행만 담당.
+// ── 결과지 하단 Quick Action 바 ──
+// ConversationEngine 연결 없음 — 독자 State Machine (안정 버전)
 function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSearch }) {
   const [text, setText] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [msgs, setMsgs] = React.useState([]);
+  // State Machine: null | 'await_area' | 'await_price'
+  const [step, setStep] = React.useState(null);
+  const [pendingAreas, setPendingAreas] = React.useState([]);
+  const [pendingArea, setPendingArea] = React.useState(null);
+  const [pendingComplex, setPendingComplex] = React.useState(null);
   const msgEndRef = React.useRef(null);
-
-  // ConversationEngine (mode: "result") — f가 바뀌면 context 재주입
-  const engineRef   = React.useRef(null);
-  const stateRef    = React.useRef(null);
-
-  React.useEffect(() => {
-    // f(분석 결과)가 바뀔 때마다 engine context 재세팅
-    const ctx = f ? {
-      complexName:   f.complexName   || '',
-      sigungu:       f.region        || '',
-      dong:          f.dong          || '',
-      complexId:     null,
-      areaSqm:       f.areaExclusive || 0,
-      currentPrice:  f.currentPrice  || 0,
-      areaOptions:   areaOptions     || f.areaOptions || [],
-      buildYear:     f.buildYear     || null,
-      purpose:       'fair',
-    } : null;
-
-    // dynamic import로 cycle 방지
-    import('../engine/ConversationEngine.js').then(({ createConversationEngine, createConversationState }) => {
-      // createConversationEngine이 없으면 기본값
-      if (typeof createConversationEngine !== 'function') return;
-      engineRef.current = createConversationEngine({ mode: 'result', context: ctx });
-      stateRef.current  = engineRef.current.getInitialState();
-    }).catch(() => {});
-  }, [f?.complexName, f?.areaExclusive]);
 
   React.useEffect(() => {
     msgEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -731,189 +708,12 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
   const addAI   = (t) => setMsgs(p => [...p, { role: 'ai',   text: t }]);
   const addUser = (t) => setMsgs(p => [...p, { role: 'user', text: t }]);
   const resetDialog = () => {
-    setMsgs([]);
-    // state도 초기화 (context는 유지)
-    if (engineRef.current) stateRef.current = engineRef.current.getInitialState();
+    setMsgs([]); setStep(null);
+    setPendingAreas([]); setPendingArea(null); setPendingComplex(null);
   };
 
-  // ── 분석 실행 ──
-  const execAnalysis = async (areaSqm, price, cxOverride) => {
-    addAI('잠시만 기다려주세요. 분석 결과로 이동합니다.');
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 400));
-    setLoading(false);
-    setMsgs([{ role: 'ai', text: '분석이 완료되었습니다. 추가로 궁금한 내용을 입력해 주세요.' }]);
-    if (onNewSearch) onNewSearch({ areaSqm, price: price || null, ...(cxOverride || {}) });
-  };
-
-  // ── ConversationEngine response → 실행 ──
-  const handleResponse = async (response, newState) => {
-    stateRef.current = newState;
-
-    const { ui, text: rText, complex: cx, areaSqm: aSqm, choices } = response || {};
-
-    // 목적 선택
-    if (ui === 'ask_purpose') {
-      addAI(rText?.replace(/\*\*/g, '') || `${cx?.complex_name || complex}로 무엇을 확인할까요?`);
-      // 선택지를 메시지에 포함 (버튼형 대신 텍스트 안내)
-      addAI(`"적정가", "매수 의견", "전세" 중 입력해 주세요.`);
-      return;
-    }
-
-    // 매도 우회
-    if (ui === 'sell_redirect') {
-      addAI(rText || '매도 분석은 현재 정확도 개선 중입니다.\n적정가를 먼저 확인해 보시겠어요?\n"적정가 보기" 또는 "최근 거래 보기" 를 입력하세요.');
-      return;
-    }
-
-    // 면적 선택 목록
-    if (ui === 'area_chips' || response.type === 'area_list') {
-      const groups = response.areaGroups || [];
-      const currentSqm = f?.areaExclusive || 0;
-      const others = groups.filter(g => Math.abs(g.anchor - currentSqm) > 3);
-      if (others.length === 0) {
-        addAI('현재 확인 가능한 다른 평형이 없습니다.');
-        return;
-      }
-      const names = others.map(g => `${g.pyeong}평`).join(', ');
-      addAI(others.length === 1
-        ? `${others[0].pyeong}평 말씀하시는 거죠?\n맞으면 "${others[0].pyeong}평" 또는 "응"을 입력해 주세요.`
-        : `${cx?.complex_name || complex}는 ${names}도 분석 가능합니다.\n어떤 평형이 궁금하세요?`
-      );
-      return;
-    }
-
-    // 분석 준비 완료 → 실행
-    if (response.type === 'ready_to_analyze') {
-      const complex_obj = newState.currentComplex;
-      const area        = newState.currentArea;
-      if (!complex_obj || !area) {
-        addAI('단지와 평형 정보가 필요합니다.');
-        return;
-      }
-      const cxOverride = (complex_obj.complex_name !== f?.complexName) ? {
-        complexName: complex_obj.complex_name,
-        sigungu:     complex_obj.sigungu || f?.region,
-        dong:        complex_obj.legal_dong || f?.dong,
-        areaOptions: complex_obj._areaList?.map(a => ({
-          areaSqm: a,
-          pyeong: Math.floor((a * 1.35) / 3.305785)
-        })),
-      } : null;
-
-      if (response.ui === 'ask_price') {
-        // 매물가 질문 → 대화로 받기 (stateRef에 pending 세팅)
-        stateRef.current = { ...newState, _pendingPrice: true, _pendingArea: area };
-        addAI(rText?.replace(/\*\*/g, '') || `현재 매물가를 알고 계시나요?\n모르시면 "몰라"라고 입력해 주세요.`);
-        return;
-      }
-
-      // analyzing → 바로 분석
-      await execAnalysis(area, newState._pendingPriceValue || null, cxOverride);
-      return;
-    }
-
-    // 후보 목록
-    if (response.type === 'candidates_list') {
-      const cands = response.candidates || [];
-      const names = cands.slice(0, 5).map((c, i) => `${i+1}. ${c.complex_name}`).join('\n');
-      addAI(`${names}\n\n번호 또는 단지명을 입력해 주세요.`);
-      return;
-    }
-
-    // 전세 준비 중
-    if (ui === 'analyzing' && response.purpose === 'jeonse') {
-      addAI('전세 분석은 준비 중입니다. 곧 제공될 예정입니다.');
-      return;
-    }
-
-    // 매수 분석
-    if (ui === 'analyzing' && response.purpose === 'buy') {
-      if (onBuyAnalysis) {
-        addAI('매수 분석으로 이동합니다.');
-        setLoading(true);
-        await new Promise(r => setTimeout(r, 500));
-        setLoading(false);
-        onBuyAnalysis();
-      } else {
-        addAI('아직 준비 중인 기능입니다.');
-      }
-      return;
-    }
-
-    // 그 외: 텍스트 그대로
-    if (rText) addAI(rText.replace(/\*\*/g, ''));
-    else addAI('죄송해요, 다시 말씀해 주세요.\n"다른 평형은?", "매수 의견은?", "최근 거래는?" 등으로 질문해 주세요.');
-  };
-
-  // ── 메인 입력 핸들러 ──
-  const handleSend = async (raw) => {
-    const t = (raw !== undefined ? raw : text).trim();
-    if (!t || loading) return;
-    setText('');
-
-    // _pendingPrice 상태 처리 (ConversationEngine 외부에서 직접 처리)
-    if (stateRef.current?._pendingPrice) {
-      addUser(t);
-      const price = parseResultPrice(t);
-      const noPrice = /^(몰라|모름|모르겠|잘\s*모르|평균|실거래|기준으로|상관없|패스|skip)/i.test(t);
-      if (!price && !noPrice) {
-        addAI('금액을 다시 입력해 주세요. 예: 8억, 8.5억, 85000');
-        return;
-      }
-      const savedArea = stateRef.current._pendingArea;
-      stateRef.current = { ...stateRef.current, _pendingPrice: false, _pendingArea: null, _pendingPriceValue: null };
-      const priceLabel = noPrice ? '최근 실거래 평균' : `${(price/10000).toFixed(1)}억`;
-      addAI(`입력하신 가격 ${priceLabel} 기준으로 분석합니다.`);
-      const cxOverride = stateRef.current.currentComplex?.complex_name !== f?.complexName ? {
-        complexName: stateRef.current.currentComplex?.complex_name,
-        sigungu:     stateRef.current.currentComplex?.sigungu,
-        dong:        stateRef.current.currentComplex?.legal_dong,
-      } : null;
-      await execAnalysis(savedArea, noPrice ? null : price, cxOverride);
-      return;
-    }
-
-    addUser(t);
-
-    // Quick Action 직접 처리 (ConversationEngine 우회 불필요한 것들)
-    if (/^(최근 거래|거래 흐름|실거래)/.test(t)) {
-      addAI('거래 흐름으로 이동합니다.');
-      setLoading(true);
-      await new Promise(r => setTimeout(r, 400));
-      setLoading(false);
-      const el = document.getElementById('deal-list-section');
-      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); setMsgs([]); }
-      else addAI('아직 준비 중인 기능입니다.');
-      return;
-    }
-
-    if (/^(적정가 보기|최근 거래 보기)$/.test(t)) {
-      const area = stateRef.current?.currentArea || f?.areaExclusive;
-      if (!area) { addAI('단지와 평형을 먼저 선택해 주세요.'); return; }
-      await execAnalysis(area, null, null);
-      return;
-    }
-
-    // ConversationEngine으로 위임
-    if (!engineRef.current) {
-      addAI('잠시 후 다시 시도해 주세요.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const { state: newState, response } = await engineRef.current.process(t, stateRef.current);
-      await handleResponse(response, newState);
-    } catch(e) {
-      console.error('[ResultChatBar]', e);
-      addAI('오류가 발생했습니다. 다시 시도해 주세요.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 가격 파싱 (await_price 전용 — ConversationEngine 외부에서 직접 처리)
-  const parseResultPrice = (t) => {
+  // 가격 파싱 (await_price 전용)
+  const parsePrice = (t) => {
     t = t.replace(/[,\s]/g, '');
     const m1 = t.match(/^(\d+(?:\.\d+)?)억(\d+)(?:천|만)?$/);
     if (m1) { const uk=parseFloat(m1[1])*10000; const r=parseInt(m1[2]); return Math.round(uk+(r<=999?r*1000:r)); }
@@ -925,9 +725,161 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
     if (m4) return Math.round(parseFloat(m4[1])*10000);
     return null;
   };
+  const isNoPrice = (t) => /^(몰라|모름|모르겠|잘\s*모르|평균|실거래|기준으로|상관없|패스|skip)/i.test(t.trim());
+  const sqmToPyeong = (sqm) => Math.floor((Number(sqm)*1.35)/3.305785);
+
+  // 단지 검색
+  const searchComplex = async (complexName, sigunguHint, dongHint) => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/supabase', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'search', name: complexName, sigungu: sigunguHint || '', dong: dongHint || '', limit: 5 }),
+      });
+      const data = await res.json();
+      const hits = data.complexes || [];
+      if (hits.length === 0) {
+        addAI(`"${complexName}"을(를) 찾지 못했습니다. 단지명을 다시 확인해 주세요.`);
+        setLoading(false); return;
+      }
+      const hit = hits[0];
+      const rawAreas = hit.area_list ? (typeof hit.area_list === 'string' ? JSON.parse(hit.area_list) : hit.area_list) : [];
+      const aGroups = rawAreas.map(a => ({ areaSqm: Number(a), pyeong: sqmToPyeong(Number(a)) })).filter(a => a.areaSqm > 0);
+      const cxOverride = { complexName: hit.complex_name, sigungu: hit.sigungu, dong: hit.legal_dong || dongHint || '', complexId: hit.id, areaOptions: aGroups };
+
+      if (aGroups.length === 0) {
+        addAI(`${hit.complex_name}의 평형 정보를 불러오지 못했습니다. 다시 시도해 주세요.`);
+        setLoading(false); return;
+      }
+      if (aGroups.length === 1) {
+        setPendingArea(aGroups[0]); setPendingComplex(cxOverride); setStep('await_price');
+        addAI(`${hit.complex_name} ${aGroups[0].pyeong}평이군요.\n현재 매물가를 알고 계시나요?\n모르시면 최근 실거래 평균 기준으로 분석해드립니다.`);
+      } else {
+        const names = aGroups.map(a => `${a.pyeong}평`).join(', ');
+        setPendingAreas(aGroups); setPendingComplex(cxOverride); setStep('await_area');
+        addAI(`${hit.complex_name}는 ${names} 분석 가능합니다.\n어떤 평형이 궁금하세요?`);
+      }
+    } catch(e) {
+      addAI('단지 검색 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    }
+    setLoading(false);
+  };
+
+  // 분석 실행
+  const runAnalysis = async (areaSqm, price, cxOverride) => {
+    addAI('잠시만 기다려주세요. 분석 결과로 이동합니다.');
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 400));
+    setLoading(false);
+    resetDialog();
+    if (onNewSearch) onNewSearch({ areaSqm, price: price || null, ...(cxOverride || {}) });
+  };
+
+  const handleSend = async (raw) => {
+    const t = (raw !== undefined ? raw : text).trim();
+    if (!t || loading) return;
+    setText('');
+
+    // await_price
+    if (step === 'await_price') {
+      addUser(t);
+      const price = parsePrice(t);
+      const noPrice = isNoPrice(t);
+      console.log('[ResultChatBar await_price]', { rawInput: t, parsedPrice: price, noPrice, pendingArea, pendingComplex });
+      if (!price && !noPrice) { addAI('금액을 다시 입력해 주세요. 예: 8억, 8.5억, 85000'); return; }
+      const savedArea = pendingArea; const savedCx = pendingComplex;
+      const priceLabel = noPrice ? '최근 실거래 평균' : `${(price/10000).toFixed(1)}억`;
+      addAI(`입력하신 가격 ${priceLabel} 기준으로 분석합니다.`);
+      setStep(null); setPendingArea(null); setPendingComplex(null);
+      await runAnalysis(savedArea.areaSqm, noPrice ? null : price, savedCx);
+      return;
+    }
+
+    // await_area
+    if (step === 'await_area') {
+      addUser(t);
+      const num = parseInt(t.replace(/[^0-9]/g, ''));
+      const chosen = num ? pendingAreas.find(a => a.pyeong === num) : null;
+      const isConfirm = /^(응|ㅇ|맞|예|네|ok|ㅇㅋ)/i.test(t);
+      const resolved = chosen || (isConfirm && pendingAreas.length === 1 ? pendingAreas[0] : null);
+      if (!resolved) { addAI(`${pendingAreas.map(a=>`${a.pyeong}평`).join(', ')} 중 하나를 입력해 주세요.`); return; }
+      setPendingArea(resolved); setStep('await_price');
+      addAI(`${pendingComplex?.complexName || complex} ${resolved.pyeong}평이군요.\n현재 매물가를 알고 계시나요?\n모르시면 최근 실거래 평균 기준으로 분석해드립니다.`);
+      return;
+    }
+
+    // 기본 단계
+    addUser(t);
+
+    if (/매수|살까|살만|사도|투자/.test(t)) {
+      if (onBuyAnalysis) {
+        addAI('매수 분석으로 이동합니다.');
+        setLoading(true); await new Promise(r=>setTimeout(r,500)); setLoading(false);
+        onBuyAnalysis();
+      } else { addAI('아직 준비 중인 기능입니다. 곧 제공될 예정입니다.'); }
+      return;
+    }
+
+    if (/최근 거래|거래 흐름|실거래/.test(t)) {
+      addAI('거래 흐름으로 이동합니다.');
+      setLoading(true); await new Promise(r=>setTimeout(r,400)); setLoading(false);
+      const el = document.getElementById('deal-list-section');
+      if (el) { el.scrollIntoView({ behavior:'smooth', block:'start' }); setMsgs([]); }
+      else { addAI('아직 준비 중인 기능입니다. 곧 제공될 예정입니다.'); }
+      return;
+    }
+
+    if (/전세/.test(t)) { addAI('아직 준비 중인 기능입니다. 곧 제공될 예정입니다.'); return; }
+
+    if (/팔|매도|처분/.test(t)) {
+      addAI('매도 분석은 현재 정확도 개선 중입니다.\n\n지금은 적정가·최근 거래 흐름·가격 위치를 기준으로 참고 정보를 제공해 드립니다.\n\n먼저 적정가를 확인해 보시겠어요?\n"적정가 보기" 또는 "최근 거래 보기"를 입력해 주세요.');
+      return;
+    }
+
+    if (/^(적정가 보기|최근 거래 보기)$/.test(t)) {
+      const area = f?.areaExclusive;
+      if (!area) { addAI('평형 정보가 없습니다.'); return; }
+      await runAnalysis(area, null, null);
+      return;
+    }
+
+    if (/다른\s*평형|평형\s*바꿔|다른\s*평수/.test(t)) {
+      const currentSqm = f?.areaExclusive || 0;
+      const rawOpts = areaOptions || f?.areaOptions || f?._aiAreaOptions;
+      if (!rawOpts) { addAI('평형 정보를 불러오지 못했습니다. 다시 시도해 주세요.'); return; }
+      const others = rawOpts.filter(a => Math.abs(Number(a.areaSqm) - currentSqm) > 3);
+      if (others.length === 0) { addAI('현재 확인 가능한 다른 평형이 없습니다.'); return; }
+      const names = others.map(a => `${a.pyeong}평`).join(', ');
+      setPendingAreas(others); setPendingComplex(null); setStep('await_area');
+      if (others.length === 1) {
+        addAI(`${others[0].pyeong}평 말씀하시는 거죠?\n맞으면 "응" 또는 "${others[0].pyeong}평"이라고 입력해 주세요.`);
+      } else {
+        addAI(`${f?.complexName || complex}는 ${names}도 분석 가능합니다.\n어떤 평형이 궁금하세요?`);
+      }
+      return;
+    }
+
+    // 단지명 검색 패턴
+    const complexMatch = t.match(/^([가-힣A-Za-z0-9\s·]{2,15}(?:아파트|APT|apt)?)(?:는|은|도|의)?\??$/);
+    if (complexMatch) {
+      const query = complexMatch[1].trim();
+      const regionMatch = t.match(/([가-힣]{2,4}(?:동|구|시))\s+(.+)/);
+      const sigunguHint = regionMatch ? regionMatch[1] : (f?.region || '');
+      const dongHint    = regionMatch ? null : (f?.dong || '');
+      const complexQuery = regionMatch ? regionMatch[2].replace(/[은는이가을를]?\??$/, '').trim() : query;
+      addAI(`${complexQuery} 검색합니다...`);
+      await searchComplex(complexQuery, sigunguHint, dongHint);
+      return;
+    }
+
+    // fallback
+    addAI('죄송해요, 이해하지 못했습니다.\n"다른 평형은?", "매수 의견은?", "최근 거래는?" 등으로 질문해 주세요.');
+  };
 
   const chips = ['매수 의견은?', '다른 평형은?', '최근 거래 흐름은?', '전세는?'];
-  const isPriceWaiting = stateRef.current?._pendingPrice;
+  const placeholder = step === 'await_price' ? '매물가 입력 (예: 8억, 모름)'
+    : step === 'await_area' ? `평형 입력 (예: ${pendingAreas.map(a=>a.pyeong+'평').join(', ')})`
+    : `${complex || '이 아파트'}에 대해 더 궁금한 점은?`;
 
   return (
     <div style={{
@@ -938,7 +890,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
       padding: '12px 14px', zIndex: 20,
     }}>
       {/* 칩 — 대화 중엔 숨김 */}
-      {msgs.length === 0 && !isPriceWaiting && (
+      {msgs.length === 0 && !step && (
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
           {chips.map((c, i) => (
             <button key={i} onClick={() => handleSend(c)} disabled={loading}
@@ -973,7 +925,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
               padding: '10px 14px', background: '#f1f5f9', borderRadius: '16px 16px 16px 4px' }}>
               {[0,1,2].map(j => (
                 <div key={j} style={{ width:5, height:5, borderRadius:'50%', background:'#94a3b8',
-                  animation: `bounce 1s ${j*0.15}s infinite` }}/>
+                  animation:`bounce 1s ${j*0.15}s infinite` }}/>
               ))}
             </div>
           )}
@@ -995,8 +947,8 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) handleSend(); }}
-          placeholder={isPriceWaiting ? '매물가 입력 (예: 8억, 모름)' : `${complex || '이 아파트'}에 대해 더 궁금한 점은?`}
-          style={{ flex: 1, border: `1px solid ${isPriceWaiting ? '#5b52e0' : '#e2e8f0'}`,
+          placeholder={placeholder}
+          style={{ flex: 1, border: `1px solid ${step ? '#5b52e0' : '#e2e8f0'}`,
             borderRadius: 22, padding: '9px 14px', fontSize: 13, outline: 'none',
             background: '#f8fafc', color: '#1e293b' }}
         />
@@ -1012,7 +964,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
             <polygon points="22 2 15 22 11 13 2 9 22 2"/>
           </svg>
         </button>
-        {msgs.length > 0 && (
+        {(step || msgs.length > 0) && (
           <button onClick={resetDialog}
             style={{ fontSize: 11, padding: '4px 8px', borderRadius: 10,
               border: '1px solid #e2e8f0', background: '#f8fafc',
