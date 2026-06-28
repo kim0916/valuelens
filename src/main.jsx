@@ -1311,6 +1311,9 @@ function AppInner() {
   const [agentInitial, setAgentInitial] = useState(null);
   const [agentResultData, setAgentResultData] = useState(null); // 자세히 보기용
   const [chatResultData, setChatResultData] = useState(null); // 채팅 결과 화면용
+  // Step2: stale closure 방지용 ref — onNewSearch/onAskMore 핸들러에서 항상 최신 값 참조
+  const chatResultDataRef = React.useRef(null);
+  React.useEffect(() => { chatResultDataRef.current = chatResultData; }, [chatResultData]);
   const [screenerInitial, setScreenerInitial] = useState(null);
   const photoTriggerRef = React.useRef(null);
   const [roomTab, setRoomTab] = useState("search");
@@ -1452,8 +1455,9 @@ function AppInner() {
                   onBack={() => { setAptTab("ai"); setChatResultData(null); }}
                   onNewSearch={async (opts) => {
                     // opts: { areaSqm, price?, complexName?, sigungu?, dong?, areaOptions? }
-                    if (opts?.areaSqm && chatResultData) {
-                      const d = chatResultData;
+                    // Step2: ref로 항상 최신 chatResultData 참조 (stale closure 방지)
+                    const d = chatResultDataRef.current;
+                    if (opts?.areaSqm && d) {
                       const isNewComplex = !!(opts.complexName && opts.complexName !== d.complex.name);
                       const complexObj = {
                         complex_name: isNewComplex ? opts.complexName : d.complex.name,
@@ -1485,7 +1489,8 @@ function AppInner() {
                   complexInfo={chatResultData.complex}
                   areaOptions={chatResultData.ff?.areaOptions || []}
                   onAskMore={async (text) => {
-                    const d = chatResultData;
+                    // Step2: ref로 항상 최신 chatResultData 참조
+                    const d = chatResultDataRef.current;
                     if (!d || typeof text !== "string") return;
                     const complexObj = {
                       complex_name: d.complex.name,
@@ -1556,8 +1561,8 @@ function AppInner() {
                   }}
 
                   onPriceUpdate={(newPrice) => {
-                    // 매물가 수정 → 재계산
-                    const d = chatResultData;
+                    // 매물가 수정 → 재계산 (Step2: ref 사용)
+                    const d = chatResultDataRef.current;
                     if (!d) return;
                     import('./engine/analyze.js').then(({ analyze }) => {
                       const newFf = { ...d.ff, currentPrice: newPrice, _userInputPrice: true };
@@ -1570,8 +1575,8 @@ function AppInner() {
                     });
                   }}
                   onBuyAnalysis={async () => {
-                    // 매수 분석 → 결과지 안에서 처리 (채팅창 이동 없음)
-                    const d = chatResultData;
+                    // 매수 분석 → 결과지 안에서 처리 (Step2: ref 사용)
+                    const d = chatResultDataRef.current;
                     if (!d) return;
                     const complexObj = {
                       complex_name: d.complex.name,
