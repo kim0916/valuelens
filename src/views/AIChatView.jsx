@@ -426,7 +426,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
       // ask_price: 매물가 질문 → 사용자 답변 대기
       if (response.ui === "ask_price") {
-        convStateRef.current = { ...s, _pendingPrice: true, _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose };
+        convStateRef.current = { ...convStateRef.current, _pendingPrice: true, _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose };
         replaceLastAI({ role: "ai", type: "text", content: response.text });
         return;
       }
