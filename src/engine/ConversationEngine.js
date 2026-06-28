@@ -108,11 +108,20 @@ async function process(input, state = createConversationState()) {
   const { intent, extracted, confidence } = bridgeNLUToLegacy(nlu, text, s);
 
   // 다른평형 요청 → 평형 목록 보여주기
-  if ((intent === "larger_area" || intent === "smaller_area") && s.currentComplex) {
-    const areaGroups = getAreaGroups(s);
-    if (areaGroups.length > 0) {
-      const response = responseAreaList(s.currentComplex, areaGroups, null);
-      return { state: s, response };
+  if ((intent === "larger_area" || intent === "smaller_area")) {
+    if (s.currentComplex) {
+      const areaGroups = getAreaGroups(s);
+      if (areaGroups.length > 0) {
+        const response = responseAreaList(s.currentComplex, areaGroups, null);
+        return { state: s, response };
+      }
+    } else {
+      // 단지 컨텍스트 없음 → 단지 먼저 물어보기
+      return { state: s, response: {
+        type: RESPONSE_TYPES.NEED_MORE_INFO,
+        text: "어떤 아파트의 다른 평형이 궁금하세요?",
+        ui: "message",
+      }};
     }
   }
 
