@@ -1450,8 +1450,31 @@ function AppInner() {
                   r={chatResultData.engine}
                   f={chatResultData.ff}
                   onBack={() => { setAptTab("ai"); setChatResultData(null); }}
-                  onNewSearch={() => { setAptTab("ai"); setChatResultData(null); }}
+                  onNewSearch={async (opts) => {
+                    // opts: { areaSqm } — 다른 평형 선택 시 재분석
+                    if (opts?.areaSqm && chatResultData) {
+                      const d = chatResultData;
+                      const complexObj = {
+                        complex_name: d.complex.name,
+                        sigungu: d.complex.sigungu,
+                        legal_dong: d.complex.dong,
+                        build_year: d.complex.buildYear,
+                        area_list: d.ff.areaOptions?.map(a => a.areaSqm) || [opts.areaSqm],
+                        id: null,
+                      };
+                      const result = await runAnalysisService(complexObj, opts.areaSqm, null, false);
+                      if (result) {
+                        setChatResultData({ ...d,
+                          engine: result.engine,
+                          ff: { ...result.ff, areaOptions: d.ff.areaOptions },
+                        });
+                      }
+                    } else {
+                      setAptTab("ai"); setChatResultData(null);
+                    }
+                  }}
                   complexInfo={chatResultData.complex}
+                  areaOptions={chatResultData.ff?.areaOptions || []}
                   onAskMore={async (text) => {
                     const d = chatResultData;
                     if (!d || typeof text !== "string") return;
