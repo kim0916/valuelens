@@ -689,114 +689,164 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
 }
 
 // ── 결과지 하단 Quick Action 바 ──
-// AI API 호출 없음 — 페이지 이동 / 스크롤 / 준비중 메시지만
+// AI API 호출 없음. 자연어 대화 방식으로 평형 선택 및 분석 연결.
 function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSearch }) {
   const [text, setText] = React.useState("");
-  const [statusMsg, setStatusMsg] = React.useState(null); // { type: 'nav'|'wip'|'area', text, areaChoices }
   const [loading, setLoading] = React.useState(false);
+  // 대화 히스토리: [{ role: 'ai'|'user', text }]
+  const [messages, setMessages] = React.useState([]);
+  // 현재 대화 단계: null | 'await_area' | 'await_price'
+  const [step, setStep] = React.useState(null);
+  // await_area 단계에서 후보 평형 보관
+  const [pendingAreas, setPendingAreas] = React.useState([]);
+  // await_price 단계에서 선택된 평형 보관
+  const [pendingArea, setPendingArea] = React.useState(null);
 
-  // 상태 메시지 자동 초기화 (5초)
-  React.useEffect(() => {
-    if (!statusMsg) return;
-    if (statusMsg.type === 'area') return; // 면적 선택 메시지는 수동 닫기
-    const t = setTimeout(() => setStatusMsg(null), 5000);
-    return () => clearTimeout(t);
-  }, [statusMsg]);
+  const addMsg = (role, text) =>
+    setMessages(prev => [...prev, { role, text }]);
 
-  // ── 칩 클릭 핸들러 ──
-  const handleChip = async (chip) => {
-    if (chip === "매수 의견은?") {
+  // ── 가격 파싱 (parsePriceInput 인라인 축소판) ──
+  const parsePrice = (t) => {
+    t = t.replace(/\s/g, '');
+    // 억+만 복합: 5억3천, 5억3000
+    const m1 = t.match(/^(\d+(?:\.\d+)?)억(\d+)(?:천|만)?$/);
+    if (m1) {
+      const uk = parseFloat(m1[1]) * 10000;
+      const rest = parseInt(m1[2]);
+      // 뒤숫자가 3자리 이하면 천단위, 4자리면 만단위
+      return Math.round(uk + (rest <= 999 ? rest * 1000 : rest));
+    }
+    // 순수 억: 5억, 5.3억
+    const m2 = t.match(/^(\d+(?:\.\d+)?)억$/);
+    if (m2) return Math.round(parseFloat(m2[1]) * 10000);
+    // 만원 직접: 53000
+    const m3 = t.match(/^(\d{4,})$/);
+    if (m3) return parseInt(m3[1]);
+    return null;
+  };
+
+  // ── 평형 파싱: "35평", "35", "35평 보기" ──
+  const parsePyeong = (t, candidates) => {
+    const num = parseInt(t.replace(/[^0-9]/g, ''));
+    if (!num) return null;
+    return candidates.find(a => a.pyeong === num) || null;
+  };
+
+  // ── 모름 패턴 ──
+  const isNoPrice = (t) =>
+    /^(몰라|모름|모르겠|잘 ?모르|평균|실거래|기준으로|상관없|패스|skip)/.test(t.trim());
+
+  // ── 칩/입력 통합 핸들러 ──
+  const handleSend = async (raw) => {
+    const t = (raw ?? text).trim();
+    if (!t) return;
+    setText("");
+
+    // ── await_price 단계: 평형 확정 후 가격 입력 대기 ──
+    if (step === 'await_price') {
+      addMsg('user', t);
+      const price = parsePrice(t);
+      const noPrice = isNoPrice(t);
+      if (!price && !noPrice) {
+        addMsg('ai', '금액을 인식하지 못했어요. "5억" 또는 "모름" 형식으로 입력해 주세요.');
+        return;
+      }
+      setStep(null);
+      setPendingArea(null);
+      addMsg('ai', '잠시만 기다려주세요. 분석 결과로 이동합니다.');
+      setLoading(true);
+      await new Promise(r => setTimeout(r, 500));
+      setLoading(false);
+      if (onNewSearch) onNewSearch({ areaSqm: pendingArea.areaSqm, price: noPrice ? null : price });
+      return;
+    }
+
+    // ── await_area 단계: 평형 선택 대기 ──
+    if (step === 'await_area') {
+      addMsg('user', t);
+      const chosen = parsePyeong(t, pendingAreas);
+      if (!chosen) {
+        const names = pendingAreas.map(a => `${a.pyeong}평`).join(', ');
+        addMsg('ai', `${names} 중 하나를 입력해 주세요.`);
+        return;
+      }
+      setStep('await_price');
+      setPendingArea(chosen);
+      addMsg('ai', `${chosen.pyeong}평이군요.\n현재 매물가를 알고 계시나요?\n모르시면 최근 실거래 평균 기준으로 분석해 드려요.`);
+      return;
+    }
+
+    // ── 기본 단계: 칩 또는 자유 입력 ──
+    addMsg('user', t);
+
+    if (/매수|살까|살만|사도|투자/.test(t)) {
       if (onBuyAnalysis) {
-        setStatusMsg({ type: 'nav', text: '잠시만 기다려주세요. 매수 분석으로 이동합니다.' });
+        addMsg('ai', '잠시만 기다려주세요. 매수 분석으로 이동합니다.');
         setLoading(true);
         await new Promise(r => setTimeout(r, 600));
         setLoading(false);
         onBuyAnalysis();
       } else {
-        setStatusMsg({ type: 'wip', text: '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.' });
+        addMsg('ai', '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.');
       }
       return;
     }
 
-    if (chip === "최근 거래 흐름은?") {
-      setStatusMsg({ type: 'nav', text: '잠시만 기다려주세요. 거래 흐름으로 이동합니다.' });
+    if (/최근 거래|거래 흐름|실거래/.test(t)) {
+      addMsg('ai', '잠시만 기다려주세요. 거래 흐름으로 이동합니다.');
       setLoading(true);
       await new Promise(r => setTimeout(r, 500));
       setLoading(false);
-      // 거래 목록 영역으로 스크롤
       const el = document.getElementById('deal-list-section');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        setStatusMsg(null);
-      } else {
-        setStatusMsg({ type: 'wip', text: '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.' });
-      }
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      else { addMsg('ai', '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.'); }
       return;
     }
 
-    if (chip === "다른 평형은?") {
+    if (/다른 ?평형|평형|평수/.test(t)) {
       const currentSqm = f?.areaExclusive || 0;
       const complexName = f?.complexName || "이 단지";
-
-      // ★ 디버그 로그 (임시)
-      console.log("[QuickAction 다른평형]", {
-        complex_name: complexName,
-        currentArea: currentSqm,
-        areaOptions,
-        areaOptions_length: areaOptions?.length,
-        f_areaOptions: f?.areaOptions,
-      });
-
-      // 조회 실패 판단: null/undefined/빈배열인데 f에도 없으면 → 조회 실패
-      const rawOpts = areaOptions || f?.areaOptions || f?._aiAreaOptions || null;
-
+      const rawOpts = areaOptions || f?.areaOptions || f?._aiAreaOptions;
       if (!rawOpts) {
-        // null/undefined — 데이터 자체가 안 온 것
-        setStatusMsg({ type: 'wip', text: '평형 정보를 불러오지 못했습니다.\n다시 시도해 주세요.' });
+        addMsg('ai', '평형 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
         return;
       }
-
-      // 조회 성공 (빈배열 포함) → 현재 평형 제외
       const others = rawOpts.filter(a => Math.abs(Number(a.areaSqm) - currentSqm) > 3);
-
-      if (rawOpts.length === 0 || others.length === 0) {
-        // 조회는 됐는데 실제로 다른 평형 없음
-        setStatusMsg({ type: 'area', text: '현재 확인 가능한 다른 평형이 없습니다.', areaChoices: [] });
+      if (others.length === 0) {
+        addMsg('ai', '현재 확인 가능한 다른 평형이 없습니다.');
         return;
       }
-
       const names = others.map(a => `${a.pyeong}평`).join(', ');
+      setPendingAreas(others);
+      setStep('await_area');
       if (others.length === 1) {
-        setStatusMsg({ type: 'area', text: `${others[0].pyeong}평 말씀하시는 거죠?`, areaChoices: others });
+        addMsg('ai', `${others[0].pyeong}평 말씀하시는 거죠?\n맞으면 "응" 또는 "${others[0].pyeong}평"이라고 입력해 주세요.`);
       } else {
-        setStatusMsg({ type: 'area', text: `${complexName}는 ${names}도 분석할 수 있습니다.\n어떤 평형이 궁금하세요?`, areaChoices: others });
+        addMsg('ai', `${complexName}는 ${names}도 분석할 수 있습니다.\n어떤 평형이 궁금하세요?`);
       }
       return;
     }
 
-    if (chip === "전세는?") {
-      setStatusMsg({ type: 'wip', text: '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.' });
+    if (/전세/.test(t)) {
+      addMsg('ai', '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.');
       return;
     }
 
-    // 직접 입력 → onSend로 전달
+    // 그 외 → onSend (기존 핸들러)
     if (onSend) {
       setLoading(true);
-      try { await onSend(chip); } finally { setLoading(false); }
+      try { await onSend(t); } finally { setLoading(false); }
+    } else {
+      addMsg('ai', '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.');
     }
-  };
-
-  // 면적 선택 → 분석 이동
-  const handleAreaSelect = async (area) => {
-    setStatusMsg({ type: 'nav', text: '잠시만 기다려주세요. 분석 결과로 이동합니다.' });
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
-    setLoading(false);
-    setStatusMsg(null);
-    if (onNewSearch) onNewSearch({ areaSqm: area.areaSqm, complexOverride: f });
   };
 
   const chips = ["매수 의견은?", "다른 평형은?", "최근 거래 흐름은?", "전세는?"];
+  const placeholder = step === 'await_price'
+    ? "매물가 입력 (예: 5억, 모름)"
+    : step === 'await_area'
+    ? `평형 입력 (예: ${pendingAreas.map(a=>a.pyeong+'평').join(', ')})`
+    : `${complex || "이 아파트"}에 대해 더 궁금한 점은?`;
 
   return (
     <div style={{
@@ -807,64 +857,53 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
       padding: "12px 14px",
       zIndex: 20,
     }}>
-      {/* 빠른 질문 칩 */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-        {chips.map((c, i) => (
-          <button key={i} onClick={() => handleChip(c)} disabled={loading}
-            style={{ fontSize: 12, fontWeight: c === "매수 의견은?" ? 600 : 500,
-              padding: "5px 12px", borderRadius: 20,
-              border: `1px solid ${c === "매수 의견은?" ? "#5b52e0" : "#e2e8f0"}`,
-              background: c === "매수 의견은?" ? "#ede9fe" : "#f8fafc",
-              color: c === "매수 의견은?" ? "#5b52e0" : "#334155",
-              cursor: loading ? "default" : "pointer",
-              opacity: loading ? 0.6 : 1 }}>
-            {c === "매수 의견은?" ? "💡 " : ""}{c}
-          </button>
-        ))}
-      </div>
-
-      {/* 상태 메시지 (이동 안내 / 준비중 / 면적 선택) */}
-      {statusMsg && (
-        <div style={{ marginBottom: 10, padding: "10px 12px",
-          background: statusMsg.type === 'wip' ? "#fffbeb" : statusMsg.type === 'area' ? "#f0fdf4" : "#f0f9ff",
-          borderRadius: 12,
-          border: `1px solid ${statusMsg.type === 'wip' ? "#fde68a" : statusMsg.type === 'area' ? "#bbf7d0" : "#bae6fd"}` }}>
-          <p style={{ fontSize: 13, color: statusMsg.type === 'wip' ? "#92400e" : statusMsg.type === 'area' ? "#14532d" : "#0369a1",
-            margin: "0 0 8px", whiteSpace: "pre-line", fontWeight: 500 }}>
-            {statusMsg.text}
-          </p>
-          {/* 면적 선택 버튼 */}
-          {statusMsg.type === 'area' && statusMsg.areaChoices?.length > 0 && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {statusMsg.areaChoices.map((a, i) => (
-                <button key={i} onClick={() => handleAreaSelect(a)}
-                  style={{ fontSize: 13, fontWeight: 600, padding: "6px 14px",
-                    borderRadius: 20, border: "1px solid #2F6F4F",
-                    background: "#f0fdf4", color: "#2F6F4F", cursor: "pointer" }}>
-                  {a.pyeong}평 보기
-                </button>
-              ))}
-              <button onClick={() => setStatusMsg(null)}
-                style={{ fontSize: 13, padding: "6px 14px",
-                  borderRadius: 20, border: "1px solid #e2e8f0",
-                  background: "#f8fafc", color: "#64748b", cursor: "pointer" }}>
-                아니요
-              </button>
-            </div>
-          )}
-          {statusMsg.type === 'area' && statusMsg.areaChoices?.length === 0 && (
-            <button onClick={() => setStatusMsg(null)}
-              style={{ fontSize: 12, padding: "4px 10px",
-                borderRadius: 12, border: "1px solid #e2e8f0",
-                background: "#f8fafc", color: "#64748b", cursor: "pointer" }}>
-              확인
+      {/* 칩 — 대화 중에는 숨김 */}
+      {!step && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+          {chips.map((c, i) => (
+            <button key={i} onClick={() => handleSend(c)} disabled={loading}
+              style={{ fontSize: 12, fontWeight: c === "매수 의견은?" ? 600 : 500,
+                padding: "5px 12px", borderRadius: 20,
+                border: `1px solid ${c === "매수 의견은?" ? "#5b52e0" : "#e2e8f0"}`,
+                background: c === "매수 의견은?" ? "#ede9fe" : "#f8fafc",
+                color: c === "매수 의견은?" ? "#5b52e0" : "#334155",
+                cursor: loading ? "default" : "pointer",
+                opacity: loading ? 0.6 : 1 }}>
+              {c === "매수 의견은?" ? "💡 " : ""}{c}
             </button>
+          ))}
+        </div>
+      )}
+
+      {/* 대화 히스토리 */}
+      {messages.length > 0 && (
+        <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 10,
+          display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {messages.map((m, i) => (
+            <div key={i} style={{
+              alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+              maxWidth: '85%',
+              background: m.role === 'user' ? '#5b52e0' : '#f1f5f9',
+              color: m.role === 'user' ? '#fff' : '#1e293b',
+              borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+              padding: '8px 12px', fontSize: 13, lineHeight: 1.5,
+              whiteSpace: 'pre-line',
+            }}>{m.text}</div>
+          ))}
+          {loading && (
+            <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 4, padding: '8px 12px',
+              background: '#f1f5f9', borderRadius: '16px 16px 16px 4px' }}>
+              {[0,1,2].map(i => (
+                <div key={i} style={{ width:5, height:5, borderRadius:'50%', background:'#94a3b8',
+                  animation:`bounce 1s ${i*0.15}s infinite` }}/>
+              ))}
+            </div>
           )}
         </div>
       )}
 
-      {/* 로딩 */}
-      {loading && (
+      {/* 로딩 (메시지 없을 때) */}
+      {loading && messages.length === 0 && (
         <div style={{ marginBottom: 10, padding: "8px 12px",
           background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0",
           display: "flex", alignItems: "center", gap: 8 }}>
@@ -879,13 +918,13 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
         <input
           value={text}
           onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && text.trim()) { handleChip(text.trim()); setText(""); }}}
-          placeholder={`${complex || "이 아파트"}에 대해 더 궁금한 점은?`}
-          style={{ flex: 1, border: "1px solid #e2e8f0", borderRadius: 22,
-            padding: "9px 14px", fontSize: 13, outline: "none",
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { handleSend(); } }}
+          placeholder={placeholder}
+          style={{ flex: 1, border: `1px solid ${step ? '#5b52e0' : '#e2e8f0'}`,
+            borderRadius: 22, padding: "9px 14px", fontSize: 13, outline: "none",
             background: "#f8fafc", color: "#1e293b" }}
         />
-        <button onClick={() => { if (text.trim()) { handleChip(text.trim()); setText(""); }}}
+        <button onClick={() => handleSend()}
           style={{ width: 36, height: 36, borderRadius: "50%",
             background: text.trim() ? "#5b52e0" : "#e2e8f0",
             border: "none", cursor: text.trim() ? "pointer" : "default",
@@ -897,6 +936,14 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
             <polygon points="22 2 15 22 11 13 2 9 22 2"/>
           </svg>
         </button>
+        {step && (
+          <button onClick={() => { setStep(null); setPendingAreas([]); setPendingArea(null); }}
+            style={{ fontSize: 11, padding: '4px 8px', borderRadius: 10,
+              border: '1px solid #e2e8f0', background: '#f8fafc',
+              color: '#94a3b8', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            취소
+          </button>
+        )}
       </div>
     </div>
   );
