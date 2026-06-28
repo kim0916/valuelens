@@ -146,10 +146,12 @@ function parseIntent(raw) {
       complexName = guAfter[1].trim().replace(/\s*\d+평.*$/, "").replace(/\s*\d+㎡.*$/, "").trim();
     } else {
       // fallback: cleaned 텍스트에서 가장 긴 한글+영문 토큰
+      // P0 fix: 동이름(/^[가-힣]{1,4}동$/) 토큰은 complexName 후보에서 제외
       const tokens = cleaned.split(/\s+/).filter(tok =>
         tok.length >= 2 &&
         !tok.match(/^(서울|경기|인천|부산|대구|광주|대전|울산|은|는|이|가|을|를|에|의|로|도)$/) &&
         !tok.match(/[구시군]$/) &&
+        !tok.match(/^[가-힣]{1,4}동$/) &&   // ← P0: 동이름 오인식 방지 (우동, 공릉동 등)
         tok !== dong
       );
       if (tokens.length > 0) {
@@ -948,8 +950,52 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             },
           });
         } else {
-          // 평형 여러 개 → ConversationEngine에 넘겨 평형 선택 진행
-          await runAnalysis(cx, intent);
+          // P1 fix: 평형 여러 개 → runAnalysis 직행 금지
+          // 평형 선택 칩 표시 후 목적 질문으로 전환
+          convStateRef.current = {
+            ...convStateRef.current,
+            currentComplex: cx,
+            _pendingPurpose: intent.intent === 'buy' ? 'buy' : 'fair',
+          };
+          const pyeongList = areaGroups.map(g => `${g.pyeong}평`).join(', ');
+          replaceLastAI({
+            role: 'ai', type: 'area_chips',
+            content: `${cxName}는 ${pyeongList} 분석 가능합니다.\n어떤 평형을 확인할까요?`,
+            areaGroups,
+            complex: cx,
+            onSelect: async (areaSqm) => {
+              const pyeong = Math.floor((areaSqm * 1.35) / 3.305785);
+              addMsg({ role: 'user', type: 'text', content: `${pyeong}평` });
+              addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+              convStateRef.current = { ...convStateRef.current, currentArea: areaSqm };
+              // 평형 확정 → 목적 질문
+              replaceLastAI({
+                role: 'ai', type: 'purpose_chips',
+                content: `${cxName} ${pyeong}평에서 무엇을 확인할까요?`,
+                choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
+                onSelect: async (choice) => {
+                  addMsg({ role: 'user', type: 'text', content: choice });
+                  if (choice === '전세' || choice === '계약 전 체크') {
+                    replaceLastAI({ role: 'ai', type: 'text',
+                      content: '해당 기능은 준비 중입니다. 곧 제공될 예정입니다.' });
+                    return;
+                  }
+                  addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+                  const purpose = choice === '매수 의견' ? 'buy' : 'fair';
+                  // 가격 질문 → _pendingPrice 세팅
+                  convStateRef.current = {
+                    ...convStateRef.current,
+                    _pendingPrice: true,
+                    _pendingComplex: cx,
+                    _pendingArea: areaSqm,
+                    _pendingPurpose: purpose,
+                  };
+                  replaceLastAI({ role: 'ai', type: 'text',
+                    content: `${cxName} ${pyeong}평 현재 매물가를 알고 계시나요?\n모르시면 "몰라"라고 입력해 주세요.` });
+                },
+              });
+            },
+          });
         }
         return;
       }
