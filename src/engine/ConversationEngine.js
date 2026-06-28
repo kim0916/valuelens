@@ -360,7 +360,38 @@ async function execute(decision, intent, extracted, rawText, state) {
 async function tryAIFallback(rawText, state) {
   try {
     const aiRes = await callAIFallback(rawText, state);
-    if (aiRes) return [state, aiRes];
+    if (!aiRes) return [state, responseUnknown(state)];
+
+    // AI가 단지명/평형/가격을 파싱했으면 → 검색+분석으로 연결
+    if (aiRes.type === 'ai_parsed' && aiRes.parsed?.complexName) {
+      const { complexName, areaPyeong, price, intent, region } = aiRes.parsed;
+      const areaSqm = areaPyeong ? Math.round(areaPyeong * 3.305785) : null;
+      const currentPrice = price ? Math.round(price * 10000) : null;
+      const stateWithRegion = region ? { ...state, region } : state;
+
+      // DB 검색
+      const [ns, searchRes] = await handleSearch(complexName, areaSqm, stateWithRegion, 0);
+
+      // 검색 성공 → 분석 의도도 함께 전달
+      if (searchRes.type !== 'error' && searchRes.type !== 'unknown') {
+        // 단지 1개 확정됐으면 바로 분석 의도 세팅
+        if (ns.currentComplex && areaSqm && intent !== 'search') {
+          const newNs = {
+            ...ns,
+            _pendingPrice: !!currentPrice ? false : true,
+            _pendingComplex: currentPrice ? null : ns.currentComplex,
+            _pendingArea: currentPrice ? null : areaSqm,
+            _pendingPurpose: intent || 'fair',
+            _aiParsedPrice: currentPrice,
+            _aiParsedIntent: intent || 'fair',
+          };
+          return [newNs, searchRes];
+        }
+        return [ns, searchRes];
+      }
+    }
+
+    return [state, aiRes];
   } catch(e) {
     console.warn('[ConversationEngine] AI fallback 실패:', e?.message);
   }
@@ -368,34 +399,74 @@ async function tryAIFallback(rawText, state) {
 }
 
 async function callAIFallback(userText, state) {
-  const SYSTEM = `당신은 10년 경력의 공인중개사 AI 어시스턴트입니다.
-ValueLens 앱 안에서 사용자의 부동산 질문에 답합니다.
+  // 1차: AI 파서로 단지명/평형/가격/의도 추출 시도
+  const PARSE_SYSTEM = `당신은 한국 부동산 앱의 입력 파서입니다.
+사용자 입력에서 정보를 추출해 JSON만 반환하세요. 다른 텍스트 없이 JSON만.
 
-규칙:
-- 짧고 친근하게 (3문장 이내)
-- 존댓말, 편안한 말투
-- 아파트 매매/전세/적정가/계약 전문
-- 모르는 건 솔직히 "확인이 어렵네요"
-- 앱 기능으로 해결 가능하면 "앱에서 확인해보세요" 유도
-- 이모지 1개 이하로 절제`;
+추출 필드:
+- complexName: 아파트 단지명 (없으면 null)
+- areaPyeong: 평수 숫자 (없으면 null)  
+- price: 매물가 억 단위 숫자 (없으면 null)
+- intent: "fair"(적정가) | "buy"(매수) | "jeonse"(전세) | "search"(검색만)
+- region: 지역명 (없으면 null)
+
+예시:
+입력: "잠실래미안 34평 8억 적정가"
+출력: {"complexName":"잠실래미안","areaPyeong":34,"price":8,"intent":"fair","region":"잠실"}
+
+입력: "강남 래미안 전세"  
+출력: {"complexName":null,"areaPyeong":null,"price":null,"intent":"jeonse","region":"강남"}`;
+
+  try {
+    const parseRes = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 200,
+        system: PARSE_SYSTEM,
+        messages: [{ role: 'user', content: userText }],
+      }),
+    });
+
+    if (parseRes.ok) {
+      const parseData = await parseRes.json();
+      const rawText = parseData?.content?.[0]?.text?.trim();
+      if (rawText) {
+        const parsed = JSON.parse(rawText.replace(/```json|```/g, '').trim());
+        // 단지명이 추출됐으면 → 파싱 결과 반환 (ConversationEngine이 처리)
+        if (parsed.complexName) {
+          return {
+            type: 'ai_parsed',
+            parsed,
+            ui: 'parsed',
+          };
+        }
+      }
+    }
+  } catch(e) {
+    // 파싱 실패 시 일반 답변으로
+  }
+
+  // 2차: 일반 AI 답변
+  const SYSTEM = `당신은 10년 경력의 공인중개사 AI 어시스턴트입니다.
+짧고 친근하게 3문장 이내로 답하세요. 존댓말. 이모지 1개 이하.
+모르는 건 "확인이 어렵네요". 앱으로 해결 가능하면 "앱에서 단지명을 검색해보세요" 유도.`;
 
   const context = state?.currentComplex
-    ? `현재 대화 중인 단지: ${state.currentComplex.complex_name}`
-    : '';
-
-  const messages = [
-    ...(context ? [{ role: 'user', content: context }] : []),
-    { role: 'user', content: userText },
-  ];
+    ? `현재 단지: ${state.currentComplex.complex_name}` : '';
 
   const res = await fetch('/api/ai', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 300,
+      max_tokens: 200,
       system: SYSTEM,
-      messages,
+      messages: [
+        ...(context ? [{ role: 'user', content: context }] : []),
+        { role: 'user', content: userText },
+      ],
     }),
   });
 
@@ -404,11 +475,7 @@ ValueLens 앱 안에서 사용자의 부동산 질문에 답합니다.
   const text = data?.content?.[0]?.text?.trim();
   if (!text) return null;
 
-  return {
-    type: 'ai_fallback',
-    text,
-    ui: 'message',
-  };
+  return { type: 'ai_fallback', text, ui: 'message' };
 }
 
 // ─────────────────────────────────────────────

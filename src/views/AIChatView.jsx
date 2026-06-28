@@ -424,6 +424,16 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         return;
       }
 
+      // AI 파서가 가격까지 추출했으면 바로 분석
+      const aiPrice = state._aiParsedPrice || null;
+      const aiIntent = state._aiParsedIntent || purpose;
+      if (aiPrice) {
+        convStateRef.current = { ...convStateRef.current, _aiParsedPrice: null, _aiParsedIntent: null };
+        replaceLastAI({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+        await runAnalysis(complex, { intent: aiIntent === "buy" ? "buy" : "fair", areaSqm, currentPrice: aiPrice });
+        return;
+      }
+
       // ask_price: 매물가 질문 → 사용자 답변 대기
       if (response.ui === "ask_price") {
         convStateRef.current = { ...convStateRef.current, _pendingPrice: true, _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose };
