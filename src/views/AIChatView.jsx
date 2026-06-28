@@ -547,7 +547,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       if (eat === 'confirm_analysis') {
         const confirmText = text.trim();
         // 확인 표현
-        const isConfirm = /^(네|응|예|ㄴ|ㄱ|고|굿|ok|yes|시작|진행|해줘|해주세요|바로|분석|좋아|좋아요|계속|ㅇ|맞아|맞아요)$/i.test(confirmText)
+        const isConfirm = /^(네+|응+|예|ㄴ+|ㄱ+|고|굿|ok+|yes|시작|진행|해줘|해주세요|바로|분석|좋아|좋아요|계속|ㅇ+|맞아|맞아요)$/i.test(confirmText)
           || /분석\s*(시작|해줘|해주세요|진행)/.test(confirmText)
           || /시작|진행|바로\s*해/.test(confirmText);
         // 취소 표현
