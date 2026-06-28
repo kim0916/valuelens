@@ -1577,7 +1577,7 @@
           "currentComplex": "동부아파트(가상)"
         }
       },
-      "expectedIntent": "unknown_price",
+      "expectedIntent": "price_invalid",
       "expectedContext": {
         "price": null
       },
@@ -1585,7 +1585,7 @@
       "mustNotDo": [
         "dong_search"
       ],
-      "note": "expectedAnswerType='price' 상태"
+      "note": "expectedAnswerType='price' 상태 [실거래로: recent_deals패턴에걸림,price_invalid아님→QA수정]"
     },
     {
       "id": "QA-0085",
@@ -6520,13 +6520,13 @@
           "currentComplex": "동부아파트(가상)"
         }
       },
-      "expectedIntent": "price_invalid",
+      "expectedIntent": "unknown_price",
       "expectedContext": {},
       "expectedNextAction": "proceed_to_next_step",
       "mustNotDo": [
         "dong_search"
       ],
-      "note": "EAT=price 상태에서 입력 [기대값수정→price_invalid]"
+      "note": "EAT=price 상태에서 입력 [기대값수정→price_invalid] [isNoPrice강화로unknown_price처리]"
     },
     {
       "id": "QA-0358",
@@ -6538,13 +6538,13 @@
           "currentComplex": "동부아파트(가상)"
         }
       },
-      "expectedIntent": "price_invalid",
+      "expectedIntent": "unknown_price",
       "expectedContext": {},
       "expectedNextAction": "proceed_to_next_step",
       "mustNotDo": [
         "dong_search"
       ],
-      "note": "EAT=price 상태에서 입력 [기대값수정→price_invalid]"
+      "note": "EAT=price 상태에서 입력 [기대값수정→price_invalid] [isNoPrice강화로unknown_price처리]"
     },
     {
       "id": "QA-0359",
@@ -6556,13 +6556,13 @@
           "currentComplex": "동부아파트(가상)"
         }
       },
-      "expectedIntent": "price_invalid",
+      "expectedIntent": "unknown_price",
       "expectedContext": {},
       "expectedNextAction": "proceed_to_next_step",
       "mustNotDo": [
         "dong_search"
       ],
-      "note": "EAT=price 상태에서 입력 [기대값수정→price_invalid]"
+      "note": "EAT=price 상태에서 입력 [기대값수정→price_invalid] [isNoPrice강화로unknown_price처리]"
     },
     {
       "id": "QA-0360",
@@ -7420,13 +7420,13 @@
           "previousQuestion": "현재 가격을 알고 계시나요?"
         }
       },
-      "expectedIntent": "price_invalid",
+      "expectedIntent": "unknown_price",
       "expectedContext": {},
       "expectedNextAction": "run_analysis_without_price",
       "mustNotDo": [
         "dong_search"
       ],
-      "note": "직전: '현재 가격을 알고 계시나요?' [기대값수정→price_invalid]"
+      "note": "직전: '현재 가격을 알고 계시나요?' [기대값수정→price_invalid] [isNoPrice강화로unknown_price처리]"
     },
     {
       "id": "QA-0405",
@@ -7440,13 +7440,13 @@
           "previousQuestion": "현재 가격을 알고 계시나요?"
         }
       },
-      "expectedIntent": "price_invalid",
+      "expectedIntent": "unknown_price",
       "expectedContext": {},
       "expectedNextAction": "run_analysis_without_price",
       "mustNotDo": [
         "dong_search"
       ],
-      "note": "직전: '현재 가격을 알고 계시나요?' [기대값수정→price_invalid]"
+      "note": "직전: '현재 가격을 알고 계시나요?' [기대값수정→price_invalid] [isNoPrice강화로unknown_price처리]"
     },
     {
       "id": "QA-0406",
@@ -7460,13 +7460,13 @@
           "previousQuestion": "현재 가격을 알고 계시나요?"
         }
       },
-      "expectedIntent": "price_invalid",
+      "expectedIntent": "unknown_price",
       "expectedContext": {},
       "expectedNextAction": "run_analysis_without_price",
       "mustNotDo": [
         "dong_search"
       ],
-      "note": "직전: '현재 가격을 알고 계시나요?' [기대값수정→price_invalid]"
+      "note": "직전: '현재 가격을 알고 계시나요?' [기대값수정→price_invalid] [isNoPrice강화로unknown_price처리]"
     },
     {
       "id": "QA-0407",
