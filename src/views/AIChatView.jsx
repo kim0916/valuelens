@@ -771,15 +771,25 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         // 아래 일반 흐름으로 계속 진행 (return 없음)
       } else {
         addMsg({ role: "user", type: "text", content: text });
-        const { _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose } = ps;
+        const { _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose, _pendingInputPyeong: inputPyeong } = ps;
         convStateRef.current = { ...ps, _pendingPrice: false, _pendingComplex: null, _pendingArea: null, _pendingPurpose: null };
         // ★ complex fallback: _pendingComplex → currentComplex 순으로 시도
-        // selectedComplex 또는 pendingContext가 있으면 재입력 질문 금지
         const effectiveComplex = complex || convStateRef.current.currentComplex || null;
         if (!effectiveComplex) {
-          replaceLastAI({ type: "text", content: "어떤 아파트를 분석할까요? 단지명을 알려주세요." });
+          addMsg({ role: "ai", type: "text", content: "어떤 아파트를 분석할까요? 단지명을 알려주세요." });
           return;
         }
+        // ★ 요약 메시지: 결과 이동 전 AI가 정리해서 보여줌
+        const ecName = effectiveComplex.complex_name || '';
+        const ecGu   = effectiveComplex.sigungu ? effectiveComplex.sigungu.split(' ').slice(-1)[0] : '';
+        const ecDong = effectiveComplex.legal_dong || '';
+        const ecLoc  = [ecGu, ecDong].filter(Boolean).join(' ');
+        const ecPyeong = inputPyeong || (areaSqm ? Math.round(areaSqm / 3.305785) : null);
+        const ecPurposeKr = (purpose === 'buy') ? '매수 분석' : '적정가';
+        const summaryMsg = noPrice
+          ? `알겠습니다.\n${[ecLoc, ecName].filter(Boolean).join(' ')} ${ecPyeong ? ecPyeong + '평' : ''}\n최근 실거래 데이터를 기준으로 ${ecPurposeKr}를 분석해드리겠습니다.`
+          : `알겠습니다.\n${[ecLoc, ecName].filter(Boolean).join(' ')} ${ecPyeong ? ecPyeong + '평' : ''}\n매물가 ${currentPrice ? (currentPrice/10000).toFixed(1) + '억' : ''}을 기준으로 ${ecPurposeKr}를 분석해드리겠습니다.`;
+        addMsg({ role: "ai", type: "text", content: summaryMsg });
         addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
         // noPrice면 _forcedNoPrice 세팅 → ask_price 반복 방지
         if (noPrice) convStateRef.current = { ...convStateRef.current, _forcedNoPrice: true };
