@@ -59,10 +59,12 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── dong 필터: legal_dong 컬럼 미정비 단지 대비 안전화 ──
-    // DB의 legal_dong 컬럼이 null이거나 sigungu 풀주소에만 포함된 경우 dong 필터로 0건 발생
-    // → dong은 sigungu 필터가 없을 때만 보조 힌트로 사용, sigungu 있으면 dong 생략
-    const safeDong = sigungu ? '' : (dong || '');
+    // ── dong 필터: "공릉동"→"공릉", "공릉1동"→"공릉" 으로 앞부분만 추출
+    // %공릉% 검색으로 공릉1동/공릉2동/공릉동 모두 커버
+    const rawDong = dong || '';
+    const safeDong = rawDong.length >= 2
+      ? rawDong.replace(/[0-9]*동$/, '')  // 공릉동→공릉, 공릉1동→공릉, 공릉2동→공릉
+      : '';
 
     try {
       // ── 자연어 전처리 ──
@@ -405,7 +407,7 @@ export default async function handler(req, res) {
             .limit(half);
           q = q.ilike('complex_name', `%${keyword}%`);
           if (extraSigungu) q = q.ilike('sigungu', `%${extraSigungu}%`);
-          else if (safeDong) q = q.ilike('legal_dong', `%${safeDong}%`);
+          if (safeDong) q = q.ilike('legal_dong', `%${safeDong}%`);
           return q;
         };
 
