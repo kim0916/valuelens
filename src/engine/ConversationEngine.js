@@ -331,15 +331,27 @@ async function execute(decision, intent, extracted, rawText, state) {
       );
     }
 
-    // ── Unknown → AI fallback ──
+    // ── Unknown → DB 검색 시도 → AI fallback ──
     default: {
-      // 1차: 규칙 기반으로 처리 가능하면 그대로
-      const ruleRes = responseUnknown(state);
-      // 컨텍스트가 없는 경우(어떤 아파트인지조차 모름)만 AI로 넘김
-      // 단지/면적 있으면 규칙 응답으로 충분
+      // 컨텍스트 있으면 규칙 응답
       if (state?.currentComplex || state?.currentArea) {
-        return [state, ruleRes];
+        return [state, responseUnknown(state)];
       }
+
+      // 1차: rawText 자체를 단지명으로 DB 검색 시도
+      // "잠실래미안", "목동현대" 등 NLU 못 잡은 단지명 커버
+      if (rawText.length >= 2 && rawText.length <= 20 && !/[?!。.，,]/.test(rawText)) {
+        try {
+          const [ns, searchRes] = await handleSearch(rawText, null, state, 0);
+          // 검색 결과가 있으면 (후보 or 단지 찾음)
+          if (searchRes && searchRes.type !== 'error' && searchRes.type !== 'unknown') {
+            return [ns, searchRes];
+          }
+        } catch(e) {
+          // 검색 실패 시 아래로
+        }
+      }
+
       // 2차: AI fallback (공인중개사 말투)
       try {
         const aiRes = await callAIFallback(rawText, state);
@@ -347,7 +359,7 @@ async function execute(decision, intent, extracted, rawText, state) {
       } catch (e) {
         console.warn('[ConversationEngine] AI fallback 실패:', e?.message);
       }
-      return [state, ruleRes];
+      return [state, responseUnknown(state)];
     }
   }
 }
