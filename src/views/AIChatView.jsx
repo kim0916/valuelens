@@ -536,6 +536,14 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           if (pool.length === 1) {
             // 단지 1개 특정 → 목적 질문
             const cx = pool[0];
+            // ★ 필수: purpose_chips 표시와 동시에 pendingComplex 세팅
+            // 칩 클릭(onSelect) 이든 텍스트 입력이든 cx를 잃지 않도록
+            convStateRef.current = {
+              ...convStateRef.current,
+              _expectedAnswerType: 'purpose',
+              _pendingComplex: cx,
+              _pendingPurpose: 'fair',
+            };
             replaceLastAI({
               role: "ai", type: "purpose_chips",
               content: `${cx.complex_name}에서 무엇을 확인할까요?`,
@@ -544,10 +552,14 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                 addMsg({ role: "user", type: "text", content: choice });
                 if (choice === '전세' || choice === '계약 전 체크') {
                   replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                  convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
                   return;
                 }
                 addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-                await runAnalysis(cx, { intent: choice === '매수 의견' ? 'buy' : 'fair' });
+                const purpose = choice === '매수 의견' ? 'buy' : 'fair';
+                // cx를 직접 사용 (클로저) + convState에도 세팅
+                convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
+                await runAnalysis(cx, { intent: purpose });
               },
             });
           } else {
@@ -559,6 +571,13 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
               onSelect: async (cx) => {
                 addMsg({ role: "user", type: "text", content: cx.complex_name });
                 addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+                // ★ 후보 클릭 후에도 _pendingComplex 세팅
+                convStateRef.current = {
+                  ...convStateRef.current,
+                  _expectedAnswerType: 'purpose',
+                  _pendingComplex: cx,
+                  _pendingPurpose: 'fair',
+                };
                 replaceLastAI({
                   role: "ai", type: "purpose_chips",
                   content: `${cx.complex_name}에서 무엇을 확인할까요?`,
@@ -567,10 +586,13 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                     addMsg({ role: "user", type: "text", content: choice });
                     if (choice === '전세' || choice === '계약 전 체크') {
                       replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                      convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
                       return;
                     }
                     addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-                    await runAnalysis(cx, { intent: choice === '매수 의견' ? 'buy' : 'fair' });
+                    const purpose = choice === '매수 의견' ? 'buy' : 'fair';
+                    convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
+                    await runAnalysis(cx, { intent: purpose });
                   },
                 });
               },
@@ -585,10 +607,31 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       }
 
       // ── purpose 입력 대기 (칩 외 텍스트) ──
+      // ★ 핵심: 텍스트로 "적정가" 등을 입력해도 _pendingComplex를 유지해서 분석 진행
+      // ask_complex 재호출 금지: _pendingComplex 또는 currentComplex가 있으면 CE로 보내지 않음
       if (eat === 'purpose') {
+        const purposeComplex = ps._pendingComplex || ps.currentComplex || null;
+        const purposeText = text.trim();
+        // 목적 키워드 매칭
+        const isBuy      = /매수|살까|살지|사도|buy/i.test(purposeText);
+        const isPriceAna = /적정가|시세|가격|fair|분석/i.test(purposeText);
+        const isJeonse   = /전세/i.test(purposeText);
+        const isContract = /계약|등기|체크/i.test(purposeText);
+
+        if (purposeComplex && (isBuy || isPriceAna || isJeonse || isContract)) {
+          addMsg({ role: "user", type: "text", content: text });
+          convStateRef.current = { ...ps, _expectedAnswerType: null, _pendingComplex: null };
+          if (isJeonse || isContract) {
+            replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+            return;
+          }
+          addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+          const intent = isBuy ? 'buy' : 'fair';
+          await runAnalysis(purposeComplex, { intent });
+          return;
+        }
+        // 목적 키워드 없거나 complex 없으면 CE로
         convStateRef.current = { ...ps, _expectedAnswerType: null };
-        // 텍스트로 목적 입력한 경우 ConversationEngine으로 넘김
-        // (칩 클릭은 onSelect에서 이미 처리됨)
         // 아래 일반 흐름으로 계속
       }
     }
@@ -648,14 +691,17 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         addMsg({ role: "user", type: "text", content: text });
         const { _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose } = ps;
         convStateRef.current = { ...ps, _pendingPrice: false, _pendingComplex: null, _pendingArea: null, _pendingPurpose: null };
-        if (!complex) {
+        // ★ complex fallback: _pendingComplex → currentComplex 순으로 시도
+        // selectedComplex 또는 pendingContext가 있으면 재입력 질문 금지
+        const effectiveComplex = complex || convStateRef.current.currentComplex || null;
+        if (!effectiveComplex) {
           replaceLastAI({ type: "text", content: "어떤 아파트를 분석할까요? 단지명을 알려주세요." });
           return;
         }
         addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
         // noPrice면 _forcedNoPrice 세팅 → ask_price 반복 방지
         if (noPrice) convStateRef.current = { ...convStateRef.current, _forcedNoPrice: true };
-        await runAnalysis(complex, { intent: purpose === "buy" ? "buy" : "fair", areaSqm, currentPrice: noPrice ? null : currentPrice });
+        await runAnalysis(effectiveComplex, { intent: purpose === "buy" ? "buy" : "fair", areaSqm, currentPrice: noPrice ? null : currentPrice });
         return;
       }
     }
