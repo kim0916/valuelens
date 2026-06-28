@@ -674,51 +674,106 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
         </div>
       )}
 
-      {onAskMore && <ResultChatBar complex={f.complexName} onSend={onAskMore} onBuyAnalysis={onBuyAnalysis} />}
+      {onAskMore && (
+        <ResultChatBar
+          complex={f.complexName}
+          onSend={onAskMore}
+          onBuyAnalysis={onBuyAnalysis}
+          f={f}
+          areaOptions={areaOptions}
+          onNewSearch={onNewSearch}
+        />
+      )}
     </div>
   );
 }
 
-// ── 결과지 하단 채팅바 ──
-function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
+// ── 결과지 하단 Quick Action 바 ──
+// AI API 호출 없음 — 페이지 이동 / 스크롤 / 준비중 메시지만
+function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSearch }) {
   const [text, setText] = React.useState("");
-  const [aiReply, setAiReply] = React.useState(null);
+  const [statusMsg, setStatusMsg] = React.useState(null); // { type: 'nav'|'wip'|'area', text, areaChoices }
   const [loading, setLoading] = React.useState(false);
-  const chips = ["전세는?", "다른 평형은?", "최근 거래 흐름은?", "매수 의견은?"];
 
-  const handleSend = async (chipText) => {
-    const t = (typeof chipText === "string" ? chipText : text).trim();
-    if (!t) return;
-    if (typeof chipText !== "string") setText("");
-    console.log("[ResultChatBar] handleSend:", t);
+  // 상태 메시지 자동 초기화 (5초)
+  React.useEffect(() => {
+    if (!statusMsg) return;
+    if (statusMsg.type === 'area') return; // 면적 선택 메시지는 수동 닫기
+    const t = setTimeout(() => setStatusMsg(null), 5000);
+    return () => clearTimeout(t);
+  }, [statusMsg]);
 
-    setLoading(true);
-    try {
-      await onSend(t);
-    } finally {
-      setLoading(false);
+  // ── 칩 클릭 핸들러 ──
+  const handleChip = async (chip) => {
+    if (chip === "매수 의견은?") {
+      if (onBuyAnalysis) {
+        setStatusMsg({ type: 'nav', text: '잠시만 기다려주세요. 매수 분석으로 이동합니다.' });
+        setLoading(true);
+        await new Promise(r => setTimeout(r, 600));
+        setLoading(false);
+        onBuyAnalysis();
+      } else {
+        setStatusMsg({ type: 'wip', text: '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.' });
+      }
+      return;
     }
-    return;
 
-    setLoading(true);
-    setAiReply(null);
-    try {
-      const res = await fetch("/api/ai", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001", max_tokens: 300,
-          system: `당신은 10년 경력 공인중개사입니다. ${complex ? `현재 ${complex} 아파트에 대해 이야기 중입니다.` : ""} 짧고 친근하게 3문장 이내로 답변하세요.`,
-          messages: [{ role: "user", content: t }],
-        }),
-      });
-      const data = await res.json();
-      setAiReply(data?.content?.[0]?.text?.trim() || null);
-    } catch(e) {
-      setAiReply("잠깐 문제가 생겼어요. 다시 말씀해 주세요.");
-    } finally {
+    if (chip === "최근 거래 흐름은?") {
+      setStatusMsg({ type: 'nav', text: '잠시만 기다려주세요. 거래 흐름으로 이동합니다.' });
+      setLoading(true);
+      await new Promise(r => setTimeout(r, 500));
       setLoading(false);
+      // 거래 목록 영역으로 스크롤
+      const el = document.getElementById('deal-list-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setStatusMsg(null);
+      } else {
+        setStatusMsg({ type: 'wip', text: '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.' });
+      }
+      return;
+    }
+
+    if (chip === "다른 평형은?") {
+      // areaOptions에서 현재 평형 제외
+      const currentSqm = f?.areaExclusive || 0;
+      const others = (areaOptions || []).filter(a => Math.abs(a.areaSqm - currentSqm) > 3);
+      if (others.length === 0) {
+        setStatusMsg({ type: 'area', text: '현재 확인 가능한 다른 평형이 없습니다.', areaChoices: [] });
+        return;
+      }
+      const names = others.map(a => `${a.pyeong}평`).join(', ');
+      if (others.length === 1) {
+        setStatusMsg({ type: 'area', text: `${others[0].pyeong}평 말씀하시는 거죠?`, areaChoices: others });
+      } else {
+        setStatusMsg({ type: 'area', text: `이 단지는 ${names}도 분석할 수 있습니다.\n어떤 평형이 궁금하세요?`, areaChoices: others });
+      }
+      return;
+    }
+
+    if (chip === "전세는?") {
+      setStatusMsg({ type: 'wip', text: '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.' });
+      return;
+    }
+
+    // 직접 입력 → onSend로 전달
+    if (onSend) {
+      setLoading(true);
+      try { await onSend(chip); } finally { setLoading(false); }
     }
   };
+
+  // 면적 선택 → 분석 이동
+  const handleAreaSelect = async (area) => {
+    setStatusMsg({ type: 'nav', text: '잠시만 기다려주세요. 분석 결과로 이동합니다.' });
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 600));
+    setLoading(false);
+    setStatusMsg(null);
+    if (onNewSearch) onNewSearch({ areaSqm: area.areaSqm, complexOverride: f });
+  };
+
+  const chips = ["매수 의견은?", "다른 평형은?", "최근 거래 흐름은?", "전세는?"];
 
   return (
     <div style={{
@@ -731,32 +786,68 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
     }}>
       {/* 빠른 질문 칩 */}
       <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-        {/* 매수 의견 — 바로 분석 */}
-        {onBuyAnalysis && (
-          <button onClick={onBuyAnalysis}
-            style={{ fontSize: 12, fontWeight: 600, padding: "5px 12px",
-              borderRadius: 20, border: "1px solid #5b52e0",
-              background: "#ede9fe", color: "#5b52e0", cursor: "pointer" }}>
-            💡 매수 의견은?
-          </button>
-        )}
         {chips.map((c, i) => (
-          <button key={i} onClick={() => handleSend(c)}
-            style={{ fontSize: 12, fontWeight: 500, padding: "5px 12px",
-              borderRadius: 20, border: "1px solid #e2e8f0",
-              background: "#f8fafc", color: "#334155", cursor: "pointer" }}>
-            {c}
+          <button key={i} onClick={() => handleChip(c)} disabled={loading}
+            style={{ fontSize: 12, fontWeight: c === "매수 의견은?" ? 600 : 500,
+              padding: "5px 12px", borderRadius: 20,
+              border: `1px solid ${c === "매수 의견은?" ? "#5b52e0" : "#e2e8f0"}`,
+              background: c === "매수 의견은?" ? "#ede9fe" : "#f8fafc",
+              color: c === "매수 의견은?" ? "#5b52e0" : "#334155",
+              cursor: loading ? "default" : "pointer",
+              opacity: loading ? 0.6 : 1 }}>
+            {c === "매수 의견은?" ? "💡 " : ""}{c}
           </button>
         ))}
       </div>
-      {/* 로딩 표시 */}
+
+      {/* 상태 메시지 (이동 안내 / 준비중 / 면적 선택) */}
+      {statusMsg && (
+        <div style={{ marginBottom: 10, padding: "10px 12px",
+          background: statusMsg.type === 'wip' ? "#fffbeb" : statusMsg.type === 'area' ? "#f0fdf4" : "#f0f9ff",
+          borderRadius: 12,
+          border: `1px solid ${statusMsg.type === 'wip' ? "#fde68a" : statusMsg.type === 'area' ? "#bbf7d0" : "#bae6fd"}` }}>
+          <p style={{ fontSize: 13, color: statusMsg.type === 'wip' ? "#92400e" : statusMsg.type === 'area' ? "#14532d" : "#0369a1",
+            margin: "0 0 8px", whiteSpace: "pre-line", fontWeight: 500 }}>
+            {statusMsg.text}
+          </p>
+          {/* 면적 선택 버튼 */}
+          {statusMsg.type === 'area' && statusMsg.areaChoices?.length > 0 && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {statusMsg.areaChoices.map((a, i) => (
+                <button key={i} onClick={() => handleAreaSelect(a)}
+                  style={{ fontSize: 13, fontWeight: 600, padding: "6px 14px",
+                    borderRadius: 20, border: "1px solid #2F6F4F",
+                    background: "#f0fdf4", color: "#2F6F4F", cursor: "pointer" }}>
+                  {a.pyeong}평 보기
+                </button>
+              ))}
+              <button onClick={() => setStatusMsg(null)}
+                style={{ fontSize: 13, padding: "6px 14px",
+                  borderRadius: 20, border: "1px solid #e2e8f0",
+                  background: "#f8fafc", color: "#64748b", cursor: "pointer" }}>
+                아니요
+              </button>
+            </div>
+          )}
+          {statusMsg.type === 'area' && statusMsg.areaChoices?.length === 0 && (
+            <button onClick={() => setStatusMsg(null)}
+              style={{ fontSize: 12, padding: "4px 10px",
+                borderRadius: 12, border: "1px solid #e2e8f0",
+                background: "#f8fafc", color: "#64748b", cursor: "pointer" }}>
+              확인
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 로딩 */}
       {loading && (
         <div style={{ marginBottom: 10, padding: "8px 12px",
           background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0",
           display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#5b52e0",
             animation: "pulse 1s infinite" }}/>
-          <p style={{ fontSize: 13, color: "#94a3b8", margin: 0 }}>분석 중...</p>
+          <p style={{ fontSize: 13, color: "#94a3b8", margin: 0 }}>잠시만 기다려주세요...</p>
         </div>
       )}
 
@@ -765,13 +856,13 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
         <input
           value={text}
           onChange={e => setText(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
+          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && text.trim()) { handleChip(text.trim()); setText(""); }}}
           placeholder={`${complex || "이 아파트"}에 대해 더 궁금한 점은?`}
           style={{ flex: 1, border: "1px solid #e2e8f0", borderRadius: 22,
             padding: "9px 14px", fontSize: 13, outline: "none",
             background: "#f8fafc", color: "#1e293b" }}
         />
-        <button onClick={() => handleSend()}
+        <button onClick={() => { if (text.trim()) { handleChip(text.trim()); setText(""); }}}
           style={{ width: 36, height: 36, borderRadius: "50%",
             background: text.trim() ? "#5b52e0" : "#e2e8f0",
             border: "none", cursor: text.trim() ? "pointer" : "default",
