@@ -558,11 +558,19 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           _pendingPurpose: intentStr,
           _pendingInputPyeong: inputPyeong,  // 표시용 평형 보존
         };
-        // 요약 문구 (버그2: inputPyeong으로 표시, areaSqm 아님)
-        const locationStr = [sigunguName, dongName].filter(Boolean).join(' ');
+        // 문제4: 요약 문구에 시군구+동+단지명+평형 모두 포함
+        // sigungu 예: "부산광역시 해운대구" → 마지막 토큰 "해운대구"
+        // legal_dong 예: "우동" → 그대로 사용
+        const guName  = (cx && cx.sigungu)
+          ? cx.sigungu.split(' ').slice(-1)[0]   // "해운대구"
+          : (cx && cx.region ? cx.region.split(' ').slice(-1)[0] : '');
+        const dongDisp = (cx && cx.legal_dong) ? cx.legal_dong
+          : (cx && cx.dong ? cx.dong : dongName);
+        const locationStr = [guName, dongDisp].filter(Boolean).join(' ');
+        const purposeKr = intentStr === 'buy' ? '매수 분석' : '적정가';
         const summaryLine = locationStr
-          ? `${locationStr} ${cxName} ${inputPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`
-          : `${cxName} ${inputPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`;
+          ? `${locationStr} ${cxName} ${inputPyeong}평 ${purposeKr}을 분석해드릴게요.`
+          : `${cxName} ${inputPyeong}평 ${purposeKr}을 분석해드릴게요.`;
         addMsg({ role: "ai", type: "text",
           content: summaryLine + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.' });
         return;
@@ -1356,14 +1364,16 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
     // 평형 여러 개 → area_chips 표시
     // ★ _expectedAnswerType:'area' 세팅 — 텍스트 "24평" 입력도 EAT area 블록에서 처리
+    // 문제2: _expectedAnswerType:'area'는 텍스트 입력 전용
+    // area_chips 칩 클릭은 onSelect로 처리, 텍스트 입력은 EAT area로 처리
+    // _pendingComplex/_pendingPurpose만 세팅 (EAT area 블록에서 cx/intentStr 읽기 위해)
     convStateRef.current = {
       ...convStateRef.current,
-      _expectedAnswerType: 'area',
+      _expectedAnswerType: 'area',  // 텍스트 "24평" 입력 시 EAT area 처리
       _pendingComplex: cx,
       _pendingPurpose: intentStr,
     };
     const pyeongList = areaGroups.map(g => `${g.pyeong}평`).join(', ');
-    // addMsg 사용 — thinking 자리 교체가 아니라 새 메시지 추가
     addMsg({
       role: 'ai', type: 'area_chips',
       content: `${cxName}는 ${pyeongList} 분석 가능합니다.\n어떤 평형을 확인할까요?`,
@@ -1375,10 +1385,10 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         const chipPyeong = areaGroups.find(g => g.areaSqm === areaSqm)?.pyeong
           || Math.floor((areaSqm * 1.35) / 3.305785);
 
-        // 상태 먼저 변경 → EAT area 블록 재진입 차단
+        // 상태 먼저 변경 → EAT area 블록 재진입 차단 (핵심: null 먼저)
         convStateRef.current = {
           ...convStateRef.current,
-          _expectedAnswerType: null,   // ← 먼저 null로
+          _expectedAnswerType: null,   // ← null 먼저: 칩 클릭 후 텍스트 중복 방지
           _pendingPrice: true,
           _pendingComplex: cx,
           _pendingArea: areaSqm,
@@ -1386,16 +1396,17 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           _pendingInputPyeong: chipPyeong,
         };
 
-        // 버그1: addMsg는 한 번만
+        // addMsg는 한 번만 — EAT area 블록과 중복 방지
         addMsg({ role: 'user', type: 'text', content: `${chipPyeong}평` });
 
-        // 요약 + 가격 질문
-        const dongName = (cx && cx.legal_dong) ? cx.legal_dong : '';
-        const sigunguName = (cx && cx.sigungu) ? cx.sigungu.split(' ').slice(-1)[0] : '';
-        const locationStr = [sigunguName, dongName].filter(Boolean).join(' ');
-        const summaryLine = locationStr
-          ? `${locationStr} ${cxName} ${chipPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`
-          : `${cxName} ${chipPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`;
+        // 문제4: 요약문구 - 시군구+동+단지명+평형
+        const chipGuName   = (cx && cx.sigungu) ? cx.sigungu.split(' ').slice(-1)[0] : '';
+        const chipDongName = (cx && cx.legal_dong) ? cx.legal_dong : '';
+        const chipLocation = [chipGuName, chipDongName].filter(Boolean).join(' ');
+        const chipPurposeKr = intentStr === 'buy' ? '매수 분석' : '적정가';
+        const summaryLine = chipLocation
+          ? `${chipLocation} ${cxName} ${chipPyeong}평 ${chipPurposeKr}을 분석해드릴게요.`
+          : `${cxName} ${chipPyeong}평 ${chipPurposeKr}을 분석해드릴게요.`;
         addMsg({
           role: 'ai', type: 'text',
           content: summaryLine + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.',
@@ -1429,7 +1440,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       return;
     }
 
-    replaceLastAI({ type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+    // 문제3: thinking은 addMsg로 추가 (replaceLastAI 오남용 방지)
+    addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
 
     try {
       const sigungu   = complex.sigungu    || "";
@@ -1459,10 +1471,24 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       let saleDealsRaw = sbData.saleDeals || sbData.deals?.filter(d => d.deal_type==='sale') || [];
       let rentDealsRaw = sbData.rentDeals || sbData.deals?.filter(d => d.deal_type==='rent') || [];
 
-      // 면적 필터 (±3㎡)
-      const filterArea = (arr) => targetArea
-        ? arr.filter(d => Math.abs(Number(d.area_excl) - targetArea) <= 3)
-        : arr;
+      // 면적 필터: 정확 매칭 → ±10㎡ → 가장 가까운 면적 fallback
+      // 24평(79㎡) 입력 시 DB에 84㎡만 있어도 매칭되도록
+      const filterArea = (arr) => {
+        if (!targetArea) return arr;
+        // 1차: ±3㎡ 정확 매칭
+        const exact = arr.filter(d => Math.abs(Number(d.area_excl) - targetArea) <= 3);
+        if (exact.length >= 3) return exact;
+        // 2차: ±10㎡ 확장
+        const wide = arr.filter(d => Math.abs(Number(d.area_excl) - targetArea) <= 10);
+        if (wide.length >= 3) return wide;
+        // 3차: DB에 있는 면적 중 가장 가까운 것으로 fallback
+        const areas = [...new Set(arr.map(d => Number(d.area_excl)).filter(Boolean))];
+        if (areas.length === 0) return arr;
+        const closest = areas.reduce((a, b) =>
+          Math.abs(a - targetArea) <= Math.abs(b - targetArea) ? a : b
+        );
+        return arr.filter(d => Math.abs(Number(d.area_excl) - closest) <= 3);
+      };
 
       const saleFiltered = filterArea(saleDealsRaw);
       const rentFiltered = filterArea(rentDealsRaw).filter(d => !d.monthly_man || Number(d.monthly_man) === 0);
