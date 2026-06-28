@@ -534,6 +534,7 @@ function bridgeNLUToLegacy(nlu, rawText, state) {
     [I.CONTRACT_CHECK]:    LI.PRICE_ANALYSIS,
     [I.DATA_MISSING]:      LI.UNKNOWN,
     [I.UNKNOWN_FOLLOWUP]:  LI.UNKNOWN,
+    [I.SELL_OPINION]:      "sell_redirect",   // 매도 → SellResult 라우팅 금지
   };
 
   // 기존 Intent는 그대로
