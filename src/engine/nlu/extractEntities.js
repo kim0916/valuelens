@@ -85,8 +85,23 @@ export function extractComplexName(text, state = {}) {
   for (const alias of Object.keys(REGION_NORMALIZE)) {
     textForComplex = textForComplex.replace(new RegExp(alias.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi'), ' ');
   }
-  // 행정구역 패턴 제거 (시/구/군/동)
-  textForComplex = textForComplex.replace(/[가-힣]{1,5}(?:특별시|광역시|특별자치시|도|시|군|구|읍|면|동)\s*/g, ' ').trim();
+  // ★ 붙여쓰기 동명 처리: "공릉동동신아파트" → 동명(공릉동) 이후 텍스트만 사용
+  // non-greedy로 최단 동명 추출 후 해당 위치 이후를 단지명 후보로
+  const dongBoundaryM = textForComplex.match(/[가-힣]{1,4}?동/);
+  if (dongBoundaryM) {
+    const afterDong = textForComplex.slice(dongBoundaryM.index + dongBoundaryM[0].length).trim();
+    // 동 이후에 의미있는 텍스트가 있으면 그것을 단지명 후보로
+    const afterClean = afterDong.replace(/[가-힣]{1,5}(?:특별시|광역시|특별자치시|도|시|군|구|읍|면)\s*/g, ' ').trim();
+    if (afterClean.length >= 2) {
+      textForComplex = afterClean;
+    } else {
+      // 동 이후에 텍스트가 없으면 기존 방식대로
+      textForComplex = textForComplex.replace(/[가-힣]{1,5}(?:특별시|광역시|특별자치시|도|시|군|구|읍|면|동)\s*/g, ' ').trim();
+    }
+  } else {
+    // 행정구역 패턴 제거 (시/구/군/동)
+    textForComplex = textForComplex.replace(/[가-힣]{1,5}(?:특별시|광역시|특별자치시|도|시|군|구|읍|면|동)\s*/g, ' ').trim();
+  }
 
   // 1. 직접 별칭 매칭 (지역어 제거 후)
   for (const [alias, full] of Object.entries(COMPLEX_ALIAS_NLU)) {
