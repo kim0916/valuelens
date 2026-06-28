@@ -664,7 +664,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
   const [text, setText] = React.useState("");
   const [aiReply, setAiReply] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
-  const chips = ["전세는?", "다른 평형은?", "최근 거래 흐름은?"];
+  const chips = ["전세는?", "다른 평형은?", "최근 거래 흐름은?", "매수 의견은?"];
 
   const handleSend = async (chipText) => {
     const t = (chipText || text).trim();
@@ -672,7 +672,13 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
     if (!chipText) setText("");
 
     // 모든 질문 → onSend로 (main.jsx에서 컨텍스트 기반 처리)
-    onSend(t); return;
+    setLoading(true);
+    try {
+      await onSend(t);
+    } finally {
+      setLoading(false);
+    }
+    return;
 
     setLoading(true);
     setAiReply(null);
@@ -723,14 +729,14 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
           </button>
         ))}
       </div>
-      {/* AI 인라인 답변 */}
-      {(loading || aiReply) && (
-        <div style={{ marginBottom: 10, padding: "10px 12px",
-          background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
-          {loading
-            ? <p style={{ fontSize: 13, color: "#94a3b8", margin: 0 }}>잠깐만요... 🔍</p>
-            : <p style={{ fontSize: 13, color: "#334155", margin: 0, lineHeight: 1.6 }}>{aiReply}</p>
-          }
+      {/* 로딩 표시 */}
+      {loading && (
+        <div style={{ marginBottom: 10, padding: "8px 12px",
+          background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0",
+          display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#5b52e0",
+            animation: "pulse 1s infinite" }}/>
+          <p style={{ fontSize: 13, color: "#94a3b8", margin: 0 }}>분석 중...</p>
         </div>
       )}
 
