@@ -44,6 +44,8 @@ export const NLU_INTENTS = {
   CONTRACT_CHECK:      "contract_check",      // "계약 전 확인사항"
   DATA_MISSING:        "data_missing",        // "네이버엔 있는데 왜 없어?"
   UNKNOWN_FOLLOWUP:    "unknown_followup",    // 맥락 없는 후속어
+  SELL_OPINION:        "sell_opinion",        // 매도 의견 (SellResult 라우팅 금지)
+  ASK_PURPOSE:         "ask_purpose",         // 목적 확인 중간 단계
 };
 
 // ─────────────────────────────────────────────
@@ -268,6 +270,15 @@ const PATTERNS = [
     /실제\s*(거래|매매)\s*(가격|가|얼마)/,
     /거래\s*(가격|내역)\s*(보여|알려|확인)/,
     /최근\s*(매매|거래가)\s*(얼마|어떻게|어떠)/,
+  ]],
+
+  // ── 매도 의견 (SellResult 라우팅 금지, 적정가로 우회) ──
+  [NLU_INTENTS.SELL_OPINION, [
+    /매도\s*(해야|할까|하면|의견|분석|괜찮|타이밍|적기|시점)/,
+    /팔\s*(까|면|아야|아도\s*돼|아도\s*될까|아야\s*하나)/,
+    /지금\s*(팔면|팔까|파는\s*게)/,
+    /언제\s*(팔|매도)/,
+    /(처분|매각)\s*(할까|해야|하면)/,
   ]],
 
   [NLU_INTENTS.BUY_OPINION, [
