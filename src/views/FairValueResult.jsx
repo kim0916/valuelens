@@ -735,18 +735,41 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
     }
 
     if (chip === "다른 평형은?") {
-      // areaOptions에서 현재 평형 제외
       const currentSqm = f?.areaExclusive || 0;
-      const others = (areaOptions || []).filter(a => Math.abs(a.areaSqm - currentSqm) > 3);
-      if (others.length === 0) {
+      const complexName = f?.complexName || "이 단지";
+
+      // ★ 디버그 로그 (임시)
+      console.log("[QuickAction 다른평형]", {
+        complex_name: complexName,
+        currentArea: currentSqm,
+        areaOptions,
+        areaOptions_length: areaOptions?.length,
+        f_areaOptions: f?.areaOptions,
+      });
+
+      // 조회 실패 판단: null/undefined/빈배열인데 f에도 없으면 → 조회 실패
+      const rawOpts = areaOptions || f?.areaOptions || f?._aiAreaOptions || null;
+
+      if (!rawOpts) {
+        // null/undefined — 데이터 자체가 안 온 것
+        setStatusMsg({ type: 'wip', text: '평형 정보를 불러오지 못했습니다.\n다시 시도해 주세요.' });
+        return;
+      }
+
+      // 조회 성공 (빈배열 포함) → 현재 평형 제외
+      const others = rawOpts.filter(a => Math.abs(Number(a.areaSqm) - currentSqm) > 3);
+
+      if (rawOpts.length === 0 || others.length === 0) {
+        // 조회는 됐는데 실제로 다른 평형 없음
         setStatusMsg({ type: 'area', text: '현재 확인 가능한 다른 평형이 없습니다.', areaChoices: [] });
         return;
       }
+
       const names = others.map(a => `${a.pyeong}평`).join(', ');
       if (others.length === 1) {
         setStatusMsg({ type: 'area', text: `${others[0].pyeong}평 말씀하시는 거죠?`, areaChoices: others });
       } else {
-        setStatusMsg({ type: 'area', text: `이 단지는 ${names}도 분석할 수 있습니다.\n어떤 평형이 궁금하세요?`, areaChoices: others });
+        setStatusMsg({ type: 'area', text: `${complexName}는 ${names}도 분석할 수 있습니다.\n어떤 평형이 궁금하세요?`, areaChoices: others });
       }
       return;
     }
