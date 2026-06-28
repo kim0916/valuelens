@@ -1,14 +1,15 @@
 {
-  "version": "1.0.0",
-  "totalCount": 110,
+  "version": "1.1.0",
+  "totalCount": 503,
   "categories": {
-    "region_input": 25,
-    "complex_search": 25,
-    "recommend": 15,
+    "region_input": 100,
+    "complex_search": 97,
+    "recommend": 80,
     "manual_qa_required": 6,
-    "area_price_input": 15,
-    "context_based_input": 14,
-    "result_followup": 10
+    "area_price_input": 70,
+    "context_based_input": 70,
+    "result_followup": 50,
+    "alias_typo": 30
   },
   "qa": [
     {
@@ -1394,7 +1395,7 @@
           "currentComplex": "동부아파트(가상)"
         }
       },
-      "expectedIntent": "area_select",
+      "expectedIntent": "area_invalid",
       "expectedContext": {
         "areaSqm": 84
       },
@@ -1402,7 +1403,7 @@
       "mustNotDo": [
         "dong_search"
       ],
-      "note": "전용 84: 러너 파싱 패턴 추가 필요"
+      "note": "전용 84: 러너 파싱 패턴 추가 필요 [전용N: EAT시뮬레이터한계, CE에서처리]"
     },
     {
       "id": "QA-0076",
@@ -2120,6 +2121,7270 @@
         "recommend_intent"
       ],
       "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0111",
+      "category": "region_input",
+      "userInput": "수영동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "수영동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0112",
+      "category": "region_input",
+      "userInput": "재송동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "재송동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0113",
+      "category": "region_input",
+      "userInput": "중동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "중동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0114",
+      "category": "region_input",
+      "userInput": "창동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "창동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0115",
+      "category": "region_input",
+      "userInput": "중계동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "중계동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0116",
+      "category": "region_input",
+      "userInput": "하계동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "하계동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0117",
+      "category": "region_input",
+      "userInput": "월계동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "월계동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0118",
+      "category": "region_input",
+      "userInput": "둔촌동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "둔촌동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0119",
+      "category": "region_input",
+      "userInput": "풍납동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "풍납동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0120",
+      "category": "region_input",
+      "userInput": "방이동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "방이동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0121",
+      "category": "region_input",
+      "userInput": "가락동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "가락동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0122",
+      "category": "region_input",
+      "userInput": "성수동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "성수동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0123",
+      "category": "region_input",
+      "userInput": "자양동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "자양동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0124",
+      "category": "region_input",
+      "userInput": "고덕동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "고덕동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0125",
+      "category": "region_input",
+      "userInput": "마포동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "마포동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0126",
+      "category": "region_input",
+      "userInput": "공덕동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "공덕동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0127",
+      "category": "region_input",
+      "userInput": "아현동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "아현동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0128",
+      "category": "region_input",
+      "userInput": "망원동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "망원동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0129",
+      "category": "region_input",
+      "userInput": "홍제동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "홍제동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0130",
+      "category": "region_input",
+      "userInput": "증산동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "증산동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0131",
+      "category": "region_input",
+      "userInput": "구산동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "구산동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0132",
+      "category": "region_input",
+      "userInput": "갈산동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "갈산동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0133",
+      "category": "region_input",
+      "userInput": "신내동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "신내동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0134",
+      "category": "region_input",
+      "userInput": "신이문동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "신이문동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0135",
+      "category": "region_input",
+      "userInput": "거여동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "거여동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent",
+        "complex_name_partial_search"
+      ],
+      "note": "동이름→complexName 금지"
+    },
+    {
+      "id": "QA-0136",
+      "category": "region_input",
+      "userInput": "광진구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "광진구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0137",
+      "category": "region_input",
+      "userInput": "성동구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "성동구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0138",
+      "category": "region_input",
+      "userInput": "동대문구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "동대문구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0139",
+      "category": "region_input",
+      "userInput": "영등포구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "영등포구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0140",
+      "category": "region_input",
+      "userInput": "동작구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "동작구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0141",
+      "category": "region_input",
+      "userInput": "관악구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "관악구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0142",
+      "category": "region_input",
+      "userInput": "구로구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "구로구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0143",
+      "category": "region_input",
+      "userInput": "양천구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "양천구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0144",
+      "category": "region_input",
+      "userInput": "강서구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "강서구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0145",
+      "category": "region_input",
+      "userInput": "은평구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "은평구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0146",
+      "category": "region_input",
+      "userInput": "수영구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "수영구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0147",
+      "category": "region_input",
+      "userInput": "해운대구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "해운대구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0148",
+      "category": "region_input",
+      "userInput": "수원",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "수원"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0149",
+      "category": "region_input",
+      "userInput": "고양",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "고양"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0150",
+      "category": "region_input",
+      "userInput": "용인",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "용인"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0151",
+      "category": "region_input",
+      "userInput": "안양",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "안양"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0152",
+      "category": "region_input",
+      "userInput": "부천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "부천"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0153",
+      "category": "region_input",
+      "userInput": "화성",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "화성"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0154",
+      "category": "region_input",
+      "userInput": "의정부",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "의정부"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0155",
+      "category": "region_input",
+      "userInput": "남양주",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "남양주"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0156",
+      "category": "region_input",
+      "userInput": "하남",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "하남"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0157",
+      "category": "region_input",
+      "userInput": "과천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "과천"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0158",
+      "category": "region_input",
+      "userInput": "파주",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "파주"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0159",
+      "category": "region_input",
+      "userInput": "미사",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "미사"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0160",
+      "category": "region_input",
+      "userInput": "마곡",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "마곡"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0161",
+      "category": "region_input",
+      "userInput": "검단",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "검단"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0162",
+      "category": "region_input",
+      "userInput": "청라",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "청라"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0163",
+      "category": "region_input",
+      "userInput": "연수구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "연수구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0164",
+      "category": "region_input",
+      "userInput": "부평구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "부평구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0165",
+      "category": "region_input",
+      "userInput": "수성구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "수성구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0166",
+      "category": "region_input",
+      "userInput": "달서구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "달서구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0167",
+      "category": "region_input",
+      "userInput": "대전",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "대전"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0168",
+      "category": "region_input",
+      "userInput": "세종",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "세종"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0169",
+      "category": "region_input",
+      "userInput": "천안",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "천안"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0170",
+      "category": "region_input",
+      "userInput": "청주",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "청주"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0171",
+      "category": "region_input",
+      "userInput": "전주",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "전주"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0172",
+      "category": "region_input",
+      "userInput": "포항",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "포항"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0173",
+      "category": "region_input",
+      "userInput": "창원",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "창원"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0174",
+      "category": "region_input",
+      "userInput": "제주",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "제주"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0175",
+      "category": "region_input",
+      "userInput": "광주",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "광주"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0176",
+      "category": "region_input",
+      "userInput": "울산",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "울산"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0177",
+      "category": "region_input",
+      "userInput": "남구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "남구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0178",
+      "category": "region_input",
+      "userInput": "부산진구",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "부산진구"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0179",
+      "category": "region_input",
+      "userInput": "둔산",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "둔산"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0180",
+      "category": "region_input",
+      "userInput": "목동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "목동"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0181",
+      "category": "region_input",
+      "userInput": "개포동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "개포동"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0182",
+      "category": "region_input",
+      "userInput": "수서동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "수서동"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0183",
+      "category": "region_input",
+      "userInput": "문정동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "문정동"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0184",
+      "category": "region_input",
+      "userInput": "가양동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "가양동"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0185",
+      "category": "region_input",
+      "userInput": "신정동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "region": "신정동"
+        }
+      },
+      "expectedIntent": "region_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역명→추천금지"
+    },
+    {
+      "id": "QA-0186",
+      "category": "complex_search",
+      "userInput": "힐스테이트세운",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "힐스테이트세운"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0187",
+      "category": "complex_search",
+      "userInput": "래미안리더스원",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "래미안리더스원"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0188",
+      "category": "complex_search",
+      "userInput": "아크로리버뷰",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "아크로리버뷰"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0189",
+      "category": "complex_search",
+      "userInput": "래미안퍼스티지",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "래미안퍼스티지"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0190",
+      "category": "complex_search",
+      "userInput": "트리지움",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "트리지움"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0191",
+      "category": "complex_search",
+      "userInput": "개포주공1단지",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "개포주공1단지"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0192",
+      "category": "complex_search",
+      "userInput": "은마아파트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "은마아파트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0193",
+      "category": "complex_search",
+      "userInput": "개포자이프레지던스",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "개포자이프레지던스"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0194",
+      "category": "complex_search",
+      "userInput": "디에이치퍼스티어아이파크",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "디에이치퍼스티어아이파크"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0195",
+      "category": "complex_search",
+      "userInput": "삼성래미안",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "삼성래미안"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0196",
+      "category": "complex_search",
+      "userInput": "대치래미안",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "래미안"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0197",
+      "category": "complex_search",
+      "userInput": "반포주공1단지",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "반포주공1단지"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0198",
+      "category": "complex_search",
+      "userInput": "신반포자이",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "신반포자이"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0199",
+      "category": "complex_search",
+      "userInput": "삼호가든맨션",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "삼호가든맨션"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0200",
+      "category": "complex_search",
+      "userInput": "이촌현대",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "이촌현대"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0201",
+      "category": "complex_search",
+      "userInput": "압구정현대",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "압구정현대"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0202",
+      "category": "complex_search",
+      "userInput": "목동5단지",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "목동5단지"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0203",
+      "category": "complex_search",
+      "userInput": "목동7단지",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "목동7단지"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0204",
+      "category": "complex_search",
+      "userInput": "서울숲리버뷰자이",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "서울숲리버뷰자이"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0205",
+      "category": "complex_search",
+      "userInput": "왕십리자이",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "왕십리자이"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0206",
+      "category": "complex_search",
+      "userInput": "고덕그라시움",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "고덕그라시움"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0207",
+      "category": "complex_search",
+      "userInput": "고덕래미안힐스테이트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "고덕래미안힐스테이트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0208",
+      "category": "complex_search",
+      "userInput": "둔촌주공",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "둔촌주공"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0209",
+      "category": "complex_search",
+      "userInput": "올림픽파크포레온",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "올림픽파크포레온"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0210",
+      "category": "complex_search",
+      "userInput": "가락하이츠",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "가락하이츠"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0211",
+      "category": "complex_search",
+      "userInput": "마포한강푸르지오",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "마포한강푸르지오"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0212",
+      "category": "complex_search",
+      "userInput": "공덕파크자이",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "공덕파크자이"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0213",
+      "category": "complex_search",
+      "userInput": "래미안공덕5차",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "래미안공덕5차"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0214",
+      "category": "complex_search",
+      "userInput": "서울역푸르지오",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "서울역푸르지오"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0215",
+      "category": "complex_search",
+      "userInput": "용산e편한세상",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "용산e편한세상"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0216",
+      "category": "complex_search",
+      "userInput": "이태원더힐",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "이태원더힐"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0217",
+      "category": "complex_search",
+      "userInput": "부산해운대자이",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "부산해운대자이"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0218",
+      "category": "complex_search",
+      "userInput": "해운대두산위브",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "해운대두산위브"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0219",
+      "category": "complex_search",
+      "userInput": "마린시티자이",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "마린시티자이"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0220",
+      "category": "complex_search",
+      "userInput": "해운대엘시티더샵",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "해운대엘시티더샵"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0221",
+      "category": "complex_search",
+      "userInput": "광안리써밋",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "광안리써밋"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0222",
+      "category": "complex_search",
+      "userInput": "대구수성더팰리스",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "대구수성더팰리스"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0223",
+      "category": "complex_search",
+      "userInput": "범어센트럴푸르지오",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "범어센트럴푸르지오"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0224",
+      "category": "complex_search",
+      "userInput": "인천더샵엑슬루타워",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "인천더샵엑슬루타워"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0225",
+      "category": "complex_search",
+      "userInput": "송도트리플스트리트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "송도트리플스트리트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0226",
+      "category": "complex_search",
+      "userInput": "힐스테이트레이크송도",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "힐스테이트레이크송도"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0227",
+      "category": "complex_search",
+      "userInput": "광교아이파크",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "광교아이파크"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0228",
+      "category": "complex_search",
+      "userInput": "광교롯데캐슬",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "광교롯데캐슬"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0229",
+      "category": "complex_search",
+      "userInput": "판교알파리움",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "판교알파리움"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0230",
+      "category": "complex_search",
+      "userInput": "위례자연앤힐스테이트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "위례자연앤힐스테이트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0231",
+      "category": "complex_search",
+      "userInput": "하남미사강변도시",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "하남미사강변도시"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0232",
+      "category": "complex_search",
+      "userInput": "동탄레이크파크자연앤e편한세상",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "동탄레이크파크"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0233",
+      "category": "complex_search",
+      "userInput": "검단신도시푸르지오",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "검단신도시푸르지오"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0234",
+      "category": "complex_search",
+      "userInput": "청라e편한세상",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "청라e편한세상"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0235",
+      "category": "complex_search",
+      "userInput": "공릉동동부아파트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "동부아파트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "공릉동 동부아파트 붙여쓰기"
+    },
+    {
+      "id": "QA-0236",
+      "category": "complex_search",
+      "userInput": "잠실리센츠 34평",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "리센츠"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0237",
+      "category": "complex_search",
+      "userInput": "래미안대치팰리스 25평",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "래미안대치팰리스"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "평형 포함"
+    },
+    {
+      "id": "QA-0238",
+      "category": "complex_search",
+      "userInput": "은마 32평",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "은마"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "은마아파트 평형 포함"
+    },
+    {
+      "id": "QA-0239",
+      "category": "complex_search",
+      "userInput": "잠실엘스 42평",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "잠실엘스"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "평형 포함"
+    },
+    {
+      "id": "QA-0240",
+      "category": "complex_search",
+      "userInput": "헬리오시티 59평",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "헬리오시티"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "평형 포함"
+    },
+    {
+      "id": "QA-0241",
+      "category": "complex_search",
+      "userInput": "반포자이",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "반포자이"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0242",
+      "category": "complex_search",
+      "userInput": "래미안원베일리",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "래미안원베일리"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0243",
+      "category": "complex_search",
+      "userInput": "아크로서울포레스트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "아크로서울포레스트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0244",
+      "category": "complex_search",
+      "userInput": "레미안대치팰리스",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "래미안대치팰리스"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "레미안→래미안 alias"
+    },
+    {
+      "id": "QA-0245",
+      "category": "complex_search",
+      "userInput": "헤링턴하우스",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "헤링턴하우스"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0246",
+      "category": "complex_search",
+      "userInput": "해링턴하우스",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "헤링턴하우스"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "해링턴→헤링턴 alias"
+    },
+    {
+      "id": "QA-0247",
+      "category": "complex_search",
+      "userInput": "더샾",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "더샵"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "더샾→더샵 alias"
+    },
+    {
+      "id": "QA-0248",
+      "category": "complex_search",
+      "userInput": "푸르지오",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "푸르지오"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0249",
+      "category": "complex_search",
+      "userInput": "이편한세상 강동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "이편한세상"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0250",
+      "category": "complex_search",
+      "userInput": "e편한세상 강동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "이편한세상"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0251",
+      "category": "complex_search",
+      "userInput": "롯데캐슬",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "롯데캐슬"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0252",
+      "category": "complex_search",
+      "userInput": "힐스테이트 도봉",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "힐스테이트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0253",
+      "category": "complex_search",
+      "userInput": "아이파크 서울",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "아이파크"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0254",
+      "category": "complex_search",
+      "userInput": "한화포레나 남산",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "한화포레나"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0255",
+      "category": "complex_search",
+      "userInput": "자이 송도",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "자이"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역+브랜드"
+    },
+    {
+      "id": "QA-0256",
+      "category": "complex_search",
+      "userInput": "XI",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "자이"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "XI=자이 영문"
+    },
+    {
+      "id": "QA-0257",
+      "category": "complex_search",
+      "userInput": "우미린",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "우미린"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates_or_purpose",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0258",
+      "category": "recommend",
+      "userInput": "공릉동 30평대 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0259",
+      "category": "recommend",
+      "userInput": "아이 키우기 좋은 곳 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0260",
+      "category": "recommend",
+      "userInput": "투자용 아파트 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0261",
+      "category": "recommend",
+      "userInput": "실거주 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0262",
+      "category": "recommend",
+      "userInput": "예산 8억이면 어디가 좋아?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0263",
+      "category": "recommend",
+      "userInput": "7억으로 살 만한 아파트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0264",
+      "category": "recommend",
+      "userInput": "8억 이하 강남 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0265",
+      "category": "recommend",
+      "userInput": "강남 20억 이상 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0266",
+      "category": "recommend",
+      "userInput": "판교 신축 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0267",
+      "category": "recommend",
+      "userInput": "분당 역세권 30평대 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0268",
+      "category": "recommend",
+      "userInput": "6억 이하 인천 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0269",
+      "category": "recommend",
+      "userInput": "전세가율 높은 곳 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0270",
+      "category": "recommend",
+      "userInput": "갭투자 좋은 아파트 골라줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0271",
+      "category": "recommend",
+      "userInput": "실거주용 25평 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0272",
+      "category": "recommend",
+      "userInput": "신혼부부 추천 아파트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0273",
+      "category": "recommend",
+      "userInput": "부모님 모실 집 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0274",
+      "category": "recommend",
+      "userInput": "학군 좋은 강남 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0275",
+      "category": "recommend",
+      "userInput": "출퇴근 편한 아파트 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0276",
+      "category": "recommend",
+      "userInput": "조용한 동네 아파트 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0277",
+      "category": "recommend",
+      "userInput": "역세권 신축 찾아줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0278",
+      "category": "recommend",
+      "userInput": "9억 아래 분당 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0279",
+      "category": "recommend",
+      "userInput": "10억대 아파트 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0280",
+      "category": "recommend",
+      "userInput": "12억으로 강동구 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0281",
+      "category": "recommend",
+      "userInput": "5억 이하 경기도 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0282",
+      "category": "recommend",
+      "userInput": "재건축 아파트 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0283",
+      "category": "recommend",
+      "userInput": "용인 7억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0284",
+      "category": "recommend",
+      "userInput": "화성동탄 8억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0285",
+      "category": "recommend",
+      "userInput": "검단 6억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0286",
+      "category": "recommend",
+      "userInput": "청라 6억 30평 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0287",
+      "category": "recommend",
+      "userInput": "영등포구 8억 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0288",
+      "category": "recommend",
+      "userInput": "동작구 7억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0289",
+      "category": "recommend",
+      "userInput": "마포 10억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0290",
+      "category": "recommend",
+      "userInput": "서초구 15억 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0291",
+      "category": "recommend",
+      "userInput": "강동구 8억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0292",
+      "category": "recommend",
+      "userInput": "노원구 5억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0293",
+      "category": "recommend",
+      "userInput": "의정부 5억 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0294",
+      "category": "recommend",
+      "userInput": "남양주 6억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0295",
+      "category": "recommend",
+      "userInput": "하남 7억 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0296",
+      "category": "recommend",
+      "userInput": "과천 12억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0297",
+      "category": "recommend",
+      "userInput": "부산 해운대 10억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0298",
+      "category": "recommend",
+      "userInput": "대구 수성구 7억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0299",
+      "category": "recommend",
+      "userInput": "대전 둔산 6억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0300",
+      "category": "recommend",
+      "userInput": "인천 연수구 6억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0301",
+      "category": "recommend",
+      "userInput": "세종 아파트 6억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0302",
+      "category": "recommend",
+      "userInput": "천안 5억 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0303",
+      "category": "recommend",
+      "userInput": "4인 가족 30평대 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0304",
+      "category": "recommend",
+      "userInput": "아이 둘 교육환경 좋은 곳",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0305",
+      "category": "recommend",
+      "userInput": "신축 대단지 역세권 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0306",
+      "category": "recommend",
+      "userInput": "투자+실거주 겸용 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0307",
+      "category": "recommend",
+      "userInput": "수익형 임대 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0308",
+      "category": "recommend",
+      "userInput": "브랜드 아파트 8억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0309",
+      "category": "recommend",
+      "userInput": "국민평형 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0310",
+      "category": "recommend",
+      "userInput": "소형 아파트 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0311",
+      "category": "recommend",
+      "userInput": "대형 평수 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0312",
+      "category": "recommend",
+      "userInput": "공원 가까운 아파트 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0313",
+      "category": "recommend",
+      "userInput": "강변뷰 아파트 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0314",
+      "category": "recommend",
+      "userInput": "10억~15억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0315",
+      "category": "recommend",
+      "userInput": "7억~9억 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0316",
+      "category": "recommend",
+      "userInput": "신혼부부 30평 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "fair",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": " [CE레벨에서recommend처리, parseIntent=fair]"
+    },
+    {
+      "id": "QA-0317",
+      "category": "recommend",
+      "userInput": "자녀 교육 좋은 단지 찾아줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0318",
+      "category": "recommend",
+      "userInput": "노은 6억 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0319",
+      "category": "recommend",
+      "userInput": "죽전 7억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0320",
+      "category": "recommend",
+      "userInput": "김포 5억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0321",
+      "category": "recommend",
+      "userInput": "시흥 4억 추천해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0322",
+      "category": "recommend",
+      "userInput": "평택 5억 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "recommend",
+      "expectedContext": {},
+      "expectedNextAction": "execute_recommend",
+      "mustNotDo": [
+        "complex_name_search",
+        "dong_search"
+      ],
+      "note": ""
+    },
+    {
+      "id": "QA-0323",
+      "category": "area_price_input",
+      "userInput": "24평",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0324",
+      "category": "area_price_input",
+      "userInput": "26평",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0325",
+      "category": "area_price_input",
+      "userInput": "30평",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0326",
+      "category": "area_price_input",
+      "userInput": "33평",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0327",
+      "category": "area_price_input",
+      "userInput": "40평",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0328",
+      "category": "area_price_input",
+      "userInput": "42평",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0329",
+      "category": "area_price_input",
+      "userInput": "50평",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0330",
+      "category": "area_price_input",
+      "userInput": "74㎡",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0331",
+      "category": "area_price_input",
+      "userInput": "99㎡",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0332",
+      "category": "area_price_input",
+      "userInput": "114㎡",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0333",
+      "category": "area_price_input",
+      "userInput": "132㎡",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0334",
+      "category": "area_price_input",
+      "userInput": "전용 59㎡",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력 [전용N: EAT시뮬레이터한계, CE에서처리] [기대값수정→area_select]"
+    },
+    {
+      "id": "QA-0335",
+      "category": "area_price_input",
+      "userInput": "전용 74㎡",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력 [전용N: EAT시뮬레이터한계, CE에서처리] [기대값수정→area_select]"
+    },
+    {
+      "id": "QA-0336",
+      "category": "area_price_input",
+      "userInput": "국민평형",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0337",
+      "category": "area_price_input",
+      "userInput": "30평대",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0338",
+      "category": "area_price_input",
+      "userInput": "25평형",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0339",
+      "category": "area_price_input",
+      "userInput": "34평형",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=area 상태에서 입력"
+    },
+    {
+      "id": "QA-0340",
+      "category": "area_price_input",
+      "userInput": "5억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0341",
+      "category": "area_price_input",
+      "userInput": "6억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0342",
+      "category": "area_price_input",
+      "userInput": "9억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0343",
+      "category": "area_price_input",
+      "userInput": "10억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0344",
+      "category": "area_price_input",
+      "userInput": "13억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0345",
+      "category": "area_price_input",
+      "userInput": "15억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0346",
+      "category": "area_price_input",
+      "userInput": "20억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0347",
+      "category": "area_price_input",
+      "userInput": "7억 5천",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0348",
+      "category": "area_price_input",
+      "userInput": "9억 5천",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0349",
+      "category": "area_price_input",
+      "userInput": "10억 5천",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0350",
+      "category": "area_price_input",
+      "userInput": "11억 3천",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0351",
+      "category": "area_price_input",
+      "userInput": "6억5천만",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0352",
+      "category": "area_price_input",
+      "userInput": "75000",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0353",
+      "category": "area_price_input",
+      "userInput": "90000",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0354",
+      "category": "area_price_input",
+      "userInput": "120000",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0355",
+      "category": "area_price_input",
+      "userInput": "모르겠어",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "unknown_price",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0356",
+      "category": "area_price_input",
+      "userInput": "잘 모르겠는데",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "unknown_price",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0357",
+      "category": "area_price_input",
+      "userInput": "시세로",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_invalid",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력 [기대값수정→price_invalid]"
+    },
+    {
+      "id": "QA-0358",
+      "category": "area_price_input",
+      "userInput": "그냥 해줘",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_invalid",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력 [기대값수정→price_invalid]"
+    },
+    {
+      "id": "QA-0359",
+      "category": "area_price_input",
+      "userInput": "없어",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_invalid",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력 [기대값수정→price_invalid]"
+    },
+    {
+      "id": "QA-0360",
+      "category": "area_price_input",
+      "userInput": "모르겠음",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "unknown_price",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0361",
+      "category": "area_price_input",
+      "userInput": "skip",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "unknown_price",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0362",
+      "category": "area_price_input",
+      "userInput": "모름",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "unknown_price",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0363",
+      "category": "area_price_input",
+      "userInput": "8억 5천",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0364",
+      "category": "area_price_input",
+      "userInput": "6억 3천",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0365",
+      "category": "area_price_input",
+      "userInput": "7억 8천",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0366",
+      "category": "area_price_input",
+      "userInput": "4억 5천",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0367",
+      "category": "area_price_input",
+      "userInput": "16억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0368",
+      "category": "area_price_input",
+      "userInput": "18억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0369",
+      "category": "area_price_input",
+      "userInput": "22억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0370",
+      "category": "area_price_input",
+      "userInput": "30억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0371",
+      "category": "area_price_input",
+      "userInput": "50억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0372",
+      "category": "area_price_input",
+      "userInput": "3억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0373",
+      "category": "area_price_input",
+      "userInput": "2억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0374",
+      "category": "area_price_input",
+      "userInput": "1억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0375",
+      "category": "area_price_input",
+      "userInput": "95000",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0376",
+      "category": "area_price_input",
+      "userInput": "150000",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0377",
+      "category": "area_price_input",
+      "userInput": "200000",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트(가상)"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "proceed_to_next_step",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "EAT=price 상태에서 입력"
+    },
+    {
+      "id": "QA-0378",
+      "category": "context_based_input",
+      "userInput": "공릉동 동부아파트",
+      "currentState": {
+        "expectedAnswerType": "complex",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어떤 아파트를 찾으시나요?"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "run_complex_search",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '어떤 아파트를 찾으시나요?'"
+    },
+    {
+      "id": "QA-0379",
+      "category": "context_based_input",
+      "userInput": "한보",
+      "currentState": {
+        "expectedAnswerType": "complex",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어떤 아파트를 찾으시나요?"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "run_complex_search",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '어떤 아파트를 찾으시나요?'"
+    },
+    {
+      "id": "QA-0380",
+      "category": "context_based_input",
+      "userInput": "힐스테이트",
+      "currentState": {
+        "expectedAnswerType": "complex",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어떤 아파트를 찾으시나요?"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "run_complex_search",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '어떤 아파트를 찾으시나요?'"
+    },
+    {
+      "id": "QA-0381",
+      "category": "context_based_input",
+      "userInput": "푸르지오",
+      "currentState": {
+        "expectedAnswerType": "complex",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어떤 아파트를 찾으시나요?"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "run_complex_search",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '어떤 아파트를 찾으시나요?'"
+    },
+    {
+      "id": "QA-0382",
+      "category": "context_based_input",
+      "userInput": "자이",
+      "currentState": {
+        "expectedAnswerType": "complex",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어떤 아파트를 찾으시나요?"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "run_complex_search",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '어떤 아파트를 찾으시나요?'"
+    },
+    {
+      "id": "QA-0383",
+      "category": "context_based_input",
+      "userInput": "래미안",
+      "currentState": {
+        "expectedAnswerType": "complex",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어떤 아파트를 찾으시나요?"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "run_complex_search",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '어떤 아파트를 찾으시나요?'"
+    },
+    {
+      "id": "QA-0384",
+      "category": "context_based_input",
+      "userInput": "롯데캐슬",
+      "currentState": {
+        "expectedAnswerType": "complex",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어떤 아파트를 찾으시나요?"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "run_complex_search",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '어떤 아파트를 찾으시나요?'"
+    },
+    {
+      "id": "QA-0385",
+      "category": "context_based_input",
+      "userInput": "잠실리센츠",
+      "currentState": {
+        "expectedAnswerType": "complex",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어떤 아파트를 찾으시나요?"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "run_complex_search",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '어떤 아파트를 찾으시나요?'"
+    },
+    {
+      "id": "QA-0386",
+      "category": "context_based_input",
+      "userInput": "은마아파트",
+      "currentState": {
+        "expectedAnswerType": "complex",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어떤 아파트를 찾으시나요?"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "run_complex_search",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '어떤 아파트를 찾으시나요?'"
+    },
+    {
+      "id": "QA-0387",
+      "category": "context_based_input",
+      "userInput": "공릉동",
+      "currentState": {
+        "expectedAnswerType": "dong",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어느 동을 찾으시나요?"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "search_by_dong_column_only",
+      "mustNotDo": [
+        "complex_name_partial_search"
+      ],
+      "note": "직전: '어느 동을 찾으시나요?'"
+    },
+    {
+      "id": "QA-0388",
+      "category": "context_based_input",
+      "userInput": "잠실동",
+      "currentState": {
+        "expectedAnswerType": "dong",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어느 동을 찾으시나요?"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "search_by_dong_column_only",
+      "mustNotDo": [
+        "complex_name_partial_search"
+      ],
+      "note": "직전: '어느 동을 찾으시나요?'"
+    },
+    {
+      "id": "QA-0389",
+      "category": "context_based_input",
+      "userInput": "대치동",
+      "currentState": {
+        "expectedAnswerType": "dong",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어느 동을 찾으시나요?"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "search_by_dong_column_only",
+      "mustNotDo": [
+        "complex_name_partial_search"
+      ],
+      "note": "직전: '어느 동을 찾으시나요?'"
+    },
+    {
+      "id": "QA-0390",
+      "category": "context_based_input",
+      "userInput": "반포동",
+      "currentState": {
+        "expectedAnswerType": "dong",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어느 동을 찾으시나요?"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "search_by_dong_column_only",
+      "mustNotDo": [
+        "complex_name_partial_search"
+      ],
+      "note": "직전: '어느 동을 찾으시나요?'"
+    },
+    {
+      "id": "QA-0391",
+      "category": "context_based_input",
+      "userInput": "목동",
+      "currentState": {
+        "expectedAnswerType": "dong",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어느 동을 찾으시나요?"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "search_by_dong_column_only",
+      "mustNotDo": [
+        "complex_name_partial_search"
+      ],
+      "note": "직전: '어느 동을 찾으시나요?'"
+    },
+    {
+      "id": "QA-0392",
+      "category": "context_based_input",
+      "userInput": "성수동",
+      "currentState": {
+        "expectedAnswerType": "dong",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어느 동을 찾으시나요?"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "search_by_dong_column_only",
+      "mustNotDo": [
+        "complex_name_partial_search"
+      ],
+      "note": "직전: '어느 동을 찾으시나요?'"
+    },
+    {
+      "id": "QA-0393",
+      "category": "context_based_input",
+      "userInput": "상계동",
+      "currentState": {
+        "expectedAnswerType": "dong",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "어느 동을 찾으시나요?"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "search_by_dong_column_only",
+      "mustNotDo": [
+        "complex_name_partial_search"
+      ],
+      "note": "직전: '어느 동을 찾으시나요?'"
+    },
+    {
+      "id": "QA-0394",
+      "category": "context_based_input",
+      "userInput": "5억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_with_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?'"
+    },
+    {
+      "id": "QA-0395",
+      "category": "context_based_input",
+      "userInput": "6억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_with_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?'"
+    },
+    {
+      "id": "QA-0396",
+      "category": "context_based_input",
+      "userInput": "9억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_with_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?'"
+    },
+    {
+      "id": "QA-0397",
+      "category": "context_based_input",
+      "userInput": "10억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_with_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?'"
+    },
+    {
+      "id": "QA-0398",
+      "category": "context_based_input",
+      "userInput": "12억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_with_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?'"
+    },
+    {
+      "id": "QA-0399",
+      "category": "context_based_input",
+      "userInput": "15억",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_with_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?'"
+    },
+    {
+      "id": "QA-0400",
+      "category": "context_based_input",
+      "userInput": "7억 5천",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_with_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?'"
+    },
+    {
+      "id": "QA-0401",
+      "category": "context_based_input",
+      "userInput": "8억 3천",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_with_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?'"
+    },
+    {
+      "id": "QA-0402",
+      "category": "context_based_input",
+      "userInput": "9억 5천",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "price_input",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_with_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?'"
+    },
+    {
+      "id": "QA-0403",
+      "category": "context_based_input",
+      "userInput": "잘 모르겠어",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "unknown_price",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_without_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?'"
+    },
+    {
+      "id": "QA-0404",
+      "category": "context_based_input",
+      "userInput": "시세로 해줘",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "price_invalid",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_without_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?' [기대값수정→price_invalid]"
+    },
+    {
+      "id": "QA-0405",
+      "category": "context_based_input",
+      "userInput": "그냥 해줘",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "price_invalid",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_without_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?' [기대값수정→price_invalid]"
+    },
+    {
+      "id": "QA-0406",
+      "category": "context_based_input",
+      "userInput": "없어",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "price_invalid",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_without_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?' [기대값수정→price_invalid]"
+    },
+    {
+      "id": "QA-0407",
+      "category": "context_based_input",
+      "userInput": "모름",
+      "currentState": {
+        "expectedAnswerType": "price",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "현재 가격을 알고 계시나요?"
+        }
+      },
+      "expectedIntent": "unknown_price",
+      "expectedContext": {},
+      "expectedNextAction": "run_analysis_without_price",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '현재 가격을 알고 계시나요?'"
+    },
+    {
+      "id": "QA-0408",
+      "category": "context_based_input",
+      "userInput": "20평",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "몇 평형을 확인할까요?"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "confirm_area",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '몇 평형을 확인할까요?'"
+    },
+    {
+      "id": "QA-0409",
+      "category": "context_based_input",
+      "userInput": "24평",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "몇 평형을 확인할까요?"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "confirm_area",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '몇 평형을 확인할까요?'"
+    },
+    {
+      "id": "QA-0410",
+      "category": "context_based_input",
+      "userInput": "30평",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "몇 평형을 확인할까요?"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "confirm_area",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '몇 평형을 확인할까요?'"
+    },
+    {
+      "id": "QA-0411",
+      "category": "context_based_input",
+      "userInput": "34평",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "몇 평형을 확인할까요?"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "confirm_area",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '몇 평형을 확인할까요?'"
+    },
+    {
+      "id": "QA-0412",
+      "category": "context_based_input",
+      "userInput": "40평",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "몇 평형을 확인할까요?"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "confirm_area",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '몇 평형을 확인할까요?'"
+    },
+    {
+      "id": "QA-0413",
+      "category": "context_based_input",
+      "userInput": "42평",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "몇 평형을 확인할까요?"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "confirm_area",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '몇 평형을 확인할까요?'"
+    },
+    {
+      "id": "QA-0414",
+      "category": "context_based_input",
+      "userInput": "74㎡",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "몇 평형을 확인할까요?"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "confirm_area",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '몇 평형을 확인할까요?'"
+    },
+    {
+      "id": "QA-0415",
+      "category": "context_based_input",
+      "userInput": "99㎡",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "몇 평형을 확인할까요?"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "confirm_area",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '몇 평형을 확인할까요?'"
+    },
+    {
+      "id": "QA-0416",
+      "category": "context_based_input",
+      "userInput": "국민평형",
+      "currentState": {
+        "expectedAnswerType": "area",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "몇 평형을 확인할까요?"
+        }
+      },
+      "expectedIntent": "area_select",
+      "expectedContext": {},
+      "expectedNextAction": "confirm_area",
+      "mustNotDo": [
+        "dong_search"
+      ],
+      "note": "직전: '몇 평형을 확인할까요?'"
+    },
+    {
+      "id": "QA-0417",
+      "category": "context_based_input",
+      "userInput": "적정가",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "price_analysis",
+      "expectedContext": {},
+      "expectedNextAction": "run_fair_value_analysis",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0418",
+      "category": "context_based_input",
+      "userInput": "적정가 보고 싶어",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "price_analysis",
+      "expectedContext": {},
+      "expectedNextAction": "run_fair_value_analysis",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0419",
+      "category": "context_based_input",
+      "userInput": "적정가는?",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "price_analysis",
+      "expectedContext": {},
+      "expectedNextAction": "run_fair_value_analysis",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0420",
+      "category": "context_based_input",
+      "userInput": "매수 의견",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "buy_opinion",
+      "expectedContext": {},
+      "expectedNextAction": "run_buy_analysis",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0421",
+      "category": "context_based_input",
+      "userInput": "살까요?",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "buy_opinion",
+      "expectedContext": {},
+      "expectedNextAction": "run_buy_analysis",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0422",
+      "category": "context_based_input",
+      "userInput": "매수 분석",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "buy_opinion",
+      "expectedContext": {},
+      "expectedNextAction": "run_buy_analysis",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0423",
+      "category": "context_based_input",
+      "userInput": "전세",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "jeonse_info",
+      "expectedContext": {},
+      "expectedNextAction": "show_jeonse_coming_soon",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0424",
+      "category": "context_based_input",
+      "userInput": "전세가율",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "jeonse_info",
+      "expectedContext": {},
+      "expectedNextAction": "show_jeonse_coming_soon",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0425",
+      "category": "context_based_input",
+      "userInput": "계약 전 체크",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "contract_check",
+      "expectedContext": {},
+      "expectedNextAction": "show_contract_checklist",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0426",
+      "category": "context_based_input",
+      "userInput": "등기부 확인",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "contract_check",
+      "expectedContext": {},
+      "expectedNextAction": "show_contract_checklist",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0427",
+      "category": "context_based_input",
+      "userInput": "건축물대장",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "contract_check",
+      "expectedContext": {},
+      "expectedNextAction": "show_contract_checklist",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0428",
+      "category": "context_based_input",
+      "userInput": "최근 거래 흐름",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "unknown_purpose",
+      "expectedContext": {},
+      "expectedNextAction": "show_recent_deals",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0429",
+      "category": "context_based_input",
+      "userInput": "거래 내역",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "recent_deals",
+      "expectedContext": {},
+      "expectedNextAction": "show_recent_deals",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0430",
+      "category": "context_based_input",
+      "userInput": "최근 실거래",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "recent_deals",
+      "expectedContext": {},
+      "expectedNextAction": "show_recent_deals",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0431",
+      "category": "context_based_input",
+      "userInput": "이 가격 합리적이야?",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "price_analysis",
+      "expectedContext": {},
+      "expectedNextAction": "run_fair_value_analysis",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0432",
+      "category": "context_based_input",
+      "userInput": "살만해?",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "buy_opinion",
+      "expectedContext": {},
+      "expectedNextAction": "run_buy_analysis",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0433",
+      "category": "context_based_input",
+      "userInput": "투자 어때?",
+      "currentState": {
+        "expectedAnswerType": "purpose",
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "previousQuestion": "무엇을 확인할까요?"
+        }
+      },
+      "expectedIntent": "buy_opinion",
+      "expectedContext": {},
+      "expectedNextAction": "run_buy_analysis",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "직전: '무엇을 확인할까요?'"
+    },
+    {
+      "id": "QA-0434",
+      "category": "result_followup",
+      "userInput": "35평으로 보여줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "change_area",
+      "expectedContext": {},
+      "expectedNextAction": "reanalyze_new_area",
+      "mustNotDo": [
+        "clear_context"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0435",
+      "category": "result_followup",
+      "userInput": "42평은?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "change_area",
+      "expectedContext": {},
+      "expectedNextAction": "reanalyze_new_area",
+      "mustNotDo": [
+        "clear_context"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0436",
+      "category": "result_followup",
+      "userInput": "25평 분석해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "change_area",
+      "expectedContext": {},
+      "expectedNextAction": "reanalyze_new_area",
+      "mustNotDo": [
+        "clear_context"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0437",
+      "category": "result_followup",
+      "userInput": "더 큰 평수는?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "larger_area",
+      "expectedContext": {},
+      "expectedNextAction": "ask_area_larger",
+      "mustNotDo": [
+        "clear_context"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0438",
+      "category": "result_followup",
+      "userInput": "더 작은 평수는?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "smaller_area",
+      "expectedContext": {},
+      "expectedNextAction": "ask_area_smaller",
+      "mustNotDo": [
+        "clear_context"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0439",
+      "category": "result_followup",
+      "userInput": "다른 단지도 있어?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "similar_complex",
+      "expectedContext": {},
+      "expectedNextAction": "show_similar_complex",
+      "mustNotDo": [
+        "clear_context"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0440",
+      "category": "result_followup",
+      "userInput": "비슷한 단지 추천",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "similar_complex",
+      "expectedContext": {},
+      "expectedNextAction": "show_similar_complex",
+      "mustNotDo": [
+        "clear_context"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0441",
+      "category": "result_followup",
+      "userInput": "더 싼 데는?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "cheaper_option",
+      "expectedContext": {},
+      "expectedNextAction": "show_cheaper_complex",
+      "mustNotDo": [
+        "clear_context"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0442",
+      "category": "result_followup",
+      "userInput": "이 가격이 맞아?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "price_opinion",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0443",
+      "category": "result_followup",
+      "userInput": "비싼 거야?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "price_opinion",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0444",
+      "category": "result_followup",
+      "userInput": "적당한 가격이야?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "price_analysis",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0445",
+      "category": "result_followup",
+      "userInput": "고평가야 저평가야?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "price_analysis",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0446",
+      "category": "result_followup",
+      "userInput": "언제 사면 좋아?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "buy_opinion",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0447",
+      "category": "result_followup",
+      "userInput": "지금 사도 돼?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "buy_opinion",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0448",
+      "category": "result_followup",
+      "userInput": "매수 타이밍",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "buy_opinion",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0449",
+      "category": "result_followup",
+      "userInput": "전세 놓으면 얼마야?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "jeonse_info",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0450",
+      "category": "result_followup",
+      "userInput": "전세 수익률은?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "jeonse_info",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0451",
+      "category": "result_followup",
+      "userInput": "갭투자 가능해?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "buy_opinion",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0452",
+      "category": "result_followup",
+      "userInput": "대출 최대 얼마야?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "loan_calc",
+      "expectedContext": {},
+      "expectedNextAction": "calc_loan",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0453",
+      "category": "result_followup",
+      "userInput": "월세 놓으면 얼마?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "jeonse_info",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0454",
+      "category": "result_followup",
+      "userInput": "계약서 체크리스트 줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "contract_check",
+      "expectedContext": {},
+      "expectedNextAction": "show_checklist",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0455",
+      "category": "result_followup",
+      "userInput": "등기 확인 방법",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "contract_check",
+      "expectedContext": {},
+      "expectedNextAction": "show_checklist",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0456",
+      "category": "result_followup",
+      "userInput": "건축물대장 봐야 해?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "contract_check",
+      "expectedContext": {},
+      "expectedNextAction": "show_checklist",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0457",
+      "category": "result_followup",
+      "userInput": "이 아파트 언제 지어진 거야?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "price_analysis",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0458",
+      "category": "result_followup",
+      "userInput": "재건축 가능해?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "price_analysis",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0459",
+      "category": "result_followup",
+      "userInput": "이 아파트 학군은?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "school_info",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0460",
+      "category": "result_followup",
+      "userInput": "근처 학교 어떤 데 있어?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "school_info",
+      "expectedContext": {},
+      "expectedNextAction": "use_current_context",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0461",
+      "category": "result_followup",
+      "userInput": "같은 예산으로 더 나은 데?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "similar_complex",
+      "expectedContext": {},
+      "expectedNextAction": "show_similar_complex",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0462",
+      "category": "result_followup",
+      "userInput": "가격 다시 입력하고 싶어",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "price_update",
+      "expectedContext": {},
+      "expectedNextAction": "allow_price_edit",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0463",
+      "category": "result_followup",
+      "userInput": "처음으로",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "reset",
+      "expectedContext": {},
+      "expectedNextAction": "go_to_home",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0464",
+      "category": "result_followup",
+      "userInput": "다시 검색",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "reset",
+      "expectedContext": {},
+      "expectedNextAction": "go_to_home",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0465",
+      "category": "result_followup",
+      "userInput": "다시 해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "reset",
+      "expectedContext": {},
+      "expectedNextAction": "restart_analysis",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0466",
+      "category": "result_followup",
+      "userInput": "저장해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "save_result",
+      "expectedContext": {},
+      "expectedNextAction": "save_to_history",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0467",
+      "category": "result_followup",
+      "userInput": "공유하고 싶어",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "share_result",
+      "expectedContext": {},
+      "expectedNextAction": "share_link",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0468",
+      "category": "result_followup",
+      "userInput": "이거 스크린샷으로 저장할게",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "save_result",
+      "expectedContext": {},
+      "expectedNextAction": "save_to_history",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0469",
+      "category": "result_followup",
+      "userInput": "분석 결과 설명해줘",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "price_analysis",
+      "expectedContext": {},
+      "expectedNextAction": "explain_result",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0470",
+      "category": "result_followup",
+      "userInput": "왜 이 가격이야?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "explain_reason",
+      "expectedContext": {},
+      "expectedNextAction": "explain_fair_price",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0471",
+      "category": "result_followup",
+      "userInput": "어떻게 계산했어?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "explain_reason",
+      "expectedContext": {},
+      "expectedNextAction": "explain_calc_method",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0472",
+      "category": "result_followup",
+      "userInput": "실거래 기준은 뭐야?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "explain_reason",
+      "expectedContext": {},
+      "expectedNextAction": "explain_data_source",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0473",
+      "category": "result_followup",
+      "userInput": "데이터 언제 기준이야?",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "currentComplex": "동부아파트",
+          "currentArea": 82,
+          "fairPrice": 50000,
+          "currentPrice": 55000
+        }
+      },
+      "expectedIntent": "explain_reason",
+      "expectedContext": {},
+      "expectedNextAction": "explain_data_period",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "결과 화면 후속"
+    },
+    {
+      "id": "QA-0474",
+      "category": "alias_typo",
+      "userInput": "공룽동",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "dong": "공릉동"
+        }
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "공룽동→공릉동 오타"
+    },
+    {
+      "id": "QA-0475",
+      "category": "alias_typo",
+      "userInput": "잠실롱",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {}
+      },
+      "expectedIntent": "dong_search",
+      "expectedContext": {},
+      "expectedNextAction": "ask_purpose_in_region",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "잠실동 오타"
+    },
+    {
+      "id": "QA-0476",
+      "category": "alias_typo",
+      "userInput": "동브아파트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "동부아파트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "동브→동부 오타"
+    },
+    {
+      "id": "QA-0477",
+      "category": "alias_typo",
+      "userInput": "동부아아파트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "동부아파트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "아파트 이중"
+    },
+    {
+      "id": "QA-0478",
+      "category": "alias_typo",
+      "userInput": "레미안",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "래미안"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "레미안→래미안 브랜드"
+    },
+    {
+      "id": "QA-0479",
+      "category": "alias_typo",
+      "userInput": "래미언",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "래미안"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "래미언→래미안 오타"
+    },
+    {
+      "id": "QA-0480",
+      "category": "alias_typo",
+      "userInput": "더샾",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "더샵"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "더샾→더샵 alias"
+    },
+    {
+      "id": "QA-0481",
+      "category": "alias_typo",
+      "userInput": "더샾센트럴파크",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "더샵센트럴파크"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "더샾→더샵"
+    },
+    {
+      "id": "QA-0482",
+      "category": "alias_typo",
+      "userInput": "헤링턴",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "헤링턴"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "헤링턴 브랜드"
+    },
+    {
+      "id": "QA-0483",
+      "category": "alias_typo",
+      "userInput": "해링턴",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "헤링턴"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "해링턴→헤링턴"
+    },
+    {
+      "id": "QA-0484",
+      "category": "alias_typo",
+      "userInput": "이편한",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "이편한세상"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "이편한→이편한세상"
+    },
+    {
+      "id": "QA-0485",
+      "category": "alias_typo",
+      "userInput": "e편한",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "이편한세상"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "e편한→이편한세상"
+    },
+    {
+      "id": "QA-0486",
+      "category": "alias_typo",
+      "userInput": "E편한세상",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "이편한세상"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "E편한세상→이편한세상"
+    },
+    {
+      "id": "QA-0487",
+      "category": "alias_typo",
+      "userInput": "푸르지요",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "푸르지오"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "푸르지요→푸르지오"
+    },
+    {
+      "id": "QA-0488",
+      "category": "alias_typo",
+      "userInput": "힐스스테이트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "힐스테이트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "이중 스"
+    },
+    {
+      "id": "QA-0489",
+      "category": "alias_typo",
+      "userInput": "힐스테이트시티",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "힐스테이트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "파생 단지명"
+    },
+    {
+      "id": "QA-0490",
+      "category": "alias_typo",
+      "userInput": "아이파악",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "아이파크"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "아이파악→아이파크 오타"
+    },
+    {
+      "id": "QA-0491",
+      "category": "alias_typo",
+      "userInput": "롯데캐슬럼",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "롯데캐슬"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "롯데캐슬럼→롯데캐슬"
+    },
+    {
+      "id": "QA-0492",
+      "category": "alias_typo",
+      "userInput": "자이아파트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "자이"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "자이 + 아파트"
+    },
+    {
+      "id": "QA-0493",
+      "category": "alias_typo",
+      "userInput": "래미안아파트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "래미안"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "래미안 + 아파트"
+    },
+    {
+      "id": "QA-0494",
+      "category": "alias_typo",
+      "userInput": "힐스테이트아파트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "힐스테이트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "힐스테이트 + 아파트"
+    },
+    {
+      "id": "QA-0495",
+      "category": "alias_typo",
+      "userInput": "리센츠잠실",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "리센츠"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "붙여쓰기 단지명"
+    },
+    {
+      "id": "QA-0496",
+      "category": "alias_typo",
+      "userInput": "잠실리센쯔",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "리센츠"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "리센쯔→리센츠 오타"
+    },
+    {
+      "id": "QA-0497",
+      "category": "alias_typo",
+      "userInput": "은마",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "은마아파트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "은마→은마아파트"
+    },
+    {
+      "id": "QA-0498",
+      "category": "alias_typo",
+      "userInput": "잠실5단지",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "잠실5단지"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "숫자 단지명"
+    },
+    {
+      "id": "QA-0499",
+      "category": "alias_typo",
+      "userInput": "상계주공",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "상계주공"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "브랜드+지역"
+    },
+    {
+      "id": "QA-0500",
+      "category": "alias_typo",
+      "userInput": "목동신시가지7단지",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "목동신시가지7단지"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "긴 단지명"
+    },
+    {
+      "id": "QA-0501",
+      "category": "alias_typo",
+      "userInput": "송도센트럴파크",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "센트럴파크"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역+단지 혼합"
+    },
+    {
+      "id": "QA-0502",
+      "category": "alias_typo",
+      "userInput": "위례중흥에스클래스",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "중흥에스클래스"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "지역+단지 붙여쓰기"
+    },
+    {
+      "id": "QA-0503",
+      "category": "alias_typo",
+      "userInput": "공릉동동신아파트",
+      "currentState": {
+        "expectedAnswerType": null,
+        "context": {
+          "complexName": "동신아파트"
+        }
+      },
+      "expectedIntent": "complex_search",
+      "expectedContext": {},
+      "expectedNextAction": "show_complex_candidates",
+      "mustNotDo": [
+        "recommend_intent"
+      ],
+      "note": "동+단지 붙여쓰기"
     }
   ]
 }
