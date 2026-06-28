@@ -133,8 +133,21 @@ async function process(input, state = createConversationState()) {
       text.replace(/적정가는?|시세는?|얼마야|얼마에요|가격은?|어때요?|어떠해|알려줘|확인해줘/g, '').replace(/[은는이가을를]$/, '').trim();
     if (searchQuery && searchQuery.length >= 2) {
       const regionFromExtracted = extracted._nlu?.sigungu || extracted.region || null;
-      const stateForSearch = regionFromExtracted ? { ...s, region: regionFromExtracted } : s;
-      const [ns, response] = await handleSearch(searchQuery, extracted.areaSqm || null, stateForSearch, 0, extracted.dong || "");
+      // ★ dong만 있고 sigungu 없을 때: Supabase에서 dong→sigungu 역추적
+      let resolvedRegion = regionFromExtracted || s.region || null;
+      if (!resolvedRegion && (extracted.dong || s.lastDong)) {
+        const dongToLookup = extracted.dong || s.lastDong;
+        try {
+          const r = await fetch('/api/supabase', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'search', name: searchQuery, sigungu: dongToLookup, limit: 1 })
+          });
+          const d = await r.json();
+          if (d.results?.[0]?.sigungu) resolvedRegion = d.results[0].sigungu;
+        } catch(e) { console.warn('[CE] dong→sigungu 역추적 실패:', e.message); }
+      }
+      const stateForSearch = resolvedRegion ? { ...s, region: resolvedRegion } : s;
+      const [ns, response] = await handleSearch(searchQuery, extracted.areaSqm || null, stateForSearch, 0, extracted.dong || s.lastDong || "");
       return { state: ns, response };
     }
   }
