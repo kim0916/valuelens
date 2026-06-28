@@ -133,6 +133,10 @@ async function process(input, state = createConversationState()) {
     return { state: ns, response };
   }
 
+  // extracted 지역정보 → state 자동 반영 (dong/sigungu/region 파이프라인)
+  if (extracted.dong)   s = { ...s, lastDong: extracted.dong };
+  if (extracted.region) s = { ...s, region: extracted.region };
+
   // 3. Policy 적용 → Action 결정
   const decision = applyPolicy(intent, extracted, s, text);
   logPolicy(decision, s);
