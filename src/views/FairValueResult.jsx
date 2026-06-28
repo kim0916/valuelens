@@ -434,7 +434,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr",
               gap: 1, background: CLR.border }}>
               {[
-                { l: "매매 시세 기준", v: r.saleFair ? won(r.saleFair) : "—" },
+                { l: "AI 추정 적정 범위", v: r.saleFair ? won(r.saleFair) : "—" },
                 { l: "분석 방식",
                   v: r.isPremium
                     ? (["강남구","서초구","송파구"].some(g => (f.region||"").includes(g)) ? "강남권 입지 반영"
@@ -662,11 +662,11 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
   const chips = ["전세는?", "다른 평형은?", "최근 거래 흐름은?", "매수 의견은?"];
 
   const handleSend = async (chipText) => {
-    const t = (chipText || text).trim();
+    const t = (typeof chipText === "string" ? chipText : text).trim();
     if (!t) return;
-    if (!chipText) setText("");
+    if (typeof chipText !== "string") setText("");
+    console.log("[ResultChatBar] handleSend:", t);
 
-    // 모든 질문 → onSend로 (main.jsx에서 컨텍스트 기반 처리)
     setLoading(true);
     try {
       await onSend(t);
