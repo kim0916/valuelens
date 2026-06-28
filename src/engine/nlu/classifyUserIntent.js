@@ -358,31 +358,45 @@ export function classifyUserIntent(text, entities = {}, state = {}) {
     return { intent: NLU_INTENTS.CANDIDATE_SELECT, confidence: 0.9 };
   }
 
-  // ── Rule C: 단지명이 명확할 때만 search_complex ──
+  // ── 단지명 vs 추천 판별 핵심 로직 ──
   const hasGenericObjectWord = /아파트|단지|집|매물/.test(lower);
-  const hasConditionWithObject = hasArea2 && hasGenericObjectWord;
 
-  if (hasConditionWithObject && hasRegion) {
-    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.87 };
-  }
+  // 단지명 특성 판별 함수
+  // 단지명은: 길거나, 숫자/영문 포함, 브랜드+고유명 결합
+  const isLikelyComplexName = (str) => {
+    const s = (str || "").trim();
+    if (s.length >= 6) return true;          // 6글자 이상
+    if (/[0-9A-Za-z]/.test(s)) return true;  // 숫자/영문 포함
+    if (/[차기동호]$/.test(s)) return true;  // 차수/동/호 끝
+    return false;
+  };
 
-  if (hasComplex2 && !hasBrand && !hasRegion && !hasGenericObjectWord) {
-    // 단지명만 있음 → search
-    return { intent: NLU_INTENTS.SEARCH_COMPLEX, confidence: hasArea2 ? 0.88 : 0.75 };
-  }
-  if (hasComplex2 && !hasBrand && hasRegion && !hasGenericObjectWord) {
-    // 단지명 + 지역 → search
+  // complexQuery가 있으면 단지명 검색 우선
+  if (hasComplex2) {
+    // "은마아파트"처럼 아파트 단어 포함해도 단지명이면 search
+    // 단, 브랜드명만 + 지역 조합이고 짧으면 추천 (예: "강남 래미안" = 브랜드만)
+    const isBrandOnlyWithRegion = hasBrand && hasRegion &&
+      entities.complexQuery === entities.brand; // complexQuery가 브랜드명과 동일 = 브랜드만 입력
+    if (isBrandOnlyWithRegion) {
+      return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.82 };
+    }
     return { intent: NLU_INTENTS.SEARCH_COMPLEX, confidence: 0.82 };
   }
 
-  // ── 추가: complexQuery만 있고 지역/브랜드 없으면 → search ──
-  if (hasComplex2 && !hasRegion && !hasBrand && !hasGenericObjectWord) {
-    return { intent: NLU_INTENTS.SEARCH_COMPLEX, confidence: 0.75 };
+  // complexQuery 없고 브랜드만 있을 때 판별
+  if (hasBrand && !hasComplex2 && !hasGenericObjectWord) {
+    if (isLikelyComplexName(t)) {
+      return { intent: NLU_INTENTS.SEARCH_COMPLEX, confidence: 0.78 };
+    }
+    if (hasRegion) {
+      return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.82 };
+    }
+    return { intent: NLU_INTENTS.SEARCH_COMPLEX, confidence: 0.72 };
   }
 
-  // ── Rule D: 브랜드명 + 지역 → 후보 추천 ──
-  if (hasBrand && hasRegion) {
-    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.82 };
+  // 면적+아파트 단어+지역 → 추천
+  if (hasArea2 && hasGenericObjectWord && hasRegion) {
+    return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.87 };
   }
 
   // ── Rule B: 지역 + 조건 → 추천 ──

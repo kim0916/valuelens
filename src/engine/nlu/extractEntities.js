@@ -94,16 +94,19 @@ export function extractComplexName(text, state = {}) {
   for (const bw of BRAND_WORDS) {
     if (t.includes(bw)) {
       brand = bw;
-      // 브랜드 앞뒤에서 지역어 제외한 수식어만 포함
-      const re = new RegExp(`([가-힣A-Za-z0-9]{1,6})?${bw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}([가-힣A-Za-z0-9]{0,10})`, 'i');
-      const m = textForComplex.match(re);  // 지역어 제거된 텍스트에서
-      if (m && m[0].trim()) {
-        complexQuery = m[0].trim();
-        complexName  = complexQuery;
-      } else {
-        // 브랜드명만 있고 앞뒤 수식어 없음 → 지역+브랜드 조합 → recommend
+      // 전체 입력(지역어 제거)이 브랜드보다 길면 → 단지명 전체를 complexQuery로
+      const stripped = textForComplex.trim();
+      if (stripped.length > bw.length) {
+        // 지역어 제거 후 남은 텍스트가 브랜드보다 길면 단지명
+        complexQuery = stripped;
+        complexName  = stripped;
+      } else if (stripped === bw || !stripped) {
+        // 브랜드명만 남음 → recommend (지역+브랜드 조합)
         complexQuery = null;
         complexName  = null;
+      } else {
+        complexQuery = stripped;
+        complexName  = stripped;
       }
       break;
     }
