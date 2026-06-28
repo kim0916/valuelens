@@ -705,23 +705,31 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
   const addMsg = (role, text) =>
     setMessages(prev => [...prev, { role, text }]);
 
-  // ── 가격 파싱 (parsePriceInput 인라인 축소판) ──
+  // ── 가격 파싱 — await_price 단계 전용 ──
+  // 규칙:
+  //   1~3자리 or 소수점 숫자 (8, 8.5, 12) → 억 단위
+  //   4자리 이상 숫자 (53000, 85000)       → 만원 단위
+  //   N억M천/N억M000                        → 복합
+  //   N억                                   → 억 단위
   const parsePrice = (t) => {
-    t = t.replace(/\s/g, '');
-    // 억+만 복합: 5억3천, 5억3000
+    t = t.replace(/[,\s]/g, '');  // 쉼표/공백 제거
+
+    // 억+뒤숫자 복합: 5억3천, 5억3000, 5억 3000
     const m1 = t.match(/^(\d+(?:\.\d+)?)억(\d+)(?:천|만)?$/);
     if (m1) {
       const uk = parseFloat(m1[1]) * 10000;
       const rest = parseInt(m1[2]);
-      // 뒤숫자가 3자리 이하면 천단위, 4자리면 만단위
       return Math.round(uk + (rest <= 999 ? rest * 1000 : rest));
     }
-    // 순수 억: 5억, 5.3억
+    // N억: 5억, 5.3억
     const m2 = t.match(/^(\d+(?:\.\d+)?)억$/);
     if (m2) return Math.round(parseFloat(m2[1]) * 10000);
-    // 만원 직접: 53000
+    // 4자리 이상 순수 숫자 → 만원 단위
     const m3 = t.match(/^(\d{4,})$/);
     if (m3) return parseInt(m3[1]);
+    // 1~3자리 또는 소수점 숫자 → 억 단위 (await_price 전용 규칙)
+    const m4 = t.match(/^(\d{1,3}(?:\.\d+)?)$/);
+    if (m4) return Math.round(parseFloat(m4[1]) * 10000);
     return null;
   };
 
@@ -747,17 +755,30 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
       addMsg('user', t);
       const price = parsePrice(t);
       const noPrice = isNoPrice(t);
+
+      // ★ 디버그 로그 (임시)
+      console.log('[ResultChatBar await_price]', {
+        rawInput: t,
+        parsedPrice: price,
+        parsedPriceMan: price ? (price / 10000).toFixed(1) + '억' : null,
+        selectedComplexName: f?.complexName,
+        selectedArea: pendingArea?.areaSqm,
+        pendingPriceMode: 'await_price',
+      });
+
       if (!price && !noPrice) {
-        addMsg('ai', '금액을 인식하지 못했어요. "5억" 또는 "모름" 형식으로 입력해 주세요.');
+        addMsg('ai', '금액을 다시 입력해 주세요. 예: 8억, 8.5억, 85000');
         return;
       }
+      const savedArea = pendingArea; // setStep(null) 전에 저장
       setStep(null);
       setPendingArea(null);
-      addMsg('ai', '잠시만 기다려주세요. 분석 결과로 이동합니다.');
+      const priceLabel = noPrice ? '최근 실거래 평균' : `${(price/10000).toFixed(1)}억`;
+      addMsg('ai', `입력하신 가격 ${priceLabel} 기준으로 분석합니다. 잠시만 기다려주세요.`);
       setLoading(true);
       await new Promise(r => setTimeout(r, 500));
       setLoading(false);
-      if (onNewSearch) onNewSearch({ areaSqm: pendingArea.areaSqm, price: noPrice ? null : price });
+      if (onNewSearch) onNewSearch({ areaSqm: savedArea.areaSqm, price: noPrice ? null : price });
       return;
     }
 
