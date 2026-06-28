@@ -1050,6 +1050,29 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       );
     }
 
+    if (msg.type === "purpose_chips") {
+      return (
+        <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
+          <div style={{ width:28, height:28, borderRadius:8, background:"linear-gradient(135deg,#5b52e0,#7b6fff)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <p style={{ fontSize:14, color:"#1e293b", margin:"0 0 10px", whiteSpace:"pre-line", lineHeight:1.6 }}>{msg.content}</p>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+              {(msg.choices || []).map((c, i) => (
+                <button key={i} onClick={() => msg.onSelect?.(c)}
+                  style={{ fontSize:13, fontWeight:600, padding:"8px 18px",
+                    borderRadius:20, border:"1px solid #5b52e0",
+                    background:"#ede9fe", color:"#5b52e0", cursor:"pointer" }}>
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (msg.type === "candidates") {
       return (
         <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
