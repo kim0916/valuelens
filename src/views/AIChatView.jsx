@@ -676,14 +676,42 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
     // 후보 목록 → candidates 타입 메시지
     if (type === RESPONSE_TYPES.CANDIDATES_LIST) {
+      const candidates = response.candidates || [];
+
+      // ★ 핵심 수정: 복수 후보 + dong 정보 없을 때 → _expectedAnswerType:'dong' 세팅
+      // CE가 candidates를 반환해도 dong을 모르면 먼저 물어봐야 함 (우동→대우동삼 버그 방지)
+      if (candidates.length > 1) {
+        const hasDongCtx = !!(convStateRef.current._pendingDong || convStateRef.current._expectedAnswerType === 'dong');
+        if (!hasDongCtx) {
+          // 후보들의 unique sigungu 목록 추출
+          const sigunguSet = [...new Set(candidates.map(c => c.sigungu).filter(Boolean))];
+          if (sigunguSet.length > 1) {
+            // 여러 시군구에 분산 → 복수 지역 → dong 입력 요청
+            const queryName = convStateRef.current._pendingComplex
+              || (candidates[0] && candidates[0].complex_name) || '이 단지';
+            convStateRef.current = {
+              ...convStateRef.current,
+              _expectedAnswerType: 'dong',
+              _pendingComplex: queryName,
+            };
+            replaceLastAI({
+              role: "ai",
+              type: "text",
+              content: `어느 지역의 ${queryName}를 찾으시나요?\n동 이름을 알려주세요. 예: 우동, 공릉동, 잠실동`,
+            });
+            return;
+          }
+        }
+      }
+
       replaceLastAI({
         role: "ai",
         type: "candidates",
         content: response.text.split("\n")[0].replace(/\*\*/g, ""),
-        data: response.candidates || [],
+        data: candidates,
         onSelect: async (c) => {
           // 후보 클릭 시 ConversationEngine에 직접 index 전달 (NLU 파싱 우회)
-          const idx = (response.candidates || []).indexOf(c);
+          const idx = candidates.indexOf(c);
           addMsg({ role: "user", type: "text", content: c.complex_name || String(idx + 1) });
           addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
           try {
