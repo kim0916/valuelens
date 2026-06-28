@@ -689,15 +689,22 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         ? existingJeonse.map(d=>d.price).sort((a,b)=>a-b)[Math.floor(existingJeonse.length/2)]
         : null);
       addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-      if (jPrice && salePrice) {
-        const ratio = (jPrice / salePrice * 100).toFixed(0);
-        const level = ratio >= 60 ? "안정적인" : ratio >= 50 ? "보통" : "낮은";
+      if (jPrice && salePrice && salePrice > 0) {
+        // 가드: salePrice > 0 확인 후 연산 (0 나누기 + toFixed 크래시 방지)
+        const ratioNum = Math.round(jPrice / salePrice * 100);
+        const ratio    = Number.isFinite(ratioNum) ? ratioNum : null;
+        const level    = ratio != null
+          ? (ratio >= 60 ? "안정적인" : ratio >= 50 ? "보통" : "낮은")
+          : null;
         const approxMin = Math.round(jPrice / 0.65 / 100) * 100;
         const approxMax = Math.round(jPrice / 0.50 / 100) * 100;
+        const ratioLine = ratio != null && level
+          ? `• 전세가율: ${ratio}% (${level} 수준)\n\n`
+          : `• 전세가율: 계산 불가\n\n`;
         replaceLastAI({ type: "text", content:
           `**${complex?.complex_name}** ${areaSqm ? `${Math.round(areaSqm/3.3058)}평` : ""} 대략 분석이에요.\n\n` +
           `• 매물가: ${salePrice/10000}억 / 전세가: ${jPrice/10000}억\n` +
-          `• 전세가율: ${ratio}% (${level} 수준)\n\n` +
+          ratioLine +
           `전세가 기준으로 보면 **대략 ${approxMin/10000}억~${approxMax/10000}억** 수준이에요.\n\n` +
           `⚠️ 실거래 없는 단지라 참고용이에요.`
         });
@@ -1602,7 +1609,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             letterSpacing:"-0.02em" }}>
             {verdict.label}
           </p>
-          {!hold && gapRatio != null && (
+          {!hold && gapRatio != null && Number.isFinite(gapRatio) && (
             <p style={{ fontSize:12, color:"#64748b", margin:0 }}>
               적정가 대비 {gapRatio < 0 ? "▼" : "▲"} {Math.abs(gapRatio*100).toFixed(1)}% {gapRatio < 0 ? "낮음" : "높음"}
             </p>
@@ -1747,6 +1754,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             </p>
             <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
               {(msg.areaGroups || []).map((g, i) => {
+                // 가드: g.anchor null/undefined 방지
+                if (!g || g.anchor == null || !Number.isFinite(g.anchor)) return null;
                 const pyeong = Math.floor((g.anchor * 1.35) / 3.305785);
                 const sqm    = g.anchor.toFixed(1);
                 return (
