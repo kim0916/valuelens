@@ -324,40 +324,34 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (ps?._expectedAnswerType) {
       const eat = ps._expectedAnswerType;
-      addMsg({ role: "user", type: "text", content: text });
 
-      // ── dong 입력 대기 ──
+      // ── 원칙: addMsg(user)는 각 블록 안에서 한 번만 ──
+
+      // ── dong: 어느 지역? 입력 대기 ──
       if (eat === 'dong') {
-        addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-        // _pendingComplex: 단지명이 있으면 dong+단지명 검색, 없으면 dong만 검색
+        addMsg({ role: "user", type: "text", content: text });
+        addMsg({ role: "ai",  type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
         const pendingComplex = ps._pendingComplex;
         convStateRef.current = { ...ps, _expectedAnswerType: null };
-
         try {
           let pool = [];
           if (pendingComplex) {
-            // 케이스 2: "어느 지역의 동부아파트?" → dong + 단지명 검색
             const r = await searchComplexFromSupabase(pendingComplex, '', text);
             if (r.fromSupabase) pool = r.complexes;
           } else {
-            // 케이스 1: "어느 동을 찾으시나요?" → dong 컬럼만으로 검색 (complex_name 검색 금지)
             const res = await fetch('/api/supabase', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ type: 'search', name: '', sigungu: '', dong: text, limit: 20 }),
             });
             const data = await res.json();
-            pool = (data.complexes || []);
+            pool = data.complexes || [];
           }
-
           if (pool.length === 0) {
             replaceLastAI({ role: "ai", type: "text",
               content: `"${text}" 동을 찾지 못했습니다. 정확한 동 이름을 다시 입력해 주세요.\n예: 우동, 공릉동, 잠실동` });
-            // 다시 dong 대기
             convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'dong', _pendingComplex: pendingComplex };
             return;
           }
-
-          // dong 기준으로 시군구 그룹핑 (여러 지역의 같은 동이 있을 수 있음)
           const sigunguGroups = {};
           for (const c of pool) {
             const key = c.sigungu || '기타';
@@ -365,9 +359,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             sigunguGroups[key].push(c);
           }
           const sigunguKeys = Object.keys(sigunguGroups);
-
           if (sigunguKeys.length > 1 && !pendingComplex) {
-            // 여러 지역에 같은 동 → 지역 선택 질문
             replaceLastAI({
               role: "ai", type: "purpose_chips",
               content: `어느 ${text}을(를) 말씀하시나요?`,
@@ -375,73 +367,71 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
               onSelect: async (chosen) => {
                 addMsg({ role: "user", type: "text", content: chosen });
                 addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-                convStateRef.current = { ...convStateRef.current,
-                  _expectedAnswerType: 'complex', _pendingDong: text, _pendingRegion: chosen };
+                convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'complex', _pendingDong: text, _pendingRegion: chosen };
                 replaceLastAI({ role: "ai", type: "text",
                   content: `${chosen} ${text}에서 찾으시는 아파트 단지명을 알려주세요.` });
               },
             });
           } else {
-            // 하나의 지역 또는 단지명 검색 결과
             const region = sigunguKeys[0];
             convStateRef.current = { ...convStateRef.current, _pendingDong: text, _pendingRegion: region };
             if (pool.length === 1) {
-              // 단지 1개 특정 → routeIntent처럼 목적 질문
               const cx = pool[0];
-              const cxName = cx.complex_name || '';
-              replaceLastAI({
-                role: "ai", type: "purpose_chips",
-                content: `${cxName}에서 무엇을 확인할까요?`,
+              convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'purpose', _pendingComplex: cx, _pendingPurpose: 'fair' };
+              replaceLastAI({ role: "ai", type: "purpose_chips",
+                content: `${cx.complex_name}에서 무엇을 확인할까요?`,
                 choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
                 onSelect: async (choice) => {
                   addMsg({ role: "user", type: "text", content: choice });
-                  addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
                   if (choice === '전세' || choice === '계약 전 체크') {
-                    replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                    addMsg({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                    convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
                     return;
                   }
                   const purpose = choice === '매수 의견' ? 'buy' : 'fair';
-                   await askAreaThenPrice(cx, purpose);
+                  convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
+                  addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+                  await askAreaThenPrice(cx, purpose);
                 },
               });
             } else {
-              // 복수 단지 → 후보 선택
-              replaceLastAI({
-                role: "ai", type: "candidates",
+              replaceLastAI({ role: "ai", type: "candidates",
                 content: `${text}의 아파트 목록입니다. 찾으시는 단지를 선택해주세요.`,
                 data: pool.slice(0, 8),
                 onSelect: async (cx) => {
                   addMsg({ role: "user", type: "text", content: cx.complex_name });
-                  addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-                  replaceLastAI({
-                    role: "ai", type: "purpose_chips",
+                  convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'purpose', _pendingComplex: cx, _pendingPurpose: 'fair' };
+                  addMsg({ role: "ai", type: "purpose_chips",
                     content: `${cx.complex_name}에서 무엇을 확인할까요?`,
                     choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
                     onSelect: async (choice) => {
                       addMsg({ role: "user", type: "text", content: choice });
                       if (choice === '전세' || choice === '계약 전 체크') {
-                        replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                        addMsg({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                        convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
                         return;
                       }
+                      const purpose = choice === '매수 의견' ? 'buy' : 'fair';
+                      convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
                       addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-                       await askAreaThenPrice(cx, choice === '매수 의견' ? 'buy' : 'fair');
+                      await askAreaThenPrice(cx, purpose);
                     },
                   });
                 },
-                intent: { intent: 'fair' },
               });
             }
           }
         } catch(e) {
-          console.error('[expectedAnswerType:dong]', e);
+          console.error('[EAT:dong]', e);
           replaceLastAI({ role: "ai", type: "text", content: "검색 중 오류가 발생했습니다. 다시 시도해 주세요." });
         }
         return;
       }
 
-      // ── complex 입력 대기 ──
+      // ── complex: 단지명 입력 대기 ──
       if (eat === 'complex') {
-        addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+        addMsg({ role: "user", type: "text", content: text });
+        addMsg({ role: "ai",  type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
         const dong   = ps._pendingDong   || '';
         const region = ps._pendingRegion || '';
         convStateRef.current = { ...ps, _expectedAnswerType: null };
@@ -450,186 +440,166 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         if (pool.length === 0) {
           replaceLastAI({ role: "ai", type: "text",
             content: `"${text}" 단지를 찾지 못했습니다. 단지명을 다시 확인해 주세요.` });
-          convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'complex', _pendingDong: dong, _pendingRegion: region };
+          convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'complex', _pendingDong: dong };
           return;
         }
         if (pool.length === 1) {
           const cx = pool[0];
-          replaceLastAI({
-            role: "ai", type: "purpose_chips",
+          convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'purpose', _pendingComplex: cx, _pendingPurpose: 'fair' };
+          replaceLastAI({ role: "ai", type: "purpose_chips",
             content: `${cx.complex_name}에서 무엇을 확인할까요?`,
             choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
             onSelect: async (choice) => {
               addMsg({ role: "user", type: "text", content: choice });
               if (choice === '전세' || choice === '계약 전 체크') {
                 addMsg({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
                 return;
               }
+              const purpose = choice === '매수 의견' ? 'buy' : 'fair';
+              convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
               addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-              await askAreaThenPrice(cx, choice === '매수 의견' ? 'buy' : 'fair');
+              await askAreaThenPrice(cx, purpose);
             },
           });
         } else {
-          replaceLastAI({
-            role: "ai", type: "candidates",
+          replaceLastAI({ role: "ai", type: "candidates",
             content: `"${text}" 검색 결과입니다. 찾으시는 단지를 선택해주세요.`,
             data: pool,
             onSelect: async (cx) => {
               addMsg({ role: "user", type: "text", content: cx.complex_name });
-              addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-              replaceLastAI({
-                role: "ai", type: "purpose_chips",
+              convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'purpose', _pendingComplex: cx, _pendingPurpose: 'fair' };
+              addMsg({ role: "ai", type: "purpose_chips",
                 content: `${cx.complex_name}에서 무엇을 확인할까요?`,
                 choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
                 onSelect: async (choice) => {
                   addMsg({ role: "user", type: "text", content: choice });
                   if (choice === '전세' || choice === '계약 전 체크') {
-                    replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                    addMsg({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                    convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
                     return;
                   }
+                  const purpose = choice === '매수 의견' ? 'buy' : 'fair';
+                  convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
                   addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-                   await askAreaThenPrice(cx, choice === '매수 의견' ? 'buy' : 'fair');
+                  await askAreaThenPrice(cx, purpose);
                 },
               });
             },
-            intent: { intent: 'fair' },
           });
         }
         return;
       }
 
-      // ── area 입력 대기: 텍스트로 평형 입력 ──
+      // ── area: 평형 입력 대기 ──
+      // 규칙: addMsg(user) 한 번 → 상태 세팅 → 가격 질문
+      // 절대 금지: runAnalysis 직행
       if (eat === 'area') {
         const areaText = text.trim();
-        // 버그2 수정: 사용자 표시용 평형(inputPyeong)과 내부 areaSqm을 분리
-        const pyeongM = areaText.match(/^(\d+)\s*평?$/);   // "25", "25평" 모두 허용
-        const sqmM    = areaText.match(/(\d+(?:\.\d+)?)\s*(?:㎡|m²)/);
+        // 평형 파싱: "25", "25평", "25평형", "84㎡", "전용84" 모두 처리
+        const pyeongM = areaText.match(/^(\d+)\s*평형?$/) ||
+                         areaText.match(/^(\d+)\s*평대$/);  // "30평대" 처리
+        // ㎡/m2 명시된 경우만 면적으로 처리 (숫자만 있으면 평형으로 처리)
+        const sqmM    = areaText.match(/전용\s*(\d+(?:\.\d+)?)/) ||
+                        areaText.match(/(\d+(?:\.\d+)?)\s*(?:㎡|m2)/i);
+        const numOnly = areaText.match(/^(\d+)$/);
         const kokM    = /국민평형|국평/.test(areaText);
-        let areaSqm = null;
-        let inputPyeong = null;  // 사용자가 입력한 평형 표시값 (25평 입력 → 25 유지)
+
+        let areaSqm    = null;
+        let inputPyeong = null;
 
         if (pyeongM) {
-          inputPyeong = parseInt(pyeongM[1]);          // 사용자 입력 평형 (표시용)
-          areaSqm = Math.round(inputPyeong * 3.305785); // 내부 전용면적 계산
+          inputPyeong = parseInt(pyeongM[1]);
+          areaSqm     = Math.round(inputPyeong * 3.305785);
         } else if (sqmM) {
-          areaSqm = parseFloat(sqmM[1]);
-          inputPyeong = Math.floor((areaSqm * 1.35) / 3.305785); // ㎡→평 역산
+          areaSqm     = parseFloat(sqmM[1]);
+          inputPyeong = Math.round(areaSqm / 3.305785);
         } else if (kokM) {
-          areaSqm = 84; inputPyeong = 34;
+          areaSqm = 84; inputPyeong = 25;
+        } else if (numOnly) {
+          const n = parseInt(numOnly[1]);
+          if (n >= 10 && n <= 200) {
+            // 50 이하: 평형으로 해석 (25 → 25평, 82㎡)
+            // 51 이상: 전용면적㎡으로 해석 (84 → 84㎡, 25평)
+            if (n <= 50) {
+              inputPyeong = n;
+              areaSqm     = Math.round(n * 3.305785);
+            } else {
+              areaSqm     = n;
+              inputPyeong = Math.round(n / 3.305785);
+            }
+          }
         }
 
         if (!areaSqm) {
-          // 평형 파싱 실패 → 숫자만 입력한 경우도 처리
-          const numOnly = areaText.match(/^(\d+)$/);
-          if (numOnly) {
-            const n = parseInt(numOnly[1]);
-            if (n >= 10 && n <= 200) {
-              // 숫자만 입력 → 평형으로 해석
-              inputPyeong = n;
-              areaSqm = Math.round(n * 3.305785);
-            }
-          }
-          if (!areaSqm) {
-            // 버그1 수정: 파싱 실패 시에만 addMsg
-            addMsg({ role: "user", type: "text", content: text });
-            replaceLastAI({ role: "ai", type: "text",
-              content: `평형을 인식하지 못했어요.\n예: 25평, 32평, 84` });
-            return;
-          }
+          // 파싱 실패: addMsg(user) 후 재요청
+          addMsg({ role: "user", type: "text", content: text });
+          addMsg({ role: "ai", type: "text",
+            content: `평형을 인식하지 못했어요.\n예: 25, 25평, 84, 84㎡` });
+          return;  // _expectedAnswerType 유지 (재시도)
         }
 
-        const cx = ps._pendingComplex || convStateRef.current.currentComplex;
+        const cx        = ps._pendingComplex || convStateRef.current.currentComplex;
         const intentStr = ps._pendingPurpose || 'fair';
-        const cxName = (cx && (cx.complex_name || cx.name)) || '단지';
-        const dongName = (cx && cx.legal_dong) ? cx.legal_dong : '';
-        const sigunguName = (cx && cx.sigungu) ? cx.sigungu.split(' ').slice(-1)[0] : '';
+        const cxName    = (cx && (cx.complex_name || cx.name)) || '단지';
+        const guName    = (cx && cx.sigungu)    ? cx.sigungu.split(' ').slice(-1)[0] : '';
+        const dongName  = (cx && cx.legal_dong) ? cx.legal_dong : '';
+        const locStr    = [guName, dongName].filter(Boolean).join(' ');
+        const purposeKr = intentStr === 'buy' ? '매수 분석' : '적정가';
 
-        // 버그1 수정: addMsg는 여기서 한 번만
+        // addMsg(user) 단 한 번
         addMsg({ role: "user", type: "text", content: areaText });
 
-        // 버그3 수정: 바로 runAnalysis 금지, 반드시 가격 질문
-        // 요약 문구 + 가격 질문을 한 메시지로
+        // 상태 세팅 → price 대기
         convStateRef.current = {
           ...ps,
           _expectedAnswerType: null,
-          _pendingPrice: true,
-          _pendingComplex: cx,
-          _pendingArea: areaSqm,
-          _pendingPurpose: intentStr,
-          _pendingInputPyeong: inputPyeong,  // 표시용 평형 보존
+          _pendingPrice:       true,
+          _pendingComplex:     cx,
+          _pendingArea:        areaSqm,
+          _pendingPurpose:     intentStr,
+          _pendingInputPyeong: inputPyeong,
         };
-        // 문제4: 요약 문구에 시군구+동+단지명+평형 모두 포함
-        // sigungu 예: "부산광역시 해운대구" → 마지막 토큰 "해운대구"
-        // legal_dong 예: "우동" → 그대로 사용
-        const guName  = (cx && cx.sigungu)
-          ? cx.sigungu.split(' ').slice(-1)[0]   // "해운대구"
-          : (cx && cx.region ? cx.region.split(' ').slice(-1)[0] : '');
-        const dongDisp = (cx && cx.legal_dong) ? cx.legal_dong
-          : (cx && cx.dong ? cx.dong : dongName);
-        const locationStr = [guName, dongDisp].filter(Boolean).join(' ');
-        const purposeKr = intentStr === 'buy' ? '매수 분석' : '적정가';
-        const summaryLine = locationStr
-          ? `${locationStr} ${cxName} ${inputPyeong}평 ${purposeKr}을 분석해드릴게요.`
+
+        // 요약 + 가격 질문 (한 메시지)
+        const summary = locStr
+          ? `${locStr} ${cxName} ${inputPyeong}평 ${purposeKr}을 분석해드릴게요.`
           : `${cxName} ${inputPyeong}평 ${purposeKr}을 분석해드릴게요.`;
         addMsg({ role: "ai", type: "text",
-          content: summaryLine + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.' });
+          content: summary + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.' });
         return;
       }
 
-      // ── region_or_dong: 후보 목록 상태에서 지역/동 필터 입력 ──
-      // 핵심: _pendingCandidateQuery(원본 검색어)를 유지하며 dong filter로만 재검색
-      // 금지: complex_name LIKE '%우동%' 검색
+      // ── region_or_dong: 후보 목록 상태에서 지역/동 필터 ──
+      // 원본 검색어(_pendingCandidateQuery) 유지, 새 검색 금지
       if (eat === 'region_or_dong') {
-        addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+        addMsg({ role: "user", type: "text", content: text });
+        addMsg({ role: "ai",  type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
         const originalQuery = ps._pendingCandidateQuery || '';
         convStateRef.current = { ...ps, _expectedAnswerType: null, _pendingCandidateQuery: null };
-
+        if (!originalQuery) {
+          replaceLastAI({ role: "ai", type: "text", content: "죄송해요, 검색 맥락을 잃었어요. 단지명을 다시 입력해 주세요." });
+          return;
+        }
         try {
-          // ★ 규칙: searchComplexFromSupabase(originalQuery, '', dong=userInput)
-          //    → name=originalQuery('동부아파트'), dong=text('우동')
-          //    → complex_name ILIKE '%동부아파트%' AND legal_dong ILIKE '%우%'
-          //    → 대우동삼/대우우동 절대 안 나옴 (동부아파트 필터가 있으므로)
-          if (!originalQuery) {
-            // fallback: 원본 쿼리 없으면 dong만 검색
-            replaceLastAI({ role: "ai", type: "text",
-              content: "죄송해요, 검색 맥락을 잃었어요. 단지명을 다시 입력해 주세요." });
-            return;
-          }
-
-          const r = await searchComplexFromSupabase(originalQuery, '', text);
+          const r    = await searchComplexFromSupabase(originalQuery, '', text);
           const pool = r.fromSupabase ? r.complexes : [];
-
           if (pool.length === 0) {
             replaceLastAI({ role: "ai", type: "text",
               content: `${text} 지역에서 ${originalQuery}를 찾지 못했습니다.\n다른 동 이름을 입력해 주세요.` });
-            // 다시 region_or_dong 대기
-            convStateRef.current = {
-              ...convStateRef.current,
-              _expectedAnswerType: 'region_or_dong',
-              _pendingCandidateQuery: originalQuery,
-            };
+            convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'region_or_dong', _pendingCandidateQuery: originalQuery };
             return;
           }
-
           if (pool.length === 1) {
-            // 단지 1개 특정 → 목적 질문
             const cx = pool[0];
-            // ★ 필수: purpose_chips 표시와 동시에 pendingComplex 세팅
-            // 칩 클릭(onSelect) 이든 텍스트 입력이든 cx를 잃지 않도록
-            convStateRef.current = {
-              ...convStateRef.current,
-              _expectedAnswerType: 'purpose',
-              _pendingComplex: cx,
-              _pendingPurpose: 'fair',
-            };
-            replaceLastAI({
-              role: "ai", type: "purpose_chips",
+            convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'purpose', _pendingComplex: cx, _pendingPurpose: 'fair' };
+            replaceLastAI({ role: "ai", type: "purpose_chips",
               content: `${cx.complex_name}에서 무엇을 확인할까요?`,
               choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
               onSelect: async (choice) => {
                 addMsg({ role: "user", type: "text", content: choice });
                 if (choice === '전세' || choice === '계약 전 체크') {
-                  replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                  addMsg({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
                   convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
                   return;
                 }
@@ -640,158 +610,96 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
               },
             });
           } else {
-            // 복수 단지 → 후보 목록 (이번엔 같은 동 안에서만이므로 클릭 바로 분석)
-            replaceLastAI({
-              role: "ai", type: "candidates",
+            replaceLastAI({ role: "ai", type: "candidates",
               content: `${text}의 ${originalQuery} 목록입니다. 찾으시는 단지를 선택해주세요.`,
               data: pool.slice(0, 8),
               onSelect: async (cx) => {
                 addMsg({ role: "user", type: "text", content: cx.complex_name });
-                addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-                // ★ 후보 클릭 후에도 _pendingComplex 세팅
-                convStateRef.current = {
-                  ...convStateRef.current,
-                  _expectedAnswerType: 'purpose',
-                  _pendingComplex: cx,
-                  _pendingPurpose: 'fair',
-                };
-                replaceLastAI({
-                  role: "ai", type: "purpose_chips",
+                convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'purpose', _pendingComplex: cx, _pendingPurpose: 'fair' };
+                addMsg({ role: "ai", type: "purpose_chips",
                   content: `${cx.complex_name}에서 무엇을 확인할까요?`,
                   choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
                   onSelect: async (choice) => {
                     addMsg({ role: "user", type: "text", content: choice });
                     if (choice === '전세' || choice === '계약 전 체크') {
-                      replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                      addMsg({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
                       convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
                       return;
                     }
                     const purpose = choice === '매수 의견' ? 'buy' : 'fair';
                     convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
+                    addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
                     await askAreaThenPrice(cx, purpose);
                   },
                 });
               },
-              intent: { intent: 'fair' },
             });
           }
         } catch(e) {
-          console.error('[expectedAnswerType:region_or_dong]', e);
+          console.error('[EAT:region_or_dong]', e);
           replaceLastAI({ role: "ai", type: "text", content: "검색 중 오류가 발생했습니다. 다시 시도해 주세요." });
         }
         return;
       }
 
-      // ── purpose 입력 대기 (칩 외 텍스트) ──
-      // ★ 핵심: 텍스트로 "적정가" 등을 입력해도 _pendingComplex를 유지해서 분석 진행
-      // ask_complex 재호출 금지: _pendingComplex 또는 currentComplex가 있으면 CE로 보내지 않음
+      // ── purpose: 목적 텍스트 입력 (칩 외) ──
       if (eat === 'purpose') {
         const purposeComplex = ps._pendingComplex || ps.currentComplex || null;
-        const purposeText = text.trim();
-        // 목적 키워드 매칭
-        const isBuy      = /매수|살까|살지|사도|buy/i.test(purposeText);
-        const isPriceAna = /적정가|시세|가격|fair|분석/i.test(purposeText);
-        const isJeonse   = /전세/i.test(purposeText);
-        const isContract = /계약|등기|체크/i.test(purposeText);
-
-        if (purposeComplex && typeof purposeComplex === 'object' && (isBuy || isPriceAna || isJeonse || isContract)) {
-          addMsg({ role: "user", type: "text", content: text });
-          convStateRef.current = { ...ps, _expectedAnswerType: null, _pendingComplex: null };
-          if (isJeonse || isContract) {
-            replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+        if (purposeComplex && typeof purposeComplex === 'object') {
+          const isBuy  = /매수|살까|살지|사도|buy/i.test(text);
+          const isFair = /적정가|시세|가격|fair|분석/i.test(text);
+          const isJeonse   = /전세/i.test(text);
+          const isContract = /계약|등기|체크/i.test(text);
+          if (isBuy || isFair || isJeonse || isContract) {
+            addMsg({ role: "user", type: "text", content: text });
+            convStateRef.current = { ...ps, _expectedAnswerType: null, _pendingComplex: null };
+            if (isJeonse || isContract) {
+              addMsg({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+              return;
+            }
+            const purpose = isBuy ? 'buy' : 'fair';
+            addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+            await askAreaThenPrice(purposeComplex, purpose);
             return;
           }
-          const intent = isBuy ? 'buy' : 'fair';
-          await askAreaThenPrice(purposeComplex, intent);
-          return;
         }
         // 목적 키워드 없거나 complex 없으면 CE로
         convStateRef.current = { ...ps, _expectedAnswerType: null };
-        // 아래 일반 흐름으로 계속
+        // fall through
       }
     }
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    // 데이터 없음 → 매물가+전세가 입력 대기
-    if (ps?._pendingNoData) {
-      addMsg({ role: "user", type: "text", content: text });
-      const { _pendingComplex: complex, _pendingArea: areaSqm, _pendingJeonse: existingJeonse } = ps;
-      const jeonseMatch = text.match(/전세\s*(\d+(?:\.\d+)?)\s*억/);
-      // isNoPrice 강화: 구어체 가격 모름 표현 포함
-      const _isNoPrice_nd = /몰라|모름|모르겠|없어|없음|상관없|그냥|패스|skip|시세로|시세몰라|가격몰라|잘\s*모르/i.test(text);
-      const salePrice   = _isNoPrice_nd ? null : parsePriceInput(text);
-      const jeonsePrice = jeonseMatch ? Math.round(Number(jeonseMatch[1]) * 10000) : null;
-      convStateRef.current = { ...ps, _pendingNoData: false };
-      if (!salePrice) {
-        addMsg({ role: "ai", type: "text", content: "매물가를 알려주세요.\n예: '7.5억' 또는 '매물가 7.5억, 전세 4억'" });
-        convStateRef.current = { ...ps };
-        return;
-      }
-      const jPrice = jeonsePrice || (existingJeonse?.length > 0
-        ? existingJeonse.map(d=>d.price).sort((a,b)=>a-b)[Math.floor(existingJeonse.length/2)]
-        : null);
-      addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-      if (jPrice && salePrice && salePrice > 0) {
-        // 가드: salePrice > 0 확인 후 연산 (0 나누기 + toFixed 크래시 방지)
-        const ratioNum = Math.round(jPrice / salePrice * 100);
-        const ratio    = Number.isFinite(ratioNum) ? ratioNum : null;
-        const level    = ratio != null
-          ? (ratio >= 60 ? "안정적인" : ratio >= 50 ? "보통" : "낮은")
-          : null;
-        const approxMin = Math.round(jPrice / 0.65 / 100) * 100;
-        const approxMax = Math.round(jPrice / 0.50 / 100) * 100;
-        const ratioLine = ratio != null && level
-          ? `• 전세가율: ${ratio}% (${level} 수준)\n\n`
-          : `• 전세가율: 계산 불가\n\n`;
-        replaceLastAI({ type: "text", content:
-          `**${complex?.complex_name}** ${areaSqm ? `${Math.round(areaSqm/3.3058)}평` : ""} 대략 분석이에요.\n\n` +
-          `• 매물가: ${salePrice/10000}억 / 전세가: ${jPrice/10000}억\n` +
-          ratioLine +
-          `전세가 기준으로 보면 **대략 ${approxMin/10000}억~${approxMax/10000}억** 수준이에요.\n\n` +
-          `⚠️ 실거래 없는 단지라 참고용이에요.`
-        });
-      } else {
-        replaceLastAI({ type: "text", content:
-          `매물가 ${salePrice/10000}억 확인했어요.\n전세가도 알려주시면 더 정확히 분석해드릴 수 있어요!`
-        });
-      }
-      return;
-    }
-
-    // 매물가 입력 대기
+    // ── _pendingPrice: 가격 입력 대기 ──
     if (ps?._pendingPrice) {
+      const noPrice = /몰라|모름|모르겠|없어|없음|패스|그냥|skip|상관없|시세로|실거래로|최근\s*거래로|니가\s*알아서|알아서\s*해줘|시세\s*몰라|가격\s*몰라|잘\s*모르/i.test(text);
       const currentPrice = parsePriceInput(text);
-      // isNoPrice 강화 (QA 위험패턴 1번 수정)
-      // "시세로", "그냥 해줘", "없어", "가격 몰라", "시세 몰라", "모르겠어" 포함
-      const noPrice = /몰라|모름|모르겠|없어|없음|패스|그냥|skip|상관없|시세로|시세\s*몰라|가격\s*몰라|잘\s*모르/i.test(text);
 
-      // 가격이 아닌 새 검색어 → _pendingPrice 해제 후 일반 흐름으로
       if (!currentPrice && !noPrice) {
+        // 가격도 noPrice도 아님 → 재질문 없이 일반 흐름 (새 검색 의도)
         convStateRef.current = { ...ps, _pendingPrice: false, _pendingComplex: null, _pendingArea: null, _pendingPurpose: null };
-        // 아래 일반 흐름으로 계속 진행 (return 없음)
+        // fall through to CE
       } else {
         addMsg({ role: "user", type: "text", content: text });
         const { _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose, _pendingInputPyeong: inputPyeong } = ps;
-        convStateRef.current = { ...ps, _pendingPrice: false, _pendingComplex: null, _pendingArea: null, _pendingPurpose: null };
-        // ★ complex fallback: _pendingComplex → currentComplex 순으로 시도
+        convStateRef.current = { ...ps, _pendingPrice: false, _pendingComplex: null, _pendingArea: null, _pendingPurpose: null, _pendingInputPyeong: null };
         const effectiveComplex = complex || convStateRef.current.currentComplex || null;
         if (!effectiveComplex) {
           addMsg({ role: "ai", type: "text", content: "어떤 아파트를 분석할까요? 단지명을 알려주세요." });
           return;
         }
-        // ★ 요약 메시지: 결과 이동 전 AI가 정리해서 보여줌
-        const ecName = effectiveComplex.complex_name || '';
-        const ecGu   = effectiveComplex.sigungu ? effectiveComplex.sigungu.split(' ').slice(-1)[0] : '';
-        const ecDong = effectiveComplex.legal_dong || '';
-        const ecLoc  = [ecGu, ecDong].filter(Boolean).join(' ');
+        // 요약 메시지
+        const ecName   = effectiveComplex.complex_name || '';
+        const ecGu     = effectiveComplex.sigungu    ? effectiveComplex.sigungu.split(' ').slice(-1)[0] : '';
+        const ecDong   = effectiveComplex.legal_dong || '';
+        const ecLoc    = [ecGu, ecDong].filter(Boolean).join(' ');
         const ecPyeong = inputPyeong || (areaSqm ? Math.round(areaSqm / 3.305785) : null);
         const ecPurposeKr = (purpose === 'buy') ? '매수 분석' : '적정가';
         const summaryMsg = noPrice
-          ? `알겠습니다.\n${[ecLoc, ecName].filter(Boolean).join(' ')} ${ecPyeong ? ecPyeong + '평' : ''}\n최근 실거래 데이터를 기준으로 ${ecPurposeKr}를 분석해드리겠습니다.`
-          : `알겠습니다.\n${[ecLoc, ecName].filter(Boolean).join(' ')} ${ecPyeong ? ecPyeong + '평' : ''}\n매물가 ${currentPrice ? (currentPrice/10000).toFixed(1) + '억' : ''}을 기준으로 ${ecPurposeKr}를 분석해드리겠습니다.`;
+          ? `알겠습니다.\n${[ecLoc, ecName].filter(Boolean).join(' ')}${ecPyeong ? ' ' + ecPyeong + '평' : ''} 최근 실거래 데이터를 기준으로 ${ecPurposeKr}를 분석해드리겠습니다.`
+          : `알겠습니다.\n${[ecLoc, ecName].filter(Boolean).join(' ')}${ecPyeong ? ' ' + ecPyeong + '평' : ''} 매물가 ${currentPrice ? (currentPrice/10000).toFixed(1) + '억' : ''}을 기준으로 ${ecPurposeKr}를 분석해드리겠습니다.`;
         addMsg({ role: "ai", type: "text", content: summaryMsg });
         addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-        // noPrice면 _forcedNoPrice 세팅 → ask_price 반복 방지
         if (noPrice) convStateRef.current = { ...convStateRef.current, _forcedNoPrice: true };
         await runAnalysis(effectiveComplex, { intent: purpose === "buy" ? "buy" : "fair", areaSqm, currentPrice: noPrice ? null : currentPrice, skipAreaCheck: true });
         return;
@@ -1320,110 +1228,103 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   // 흐름: 평형질문 → 가격질문 → runAnalysis
   // 모든 purpose 선택 경로(region_or_dong, CE ask_purpose 등)가 여기로 수렴
   // ────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────
+  // askAreaThenPrice: 단지+목적 확정 후 평형→가격 질문
+  // 호출 시점: purpose 칩 클릭 이후
+  // 전제: 직전에 addMsg(thinking)이 이미 추가됨
+  // ────────────────────────────────────────────────
   async function askAreaThenPrice(cx, intentStr) {
-    // cx: 단지 객체 (complex_name, area_list, sigungu, ...)
-    // intentStr: 'fair' | 'buy'
-
-    // ★ cx null 가드 — cx가 없으면 단지 재입력 요청
     if (!cx || typeof cx !== 'object') {
       replaceLastAI({ role: 'ai', type: 'text',
-        content: '분석할 단지를 먼저 선택해 주세요. 단지명을 입력해 주세요.' });
+        content: '분석할 단지를 먼저 선택해 주세요.' });
       return;
     }
 
     const cxName = cx.complex_name || cx.name || '';
+    const guName  = cx.sigungu    ? cx.sigungu.split(' ').slice(-1)[0] : '';
+    const dongName = cx.legal_dong || '';
+    const locStr  = [guName, dongName].filter(Boolean).join(' ');
+    const purposeKr = intentStr === 'buy' ? '매수 분석' : '적정가';
+
     const areaListRaw = cx.area_list
       ? (typeof cx.area_list === 'string' ? JSON.parse(cx.area_list) : cx.area_list)
       : [];
     const areaGroups = groupAreasByPyeong(areaListRaw)
       .map(g => ({ areaSqm: g.rep, pyeong: typicalPyeong(g.rep) }));
 
+    // 평형 0개: 텍스트 입력 요청
     if (areaGroups.length === 0) {
-      // area_list 없음 → 평형 텍스트 입력 요청
       convStateRef.current = {
         ...convStateRef.current,
         _expectedAnswerType: 'area',
-        _pendingComplex: cx,
-        _pendingPurpose: intentStr,
+        _pendingComplex:     cx,
+        _pendingPurpose:     intentStr,
       };
-      replaceLastAI({
-        role: 'ai', type: 'text',
-        content: `${cxName}의 몇 평형을 확인할까요?\n예: 25평, 32평, 84㎡`,
-      });
+      replaceLastAI({ role: 'ai', type: 'text',
+        content: `${cxName}의 몇 평형을 확인할까요?\n예: 25, 25평, 84, 84㎡` });
       return;
     }
 
+    // 평형 1개: 바로 가격 질문
     if (areaGroups.length === 1) {
-      // 평형 1개 → 바로 가격 질문
-      const areaSqm = areaGroups[0].areaSqm;
-      const pyeong  = areaGroups[0].pyeong;
+      const { areaSqm, pyeong } = areaGroups[0];
+      const summary = locStr
+        ? `${locStr} ${cxName} ${pyeong}평 ${purposeKr}을 분석해드릴게요.`
+        : `${cxName} ${pyeong}평 ${purposeKr}을 분석해드릴게요.`;
       convStateRef.current = {
         ...convStateRef.current,
-        _pendingPrice: true,
-        _pendingComplex: cx,
-        _pendingArea: areaSqm,
-        _pendingPurpose: intentStr,
         _expectedAnswerType: null,
+        _pendingPrice:       true,
+        _pendingComplex:     cx,
+        _pendingArea:        areaSqm,
+        _pendingPurpose:     intentStr,
+        _pendingInputPyeong: pyeong,
       };
-      addMsg({
-        role: 'ai', type: 'text',
-        content: `${cxName} ${pyeong}평 현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.`,
-      });
+      replaceLastAI({ role: 'ai', type: 'text',
+        content: summary + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.' });
       return;
     }
 
-    // 평형 여러 개 → area_chips 표시
-    // ★ _expectedAnswerType:'area' 세팅 — 텍스트 "24평" 입력도 EAT area 블록에서 처리
-    // 문제2: _expectedAnswerType:'area'는 텍스트 입력 전용
-    // area_chips 칩 클릭은 onSelect로 처리, 텍스트 입력은 EAT area로 처리
-    // _pendingComplex/_pendingPurpose만 세팅 (EAT area 블록에서 cx/intentStr 읽기 위해)
+    // 평형 여러 개: area_chips 표시
+    // ★ 핵심: _expectedAnswerType:'area' 세팅 (텍스트 입력도 EAT area로 처리)
+    //         칩 클릭은 onSelect에서 즉시 null → addMsg 중복 방지
     convStateRef.current = {
       ...convStateRef.current,
-      _expectedAnswerType: 'area',  // 텍스트 "24평" 입력 시 EAT area 처리
-      _pendingComplex: cx,
-      _pendingPurpose: intentStr,
+      _expectedAnswerType: 'area',
+      _pendingComplex:     cx,
+      _pendingPurpose:     intentStr,
     };
     const pyeongList = areaGroups.map(g => `${g.pyeong}평`).join(', ');
-    addMsg({
+    replaceLastAI({
       role: 'ai', type: 'area_chips',
       content: `${cxName}는 ${pyeongList} 분석 가능합니다.\n어떤 평형을 확인할까요?`,
       areaGroups,
       complex: cx,
       onSelect: async (areaSqm) => {
-        // 버그1 수정: 칩 클릭 시 _expectedAnswerType을 즉시 null로 → EAT area 재진입 방지
-        // 버그2 수정: areaGroup의 pyeong 값을 직접 표시 (역산 오류 방지)
-        const chipPyeong = areaGroups.find(g => g.areaSqm === areaSqm)?.pyeong
-          || Math.floor((areaSqm * 1.35) / 3.305785);
-
-        // 상태 먼저 변경 → EAT area 블록 재진입 차단 (핵심: null 먼저)
+        // ★ state 먼저 null → EAT area 재진입 완전 차단
+        const chipGroup  = areaGroups.find(g => g.areaSqm === areaSqm);
+        const chipPyeong = chipGroup?.pyeong ?? Math.round(areaSqm / 3.305785);
         convStateRef.current = {
           ...convStateRef.current,
-          _expectedAnswerType: null,   // ← null 먼저: 칩 클릭 후 텍스트 중복 방지
-          _pendingPrice: true,
-          _pendingComplex: cx,
-          _pendingArea: areaSqm,
-          _pendingPurpose: intentStr,
+          _expectedAnswerType: null,   // 반드시 먼저
+          _pendingPrice:       true,
+          _pendingComplex:     cx,
+          _pendingArea:        areaSqm,
+          _pendingPurpose:     intentStr,
           _pendingInputPyeong: chipPyeong,
         };
-
-        // addMsg는 한 번만 — EAT area 블록과 중복 방지
+        // addMsg(user) 단 한 번
         addMsg({ role: 'user', type: 'text', content: `${chipPyeong}평` });
-
-        // 문제4: 요약문구 - 시군구+동+단지명+평형
-        const chipGuName   = (cx && cx.sigungu) ? cx.sigungu.split(' ').slice(-1)[0] : '';
-        const chipDongName = (cx && cx.legal_dong) ? cx.legal_dong : '';
-        const chipLocation = [chipGuName, chipDongName].filter(Boolean).join(' ');
-        const chipPurposeKr = intentStr === 'buy' ? '매수 분석' : '적정가';
-        const summaryLine = chipLocation
-          ? `${chipLocation} ${cxName} ${chipPyeong}평 ${chipPurposeKr}을 분석해드릴게요.`
-          : `${cxName} ${chipPyeong}평 ${chipPurposeKr}을 분석해드릴게요.`;
-        addMsg({
-          role: 'ai', type: 'text',
-          content: summaryLine + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.',
-        });
+        // 요약 + 가격 질문
+        const summary = locStr
+          ? `${locStr} ${cxName} ${chipPyeong}평 ${purposeKr}을 분석해드릴게요.`
+          : `${cxName} ${chipPyeong}평 ${purposeKr}을 분석해드릴게요.`;
+        addMsg({ role: 'ai', type: 'text',
+          content: summary + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.' });
       },
     });
   }
+
 
   async function runAnalysis(complex, intent) {
     // ★ 흐름 보호: areaSqm 없으면 평형 질문부터
