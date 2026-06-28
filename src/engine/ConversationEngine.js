@@ -61,6 +61,8 @@ import {
   responseUnknown,
   responseError,
   RESPONSE_TYPES,
+  responseAskPurpose,
+  responseSellRedirect,
 } from './responseGenerator.js';
 
 import { searchComplexFromSupabase } from '../search/supabase.js';
@@ -240,8 +242,8 @@ async function execute(decision, intent, extracted, rawText, state) {
       }
 
       const ns = updateArea(state, best.group.anchor);
-      // 평형 확정 후 매물가 질문으로 (자동 분석 금지)
-      return [ns, responseReadyToAnalyze(ns.currentComplex, ns.currentArea)];
+      // 평형 확정 후 목적 확인 or 바로 분석
+      return handlePostArea(ns, intent);
     }
 
     // ── 평형 질문 (Rule 2, 3) ──
@@ -320,6 +322,10 @@ async function execute(decision, intent, extracted, rawText, state) {
         purpose: "recent_deals",
       }];
     }
+
+    // ── 매도 의견 → SellResult 라우팅 금지, 적정가로 우회 ──
+    case "sell_redirect":
+      return [state, responseSellRedirect()];
 
     // ── 매수/적정가 분석 (Rule 5) ──
     case ACTIONS.ANALYZE_BUY: {
@@ -687,10 +693,6 @@ function handlePostComplex(state, areaHint) {
   const complex    = state.currentComplex;
   const areaGroups = getAreaGroups(state);
 
-  // 면적이 이미 선택된 상태 → 바로 분석 (사용자가 이전에 선택한 경우)
-  // 단, 새 단지 검색 시에는 이전 면적 무시하고 목록 다시 보여줌
-  // (Rule 7: 새 단지 입력 시 currentArea 초기화됨)
-
   // 면적 데이터 없음
   if (areaGroups.length === 0) {
     return [state, {
@@ -700,7 +702,28 @@ function handlePostComplex(state, areaHint) {
     }];
   }
 
-  // 항상 평형 목록 보여주기 (사용자가 직접 선택)
-  // 면적 힌트 있어도 자동 선택 안 함
+  // 평형 목록 → 사용자가 직접 선택
   return [state, responseAreaList(complex, areaGroups, areaHint)];
+}
+
+// ─────────────────────────────────────────────
+// 평형 확정 후 처리 — 목적 확인
+// 의도 키워드가 없으면 "무엇을 확인할까요?" 묻기
+// ─────────────────────────────────────────────
+function handlePostArea(state, intent) {
+  const complex  = state.currentComplex;
+  const areaSqm  = state.currentArea;
+  const purpose  = state.purpose || null;
+
+  // 매수 의도가 명확하면 바로 분석 준비
+  const isBuy  = purpose === "buy"  || /buy_opinion/.test(intent);
+  const isFair = purpose === "fair" || /price_analysis|price_opinion/.test(intent);
+  const isJeonse = purpose === "jeonse" || /jeonse_info/.test(intent);
+
+  if (isBuy || isFair || isJeonse) {
+    return [state, responseReadyToAnalyze(complex, areaSqm)];
+  }
+
+  // 의도 불명확 → 목적 질문
+  return [state, responseAskPurpose(complex, areaSqm)];
 }
