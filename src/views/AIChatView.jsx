@@ -316,6 +316,196 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     // ── pending 상태 체크 (매물가/데이터없음 입력 대기 중) ──
     const ps = convStateRef.current;
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // expectedAnswerType: 직전 질문 기반 입력 해석 최우선
+    // 이 블록이 ConversationEngine보다 먼저 실행됨
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (ps?._expectedAnswerType) {
+      const eat = ps._expectedAnswerType;
+      addMsg({ role: "user", type: "text", content: text });
+
+      // ── dong 입력 대기 ──
+      if (eat === 'dong') {
+        addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+        // _pendingComplex: 단지명이 있으면 dong+단지명 검색, 없으면 dong만 검색
+        const pendingComplex = ps._pendingComplex;
+        convStateRef.current = { ...ps, _expectedAnswerType: null };
+
+        try {
+          let pool = [];
+          if (pendingComplex) {
+            // 케이스 2: "어느 지역의 동부아파트?" → dong + 단지명 검색
+            const r = await searchComplexFromSupabase(pendingComplex, '', text);
+            if (r.fromSupabase) pool = r.complexes;
+          } else {
+            // 케이스 1: "어느 동을 찾으시나요?" → dong 컬럼만으로 검색 (complex_name 검색 금지)
+            const res = await fetch('/api/supabase', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'search', name: '', sigungu: '', dong: text, limit: 20 }),
+            });
+            const data = await res.json();
+            pool = (data.complexes || []);
+          }
+
+          if (pool.length === 0) {
+            replaceLastAI({ role: "ai", type: "text",
+              content: `"${text}" 동을 찾지 못했습니다. 정확한 동 이름을 다시 입력해 주세요.\n예: 우동, 공릉동, 잠실동` });
+            // 다시 dong 대기
+            convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'dong', _pendingComplex: pendingComplex };
+            return;
+          }
+
+          // dong 기준으로 시군구 그룹핑 (여러 지역의 같은 동이 있을 수 있음)
+          const sigunguGroups = {};
+          for (const c of pool) {
+            const key = c.sigungu || '기타';
+            if (!sigunguGroups[key]) sigunguGroups[key] = [];
+            sigunguGroups[key].push(c);
+          }
+          const sigunguKeys = Object.keys(sigunguGroups);
+
+          if (sigunguKeys.length > 1 && !pendingComplex) {
+            // 여러 지역에 같은 동 → 지역 선택 질문
+            replaceLastAI({
+              role: "ai", type: "purpose_chips",
+              content: `어느 ${text}을(를) 말씀하시나요?`,
+              choices: sigunguKeys.slice(0, 4),
+              onSelect: async (chosen) => {
+                addMsg({ role: "user", type: "text", content: chosen });
+                addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+                convStateRef.current = { ...convStateRef.current,
+                  _expectedAnswerType: 'complex', _pendingDong: text, _pendingRegion: chosen };
+                replaceLastAI({ role: "ai", type: "text",
+                  content: `${chosen} ${text}에서 찾으시는 아파트 단지명을 알려주세요.` });
+              },
+            });
+          } else {
+            // 하나의 지역 또는 단지명 검색 결과
+            const region = sigunguKeys[0];
+            convStateRef.current = { ...convStateRef.current, _pendingDong: text, _pendingRegion: region };
+            if (pool.length === 1) {
+              // 단지 1개 특정 → routeIntent처럼 목적 질문
+              const cx = pool[0];
+              const cxName = cx.complex_name || '';
+              replaceLastAI({
+                role: "ai", type: "purpose_chips",
+                content: `${cxName}에서 무엇을 확인할까요?`,
+                choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
+                onSelect: async (choice) => {
+                  addMsg({ role: "user", type: "text", content: choice });
+                  addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+                  if (choice === '전세' || choice === '계약 전 체크') {
+                    replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                    return;
+                  }
+                  const purpose = choice === '매수 의견' ? 'buy' : 'fair';
+                  await runAnalysis(cx, { intent: purpose });
+                },
+              });
+            } else {
+              // 복수 단지 → 후보 선택
+              replaceLastAI({
+                role: "ai", type: "candidates",
+                content: `${text}의 아파트 목록입니다. 찾으시는 단지를 선택해주세요.`,
+                data: pool.slice(0, 8),
+                onSelect: async (cx) => {
+                  addMsg({ role: "user", type: "text", content: cx.complex_name });
+                  addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+                  replaceLastAI({
+                    role: "ai", type: "purpose_chips",
+                    content: `${cx.complex_name}에서 무엇을 확인할까요?`,
+                    choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
+                    onSelect: async (choice) => {
+                      addMsg({ role: "user", type: "text", content: choice });
+                      if (choice === '전세' || choice === '계약 전 체크') {
+                        replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                        return;
+                      }
+                      addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+                      await runAnalysis(cx, { intent: choice === '매수 의견' ? 'buy' : 'fair' });
+                    },
+                  });
+                },
+                intent: { intent: 'fair' },
+              });
+            }
+          }
+        } catch(e) {
+          console.error('[expectedAnswerType:dong]', e);
+          replaceLastAI({ role: "ai", type: "text", content: "검색 중 오류가 발생했습니다. 다시 시도해 주세요." });
+        }
+        return;
+      }
+
+      // ── complex 입력 대기 ──
+      if (eat === 'complex') {
+        addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+        const dong   = ps._pendingDong   || '';
+        const region = ps._pendingRegion || '';
+        convStateRef.current = { ...ps, _expectedAnswerType: null };
+        const r = await searchComplexFromSupabase(text, region, dong);
+        const pool = r.fromSupabase ? r.complexes.slice(0, 8) : [];
+        if (pool.length === 0) {
+          replaceLastAI({ role: "ai", type: "text",
+            content: `"${text}" 단지를 찾지 못했습니다. 단지명을 다시 확인해 주세요.` });
+          convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'complex', _pendingDong: dong, _pendingRegion: region };
+          return;
+        }
+        if (pool.length === 1) {
+          const cx = pool[0];
+          replaceLastAI({
+            role: "ai", type: "purpose_chips",
+            content: `${cx.complex_name}에서 무엇을 확인할까요?`,
+            choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
+            onSelect: async (choice) => {
+              addMsg({ role: "user", type: "text", content: choice });
+              if (choice === '전세' || choice === '계약 전 체크') {
+                replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                return;
+              }
+              addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+              await runAnalysis(cx, { intent: choice === '매수 의견' ? 'buy' : 'fair' });
+            },
+          });
+        } else {
+          replaceLastAI({
+            role: "ai", type: "candidates",
+            content: `"${text}" 검색 결과입니다. 찾으시는 단지를 선택해주세요.`,
+            data: pool,
+            onSelect: async (cx) => {
+              addMsg({ role: "user", type: "text", content: cx.complex_name });
+              addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+              replaceLastAI({
+                role: "ai", type: "purpose_chips",
+                content: `${cx.complex_name}에서 무엇을 확인할까요?`,
+                choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
+                onSelect: async (choice) => {
+                  addMsg({ role: "user", type: "text", content: choice });
+                  if (choice === '전세' || choice === '계약 전 체크') {
+                    replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                    return;
+                  }
+                  addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+                  await runAnalysis(cx, { intent: choice === '매수 의견' ? 'buy' : 'fair' });
+                },
+              });
+            },
+            intent: { intent: 'fair' },
+          });
+        }
+        return;
+      }
+
+      // ── purpose 입력 대기 (칩 외 텍스트) ──
+      if (eat === 'purpose') {
+        convStateRef.current = { ...ps, _expectedAnswerType: null };
+        // 텍스트로 목적 입력한 경우 ConversationEngine으로 넘김
+        // (칩 클릭은 onSelect에서 이미 처리됨)
+        // 아래 일반 흐름으로 계속
+      }
+    }
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     // 데이터 없음 → 매물가+전세가 입력 대기
     if (ps?._pendingNoData) {
       addMsg({ role: "user", type: "text", content: text });
@@ -628,6 +818,13 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             addMsg({ role: "user", type: "text", content: choice });
             addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
             if (choice === "특정 아파트 검색") {
+              // complex 입력 대기 상태로 전환
+              convStateRef.current = {
+                ...convStateRef.current,
+                _expectedAnswerType: 'complex',
+                _pendingDong: intent.dong || '',
+                _pendingRegion: intent.region || regionLabel,
+              };
               replaceLastAI({ role: "ai", type: "text",
                 content: `${regionLabel}에서 찾으시는 아파트 단지명을 알려주세요.` });
             } else if (choice === "예산으로 추천") {
@@ -758,7 +955,20 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       }
 
       // ── 단지 복수 → 지역 선택 질문 ──
-      const regionHint = intent.region || intent.dong ? ` (${intent.dong || intent.region})` : "";
+      // dong이 없으면 사용자에게 dong 입력 요청 (expectedAnswerType: dong)
+      if (!intent.dong && !intent.region) {
+        convStateRef.current = {
+          ...convStateRef.current,
+          _expectedAnswerType: 'dong',
+          _pendingComplex: intent.complexName || rawText,
+        };
+        replaceLastAI({
+          type: "text",
+          content: `어느 지역의 ${intent.complexName || rawText}를 찾으시나요?\n동 이름을 알려주세요. 예: 우동, 공릉동, 잠실동`,
+        });
+        return;
+      }
+      const regionHint = intent.dong || intent.region ? ` (${intent.dong || intent.region})` : "";
       replaceLastAI({
         type: "candidates",
         content: `어느 지역의 ${intent.complexName || rawText}를 찾으시나요?${regionHint}`,
