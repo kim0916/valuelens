@@ -1451,27 +1451,31 @@ function AppInner() {
                   f={chatResultData.ff}
                   onBack={() => { setAptTab("ai"); setChatResultData(null); }}
                   onNewSearch={async (opts) => {
-                    // opts: { areaSqm } — 다른 평형 선택 시 재분석
+                    // opts: { areaSqm, price?, complexName?, sigungu?, dong?, areaOptions? }
                     if (opts?.areaSqm && chatResultData) {
                       const d = chatResultData;
+                      const isNewComplex = !!(opts.complexName && opts.complexName !== d.complex.name);
                       const complexObj = {
-                        complex_name: d.complex.name,
-                        sigungu: d.complex.sigungu,
-                        legal_dong: d.complex.dong,
-                        build_year: d.complex.buildYear,
-                        area_list: d.ff.areaOptions?.map(a => a.areaSqm) || [opts.areaSqm],
+                        complex_name: isNewComplex ? opts.complexName : d.complex.name,
+                        sigungu:      isNewComplex ? (opts.sigungu || d.complex.sigungu) : d.complex.sigungu,
+                        legal_dong:   isNewComplex ? (opts.dong    || d.complex.dong)    : d.complex.dong,
+                        build_year:   d.complex.buildYear,
+                        area_list:    opts.areaOptions?.map(a => a.areaSqm)
+                                      || (isNewComplex ? [opts.areaSqm] : (d.ff.areaOptions?.map(a => a.areaSqm) || [opts.areaSqm])),
                         id: null,
                       };
-                      // price: 사용자 입력가 (null이면 실거래 중앙값 사용)
                       const inputPrice = opts.price || null;
                       const result = await runAnalysisService(complexObj, opts.areaSqm, inputPrice, !!inputPrice);
                       if (result) {
+                        const newComplex = isNewComplex
+                          ? { name: opts.complexName, sigungu: opts.sigungu || d.complex.sigungu,
+                              dong: opts.dong || d.complex.dong, buildYear: d.complex.buildYear,
+                              areaExclusive: Math.round(opts.areaSqm) }
+                          : { ...d.complex, areaExclusive: Math.round(opts.areaSqm) };
                         setChatResultData({ ...d,
                           engine: result.engine,
-                          ff: { ...result.ff, areaOptions: d.ff.areaOptions },
-                          complex: { ...d.complex,
-                            areaExclusive: Math.round(opts.areaSqm),
-                          },
+                          ff: { ...result.ff, areaOptions: opts.areaOptions || d.ff.areaOptions },
+                          complex: newComplex,
                         });
                       }
                     } else {
