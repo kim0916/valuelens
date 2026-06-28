@@ -48,8 +48,16 @@ export function extractRegion(text) {
     const filtered = guM.filter(g => !SIDO_LIST.includes(g.replace(/시$/, '')));
     if (filtered[0]) result.sigungu = filtered[0];
   }
-    const dongM = t.match(/([가-힣]{2,4}동)(?=\s|$|[^가-힣])/g);
-  if (dongM && dongM[0]) result.dong = dongM[0];
+  // ★ non-greedy 동명 추출 — 붙여쓰기 "공릉동동신아파트" → "공릉동" 정확히 추출
+  const dongRe = /([가-힣]{1,4}?)동/g;
+  let dongMatch;
+  while ((dongMatch = dongRe.exec(t)) !== null) {
+    const core = dongMatch[1];
+    if (core.length >= 1) { // 최소 1글자 접두어
+      result.dong = core + '동';
+      break; // 첫번째 동명만
+    }
+  }
 
   return result;
 }
