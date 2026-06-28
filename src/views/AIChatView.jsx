@@ -504,6 +504,54 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       return;
     }
 
+    // 목적 선택 (ask_purpose)
+    if (response.ui === "ask_purpose") {
+      const { complex: cx, areaSqm: aSqm, choices } = response;
+      replaceLastAI({
+        role: "ai", type: "purpose_chips",
+        content: response.text?.replace(/\*\*/g, ""),
+        choices: choices || ["적정가", "매수 의견", "전세"],
+        onSelect: async (choice) => {
+          addMsg({ role: "user", type: "text", content: choice });
+          addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+          if (choice === "전세") {
+            replaceLastAI({ role: "ai", type: "text",
+              content: "전세 분석은 준비 중입니다. 곧 제공될 예정입니다." });
+            return;
+          }
+          const purpose = choice === "매수 의견" ? "buy" : "fair";
+          convStateRef.current = { ...convStateRef.current, purpose };
+          await runAnalysis(cx || convStateRef.current.currentComplex,
+            { intent: purpose, areaSqm: aSqm || convStateRef.current.currentArea });
+        },
+      });
+      return;
+    }
+
+    // 매도 우회 (sell_redirect)
+    if (response.ui === "sell_redirect") {
+      const { choices } = response;
+      replaceLastAI({
+        role: "ai", type: "purpose_chips",
+        content: response.text,
+        choices: choices || ["적정가 보기", "최근 거래 보기"],
+        onSelect: async (choice) => {
+          addMsg({ role: "user", type: "text", content: choice });
+          addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+          const cx = convStateRef.current.currentComplex;
+          const aSqm = convStateRef.current.currentArea;
+          if (!cx || !aSqm) {
+            replaceLastAI({ role: "ai", type: "text", content: "단지와 평형을 먼저 선택해 주세요." });
+            return;
+          }
+          convStateRef.current = { ...convStateRef.current, purpose: "fair" };
+          await runAnalysis(cx, { intent: "fair", areaSqm: aSqm });
+        },
+      });
+      return;
+    }
+
+
     // 면적 목록 → area_chips 타입 메시지
     if (type === RESPONSE_TYPES.AREA_LIST) {
       replaceLastAI({
