@@ -569,6 +569,44 @@ export default async function handler(req, res) {
         }
       }
 
+      // ── fallback 2.6: 공백없는 입력에서 지역어 분리 (잠실래미안 → 잠실+래미안) ──
+      if ((!data || data.length === 0) && !hasSpace && nameNoSpace.length >= 4) {
+        const KR4 = ["강남","서초","송파","강동","마포","용산","성동","광진","노원","강북","성북","구로","금천","관악","동작","영등포","양천","강서","도봉","중랑","동대문","종로","광명","부천","안양","수원","성남","의정부","고양","남양주","하남","화성","동탄","평택","안산","시흥","파주","부산","대구","인천","대전","울산","세종","창원","진주","김해","포항","경주","안동","구미","동래","해운대","수영","연제","압구정","반포","대치","도곡","개포","잠실","가락","역삼","청담","행당","공릉","상계","아현","우동","온천","오송","목동","당산","화곡","신도림","마곡","뚝섬","옥수","금호","행당","왕십리","망우","중계","하계","월계","창동","방학","쌍문","수유","미아","길음","정릉","석계","회기","이문","휘경","신내","묵동","봉화","중화","망원","합정","상수","동교","신수","창전","서교","연남","성산","망원","합정","홍제","홍은","남가좌","북가좌","증산","수색","신사","논현","압구정","청담","도산","삼성","대치","역삼","개포","수서","세곡","자곡","율현","일원","포이","양재","우면","원지","신원","염곡","내곡","신사","방배","서초","반포","잠원","흑석","동작","사당","이수","주성","남성","상도","노량진","본동","영등포","당산","도림","신도림","양평","목동","신정","오목교","가양","등촌","화곡","발산","우장산","방화","개화","공항","마곡","신방화","방화","개화","가양","증미","목동","신목동","당산","양평","문래","영등포","도림","신도림","구로","개봉","천왕","항동","오류","궁동","온수","은행","고척","남구로","가산","독산","시흥","신림","봉천","조원","서원","신사","중앙","미성","청룡","은천","난향","삼성","신림","대학","신대방","상도","흑석","동작","사당","반포","서초","방배","내방","이수","낙성대","봉천","신림","남현","청룡","행운","은천","미성"];
+        for (const region of KR4) {
+          if (nameNoSpace.startsWith(region)) {
+            const brandPart = nameNoSpace.slice(region.length);
+            if (brandPart.length >= 2) {
+              console.log(\`[search] fallback2.6: region="\${region}" brand="\${brandPart}"\`);
+              const { data: fb26Data } = await supabase
+                .from('realestate_complexes')
+                .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
+                .ilike('complex_name', \`%\${brandPart}%\`)
+                .ilike('sigungu', \`%\${region}%\`)
+                .order('sale_cnt', { ascending: false })
+                .limit(Math.min(limit, 10));
+              if (fb26Data && fb26Data.length > 0) {
+                data = fb26Data;
+                console.log(\`[search] fallback2.6 성공: \${fb26Data.length}건\`);
+                break;
+              }
+              // sigungu로 안 되면 legal_dong으로도 시도
+              const { data: fb26bData } = await supabase
+                .from('realestate_complexes')
+                .select('id, complex_name, sigungu, sido, sigungu_short, legal_dong, road_addr, build_year, sale_cnt, rent_cnt, last_sale_ym, last_rent_ym, area_list')
+                .ilike('complex_name', \`%\${brandPart}%\`)
+                .ilike('legal_dong', \`%\${region}%\`)
+                .order('sale_cnt', { ascending: false })
+                .limit(Math.min(limit, 10));
+              if (fb26bData && fb26bData.length > 0) {
+                data = fb26bData;
+                console.log(\`[search] fallback2.6b 성공: \${fb26bData.length}건\`);
+                break;
+              }
+            }
+          }
+        }
+      }
+
       if ((!data || data.length === 0) && naturalCoreNoSpace.length >= 3 && naturalCoreNoSpace !== normalizedName.replace(/\s/g,'')) {
         console.log(`[search] fallback3: 자연어core "${naturalCoreNoSpace}" region="${naturalRegion||''}"`);
         let fb3q = supabase
