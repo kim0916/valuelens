@@ -55,6 +55,21 @@ const TESTS = [
   ['다른평형은',                 'larger_area'],
   ['평형 바꿔줘',                'larger_area'],
 
+  // ── 지역+브랜드 붙여쓰기 (단지명) ──
+  ['잠실래미안',                 'search_complex'],
+  ['목동현대',                   'search_complex'],
+  ['광교힐스테이트',             'search_complex'],
+  ['판교푸르지오',               'search_complex'],
+  ['잠실래미안파인뷰',           'search_complex'],
+
+  // ── 지역+브랜드 띄어쓰기 (추천) ──
+  ['잠실 래미안',                'recommend_complex'],
+  ['목동 현대',                  'recommend_complex'],
+
+  // ── 오타 변형 단지명 ──
+  ['레미안블레스티지',           'search_complex'],
+  ['해링턴플레이스',             'search_complex'],
+
   // ── 기타 ──
   ['응',                         'confirm'],
   ['아니',                       'deny'],

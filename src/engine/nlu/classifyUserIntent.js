@@ -376,7 +376,8 @@ export function classifyUserIntent(text, entities = {}, state = {}) {
     // "은마아파트"처럼 아파트 단어 포함해도 단지명이면 search
     // 단, 브랜드명만 + 지역 조합이고 짧으면 추천 (예: "강남 래미안" = 브랜드만)
     const isBrandOnlyWithRegion = hasBrand && hasRegion &&
-      entities.complexQuery === entities.brand; // complexQuery가 브랜드명과 동일 = 브랜드만 입력
+      entities.complexQuery === entities.brand && // complexQuery가 브랜드명과 동일
+      t.includes(" "); // 공백 있어야 추천 (공백 없으면 단지명 붙여쓰기)
     if (isBrandOnlyWithRegion) {
       return { intent: NLU_INTENTS.RECOMMEND_COMPLEX, confidence: 0.82 };
     }
