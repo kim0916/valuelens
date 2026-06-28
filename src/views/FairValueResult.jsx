@@ -434,16 +434,16 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr",
               gap: 1, background: CLR.border }}>
               {[
-                { l: "전세 시세 기준", v: r.jeonseFair ? `${won(r.jeonseFair)} (${r.jeonseUsed}건)` : "—" },
+                { l: "전세가 역산 기준", v: r.jeonseFair ? `${won(r.jeonseFair)} (${r.jeonseUsed}건)` : "—" },
                 { l: "매매 시세 기준", v: r.saleFair   ? `${won(r.saleFair)} (${r.saleUsed}건)` : "—" },
                 { l: "분석 방식",
                   v: r.isPremium
                     ? (["강남구","서초구","송파구"].some(g => (f.region||"").includes(g)) ? "강남권 입지 반영"
                       : Number(f.buildYear) <= 1995 ? "재건축 기대 반영"
                       : "단지 특성 반영")
-                    : r.engineMode === "blend"  ? "매매·전세 혼합"
-                    : r.engineMode === "sale"   ? "매매 거래 기준"
-                    : r.engineMode === "jeonse" ? "전세 거래 기준"
+                    : r.engineMode === "blend"  ? "최근 실거래가 기준"
+                    : r.engineMode === "sale"   ? "최근 1개월 실거래가 기준"
+                    : r.engineMode === "jeonse" ? "최근 1개월 실거래가 기준"
                     : "—" },
                 { l: "적정가 대비", v: r.gapRatio != null ? `${r.gapRatio < 0 ? "▼" : "▲"} ${Math.abs(r.gapRatio * 100).toFixed(1)}%` : "—" },
               ].map((row, i) => (
