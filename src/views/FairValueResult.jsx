@@ -611,13 +611,38 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
 // ── 결과지 하단 채팅바 ──
 function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
   const [text, setText] = React.useState("");
+  const [aiReply, setAiReply] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
   const chips = ["전세는?", "다른 평형은?", "최근 거래 흐름은?"];
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const t = text.trim();
     if (!t) return;
-    onSend(t);
     setText("");
+
+    // 분석 관련 질문은 채팅으로 넘김
+    const isAnalysis = /전세|다른평형|다른 평형|평형|매수|살까|최근거래|최근 거래|거래흐름/.test(t);
+    if (isAnalysis) { onSend(t); return; }
+
+    // 자유 질문 → 결과지 안에서 AI 답변
+    setLoading(true);
+    setAiReply(null);
+    try {
+      const res = await fetch("/api/ai", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001", max_tokens: 300,
+          system: `당신은 10년 경력 공인중개사입니다. ${complex ? `현재 ${complex} 아파트에 대해 이야기 중입니다.` : ""} 짧고 친근하게 3문장 이내로 답변하세요.`,
+          messages: [{ role: "user", content: t }],
+        }),
+      });
+      const data = await res.json();
+      setAiReply(data?.content?.[0]?.text?.trim() || null);
+    } catch(e) {
+      setAiReply("잠깐 문제가 생겼어요. 다시 말씀해 주세요.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -649,6 +674,17 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis }) {
           </button>
         ))}
       </div>
+      {/* AI 인라인 답변 */}
+      {(loading || aiReply) && (
+        <div style={{ marginBottom: 10, padding: "10px 12px",
+          background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
+          {loading
+            ? <p style={{ fontSize: 13, color: "#94a3b8", margin: 0 }}>잠깐만요... 🔍</p>
+            : <p style={{ fontSize: 13, color: "#334155", margin: 0, lineHeight: 1.6 }}>{aiReply}</p>
+          }
+        </div>
+      )}
+
       {/* 입력창 */}
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <input

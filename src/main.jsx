@@ -1452,16 +1452,37 @@ function AppInner() {
                   onNewSearch={() => { setAptTab("ai"); setChatResultData(null); }}
                   complexInfo={chatResultData.complex}
                   onAskMore={(text) => {
+                    // 결과지 안에서 처리 가능한 질문은 채팅창 안 열고 처리
+                    const JEONSE = /전세|보증금/;
+                    const BUY    = /살까|살만|매수|사도|사는게|사는거/;
+                    const AREA   = /다른평형|평형바꿔|큰거|작은거/;
                     const d = chatResultData;
-                    setChatResultData(null);
-                    setAptTab("ai");
-                    setTimeout(() => {
-                      window.dispatchEvent(new CustomEvent("valuelens:ask", { detail: {
-                        text,
-                        complex: d?.complex,
-                        areaSqm: d?.ff?.areaExclusive,
-                      }}));
-                    }, 100);
+
+                    if (JEONSE.test(text)) {
+                      // 전세 → 채팅으로 넘기되 컨텍스트 유지
+                      setChatResultData(null); setAptTab("ai");
+                      setTimeout(() => window.dispatchEvent(new CustomEvent("valuelens:ask", {
+                        detail: { text, complex: d?.complex, areaSqm: d?.ff?.areaExclusive }
+                      })), 100);
+                    } else if (BUY.test(text)) {
+                      // 매수 → onBuyAnalysis와 동일
+                      setChatResultData(null); setAptTab("ai");
+                      setTimeout(() => window.dispatchEvent(new CustomEvent("valuelens:buy", {
+                        detail: { complex: d?.complex, areaSqm: d?.ff?.areaExclusive, currentPrice: d?.ff?.currentPrice }
+                      })), 100);
+                    } else if (AREA.test(text)) {
+                      // 다른 평형 → 채팅으로 넘기되 컨텍스트 유지
+                      setChatResultData(null); setAptTab("ai");
+                      setTimeout(() => window.dispatchEvent(new CustomEvent("valuelens:ask", {
+                        detail: { text, complex: d?.complex, areaSqm: d?.ff?.areaExclusive }
+                      })), 100);
+                    } else {
+                      // 자유 질문 → AI 답변을 결과지 하단 메시지로 표시
+                      setChatResultData(null); setAptTab("ai");
+                      setTimeout(() => window.dispatchEvent(new CustomEvent("valuelens:ask", {
+                        detail: { text, complex: d?.complex, areaSqm: d?.ff?.areaExclusive }
+                      })), 100);
+                    }
                   }}
                   onPriceUpdate={(newPrice) => {
                     // 매물가 수정 → 재계산
