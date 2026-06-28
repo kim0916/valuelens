@@ -287,7 +287,8 @@ export function pyeongToSqm(pyeong) {
 }
 
 export function sqmToPyeong(sqm) {
-  return Math.round(Number(sqm) / 3.305785);
+  // 전용면적(㎡) → 공급면적 기준 평수 (Naver식: ×1.35 후 변환)
+  return Math.floor((Number(sqm) * 1.35) / 3.305785);
 }
 
 export function classifyPureNumber(n, state = {}) {
