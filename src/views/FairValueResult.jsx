@@ -688,286 +688,338 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
   );
 }
 
-// ── 결과지 하단 Quick Action 바 ──
-// AI API 호출 없음. 자연어 대화 방식으로 평형 선택 및 분석 연결.
+// ── 결과지 하단 Quick Action 바 (Agent 모드) ──
+// AI API 호출 없음. Context 기억 기반 부동산 에이전트 UX.
+// State Machine: null → await_area → await_price → (분석 완료 → 초기화)
+//
+// Props:
+//   f            : 현재 분석 결과 ff (complexName, areaExclusive, currentPrice, areaOptions 등)
+//   areaOptions  : 현재 단지의 평형 목록 [{ areaSqm, pyeong }]
+//   onNewSearch  : (opts: { areaSqm, price?, complexName?, sigungu?, dong? }) → 재분석
+//   onBuyAnalysis: () → 매수 분석 이동
+//   onSend       : 기존 onAskMore (fallback)
 function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSearch }) {
-  const [text, setText] = React.useState("");
+  const [text, setText] = React.useState('');
   const [loading, setLoading] = React.useState(false);
-  // 대화 히스토리: [{ role: 'ai'|'user', text }]
-  const [messages, setMessages] = React.useState([]);
-  // 현재 대화 단계: null | 'await_area' | 'await_price'
-  const [step, setStep] = React.useState(null);
-  // await_area 단계에서 후보 평형 보관
+  // 대화 메시지: [{ role: 'ai'|'user', text }]
+  const [msgs, setMsgs] = React.useState([]);
+  // State Machine
+  const [step, setStep] = React.useState(null); // null | 'await_area' | 'await_price'
+  // await_area: 후보 평형
   const [pendingAreas, setPendingAreas] = React.useState([]);
-  // await_price 단계에서 선택된 평형 보관
-  const [pendingArea, setPendingArea] = React.useState(null);
+  // await_price: 확정된 평형 + 단지 override
+  const [pendingArea, setPendingArea] = React.useState(null);       // { areaSqm, pyeong }
+  const [pendingComplex, setPendingComplex] = React.useState(null); // { complexName, sigungu, dong } | null
+  const msgEndRef = React.useRef(null);
 
-  const addMsg = (role, text) =>
-    setMessages(prev => [...prev, { role, text }]);
+  // 스크롤 최하단 유지
+  React.useEffect(() => {
+    msgEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [msgs, loading]);
 
-  // ── 가격 파싱 — await_price 단계 전용 ──
-  // 규칙:
-  //   1~3자리 or 소수점 숫자 (8, 8.5, 12) → 억 단위
-  //   4자리 이상 숫자 (53000, 85000)       → 만원 단위
-  //   N억M천/N억M000                        → 복합
-  //   N억                                   → 억 단위
+  const addAI  = (t) => setMsgs(p => [...p, { role: 'ai',   text: t }]);
+  const addUser = (t) => setMsgs(p => [...p, { role: 'user', text: t }]);
+  const resetDialog = () => { setMsgs([]); setStep(null); setPendingAreas([]); setPendingArea(null); setPendingComplex(null); };
+
+  // ── 가격 파싱 (await_price 전용) ──
+  // 1~3자리 or 소수 → 억 단위 / 4자리+ → 만원 단위
   const parsePrice = (t) => {
-    t = t.replace(/[,\s]/g, '');  // 쉼표/공백 제거
-
-    // 억+뒤숫자 복합: 5억3천, 5억3000, 5억 3000
+    t = t.replace(/[,\s]/g, '');
     const m1 = t.match(/^(\d+(?:\.\d+)?)억(\d+)(?:천|만)?$/);
-    if (m1) {
-      const uk = parseFloat(m1[1]) * 10000;
-      const rest = parseInt(m1[2]);
-      return Math.round(uk + (rest <= 999 ? rest * 1000 : rest));
-    }
-    // N억: 5억, 5.3억
+    if (m1) { const uk = parseFloat(m1[1])*10000; const r = parseInt(m1[2]); return Math.round(uk + (r<=999?r*1000:r)); }
     const m2 = t.match(/^(\d+(?:\.\d+)?)억$/);
-    if (m2) return Math.round(parseFloat(m2[1]) * 10000);
-    // 4자리 이상 순수 숫자 → 만원 단위
+    if (m2) return Math.round(parseFloat(m2[1])*10000);
     const m3 = t.match(/^(\d{4,})$/);
     if (m3) return parseInt(m3[1]);
-    // 1~3자리 또는 소수점 숫자 → 억 단위 (await_price 전용 규칙)
     const m4 = t.match(/^(\d{1,3}(?:\.\d+)?)$/);
-    if (m4) return Math.round(parseFloat(m4[1]) * 10000);
+    if (m4) return Math.round(parseFloat(m4[1])*10000);
     return null;
   };
+  const isNoPrice = (t) => /^(몰라|모름|모르겠|잘\s*모르|평균|실거래|기준으로|상관없|패스|skip)/i.test(t.trim());
+  const sqmToPyeong = (sqm) => Math.floor((Number(sqm)*1.35)/3.305785);
 
-  // ── 평형 파싱: "35평", "35", "35평 보기" ──
-  const parsePyeong = (t, candidates) => {
-    const num = parseInt(t.replace(/[^0-9]/g, ''));
-    if (!num) return null;
-    return candidates.find(a => a.pyeong === num) || null;
+  // ── 단지 검색 → await_price로 ──
+  const searchComplex = async (complexName, sigunguHint, dongHint) => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/supabase', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'search', name: complexName, sigungu: sigunguHint || '', dong: dongHint || '', limit: 5 }),
+      });
+      const data = await res.json();
+      const hits = data.complexes || [];
+      if (hits.length === 0) {
+        addAI(`"${complexName}"을(를) 찾지 못했습니다. 단지명을 다시 확인해 주세요.`);
+        setLoading(false);
+        return;
+      }
+      const hit = hits[0];
+      const rawAreas = hit.area_list ? (typeof hit.area_list === 'string' ? JSON.parse(hit.area_list) : hit.area_list) : [];
+      const aGroups = rawAreas.map(a => ({ areaSqm: Number(a), pyeong: sqmToPyeong(Number(a)) })).filter(a => a.areaSqm > 0);
+
+      const cxOverride = { complexName: hit.complex_name, sigungu: hit.sigungu, dong: hit.legal_dong || dongHint || '', complexId: hit.id, areaOptions: aGroups };
+
+      if (aGroups.length === 0) {
+        addAI(`${hit.complex_name}의 평형 정보를 불러오지 못했습니다. 다시 시도해 주세요.`);
+        setLoading(false);
+        return;
+      }
+      if (aGroups.length === 1) {
+        // 평형 1개 → 바로 가격 질문
+        setPendingArea(aGroups[0]);
+        setPendingComplex(cxOverride);
+        setStep('await_price');
+        addAI(`${hit.complex_name} ${aGroups[0].pyeong}평이군요.\n현재 매물가를 알고 계시나요?\n모르시면 최근 실거래 평균 기준으로 분석해드립니다.`);
+      } else {
+        const names = aGroups.map(a => `${a.pyeong}평`).join(', ');
+        setPendingAreas(aGroups);
+        setPendingComplex(cxOverride);
+        setStep('await_area');
+        addAI(`${hit.complex_name}는 ${names} 분석 가능합니다.\n어떤 평형이 궁금하세요?`);
+      }
+    } catch(e) {
+      addAI('단지 검색 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    }
+    setLoading(false);
   };
 
-  // ── 모름 패턴 ──
-  const isNoPrice = (t) =>
-    /^(몰라|모름|모르겠|잘 ?모르|평균|실거래|기준으로|상관없|패스|skip)/.test(t.trim());
+  // ── 분석 실행 ──
+  const runAnalysis = async (areaSqm, price, cxOverride) => {
+    addAI('잠시만 기다려주세요. 분석 결과로 이동합니다.');
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 400));
+    setLoading(false);
+    resetDialog();
+    if (onNewSearch) onNewSearch({ areaSqm, price: price || null, ...(cxOverride || {}) });
+  };
 
-  // ── 칩/입력 통합 핸들러 ──
+  // ── 메인 핸들러 ──
   const handleSend = async (raw) => {
-    const t = (raw ?? text).trim();
-    if (!t) return;
-    setText("");
+    const t = (raw !== undefined ? raw : text).trim();
+    if (!t || loading) return;
+    setText('');
 
-    // ── await_price 단계: 평형 확정 후 가격 입력 대기 ──
+    // ── STEP: await_price ──
     if (step === 'await_price') {
-      addMsg('user', t);
+      addUser(t);
       const price = parsePrice(t);
       const noPrice = isNoPrice(t);
-
-      // ★ 디버그 로그 (임시)
-      console.log('[ResultChatBar await_price]', {
-        rawInput: t,
-        parsedPrice: price,
-        parsedPriceMan: price ? (price / 10000).toFixed(1) + '억' : null,
-        selectedComplexName: f?.complexName,
-        selectedArea: pendingArea?.areaSqm,
-        pendingPriceMode: 'await_price',
-      });
-
+      console.log('[Agent await_price]', { rawInput: t, parsedPrice: price, noPrice, pendingArea, pendingComplex });
       if (!price && !noPrice) {
-        addMsg('ai', '금액을 다시 입력해 주세요. 예: 8억, 8.5억, 85000');
+        addAI('금액을 다시 입력해 주세요. 예: 8억, 8.5억, 85000');
         return;
       }
-      const savedArea = pendingArea; // setStep(null) 전에 저장
-      setStep(null);
-      setPendingArea(null);
+      const savedArea = pendingArea;
+      const savedCx   = pendingComplex;
       const priceLabel = noPrice ? '최근 실거래 평균' : `${(price/10000).toFixed(1)}억`;
-      addMsg('ai', `입력하신 가격 ${priceLabel} 기준으로 분석합니다. 잠시만 기다려주세요.`);
-      setLoading(true);
-      await new Promise(r => setTimeout(r, 500));
-      setLoading(false);
-      if (onNewSearch) onNewSearch({ areaSqm: savedArea.areaSqm, price: noPrice ? null : price });
+      addAI(`입력하신 가격 ${priceLabel} 기준으로 분석합니다.`);
+      setStep(null); setPendingArea(null); setPendingComplex(null);
+      await runAnalysis(savedArea.areaSqm, noPrice ? null : price, savedCx);
       return;
     }
 
-    // ── await_area 단계: 평형 선택 대기 ──
+    // ── STEP: await_area ──
     if (step === 'await_area') {
-      addMsg('user', t);
-      const chosen = parsePyeong(t, pendingAreas);
-      if (!chosen) {
+      addUser(t);
+      // 숫자만 입력 or "N평" → 평형 매칭
+      const num = parseInt(t.replace(/[^0-9]/g, ''));
+      const chosen = num ? pendingAreas.find(a => a.pyeong === num) : null;
+
+      // "응"/"맞아" 등 확인어이고 후보 1개면 그걸로
+      const isConfirm = /^(응|ㅇ|맞|예|네|ok|ㅇㅋ)/i.test(t);
+      const resolved = chosen || (isConfirm && pendingAreas.length === 1 ? pendingAreas[0] : null);
+
+      if (!resolved) {
         const names = pendingAreas.map(a => `${a.pyeong}평`).join(', ');
-        addMsg('ai', `${names} 중 하나를 입력해 주세요.`);
+        addAI(`${names} 중 하나를 입력해 주세요.`);
         return;
       }
+      setPendingArea(resolved);
       setStep('await_price');
-      setPendingArea(chosen);
-      addMsg('ai', `${chosen.pyeong}평이군요.\n현재 매물가를 알고 계시나요?\n모르시면 최근 실거래 평균 기준으로 분석해 드려요.`);
+      const cx = pendingComplex;
+      addAI(`${cx?.complexName || complex} ${resolved.pyeong}평이군요.\n현재 매물가를 알고 계시나요?\n모르시면 최근 실거래 평균 기준으로 분석해드립니다.`);
       return;
     }
 
-    // ── 기본 단계: 칩 또는 자유 입력 ──
-    addMsg('user', t);
+    // ── STEP: null (기본) ──
+    addUser(t);
 
+    // 1. Quick Action: 매수 의견
     if (/매수|살까|살만|사도|투자/.test(t)) {
       if (onBuyAnalysis) {
-        addMsg('ai', '잠시만 기다려주세요. 매수 분석으로 이동합니다.');
+        addAI('매수 분석으로 이동합니다.');
         setLoading(true);
-        await new Promise(r => setTimeout(r, 600));
+        await new Promise(r => setTimeout(r, 500));
         setLoading(false);
         onBuyAnalysis();
       } else {
-        addMsg('ai', '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.');
+        addAI('아직 준비 중인 기능입니다. 곧 제공될 예정입니다.');
       }
       return;
     }
 
+    // 2. Quick Action: 최근 거래
     if (/최근 거래|거래 흐름|실거래/.test(t)) {
-      addMsg('ai', '잠시만 기다려주세요. 거래 흐름으로 이동합니다.');
+      addAI('거래 흐름으로 이동합니다.');
       setLoading(true);
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 400));
       setLoading(false);
       const el = document.getElementById('deal-list-section');
-      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-      else { addMsg('ai', '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.'); }
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); setMsgs([]); }
+      else { addAI('아직 준비 중인 기능입니다. 곧 제공될 예정입니다.'); }
       return;
     }
 
-    if (/다른 ?평형|평형|평수/.test(t)) {
+    // 3. Quick Action: 전세
+    if (/전세/.test(t)) {
+      addAI('아직 준비 중인 기능입니다. 곧 제공될 예정입니다.');
+      return;
+    }
+
+    // 4. 다른 평형
+    if (/다른\s*평형|평형\s*바꿔|다른\s*평수/.test(t)) {
       const currentSqm = f?.areaExclusive || 0;
-      const complexName = f?.complexName || "이 단지";
       const rawOpts = areaOptions || f?.areaOptions || f?._aiAreaOptions;
-      if (!rawOpts) {
-        addMsg('ai', '평형 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
-        return;
-      }
+      if (!rawOpts) { addAI('평형 정보를 불러오지 못했습니다. 다시 시도해 주세요.'); return; }
       const others = rawOpts.filter(a => Math.abs(Number(a.areaSqm) - currentSqm) > 3);
-      if (others.length === 0) {
-        addMsg('ai', '현재 확인 가능한 다른 평형이 없습니다.');
-        return;
-      }
+      if (others.length === 0) { addAI('현재 확인 가능한 다른 평형이 없습니다.'); return; }
       const names = others.map(a => `${a.pyeong}평`).join(', ');
       setPendingAreas(others);
+      setPendingComplex(null); // 단지 유지
       setStep('await_area');
       if (others.length === 1) {
-        addMsg('ai', `${others[0].pyeong}평 말씀하시는 거죠?\n맞으면 "응" 또는 "${others[0].pyeong}평"이라고 입력해 주세요.`);
+        addAI(`${others[0].pyeong}평 말씀하시는 거죠?\n맞으면 "응" 또는 "${others[0].pyeong}평"이라고 입력해 주세요.`);
       } else {
-        addMsg('ai', `${complexName}는 ${names}도 분석할 수 있습니다.\n어떤 평형이 궁금하세요?`);
+        addAI(`${f?.complexName || complex}는 ${names}도 분석 가능합니다.\n어떤 평형이 궁금하세요?`);
       }
       return;
     }
 
-    if (/전세/.test(t)) {
-      addMsg('ai', '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.');
+    // 5. 다른 단지 검색 (현재 지역 유지)
+    // "동신아파트는?", "청구는?", "중계동 청구는?" 등
+    const complexMatch = t.match(/^([가-힣A-Za-z0-9\s·]{2,15}(?:아파트|APT|apt)?)(?:는|은|도|의)?\??$/);
+    if (complexMatch) {
+      const query = complexMatch[1].trim();
+      // 지역 키워드 감지
+      const regionMatch = t.match(/([가-힣]{2,4}(?:동|구|시))\s+(.+)/);
+      const sigunguHint = regionMatch ? regionMatch[1] : (f?.region || '');
+      const dongHint    = regionMatch ? null : (f?.dong || '');
+      const complexQuery = regionMatch ? regionMatch[2].replace(/[은는이가을를]?\??$/, '').trim() : query;
+      addAI(`${complexQuery} 검색합니다...`);
+      await searchComplex(complexQuery, sigunguHint, dongHint);
       return;
     }
 
-    // 그 외 → onSend (기존 핸들러)
-    if (onSend) {
-      setLoading(true);
-      try { await onSend(t); } finally { setLoading(false); }
-    } else {
-      addMsg('ai', '아직 준비 중인 기능입니다. 곧 제공될 예정입니다.');
-    }
+    // 6. 인식 실패 → fallback
+    addAI('죄송해요, 이해하지 못했습니다.\n"다른 평형은?", "매수 의견은?", "최근 거래는?" 등으로 질문해 주세요.');
   };
 
-  const chips = ["매수 의견은?", "다른 평형은?", "최근 거래 흐름은?", "전세는?"];
+  // 칩 목록
+  const chips = ['매수 의견은?', '다른 평형은?', '최근 거래 흐름은?', '전세는?'];
   const placeholder = step === 'await_price'
-    ? "매물가 입력 (예: 5억, 모름)"
+    ? '매물가 입력 (예: 8억, 모름)'
     : step === 'await_area'
-    ? `평형 입력 (예: ${pendingAreas.map(a=>a.pyeong+'평').join(', ')})`
-    : `${complex || "이 아파트"}에 대해 더 궁금한 점은?`;
+    ? `평형 입력 (예: ${pendingAreas.map(a => a.pyeong+'평').join(', ')})`
+    : `${complex || '이 아파트'}에 대해 더 궁금한 점은?`;
 
   return (
     <div style={{
-      position: "sticky", bottom: 60, margin: "16px 0 0",
-      background: "#fff", borderRadius: 16,
-      border: "1px solid #e2e8f0",
-      boxShadow: "0 -2px 16px rgba(0,0,0,0.08)",
-      padding: "12px 14px",
-      zIndex: 20,
+      position: 'sticky', bottom: 60, margin: '16px 0 0',
+      background: '#fff', borderRadius: 16,
+      border: '1px solid #e2e8f0',
+      boxShadow: '0 -2px 16px rgba(0,0,0,0.08)',
+      padding: '12px 14px', zIndex: 20,
     }}>
-      {/* 칩 — 대화 중에는 숨김 */}
-      {!step && (
-        <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+      {/* 칩 — 대화 중(step 있을 때)엔 숨김 */}
+      {!step && msgs.length === 0 && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
           {chips.map((c, i) => (
             <button key={i} onClick={() => handleSend(c)} disabled={loading}
-              style={{ fontSize: 12, fontWeight: c === "매수 의견은?" ? 600 : 500,
-                padding: "5px 12px", borderRadius: 20,
-                border: `1px solid ${c === "매수 의견은?" ? "#5b52e0" : "#e2e8f0"}`,
-                background: c === "매수 의견은?" ? "#ede9fe" : "#f8fafc",
-                color: c === "매수 의견은?" ? "#5b52e0" : "#334155",
-                cursor: loading ? "default" : "pointer",
-                opacity: loading ? 0.6 : 1 }}>
-              {c === "매수 의견은?" ? "💡 " : ""}{c}
+              style={{ fontSize: 12, fontWeight: c === '매수 의견은?' ? 600 : 500,
+                padding: '5px 12px', borderRadius: 20,
+                border: `1px solid ${c === '매수 의견은?' ? '#5b52e0' : '#e2e8f0'}`,
+                background: c === '매수 의견은?' ? '#ede9fe' : '#f8fafc',
+                color: c === '매수 의견은?' ? '#5b52e0' : '#334155',
+                cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.6 : 1 }}>
+              {c === '매수 의견은?' ? '💡 ' : ''}{c}
             </button>
           ))}
         </div>
       )}
 
       {/* 대화 히스토리 */}
-      {messages.length > 0 && (
-        <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 10,
-          display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {messages.map((m, i) => (
+      {msgs.length > 0 && (
+        <div style={{ maxHeight: 220, overflowY: 'auto', marginBottom: 10,
+          display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 2 }}>
+          {msgs.map((m, i) => (
             <div key={i} style={{
               alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '85%',
+              maxWidth: '88%',
               background: m.role === 'user' ? '#5b52e0' : '#f1f5f9',
               color: m.role === 'user' ? '#fff' : '#1e293b',
               borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-              padding: '8px 12px', fontSize: 13, lineHeight: 1.5,
+              padding: '8px 12px', fontSize: 13, lineHeight: 1.55,
               whiteSpace: 'pre-line',
             }}>{m.text}</div>
           ))}
           {loading && (
-            <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 4, padding: '8px 12px',
-              background: '#f1f5f9', borderRadius: '16px 16px 16px 4px' }}>
-              {[0,1,2].map(i => (
-                <div key={i} style={{ width:5, height:5, borderRadius:'50%', background:'#94a3b8',
-                  animation:`bounce 1s ${i*0.15}s infinite` }}/>
+            <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 4,
+              padding: '10px 14px', background: '#f1f5f9',
+              borderRadius: '16px 16px 16px 4px' }}>
+              {[0,1,2].map(j => (
+                <div key={j} style={{ width: 5, height: 5, borderRadius: '50%',
+                  background: '#94a3b8',
+                  animation: `bounce 1s ${j*0.15}s infinite` }}/>
               ))}
             </div>
           )}
+          <div ref={msgEndRef}/>
         </div>
       )}
 
       {/* 로딩 (메시지 없을 때) */}
-      {loading && messages.length === 0 && (
-        <div style={{ marginBottom: 10, padding: "8px 12px",
-          background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0",
-          display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#5b52e0",
-            animation: "pulse 1s infinite" }}/>
-          <p style={{ fontSize: 13, color: "#94a3b8", margin: 0 }}>잠시만 기다려주세요...</p>
+      {loading && msgs.length === 0 && (
+        <div style={{ marginBottom: 10, padding: '8px 12px', background: '#f8fafc',
+          borderRadius: 12, border: '1px solid #e2e8f0',
+          display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#5b52e0',
+            animation: 'pulse 1s infinite' }}/>
+          <p style={{ fontSize: 13, color: '#94a3b8', margin: 0 }}>잠시만 기다려주세요...</p>
         </div>
       )}
 
       {/* 입력창 */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <input
           value={text}
           onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { handleSend(); } }}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) handleSend(); }}
           placeholder={placeholder}
           style={{ flex: 1, border: `1px solid ${step ? '#5b52e0' : '#e2e8f0'}`,
-            borderRadius: 22, padding: "9px 14px", fontSize: 13, outline: "none",
-            background: "#f8fafc", color: "#1e293b" }}
+            borderRadius: 22, padding: '9px 14px', fontSize: 13,
+            outline: 'none', background: '#f8fafc', color: '#1e293b' }}
         />
         <button onClick={() => handleSend()}
-          style={{ width: 36, height: 36, borderRadius: "50%",
-            background: text.trim() ? "#5b52e0" : "#e2e8f0",
-            border: "none", cursor: text.trim() ? "pointer" : "default",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "background 0.2s", flexShrink: 0 }}>
+          style={{ width: 36, height: 36, borderRadius: '50%',
+            background: text.trim() ? '#5b52e0' : '#e2e8f0',
+            border: 'none', cursor: text.trim() ? 'pointer' : 'default',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'background 0.2s', flexShrink: 0 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
             <line x1="22" y1="2" x2="11" y2="13"/>
             <polygon points="22 2 15 22 11 13 2 9 22 2"/>
           </svg>
         </button>
-        {step && (
-          <button onClick={() => { setStep(null); setPendingAreas([]); setPendingArea(null); }}
+        {(step || msgs.length > 0) && (
+          <button onClick={resetDialog}
             style={{ fontSize: 11, padding: '4px 8px', borderRadius: 10,
               border: '1px solid #e2e8f0', background: '#f8fafc',
               color: '#94a3b8', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            취소
+            초기화
           </button>
         )}
       </div>
     </div>
   );
 }
-
-export { FairValueResult };
