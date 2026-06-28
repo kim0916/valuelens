@@ -193,7 +193,7 @@ function parsePriceStr(str) {
   return Math.round(n * 10000);  // 7.5 → 75000만
 }
 
-function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId, onAskMore, onBuyAnalysis, onPriceUpdate }) {
+function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId, onAskMore, onBuyAnalysis, onPriceUpdate, onResultUpdate, complexInfo }) {
   const [detailOpen, setDetailOpen] = React.useState(false);
   // 평형 선택 / 거래 목록 자동 펼치기
   React.useEffect(() => {
@@ -677,10 +677,10 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
       {onAskMore && (() => {
         // Step1: FairValueResult → ResultChatBar context 전달
         const analysisContext = {
-          complexName:  f.complexName  || '',
-          region:       f.region       || '',
-          sigungu:      f.region       || '',
-          dong:         f.dong         || '',
+          complexName:  f.complexName  || complexInfo?.name || '',
+          region:       f.region       || complexInfo?.sigungu || '',
+          sigungu:      f.region       || complexInfo?.sigungu || '',
+          dong:         f.dong         || complexInfo?.dong || '',
           selectedArea: f.areaExclusive || f.selectedArea || null,
           pyeong:       f.areaExclusive ? Math.floor((Number(f.areaExclusive) * 1.35) / 3.305785) : null,
           fairValue:    r.fairPrice    || null,
@@ -688,6 +688,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
           dealData:     f.deals        || f.saleDeals || [],
           source:       f.dataSource   || 'unknown',
           analysisType: r.engineMode   || 'unknown',
+          areaOptions:  areaOptions    || f.areaOptions || [],
         };
         return (
           <ResultChatBar
@@ -720,6 +721,8 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
   const ctxSource   = ctx.source       || 'unknown';
   const ctxMode     = ctx.analysisType || 'unknown';
 
+  // Step2: analysisContext props 변경 시 내부 파생 ctx 값 자동 갱신 (re-render로 충분, 별도 state 없음)
+  // analysisContext가 바뀌면 ctxComplex 등 모두 자동 재계산됨
   if (process.env.NODE_ENV !== 'production') {
     // eslint-disable-next-line no-console
     console.log('[ResultChatBar] analysisContext:', {
@@ -727,6 +730,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
       selectedArea: ctxArea, pyeong: ctxPyeong,
       fairValue: ctxFairVal, currentPrice: ctxCurPrice,
       source: ctxSource, analysisType: ctxMode,
+      areaOptions: ctx.areaOptions,
     });
   }
 
@@ -811,7 +815,14 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
     await new Promise(r => setTimeout(r, 400));
     setLoading(false);
     resetDialog();
-    if (onNewSearch) onNewSearch({ areaSqm, price: price || null, ...(cxOverride || {}) });
+    // Step2: cxOverride 없으면 현재 analysisContext 기반으로 complexName/sigungu/dong 전달
+    const baseCtx = cxOverride || {
+      complexName: ctxComplex,
+      sigungu:     ctxRegion,
+      dong:        ctxDong,
+      areaOptions: ctx.areaOptions || [],
+    };
+    if (onNewSearch) onNewSearch({ areaSqm, price: price || null, ...baseCtx });
   };
 
   const handleSend = async (raw) => {
@@ -884,8 +895,11 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
 
     if (/다른\s*평형|평형\s*바꿔|다른\s*평수/.test(t)) {
       const currentSqm = ctxArea || 0;
-      const rawOpts = areaOptions || f?.areaOptions || f?._aiAreaOptions;
-      if (!rawOpts) { addAI('평형 정보를 불러오지 못했습니다. 다시 시도해 주세요.'); return; }
+      // Step2: ctx.areaOptions 우선, fallback 순서 명확화
+      const rawOpts = ctx.areaOptions?.length > 0 ? ctx.areaOptions
+        : areaOptions?.length > 0 ? areaOptions
+        : f?.areaOptions || f?._aiAreaOptions || [];
+      if (!rawOpts || rawOpts.length === 0) { addAI('평형 정보를 불러오지 못했습니다. 다시 시도해 주세요.'); return; }
       const others = rawOpts.filter(a => Math.abs(Number(a.areaSqm) - currentSqm) > 3);
       if (others.length === 0) { addAI('현재 확인 가능한 다른 평형이 없습니다.'); return; }
       const names = others.map(a => `${a.pyeong}평`).join(', ');
