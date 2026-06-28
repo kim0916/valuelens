@@ -72,7 +72,10 @@ function parseIntent(raw) {
   // ── intent 판별 ──
   let intent = "fair";
   if (/팔까|매도|팔려고|팔아야|호가|내집|내가산|내꺼|팔면|팔것|팔지/.test(n)) intent = "sell";
-  else if (/추천|예산|살곳|어디살|뭐살|뭐사|어디사|골라|골라줘|찾아줘|찾아|예산으로|안에서|이하로|이내로/.test(n)) intent = "recommend";
+  // recommend: 반드시 명시적 추천어 OR 예산+지역 조합이어야 함
+  // 단지명이나 지역어만 있으면 recommend가 아님
+  else if (/추천해줘|추천해주세요|추천좀|골라줘|골라주세요|찾아줘|찾아주세요/.test(n)) intent = "recommend";
+  else if (/예산.{0,10}(추천|아파트|단지)|\d+억.{0,5}(추천|이하|이상|안에서|정도)/.test(n)) intent = "recommend";
   else if (/사도돼|사도될까|살만해|살만한가|살까|매수|지금사|살지|살래|살수있나|사볼까/.test(n)) intent = "buy";
 
   // ── 평형 추출 ──
@@ -552,6 +555,31 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     }
 
 
+    // 지역만 입력 → 목적 질문 (ask_region_purpose)
+    if (response.ui === "ask_region_purpose" || action === "ask_region_purpose") {
+      const regionLabel = response.region || response._debug?.state?.lastRegion || "해당 지역";
+      replaceLastAI({
+        role: "ai", type: "purpose_chips",
+        content: `${regionLabel}에서 무엇을 도와드릴까요?`,
+        choices: ["특정 아파트 검색", "예산으로 추천", "전세 확인"],
+        onSelect: async (choice) => {
+          addMsg({ role: "user", type: "text", content: choice });
+          addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+          if (choice === "특정 아파트 검색") {
+            replaceLastAI({ role: "ai", type: "text",
+              content: `${regionLabel}에서 찾으시는 아파트 단지명을 알려주세요.` });
+          } else if (choice === "예산으로 추천") {
+            replaceLastAI({ role: "ai", type: "text",
+              content: `예산과 희망 평형을 알려주시면 ${regionLabel} 내 후보를 찾아드릴게요.\n예: 7억, 30평대` });
+          } else if (choice === "전세 확인") {
+            replaceLastAI({ role: "ai", type: "text",
+              content: "전세 분석은 준비 중입니다. 곧 제공될 예정입니다." });
+          }
+        },
+      });
+      return;
+    }
+
     // 면적 목록 → area_chips 타입 메시지
     if (type === RESPONSE_TYPES.AREA_LIST) {
       replaceLastAI({
@@ -589,6 +617,31 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
   async function routeIntent(intent, rawText) {
     try {
+      // ── 지역만 입력 → 목적 질문 (추천 리스트 바로 안 보여줌) ──
+      if (!intent.complexName && (intent.region || intent.dong) && intent.intent !== "recommend") {
+        const regionLabel = intent.dong || intent.region;
+        replaceLastAI({
+          role: "ai", type: "purpose_chips",
+          content: `${regionLabel}에서 무엇을 도와드릴까요?`,
+          choices: ["특정 아파트 검색", "예산으로 추천", "전세 확인"],
+          onSelect: async (choice) => {
+            addMsg({ role: "user", type: "text", content: choice });
+            addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+            if (choice === "특정 아파트 검색") {
+              replaceLastAI({ role: "ai", type: "text",
+                content: `${regionLabel}에서 찾으시는 아파트 단지명을 알려주세요.` });
+            } else if (choice === "예산으로 추천") {
+              replaceLastAI({ role: "ai", type: "text",
+                content: `예산과 희망 평형을 알려주시면 ${regionLabel} 내 후보를 찾아드릴게요.\n예: 7억, 30평대` });
+            } else if (choice === "전세 확인") {
+              replaceLastAI({ role: "ai", type: "text",
+                content: "전세 분석은 준비 중입니다. 곧 제공될 예정입니다." });
+            }
+          },
+        });
+        return;
+      }
+
       // ── recommend → 예산 추천 탭으로 바로 이동 ──
       if (intent.intent === "recommend") {
         const region = intent.region || intent.dong || "";
@@ -648,16 +701,67 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         return;
       }
 
-      // ── 단지 1개 → 바로 분석 ──
+      // ── 단지 1개 → 목적 질문 후 분석 (공인중개사 방식) ──
       if (complexes.length === 1) {
-        await runAnalysis(complexes[0], intent);
+        const cx = complexes[0];
+        const cxName = cx.complex_name || cx.name || "";
+        const areaListRaw = cx.area_list
+          ? (typeof cx.area_list === "string" ? JSON.parse(cx.area_list) : cx.area_list) : [];
+        const { groupAreasByPyeong } = await import("../search/utils.js");
+        const { typicalPyeong } = await import("../constants/grades.js");
+        const areaGroups = groupAreasByPyeong(areaListRaw)
+          .map(g => ({ areaSqm: g.rep, pyeong: typicalPyeong(g.rep) }));
+        // 이미 평형이 특정됐으면 목적 질문, 아니면 평형 먼저
+        const hasArea = intent.areaSqm || intent.pyeong;
+        if (hasArea) {
+          // 평형 있음 → 목적 질문
+          replaceLastAI({
+            role: "ai", type: "purpose_chips",
+            content: `${cxName}에서 무엇을 확인할까요?`,
+            choices: ["적정가", "매수 의견", "전세", "계약 전 체크"],
+            onSelect: async (choice) => {
+              addMsg({ role: "user", type: "text", content: choice });
+              addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+              if (choice === "전세" || choice === "계약 전 체크") {
+                replaceLastAI({ role: "ai", type: "text",
+                  content: "해당 기능은 준비 중입니다. 곧 제공될 예정입니다." });
+                return;
+              }
+              const purpose = choice === "매수 의견" ? "buy" : "fair";
+              await runAnalysis(cx, { intent: purpose, areaSqm: intent.areaSqm });
+            },
+          });
+        } else if (areaGroups.length === 1) {
+          // 평형 1개짜리 단지 → 목적 질문
+          convStateRef.current = { ...convStateRef.current, currentComplex: cx, currentArea: areaGroups[0].areaSqm };
+          replaceLastAI({
+            role: "ai", type: "purpose_chips",
+            content: `${cxName} ${areaGroups[0].pyeong}평에서 무엇을 확인할까요?`,
+            choices: ["적정가", "매수 의견", "전세", "계약 전 체크"],
+            onSelect: async (choice) => {
+              addMsg({ role: "user", type: "text", content: choice });
+              addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+              if (choice === "전세" || choice === "계약 전 체크") {
+                replaceLastAI({ role: "ai", type: "text",
+                  content: "해당 기능은 준비 중입니다. 곧 제공될 예정입니다." });
+                return;
+              }
+              const purpose = choice === "매수 의견" ? "buy" : "fair";
+              await runAnalysis(cx, { intent: purpose, areaSqm: areaGroups[0].areaSqm });
+            },
+          });
+        } else {
+          // 평형 여러 개 → ConversationEngine에 넘겨 평형 선택 진행
+          await runAnalysis(cx, intent);
+        }
         return;
       }
 
-      // ── 단지 복수 → 후보 선택 ──
+      // ── 단지 복수 → 지역 선택 질문 ──
+      const regionHint = intent.region || intent.dong ? ` (${intent.dong || intent.region})` : "";
       replaceLastAI({
         type: "candidates",
-        content: `"${intent.complexName || rawText}"에 해당하는 단지가 여러 개입니다. 분석할 단지를 선택해주세요.`,
+        content: `어느 지역의 ${intent.complexName || rawText}를 찾으시나요?${regionHint}`,
         data: complexes,
         intent,
       });
