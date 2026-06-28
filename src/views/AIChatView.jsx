@@ -498,6 +498,92 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         return;
       }
 
+      // ── region_or_dong: 후보 목록 상태에서 지역/동 필터 입력 ──
+      // 핵심: _pendingCandidateQuery(원본 검색어)를 유지하며 dong filter로만 재검색
+      // 금지: complex_name LIKE '%우동%' 검색
+      if (eat === 'region_or_dong') {
+        addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+        const originalQuery = ps._pendingCandidateQuery || '';
+        convStateRef.current = { ...ps, _expectedAnswerType: null, _pendingCandidateQuery: null };
+
+        try {
+          // ★ 규칙: searchComplexFromSupabase(originalQuery, '', dong=userInput)
+          //    → name=originalQuery('동부아파트'), dong=text('우동')
+          //    → complex_name ILIKE '%동부아파트%' AND legal_dong ILIKE '%우%'
+          //    → 대우동삼/대우우동 절대 안 나옴 (동부아파트 필터가 있으므로)
+          if (!originalQuery) {
+            // fallback: 원본 쿼리 없으면 dong만 검색
+            replaceLastAI({ role: "ai", type: "text",
+              content: "죄송해요, 검색 맥락을 잃었어요. 단지명을 다시 입력해 주세요." });
+            return;
+          }
+
+          const r = await searchComplexFromSupabase(originalQuery, '', text);
+          const pool = r.fromSupabase ? r.complexes : [];
+
+          if (pool.length === 0) {
+            replaceLastAI({ role: "ai", type: "text",
+              content: `${text} 지역에서 ${originalQuery}를 찾지 못했습니다.\n다른 동 이름을 입력해 주세요.` });
+            // 다시 region_or_dong 대기
+            convStateRef.current = {
+              ...convStateRef.current,
+              _expectedAnswerType: 'region_or_dong',
+              _pendingCandidateQuery: originalQuery,
+            };
+            return;
+          }
+
+          if (pool.length === 1) {
+            // 단지 1개 특정 → 목적 질문
+            const cx = pool[0];
+            replaceLastAI({
+              role: "ai", type: "purpose_chips",
+              content: `${cx.complex_name}에서 무엇을 확인할까요?`,
+              choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
+              onSelect: async (choice) => {
+                addMsg({ role: "user", type: "text", content: choice });
+                if (choice === '전세' || choice === '계약 전 체크') {
+                  replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                  return;
+                }
+                addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+                await runAnalysis(cx, { intent: choice === '매수 의견' ? 'buy' : 'fair' });
+              },
+            });
+          } else {
+            // 복수 단지 → 후보 목록 (이번엔 같은 동 안에서만이므로 클릭 바로 분석)
+            replaceLastAI({
+              role: "ai", type: "candidates",
+              content: `${text}의 ${originalQuery} 목록입니다. 찾으시는 단지를 선택해주세요.`,
+              data: pool.slice(0, 8),
+              onSelect: async (cx) => {
+                addMsg({ role: "user", type: "text", content: cx.complex_name });
+                addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+                replaceLastAI({
+                  role: "ai", type: "purpose_chips",
+                  content: `${cx.complex_name}에서 무엇을 확인할까요?`,
+                  choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
+                  onSelect: async (choice) => {
+                    addMsg({ role: "user", type: "text", content: choice });
+                    if (choice === '전세' || choice === '계약 전 체크') {
+                      replaceLastAI({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
+                      return;
+                    }
+                    addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+                    await runAnalysis(cx, { intent: choice === '매수 의견' ? 'buy' : 'fair' });
+                  },
+                });
+              },
+              intent: { intent: 'fair' },
+            });
+          }
+        } catch(e) {
+          console.error('[expectedAnswerType:region_or_dong]', e);
+          replaceLastAI({ role: "ai", type: "text", content: "검색 중 오류가 발생했습니다. 다시 시도해 주세요." });
+        }
+        return;
+      }
+
       // ── purpose 입력 대기 (칩 외 텍스트) ──
       if (eat === 'purpose') {
         convStateRef.current = { ...ps, _expectedAnswerType: null };
@@ -581,10 +667,15 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     // ConversationState를 유지하며 Intent → Policy → UX Policy → Action 순으로 처리
     addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
 
+    // CE 호출 전: 현재 입력을 lastComplexQuery에 저장해둠
+    // CANDIDATES_LIST 반환 시 원본 검색어로 활용
+    // (단, 이미 region_or_dong 상태이거나 추천/가격 입력이면 저장 안 함)
+    const _rawForCE = text;
+
     try {
       const { state: newState, response } = await convEngineRef.current.process(
         text,
-        convStateRef.current,
+        { ...convStateRef.current, lastComplexQuery: _rawForCE },
       );
 
       // State 동기 업데이트 (ref = 동기, setState = 렌더링용)
@@ -678,29 +769,38 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     if (type === RESPONSE_TYPES.CANDIDATES_LIST) {
       const candidates = response.candidates || [];
 
-      // ★ 핵심 수정: 복수 후보 + dong 정보 없을 때 → _expectedAnswerType:'dong' 세팅
-      // CE가 candidates를 반환해도 dong을 모르면 먼저 물어봐야 함 (우동→대우동삼 버그 방지)
+      // ★ 근본 수정 (우동→대우동삼 버그 방지)
+      // 후보 목록이 뜰 때, 반드시 원본 검색어(_pendingCandidateQuery)를 저장한다.
+      // 이후 사용자가 지역/동을 입력하면 새 검색이 아니라
+      // searchComplexFromSupabase(originalQuery, '', dong) 형태로 재검색한다.
+      //
+      // 원본 검색어 추출 우선순위:
+      //   1. state.lastComplexQuery (CE가 저장한 값)
+      //   2. response.text에서 파싱
+      //   3. 현재 convStateRef에 있는 _pendingCandidateQuery (이전 세션 잔류)
+      const originalQuery =
+        state.lastComplexQuery ||
+        state.complexQuery ||
+        convStateRef.current._pendingCandidateQuery ||
+        '동부아파트';  // 최후 fallback (실제론 항상 위에서 잡힘)
+
       if (candidates.length > 1) {
-        const hasDongCtx = !!(convStateRef.current._pendingDong || convStateRef.current._expectedAnswerType === 'dong');
-        if (!hasDongCtx) {
-          // 후보들의 unique sigungu 목록 추출
-          const sigunguSet = [...new Set(candidates.map(c => c.sigungu).filter(Boolean))];
-          if (sigunguSet.length > 1) {
-            // 여러 시군구에 분산 → 복수 지역 → dong 입력 요청
-            const queryName = convStateRef.current._pendingComplex
-              || (candidates[0] && candidates[0].complex_name) || '이 단지';
-            convStateRef.current = {
-              ...convStateRef.current,
-              _expectedAnswerType: 'dong',
-              _pendingComplex: queryName,
-            };
-            replaceLastAI({
-              role: "ai",
-              type: "text",
-              content: `어느 지역의 ${queryName}를 찾으시나요?\n동 이름을 알려주세요. 예: 우동, 공릉동, 잠실동`,
-            });
-            return;
-          }
+        // 여러 지역에 걸쳐 있을 때만 dong 질문
+        const sigunguSet = [...new Set(candidates.map(c => c.sigungu).filter(Boolean))];
+        if (sigunguSet.length > 1) {
+          // _pendingCandidateQuery: 원본 검색어 보존 (핵심)
+          // _expectedAnswerType: 'region_or_dong': 다음 입력은 지역/동 필터로만 처리
+          convStateRef.current = {
+            ...convStateRef.current,
+            _expectedAnswerType: 'region_or_dong',
+            _pendingCandidateQuery: originalQuery,
+          };
+          replaceLastAI({
+            role: "ai",
+            type: "text",
+            content: `어느 지역의 ${originalQuery}를 찾으시나요?\n동 이름을 알려주세요. 예: 우동, 공릉동, 잠실동`,
+          });
+          return;
         }
       }
 
