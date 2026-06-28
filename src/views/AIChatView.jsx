@@ -563,7 +563,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           ? `${locationStr} ${cxName} ${inputPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`
           : `${cxName} ${inputPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`;
         replaceLastAI({ role: "ai", type: "text",
-          content: summaryLine + '\n\n현재 매물가를 알고 계시나요?\n모르시면 "몰라" 또는 "시세로"라고 입력해 주세요.' });
+          content: summaryLine + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.' });
         return;
       }
 
@@ -1003,7 +1003,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           };
           const sellPyeong = typicalPyeong(aSqm);
           replaceLastAI({ role: "ai", type: "text",
-            content: `${cx.complex_name} ${sellPyeong}평 현재 매물가를 알고 계시나요?\n모르시면 "몰라", "시세로", "그냥 해줘"라고 입력해 주세요.` });
+            content: `${cx.complex_name} ${sellPyeong}평 현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.` });
         },
       });
       return;
@@ -1255,7 +1255,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                     _expectedAnswerType: null,
                   };
                   replaceLastAI({ role: 'ai', type: 'text',
-                    content: `${cxName} ${pyeong}평 현재 매물가를 알고 계시나요?\n모르시면 "몰라", "시세로", "그냥 해줘"라고 입력해 주세요.` });
+                    content: `${cxName} ${pyeong}평 현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.` });
                 },
               });
             },
@@ -1347,7 +1347,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       };
       replaceLastAI({
         role: 'ai', type: 'text',
-        content: `${cxName} ${pyeong}평 현재 매물가를 알고 계시나요?\n모르시면 "몰라", "시세로", "그냥 해줘"라고 입력해 주세요.`,
+        content: `${cxName} ${pyeong}평 현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.`,
       });
       return;
     }
@@ -1395,7 +1395,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           : `${cxName} ${chipPyeong}평 ${intentStr === 'buy' ? '매수 분석' : '적정가'}을 분석해드릴게요.`;
         replaceLastAI({
           role: 'ai', type: 'text',
-          content: summaryLine + '\n\n현재 매물가를 알고 계시나요?\n모르시면 "몰라" 또는 "시세로"라고 입력해 주세요.',
+          content: summaryLine + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.',
         });
       },
     });
@@ -1422,7 +1422,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         _expectedAnswerType: null,
       };
       replaceLastAI({ role: 'ai', type: 'text',
-        content: `${cxName} ${pyeong}평 현재 매물가를 알고 계시나요?\n모르시면 "몰라", "시세로", "그냥 해줘"라고 입력해 주세요.` });
+        content: `${cxName} ${pyeong}평 현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.` });
       return;
     }
 
