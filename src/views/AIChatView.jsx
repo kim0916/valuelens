@@ -1200,11 +1200,69 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
     // 면적 목록 → area_chips 타입 메시지
     if (type === RESPONSE_TYPES.AREA_LIST) {
+      // ── Bridge 자동 면적 선택: lastAreaHint가 있으면 가장 가까운 평형 자동 확정 ──
+      // MIR → Bridge → CE 흐름에서 사용자가 평형을 이미 말한 경우 (24평, 84㎡ 등)
+      const areaHintForAutoSelect = state.lastAreaHint || convStateRef.current.lastAreaHint || null;
+      const noPriceForAutoSelect  = convStateRef.current._resolvedNoPrice || convStateRef.current._forcedNoPrice || false;
+      const areaGroupsForSelect   = response.areaGroups || [];
+
+      if (areaHintForAutoSelect && areaGroupsForSelect.length > 0) {
+        // 가장 가까운 평형 찾기
+        const nearest = areaGroupsForSelect.reduce((best, g) =>
+          Math.abs(g.areaSqm - areaHintForAutoSelect) < Math.abs(best.areaSqm - areaHintForAutoSelect) ? g : best
+        );
+        const complex  = state.currentComplex || convStateRef.current.currentComplex;
+        const areaSqm  = nearest.areaSqm;
+        const pyeong   = nearest.pyeong;
+        const purpose  = convStateRef.current._resolvedPurpose || convStateRef.current._pendingPurpose || 'fair';
+
+        if (import.meta.env.DEV) {
+          console.log('[AREA_LIST AutoSelect] hint:', areaHintForAutoSelect,
+            '→ nearest:', areaSqm, '(', pyeong, '평) | noPrice:', noPriceForAutoSelect);
+        }
+
+        // ConversationEngine state 업데이트
+        const { updateArea } = await import('../engine/conversationState.js');
+        const newState = updateArea(convStateRef.current, areaSqm);
+        convStateRef.current = newState;
+
+        if (noPriceForAutoSelect) {
+          // noPrice: 바로 분석 (가격 질문 스킵)
+          const cxName  = complex?.complex_name || '';
+          const purposeKr = purpose === 'buy' ? '매수 분석' : '적정가';
+          replaceLastAI({
+            role: 'ai', type: 'confirm_analysis',
+            content: `${cxName} ${pyeong}평 ${purposeKr}을 분석해드리겠습니다.`,
+            onConfirm: async () => {
+              convStateRef.current = { ...convStateRef.current,
+                _resolvedNoPrice: false, _forcedNoPrice: false, lastAreaHint: null };
+              addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+              await runAnalysis(complex, {
+                intent: purpose === 'buy' ? 'buy' : 'fair',
+                areaSqm,
+                currentPrice: null,   // noPrice → 실거래 중앙값 사용
+                skipAreaCheck: true,
+                _pendingInputPyeong: pyeong,
+              });
+            },
+          });
+        } else {
+          // 가격 질문
+          const { responseReadyToAnalyze } = await import('../engine/responseGenerator.js');
+          const resp = responseReadyToAnalyze(complex, areaSqm);
+          convStateRef.current = { ...newState,
+            _pendingPrice: true, _pendingComplex: complex,
+            _pendingArea: areaSqm, _pendingPurpose: purpose };
+          replaceLastAI({ role: 'ai', type: 'text', content: resp.text.replace(/\*\*/g, '') });
+        }
+        return;
+      }
+
       replaceLastAI({
         role: "ai",
         type: "area_chips",
         content: response.text.split("\n")[0].replace(/\*\*/g, ""),
-        areaGroups: response.areaGroups || [],
+        areaGroups: areaGroupsForSelect,
         complex:    response.complex,
         onSelect: async (areaSqm) => {
           // 버튼 클릭 → 텍스트 파싱 없이 직접 면적 확정
