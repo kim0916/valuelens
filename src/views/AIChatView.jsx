@@ -1882,7 +1882,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       if (sale.length < 3 && fallbackSqm && Math.abs(fallbackSqm - targetArea) > 3) {
         const reqPyeong  = intent._pendingInputPyeong || (targetArea ? sqmToPyeong(targetArea).pyeong : null);
         const reqLabel   = reqPyeong ? `${reqPyeong}평` : `전용 ${targetArea}㎡`;
-        const { pyeong: fbPyeong } = sqmToPyeong(fallbackSqm).pyeong;
+        const { pyeong: fbPyeong } = sqmToPyeong(fallbackSqm);
         const fbLabel    = `${fbPyeong}평 (전용 ${fallbackSqm}㎡)`;
         replaceLastAI({ type: "text",
           content: `**${name}** ${reqLabel} 계열의 최근 실거래가 부족합니다.\n\n가장 가까운 **${fbLabel}** 데이터로 분석해드릴까요?\n\n"네" 또는 "${fbLabel}"라고 입력하시면 계속 진행합니다.` });
@@ -2226,7 +2226,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
               {(msg.areaGroups || []).map((g, i) => {
                 // 가드: g.anchor null/undefined 방지
                 if (!g || g.anchor == null || !Number.isFinite(g.anchor)) return null;
-                const { pyeong } = sqmToPyeong(g.anchor).pyeong;
+                const { pyeong } = sqmToPyeong(g.anchor);
                 const sqm    = g.anchor.toFixed(1);
                 return (
                   <button key={i}
