@@ -16,6 +16,9 @@ import { createSessionMemory, processUserInput } from '../agent/AgentCore.js';
 import { routeTool } from '../agent/ToolRouter.js';
 // ── Phase 2: Conversation Engine ──
 import { createConversationEngine } from '../engine/ConversationEngine.js';
+// ── CE v2 (Feature Flag) ──
+import { createConversationEngine_v2 } from '../engine/v2/ConversationEngine_v2.js';
+import { uiEventToMessage, isV2Enabled } from '../engine/v2/AIChatBridge_v2.js';
 import { createConversationState } from '../engine/conversationState.js';
 import { RESPONSE_TYPES } from '../engine/responseGenerator.js';
 import { ACTIONS } from '../engine/conversationPolicy.js';
@@ -249,7 +252,9 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   const agentMemoryRef = React.useRef(createSessionMemory()); // state 비동기 문제 방지
 
   // ── Phase 2: Conversation State (Context 유지) ──
+  const [_v2Active] = React.useState(() => isV2Enabled());
   const convEngineRef  = React.useRef(createConversationEngine());
+  const v2EngineRef    = React.useRef(_v2Active ? createConversationEngine_v2() : null);
   const convStateRef   = React.useRef(createConversationState());
   const [convState, setConvState] = React.useState(() => createConversationState());
 
@@ -360,6 +365,25 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     if (!text) return;
     setInput("");
     setPendingIntent(null);
+
+    // ── CE v2 Feature Flag ──
+    if (_v2Active && v2EngineRef.current) {
+      addMsg({ role: 'user', type: 'text', content: text });
+      addMsg({ role: 'ai',   type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+      try {
+        const { uiEvents } = await v2EngineRef.current.process(text);
+        for (const event of uiEvents) {
+          uiEventToMessage(event, {
+            addMsg, replaceLastAI, runAnalysis, createConfirmMsg,
+            typicalPyeong: (s) => sqmToPyeong(s).pyeong,
+          });
+        }
+      } catch (err) {
+        console.error('[CE v2] 처리 오류:', err);
+        replaceLastAI({ role: 'ai', type: 'text', content: '오류가 발생했습니다. 다시 시도해 주세요.' });
+      }
+      return;
+    }
 
     // ── pending 상태 체크 (매물가/데이터없음 입력 대기 중) ──
     const ps = convStateRef.current;
@@ -2521,6 +2545,35 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   // ── 최근 분석 칩 ──
   const recent = (history||[]).slice(0,4);
 
+  // ── Developer Debug Panel (DEV + v2 활성화 시만) ──
+  const DebugPanel = () => {
+    if (!import.meta.env.DEV || !_v2Active || !v2EngineRef.current) return null;
+    const slots = v2EngineRef.current.getSlots();
+    const state = v2EngineRef.current.getState();
+    return (
+      <div style={{
+        position:'fixed', bottom:80, right:8, zIndex:9999,
+        background:'rgba(0,0,0,0.88)', color:'#0f0', fontFamily:'monospace',
+        fontSize:10, padding:'8px 10px', borderRadius:8, maxWidth:240,
+        border:'0.5px solid #0f08', lineHeight:1.6,
+      }}>
+        <div style={{ color:'#7fff7f', fontWeight:700, marginBottom:4 }}>CE v2 DEBUG</div>
+        <div>state: <b style={{color:'#fff'}}>{state}</b></div>
+        <div style={{ marginTop:4, color:'#aaa' }}>── slots ──</div>
+        {Object.entries(slots).map(([k, v]) => (
+          <div key={k} style={{ display:'flex', gap:4 }}>
+            <span style={{ color:'#7ff', minWidth:70 }}>{k}:</span>
+            <span style={{ color:'#fff' }}>
+              {v === null ? 'null' : v === false ? 'false' : v === true ? 'true' :
+               typeof v === 'object' ? (v.complex_name || v.sqm || JSON.stringify(v).slice(0,20)) :
+               String(v)}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div style={{ maxWidth:480, margin:"0 auto", background:BRAND_BG, display:"flex", flexDirection:"column" }}>
 
@@ -2671,6 +2724,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           Enter로 전송 · Shift+Enter 줄바꿈 · 결과는 검증된 실거래 데이터 기반
         </p>
       </div>
+      {/* Developer Debug Panel — DEV + v2 only */}
+      <DebugPanel />
     </div>
   );
 }
