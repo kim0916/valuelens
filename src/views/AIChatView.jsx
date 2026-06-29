@@ -2129,6 +2129,18 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     }
 
     if (msg.type === "confirm_analysis") {
+      // 요약 카드에 표시할 정보: convStateRef에서 직접 읽기
+      const st = convStateRef.current;
+      const cx        = st._confirmComplex;
+      const areaSqm   = st._confirmArea;
+      const purpose   = st._confirmPurpose || 'fair';
+      const pyeong    = st._confirmInputPyeong || (areaSqm ? typicalPyeong(areaSqm) : null);
+      const cxName    = cx?.complex_name || '';
+      const cxDong    = cx?.legal_dong   || cx?.dong || '';
+      const cxGu      = cx?.sigungu ? cx.sigungu.split(' ').slice(-1)[0] : '';
+      const locLabel  = [cxGu, cxDong].filter(Boolean).join(' ') || '지역 미확인';
+      const purposeKr = purpose === 'buy' ? '매수 분석' : '적정가';
+
       return (
         <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
           <div style={{ width:28, height:28, borderRadius:"50%", background:BRAND_GREEN,
@@ -2136,23 +2148,75 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
           </div>
           <div style={{ flex:1, minWidth:0 }}>
-            <p style={{ fontSize:14, color:BRAND, margin:"0 0 12px", whiteSpace:"pre-line", lineHeight:1.6 }}>
-              {msg.content}
-            </p>
-            <button
-              onClick={async () => {
-                if (msg.onConfirm) await msg.onConfirm();
-              }}
-              style={{
-                padding:"10px 24px", borderRadius:20,
-                background:BRAND_GREEN, color:"#fff",
-                border:"none", cursor:"pointer",
-                fontSize:14, fontWeight:700,
-                letterSpacing:"-0.01em",
-              }}
-            >
-              분석 시작
-            </button>
+            {/* 요약 카드 */}
+            <div style={{
+              border:`1px solid ${BRAND_BORDER}`, borderRadius:14,
+              padding:"14px 16px", marginBottom:12,
+              background:"#fafaf8",
+            }}>
+              <p style={{ fontSize:12, color:BRAND_MUTED, margin:"0 0 10px", fontWeight:500, letterSpacing:"0.02em" }}>
+                이렇게 이해했습니다
+              </p>
+              {[
+                { label:"단지", value: cxName || '—' },
+                { label:"지역", value: locLabel },
+                { label:"평형", value: pyeong ? `${pyeong}평` : '—' },
+                { label:"분석", value: purposeKr },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                  <span style={{ fontSize:12, color:BRAND_MUTED, minWidth:30 }}>{label}</span>
+                  <span style={{ fontSize:14, color:BRAND, fontWeight:500 }}>{value}</span>
+                </div>
+              ))}
+            </div>
+            {/* 버튼 3개 */}
+            <div style={{ display:"flex", gap:8 }}>
+              <button
+                onClick={async () => { if (msg.onConfirm) await msg.onConfirm(); }}
+                style={{ height:38, paddingLeft:20, paddingRight:20, borderRadius:20,
+                  background:BRAND_GREEN, color:"#fff", border:"none",
+                  cursor:"pointer", fontSize:13, fontWeight:700 }}
+              >
+                분석 시작
+              </button>
+              <button
+                onClick={() => {
+                  // 수정: 단지명 다시 입력하게 리셋
+                  convStateRef.current = {
+                    ...convStateRef.current,
+                    _expectedAnswerType: null,
+                    _confirmComplex: null, _confirmArea: null,
+                    _confirmPurpose: null, _confirmPrice: null, _confirmInputPyeong: null,
+                  };
+                  addMsg({ role:'ai', type:'text',
+                    content:`수정할 내용을 다시 입력해 주세요.\n예: 단지명, 지역, 평형` });
+                }}
+                style={{ height:38, paddingLeft:16, paddingRight:16, borderRadius:20,
+                  background:"#fff", color:BRAND_MID,
+                  border:`1px solid ${BRAND_BORDER}`,
+                  cursor:"pointer", fontSize:13, fontWeight:500 }}
+              >
+                수정
+              </button>
+              <button
+                onClick={() => {
+                  // 취소: 상태 초기화
+                  convStateRef.current = {
+                    ...convStateRef.current,
+                    _expectedAnswerType: null,
+                    _confirmComplex: null, _confirmArea: null,
+                    _confirmPurpose: null, _confirmPrice: null, _confirmInputPyeong: null,
+                  };
+                  addMsg({ role:'ai', type:'text', content:'취소했습니다. 다른 아파트를 검색해 보세요.' });
+                }}
+                style={{ height:38, paddingLeft:16, paddingRight:16, borderRadius:20,
+                  background:"#fff", color:"#999",
+                  border:`1px solid ${BRAND_BORDER}`,
+                  cursor:"pointer", fontSize:13, fontWeight:500 }}
+              >
+                취소
+              </button>
+            </div>
           </div>
         </div>
       );
