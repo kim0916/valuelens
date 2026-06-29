@@ -183,11 +183,14 @@ async function process(input, state = createConversationState(), mode = "home") 
   if (intent === "price_analysis" && !s.currentComplex) {
     // complexQuery 없으면 원문에서 의도어 제거해서 검색어로 사용
     // 의도어만 제거 (단독 조사는 건드리지 않음)
+    // Bridge fallback: extracted.complexQuery 없으면 state.lastComplexQuery 사용
+    // (MessyInputResolver → Bridge → CE 흐름에서 Bridge가 lastComplexQuery를 세팅)
     const searchQuery = extracted.complexQuery ||
+      s.lastComplexQuery ||
       text.replace(/적정가는?|시세는?|얼마야|얼마에요|가격은?|어때요?|어떠해|알려줘|확인해줘/g, '').replace(/[은는이가을를]$/, '').trim();
     if (searchQuery && searchQuery.length >= 2) {
       const regionFromExtracted = extracted._nlu?.sigungu || extracted.region || null;
-      // ★ dong만 있고 sigungu 없을 때: Supabase에서 dong→sigungu 역추적
+      // Bridge fallback: dong도 state.lastDong 활용
       let resolvedRegion = regionFromExtracted || s.region || null;
       if (!resolvedRegion && (extracted.dong || s.lastDong)) {
         const dongToLookup = extracted.dong || s.lastDong;
@@ -201,7 +204,13 @@ async function process(input, state = createConversationState(), mode = "home") 
         } catch(e) { console.warn('[CE] dong→sigungu 역추적 실패:', e.message); }
       }
       const stateForSearch = resolvedRegion ? { ...s, region: resolvedRegion } : s;
-      const [ns, response] = await handleSearch(searchQuery, extracted.areaSqm || null, stateForSearch, 0, extracted.dong || s.lastDong || "");
+      // Bridge fallback: areaSqm도 state.lastAreaHint 활용
+      const areaHint = extracted.areaSqm || s.lastAreaHint || null;
+      const dongHint = extracted.dong || s.lastDong || "";
+      if (import.meta.env?.DEV) {
+        console.log('[CE] handleSearch 호출:', { searchQuery, areaHint, dongHint, resolvedRegion });
+      }
+      const [ns, response] = await handleSearch(searchQuery, areaHint, stateForSearch, 0, dongHint);
       return { state: ns, response };
     }
   }
