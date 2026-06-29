@@ -38,7 +38,7 @@ function createConfirmMsg(cx, areaSqm, purpose, inputPyeong, matchedPyeong, onCo
   const displayPyeong = matchedPyeong || inputPyeong || (areaSqm ? typicalPyeong(areaSqm) : null);
   // 보조 문구: 입력 평형과 매칭 평형이 다를 때만
   const nearNote = (inputPyeong && matchedPyeong && inputPyeong !== matchedPyeong)
-    ? `입력하신 ${inputPyeong}평과 가장 가까운 평형입니다.`
+    ? ` (입력하신 ${inputPyeong}평과 가장 가까운 평형입니다.)`
     : '';
 
   const purposeKr = purpose === 'buy' ? '매수 분석' : '적정가';
@@ -2254,12 +2254,16 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
               {[
                 { label:"단지", value: cxName || '—' },
                 { label:"지역", value: locLabel },
-                { label:"평형", value: pyeong ? `${pyeong}평${nearNote}` : '—' },
+                { label:"평형", value: pyeong
+                    ? (nearNote
+                        ? <span>{pyeong}평<br/><span style={{fontSize:11,color:BRAND_MUTED,fontWeight:400}}>{nearNote.replace(/^ \(|\)$/g,'')}</span></span>
+                        : `${pyeong}평`)
+                    : '—' },
                 { label:"분석", value: purposeKr },
               ].map(({ label, value }) => (
-                <div key={label} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                  <span style={{ fontSize:12, color:BRAND_MUTED, minWidth:30 }}>{label}</span>
-                  <span style={{ fontSize:14, color:BRAND, fontWeight:500 }}>{value}</span>
+                <div key={label} style={{ display:"flex", alignItems:"flex-start", gap:8, marginBottom:6 }}>
+                  <span style={{ fontSize:12, color:BRAND_MUTED, minWidth:30, paddingTop:2 }}>{label}</span>
+                  <span style={{ fontSize:14, color:BRAND, fontWeight:500, lineHeight:1.5 }}>{value}</span>
                 </div>
               ))}
             </div>

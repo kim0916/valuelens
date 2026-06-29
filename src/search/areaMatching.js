@@ -66,7 +66,7 @@ export function selectNearestArea(inputPyeong, areaOptions) {
     matchedPyeong:  nearest.pyeong,
     inputPyeong,
     isSame:         false,
-    helperText:     `입력하신 ${inputPyeong}평형과 가장 가까운 평형입니다.`,
+    helperText:     ` (입력하신 ${inputPyeong}평과 가장 가까운 평형입니다.)`,
     displayAreaText: `${nearest.pyeong}평`,
   };
 }
