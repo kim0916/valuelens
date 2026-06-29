@@ -1701,6 +1701,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       replaceLastAI({
         role: 'ai', type: 'confirm_analysis',
         content: summary,
+        data: { cx, areaSqm, purpose: intentStr, pyeong, nearNote: '' },
         onConfirm: async () => {
           const st = convStateRef.current;
           convStateRef.current = { ...st, _expectedAnswerType: null,
@@ -2236,13 +2237,15 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     }
 
     if (msg.type === "confirm_analysis") {
-      // 요약 카드에 표시할 정보: convStateRef에서 직접 읽기
-      const st = convStateRef.current;
-      const cx        = st._confirmComplex;
-      const areaSqm   = st._confirmArea;
-      const purpose   = st._confirmPurpose || 'fair';
-      const pyeong    = st._confirmInputPyeong || (areaSqm ? typicalPyeong(areaSqm) : null);
-      const nearNote  = st._confirmNearestNote || '';
+      // 요약 카드: msg.data에서 읽기 (생성 시점에 스냅샷)
+      // fallback: convStateRef (하위 호환)
+      const d = msg.data || {};
+      const st        = convStateRef.current;
+      const cx        = d.cx        || st._confirmComplex;
+      const areaSqm   = d.areaSqm   ?? st._confirmArea;
+      const purpose   = d.purpose   || st._confirmPurpose || 'fair';
+      const pyeong    = d.pyeong    ?? st._confirmInputPyeong ?? (areaSqm ? typicalPyeong(areaSqm) : null);
+      const nearNote  = d.nearNote  || st._confirmNearestNote || '';
       const cxName    = cx?.complex_name || '';
       const cxDong    = cx?.legal_dong   || cx?.dong || '';
       const cxGu      = cx?.sigungu ? cx.sigungu.split(' ').slice(-1)[0] : '';
