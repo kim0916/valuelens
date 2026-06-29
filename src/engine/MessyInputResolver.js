@@ -205,12 +205,13 @@ function decideNextAction(ctx) {
       message: `${ctx.complexQuery}의 몇 평형을 확인할까요?\n예: 25평, 84㎡` };
   }
 
-  if (ctx.currentPrice === undefined && !ctx.noPrice) {
+  // 적정가: 가격 질문 없이 바로 confirm_analysis (실거래 중앙값 자동 사용)
+  // 매수(buy)는 나중에 별도 처리
+  if (ctx.currentPrice === undefined && !ctx.noPrice && ctx.purpose === 'buy') {
     const pyeong = ctx.inputPyeong || Math.round(ctx.areaSqm / 3.3);
     const loc = [ctx.sigungu?.split(' ').slice(-1)[0], ctx.dong].filter(Boolean).join(' ');
-    const purposeKr = ctx.purpose === 'buy' ? '매수 분석' : '적정가';
     return { type: 'ask', field: 'price',
-      message: `${loc ? loc + ' ' : ''}${ctx.complexQuery} ${pyeong}평 ${purposeKr}을 분석해드릴게요.\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.` };
+      message: `${loc ? loc + ' ' : ''}${ctx.complexQuery} ${pyeong}평 매수 분석을 진행할게요.\n현재 매물 가격을 알고 계시나요?` };
   }
 
   const pyeong = ctx.inputPyeong || Math.round(ctx.areaSqm / 3.3);
