@@ -197,9 +197,13 @@ function decideNextAction(ctx) {
 
   if (ctx.purpose === 'jeonse') return { type: 'not_supported' };
 
-  if (!ctx.areaSqm)
+  if (!ctx.areaSqm) {
+    // 지역 정보 없으면 CE로 패스 → CE가 검색 후 지역 질문 처리
+    if (!ctx.dong && !ctx.sigungu && !ctx.regionHint)
+      return { type: 'pass_to_ce' };
     return { type: 'ask', field: 'area',
       message: `${ctx.complexQuery}의 몇 평형을 확인할까요?\n예: 25평, 84㎡` };
+  }
 
   if (ctx.currentPrice === undefined && !ctx.noPrice) {
     const pyeong = ctx.inputPyeong || Math.round(ctx.areaSqm / 3.3);

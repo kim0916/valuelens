@@ -612,6 +612,13 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           }
           if (pool.length === 1) {
             const cx = pool[0];
+            // 이미 purpose를 알고 있으면 (첫 입력에서 "적정가", "매수" 등 언급) → 칩 스킵
+            const knownPurpose = convStateRef.current._resolvedPurpose || convStateRef.current._pendingPurpose || null;
+            if (knownPurpose && knownPurpose !== 'jeonse') {
+              convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
+              addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+              await askAreaThenPrice(cx, knownPurpose);
+            } else {
             convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'purpose', _pendingComplex: cx, _pendingPurpose: 'fair' };
             replaceLastAI({ role: "ai", type: "purpose_chips",
               content: `${cx.complex_name}에서 무엇을 확인할까요?`,
@@ -629,6 +636,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                 await askAreaThenPrice(cx, purpose);
               },
             });
+            }
           } else {
             replaceLastAI({ role: "ai", type: "candidates",
               content: `${text}의 ${originalQuery} 목록입니다. 찾으시는 단지를 선택해주세요.`,
