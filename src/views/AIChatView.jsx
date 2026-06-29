@@ -322,107 +322,6 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     const ps = convStateRef.current;
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // [MIR_GATE] Strong Messy Input 감지 — 최우선 처리
-    // 복합 정보 3개+ 포함 시 pending 블록 건너뛰고 MIR로 직행
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    const _mirGateCheck = resolveMessyInput(text, {});
-    const _mg = _mirGateCheck.merged;
-    const _mirGateCount =
-      (_mg.complexQuery ? 1 : 0) +
-      (_mg.dong         ? 1 : 0) +
-      (_mg.areaSqm      ? 1 : 0) +
-      (_mg.purpose      ? 1 : 0) +
-      (_mg.noPrice || _mg.budget ? 1 : 0);
-    const isStrongMessyInput = _mirGateCount >= 3;
-
-    if (import.meta.env.DEV) {
-      console.log('[MIR_GATE]', {
-        text,
-        strongMessy: isStrongMessyInput,
-        infoCount: _mirGateCount,
-        pendingPrice: ps._pendingPrice,
-        expectedAnswerType: ps._expectedAnswerType,
-        currentComplex: !!ps.currentComplex,
-        decision: isStrongMessyInput ? 'MIR우선' : 'Golden Path',
-      });
-    }
-
-    // Strong Messy Input이면 pending 블록 건너뛰고 바로 MIR Phase 1.5로
-    if (isStrongMessyInput) {
-      const existingCtx = {};  // 새 입력이 기존 state보다 우선
-      const { merged, nextAction } = resolveMessyInput(text, existingCtx);
-
-      if (nextAction.type === 'not_supported') {
-        addMsg({ role: 'user', type: 'text', content: text });
-        addMsg({ role: 'ai', type: 'text', content: '해당 기능은 준비 중입니다.' });
-        return;
-      }
-      if (nextAction.type === 'ask') {
-        addMsg({ role: 'user', type: 'text', content: text });
-        if (nextAction.field === 'complex') {
-          convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'complex' };
-          addMsg({ role: 'ai', type: 'text', content: nextAction.message });
-        } else if (nextAction.field === 'area') {
-          convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'area',
-            _pendingComplex: { complex_name: merged.complexQuery, legal_dong: merged.dong },
-            _pendingPurpose: merged.purpose || 'fair' };
-          addMsg({ role: 'ai', type: 'text', content: nextAction.message });
-        } else if (nextAction.field === 'price') {
-          convStateRef.current = { ...convStateRef.current,
-            _pendingPrice: true,
-            _pendingComplex: { complex_name: merged.complexQuery, legal_dong: merged.dong, sigungu: merged.sigungu, area_list: [] },
-            _pendingArea: merged.areaSqm, _pendingPurpose: merged.purpose || 'fair',
-            _pendingInputPyeong: merged.inputPyeong, _expectedAnswerType: null };
-          addMsg({ role: 'ai', type: 'text', content: nextAction.message });
-        } else if (nextAction.field === 'purpose') {
-          convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'purpose',
-            _pendingComplex: { complex_name: merged.complexQuery, legal_dong: merged.dong } };
-          addMsg({ role: 'ai', type: 'purpose_chips', content: nextAction.message,
-            choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
-            onSelect: async (choice) => {
-              addMsg({ role: 'user', type: 'text', content: choice });
-              const purpose = choice === '매수 의견' ? 'buy' : 'fair';
-              convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'area', _pendingPurpose: purpose };
-              addMsg({ role: 'ai', type: 'text', content: `몇 평형을 확인할까요?\n예: 25평, 84㎡` });
-            } });
-        }
-        return;
-      }
-      // confirm_analysis / recommend / general_question → Bridge → CE
-      const mappedState = bridgeToState(merged, convStateRef.current);
-      logBridge(merged, mappedState, text);
-      // 기존 pending 상태 초기화 (새 입력 우선)
-      convStateRef.current = {
-        ...mappedState,
-        _pendingPrice: false,
-        _expectedAnswerType: null,
-        currentComplex: null,
-      };
-      // CE로 진행 (fall through)
-      addMsg({ role: 'user', type: 'text', content: text });
-      addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
-      try {
-        const { state: newState, response } = await convEngineRef.current.process(
-          text,
-          { ...convStateRef.current, lastComplexQuery: convStateRef.current.lastComplexQuery || null },
-        );
-        convStateRef.current = newState;
-        setConvState(newState);
-        if (import.meta.env.DEV && response._debug) {
-          console.log('[CE] intent resolution result:', {
-            intent: response._debug.intent,
-            action: response._debug.action,
-          });
-        }
-        await handleEngineResponse(response, newState);
-      } catch(e) {
-        console.error('[MIR→CE] 오류:', e);
-        replaceLastAI({ role: 'ai', type: 'text', content: '잠깐 문제가 생겼어요. 다시 말씀해 주세요.' });
-      }
-      return;  // Strong Messy 처리 완료
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // expectedAnswerType: 직전 질문 기반 입력 해석 최우선
     // 이 블록이 ConversationEngine보다 먼저 실행됨
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -855,39 +754,9 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     }
 
     // ── Phase 1.5: MessyInputResolver + Bridge ──
-    // 실행 조건: EAT 없음 + pendingPrice 없음 + currentComplex 없음 + messyInfoCount >= 2
-    // Golden Path 단계형 입력에는 개입 금지
+    // EAT/pendingPrice 이후, CE 이전에 실행
+    // MIR → Bridge → CE 흐름: CE가 유일한 대화 엔진
     {
-      // 1단계: 실행 여부 판단을 위한 빠른 사전 추출
-      const _mirCheck = resolveMessyInput(text, {});
-      const _m = _mirCheck.merged;
-      const messyInfoCount =
-        (_m.complexQuery ? 1 : 0) +
-        (_m.dong         ? 1 : 0) +
-        (_m.areaSqm      ? 1 : 0) +
-        (_m.purpose      ? 1 : 0) +
-        (_m.noPrice || _m.budget ? 1 : 0);
-
-      // noPrice 단독 입력("몰라요", "모름" 등)은 MIR 금지
-      // complexQuery가 noPrice 표현으로 오인되는 경우 방지
-      const NO_PRICE_ONLY = /^(몰라요?|모름|모르겠어?|시세로|실거래로|그냥\s*해줘|없어|없음|패스|skip)$/i.test(text.trim());
-
-      const mirShouldRun =
-        !ps._expectedAnswerType &&          // EAT 없음
-        !ps._pendingPrice &&                // 가격 대기 없음
-        !convStateRef.current.currentComplex && // 단지 미선택
-        !convStateRef.current.selectedComplex &&
-        !NO_PRICE_ONLY &&                   // noPrice 단독 입력 제외
-        messyInfoCount >= 2;                // 복합 정보 2개 이상
-
-      if (import.meta.env.DEV) {
-        console.log('[MIR] 실행여부:', mirShouldRun, '| infoCount:', messyInfoCount,
-          '| eat:', ps._expectedAnswerType, '| pendingPrice:', ps._pendingPrice);
-      }
-
-      if (!mirShouldRun) {
-        // MIR 개입 금지 → CE로 직접
-      } else {
       const existingCtx = {
         dong:         convStateRef.current._pendingDong              || null,
         sigungu:      convStateRef.current._pendingRegion            || null,
@@ -980,7 +849,6 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           });
         }
       }
-      } // end mirShouldRun else
     }
 
     addMsg({ role: "user", type: "text", content: text });
@@ -1010,12 +878,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       }
       const { state: newState, response } = await convEngineRef.current.process(
         text,
-        {
-          ...convStateRef.current,
-          // Bridge가 lastComplexQuery를 이미 세팅했으면 유지, 없으면 text 사용
-          // "동부 우동 24평 몰라 적정가 봐줘" 전체가 searchQuery가 되지 않도록
-          lastComplexQuery: convStateRef.current.lastComplexQuery || null,
-        },
+        { ...convStateRef.current, lastComplexQuery: convStateRef.current.lastComplexQuery || text },
       );
 
       // State 동기 업데이트 (ref = 동기, setState = 렌더링용)
