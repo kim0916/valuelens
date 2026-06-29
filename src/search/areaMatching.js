@@ -6,7 +6,7 @@
  */
 
 import { groupAreasByPyeong } from './utils.js';
-import { typicalPyeong } from '../constants/grades.js';
+import { sqmToPyeong } from '../constants/areaMapping.js';
 
 /**
  * 단지 area_list → [{areaSqm, pyeong}] 변환
@@ -17,7 +17,7 @@ export function getAreaOptions(areaListRaw) {
     ? JSON.parse(areaListRaw)
     : areaListRaw;
   return groupAreasByPyeong(raw)
-    .map(g => ({ areaSqm: g.rep, pyeong: typicalPyeong(g.rep) }));
+    .map(g => ({ areaSqm: g.rep, pyeong: sqmToPyeong(g.rep).pyeong }));
 }
 
 /**

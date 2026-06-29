@@ -1634,7 +1634,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       ? (typeof cx.area_list === 'string' ? JSON.parse(cx.area_list) : cx.area_list)
       : [];
     const areaGroups = groupAreasByPyeong(areaListRaw)
-      .map(g => ({ areaSqm: g.rep, pyeong: typicalPyeong(g.rep) }));
+      .map(g => ({ areaSqm: g.rep, pyeong: sqmToPyeong(g.rep).pyeong }));
 
     // ── 사용자가 평형을 이미 입력한 경우: nearest 매핑 후 바로 confirm 카드 ──
     const hintSqm    = convStateRef.current.lastAreaHint || convStateRef.current._pendingArea || null;
