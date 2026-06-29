@@ -754,9 +754,39 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     }
 
     // ── Phase 1.5: MessyInputResolver + Bridge ──
-    // EAT/pendingPrice 이후, CE 이전에 실행
-    // MIR → Bridge → CE 흐름: CE가 유일한 대화 엔진
+    // 실행 조건: EAT 없음 + pendingPrice 없음 + currentComplex 없음 + messyInfoCount >= 2
+    // Golden Path 단계형 입력에는 개입 금지
     {
+      // 1단계: 실행 여부 판단을 위한 빠른 사전 추출
+      const _mirCheck = resolveMessyInput(text, {});
+      const _m = _mirCheck.merged;
+      const messyInfoCount =
+        (_m.complexQuery ? 1 : 0) +
+        (_m.dong         ? 1 : 0) +
+        (_m.areaSqm      ? 1 : 0) +
+        (_m.purpose      ? 1 : 0) +
+        (_m.noPrice || _m.budget ? 1 : 0);
+
+      // noPrice 단독 입력("몰라요", "모름" 등)은 MIR 금지
+      // complexQuery가 noPrice 표현으로 오인되는 경우 방지
+      const NO_PRICE_ONLY = /^(몰라요?|모름|모르겠어?|시세로|실거래로|그냥\s*해줘|없어|없음|패스|skip)$/i.test(text.trim());
+
+      const mirShouldRun =
+        !ps._expectedAnswerType &&          // EAT 없음
+        !ps._pendingPrice &&                // 가격 대기 없음
+        !convStateRef.current.currentComplex && // 단지 미선택
+        !convStateRef.current.selectedComplex &&
+        !NO_PRICE_ONLY &&                   // noPrice 단독 입력 제외
+        messyInfoCount >= 2;                // 복합 정보 2개 이상
+
+      if (import.meta.env.DEV) {
+        console.log('[MIR] 실행여부:', mirShouldRun, '| infoCount:', messyInfoCount,
+          '| eat:', ps._expectedAnswerType, '| pendingPrice:', ps._pendingPrice);
+      }
+
+      if (!mirShouldRun) {
+        // MIR 개입 금지 → CE로 직접
+      } else {
       const existingCtx = {
         dong:         convStateRef.current._pendingDong              || null,
         sigungu:      convStateRef.current._pendingRegion            || null,
@@ -849,6 +879,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           });
         }
       }
+      } // end mirShouldRun else
     }
 
     addMsg({ role: "user", type: "text", content: text });
