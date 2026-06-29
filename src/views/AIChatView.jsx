@@ -1056,7 +1056,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         // 선택된 단지로 confirm_analysis 상태 세팅
         const areaSqm    = state.lastAreaHint || convStateRef.current._pendingArea || null;
         const inputPyeong = convStateRef.current._pendingInputPyeong ||
-          (areaSqm ? Math.round(areaSqm / 3.3) : null);
+          (areaSqm ? sqmToPyeong(areaSqm).pyeong : null);
         const purpose    = convStateRef.current._resolvedPurpose || convStateRef.current._pendingPurpose || 'fair';
         const noPrice    = convStateRef.current._resolvedNoPrice || convStateRef.current._forcedNoPrice || false;
         const purposeKr  = purpose === 'buy' ? '매수 분석' : '적정가';
@@ -1277,7 +1277,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       const hintInputPyeong = convStateRef.current._pendingInputPyeong || null;
       if (areaHintForAutoSelect && areaGroupsForSelect.length > 0) {
         // selectNearestArea: 단지 실제 평형 기준으로 가장 가까운 것 선택
-        const inputPy  = hintInputPyeong || Math.round(areaHintForAutoSelect / 3.3);
+        const inputPy  = hintInputPyeong || sqmToPyeong(areaHintForAutoSelect).pyeong;
         const matched  = selectNearestArea(inputPy, areaGroupsForSelect);
         if (!matched) { /* fall-through to area_chips below */ }
         else {
@@ -1879,7 +1879,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
       // ── fallback 처리: 다른 면적이 더 가까운 경우 사용자에게 물어봄 ──
       if (sale.length < 3 && fallbackSqm && Math.abs(fallbackSqm - targetArea) > 3) {
-        const reqPyeong  = intent._pendingInputPyeong || (targetArea ? Math.round(targetArea/3.3) : null);
+        const reqPyeong  = intent._pendingInputPyeong || (targetArea ? sqmToPyeong(targetArea).pyeong : null);
         const reqLabel   = reqPyeong ? `${reqPyeong}평` : `전용 ${targetArea}㎡`;
         const { pyeong: fbPyeong } = sqmToPyeong(fallbackSqm);
         const fbLabel    = `${fbPyeong}평 (전용 ${fallbackSqm}㎡)`;

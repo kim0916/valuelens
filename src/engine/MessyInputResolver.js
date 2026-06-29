@@ -1,3 +1,4 @@
+import { sqmToPyeong } from '../constants/areaMapping.js';
 /**
  * src/engine/MessyInputResolver.js
  * 사용자 자유 입력 → entity 추출 → pendingContext 누적
@@ -208,13 +209,13 @@ function decideNextAction(ctx) {
   // 적정가: 가격 질문 없이 바로 confirm_analysis (실거래 중앙값 자동 사용)
   // 매수(buy)는 나중에 별도 처리
   if (ctx.currentPrice === undefined && !ctx.noPrice && ctx.purpose === 'buy') {
-    const pyeong = ctx.inputPyeong || Math.round(ctx.areaSqm / 3.3);
+    const pyeong = ctx.inputPyeong || sqmToPyeong(ctx.areaSqm).pyeong;
     const loc = [ctx.sigungu?.split(' ').slice(-1)[0], ctx.dong].filter(Boolean).join(' ');
     return { type: 'ask', field: 'price',
       message: `${loc ? loc + ' ' : ''}${ctx.complexQuery} ${pyeong}평 매수 분석을 진행할게요.\n현재 매물 가격을 알고 계시나요?` };
   }
 
-  const pyeong = ctx.inputPyeong || Math.round(ctx.areaSqm / 3.3);
+  const pyeong = ctx.inputPyeong || sqmToPyeong(ctx.areaSqm).pyeong;
   const loc = [ctx.sigungu?.split(' ').slice(-1)[0], ctx.dong].filter(Boolean).join(' ');
   const purposeKr = ctx.purpose === 'buy' ? '매수 분석' : '적정가';
   const summary = `${loc ? loc + ' ' : ''}${ctx.complexQuery} ${pyeong}평 ${purposeKr}을 분석해드리겠습니다.`;
