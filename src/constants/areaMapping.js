@@ -1,3 +1,4 @@
+import { sqmToPyeong as _sqmToPyeong } from '../utils/pyeong.js';
 /**
  * src/constants/areaMapping.js
  * 한국 아파트 평형 ↔ 전용면적 매핑
@@ -59,14 +60,7 @@ export function pyeongToExclusiveSqm(pyeong) {
  * @param {number} sqm
  * @returns {{ pyeong: number, label: string }}
  */
-export function sqmToPyeong(sqm) {
-  if (!sqm || sqm <= 0) return { pyeong: 0, label: '' };
-  // 가장 가까운 대표 면적 찾기
-  const closest = SQM_TO_PYEONG_MAP.reduce((a, b) =>
-    Math.abs(a.sqm - sqm) <= Math.abs(b.sqm - sqm) ? a : b
-  );
-  return { pyeong: closest.pyeong, label: closest.label };
-}
+export function sqmToPyeong(sqm) { return _sqmToPyeong(sqm); }
 
 /**
  * 평형 레이블 생성

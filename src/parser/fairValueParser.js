@@ -1,3 +1,4 @@
+import { sqmToPyeong, pyeongToSqm } from '../utils/pyeong.js';
 /**
  * src/parser/fairValueParser.js
  *
@@ -52,16 +53,7 @@ const PYEONG_TO_SQM = [
   { min: 46, max: 55, sqm: 134 },
 ];
 
-function pyeongToSqm(pyeong) {
-  const entry = PYEONG_TO_SQM.find(e => pyeong >= e.min && pyeong <= e.max);
-  return entry ? entry.sqm : Math.round(pyeong * 3.3);
-}
-
-function sqmToPyeong(sqm) {
-  const entry = [...PYEONG_TO_SQM].reverse().find(e => sqm >= e.sqm - 5 && sqm <= e.sqm + 5);
-  if (entry) return Math.round((entry.min + entry.max) / 2);
-  return Math.round(sqm / 3.3);
-}
+// pyeongToSqm, sqmToPyeong → pyeong.js에서 import
 
 function extractArea(text) {
   // 전용면적 (㎡, m2)
@@ -69,7 +61,7 @@ function extractArea(text) {
     || text.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:㎡|m2)/i);
   if (sqmMatch) {
     const sqm = parseFloat(sqmMatch[1]);
-    return { pyeong: sqmToPyeong(sqm), sqm };
+    return { pyeong: sqmToPyeong(sqm).pyeong, sqm };
   }
 
   // 평형

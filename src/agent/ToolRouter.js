@@ -7,6 +7,7 @@ import { acqTax, cgTax } from '../engine/tax.js';
 import { recommendByBudget } from '../recommendation/recommend.js';
 import { searchComplexFromSupabase, getPriceSummaryFromSupabase } from '../search/supabase.js';
 import { buildAnalysisInput } from '../search/input.js';
+import { sqmToPyeong, pyeongToSqm } from '../utils/pyeong.js';
 
 function makeResult(tool, summary, rawData) {
   return { ok: true, tool, summary: { ...summary, tab: tabFor(tool) }, rawData };
@@ -66,7 +67,7 @@ async function toolFairValue(memory) {
 
 async function runFairAnalysis(complex, area, region) {
   const areaNum  = area ? parseFloat(area) : null;
-  const areaExcl = areaNum ? (area.includes("평") ? Math.round(areaNum * 3.3) : areaNum) : null;
+  const areaExcl = areaNum ? (area.includes("평") ? pyeongToSqm(areaNum) : areaNum) : null;
   const sigungu  = complex.sigungu || region || "";
   const name     = complex.complex_name;
   const cid      = complex.complex_id || complex.id || null;
@@ -211,7 +212,7 @@ function toolReco(memory) {
     const region  = memory.region || "전체";
     const areaRaw = memory.area ? parseFloat(memory.area) : 0;
     const pyeong  = areaRaw > 0
-      ? (memory.area?.includes("평") ? areaRaw : Math.round(areaRaw / 3.305785))
+      ? (memory.area?.includes("평") ? areaRaw : sqmToPyeong(areaRaw).pyeong)
       : 0;
     const results = recommendByBudget({ budget, region, pyeong });
     if (!results || results.length === 0)

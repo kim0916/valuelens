@@ -6,18 +6,13 @@
  */
 
 import { groupAreasByPyeong } from './utils.js';
-import { sqmToPyeong } from '../constants/areaMapping.js';
+import { sqmToPyeong, areaOptionsFromList } from '../utils/pyeong.js';
 
 /**
  * 단지 area_list → [{areaSqm, pyeong}] 변환
  */
 export function getAreaOptions(areaListRaw) {
-  if (!areaListRaw) return [];
-  const raw = typeof areaListRaw === 'string'
-    ? JSON.parse(areaListRaw)
-    : areaListRaw;
-  return groupAreasByPyeong(raw)
-    .map(g => ({ areaSqm: g.rep, pyeong: sqmToPyeong(g.rep).pyeong }));
+  return areaOptionsFromList(areaListRaw);
 }
 
 /**

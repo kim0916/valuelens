@@ -22,11 +22,11 @@ import { uiEventToMessage, isV2Enabled } from '../engine/v2/AIChatBridge_v2.js';
 import { createConversationState } from '../engine/conversationState.js';
 import { RESPONSE_TYPES } from '../engine/responseGenerator.js';
 import { ACTIONS } from '../engine/conversationPolicy.js';
-import { parseAreaInput, pyeongLabel, filterDealsByArea, sqmToPyeong } from '../constants/areaMapping.js';
 import { resolveMessyInput } from '../engine/MessyInputResolver.js';
 import { bridgeToState, logBridge } from '../engine/MessyInputBridge.js';
 import { adaptFairValue } from '../parser/FairValueAdapter.js';
 import { selectNearestArea, getAreaOptions } from '../search/areaMatching.js';
+import { sqmToPyeong, pyeongToSqm } from '../utils/pyeong.js';
 
 // ── confirm_analysis 메시지 생성 헬퍼 ──
 // 표시 데이터를 payload에 고정 → 렌더러는 payload만 읽음
@@ -136,7 +136,7 @@ function parseIntent(raw) {
   let areaSqm = null;
   const sqmMatch = t.match(/(\d+(?:\.\d+)?)\s*(?:㎡|m²|제곱미터)/);
   if (sqmMatch) areaSqm = parseFloat(sqmMatch[1]);
-  if (pyeong && !areaSqm) areaSqm = Math.round(pyeong * 3.305785);
+  if (pyeong && !areaSqm) areaSqm = pyeongToSqm(pyeong);
 
   // ── 가격 추출 ──
   let price = null, budget = null;
@@ -768,7 +768,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         const ecGu     = effectiveComplex.sigungu    ? effectiveComplex.sigungu.split(' ').slice(-1)[0] : '';
         const ecDong   = effectiveComplex.legal_dong || '';
         const ecLoc    = [ecGu, ecDong].filter(Boolean).join(' ');
-        const ecPyeong = inputPyeong || (areaSqm ? Math.round(areaSqm / 3.305785) : null);
+        const ecPyeong = inputPyeong || (areaSqm ? sqmToPyeong(areaSqm).pyeong : null);
         const ecPurposeKr = (purpose === 'buy') ? '매수 분석' : '적정가';
         const summaryMsg = noPrice
           ? `알겠습니다.\n${[ecLoc, ecName].filter(Boolean).join(' ')}${ecPyeong ? ' ' + ecPyeong + '평' : ''} 최근 실거래 데이터를 기준으로 ${ecPurposeKr}를 분석해드리겠습니다.`
@@ -1778,7 +1778,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       onSelect: async (areaSqm) => {
         // ★ state 먼저 null → EAT area 재진입 완전 차단
         const chipGroup  = areaGroups.find(g => g.areaSqm === areaSqm);
-        const chipPyeong = chipGroup?.pyeong ?? Math.round(areaSqm / 3.305785);
+        const chipPyeong = chipGroup?.pyeong ?? sqmToPyeong(areaSqm).pyeong;
         // addMsg(user) 단 한 번
         addMsg({ role: 'user', type: 'text', content: `${chipPyeong}평` });
         // 요약 카드 → [확인] → 결과
@@ -1835,7 +1835,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
       // 면적 결정
       let targetArea = intent.areaSqm || null;
-      if (!targetArea && intent.pyeong) targetArea = Math.round(intent.pyeong * 3.305785);
+      if (!targetArea && intent.pyeong) targetArea = pyeongToSqm(intent.pyeong);
       if (!targetArea && areaListRaw.length > 0) {
         const sorted = [...areaListRaw].map(Number).filter(Boolean).sort((a,b) => a-b);
         targetArea = sorted[Math.floor(sorted.length / 2)];
@@ -1881,7 +1881,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       if (sale.length < 3 && fallbackSqm && Math.abs(fallbackSqm - targetArea) > 3) {
         const reqPyeong  = intent._pendingInputPyeong || (targetArea ? sqmToPyeong(targetArea).pyeong : null);
         const reqLabel   = reqPyeong ? `${reqPyeong}평` : `전용 ${targetArea}㎡`;
-        const { pyeong: fbPyeong } = sqmToPyeong(fallbackSqm);
+        const { pyeong: fbPyeong } = sqmToPyeong(fallbackSqm).pyeong;
         const fbLabel    = `${fbPyeong}평 (전용 ${fallbackSqm}㎡)`;
         replaceLastAI({ type: "text",
           content: `**${name}** ${reqLabel} 계열의 최근 실거래가 부족합니다.\n\n가장 가까운 **${fbLabel}** 데이터로 분석해드릴까요?\n\n"네" 또는 "${fbLabel}"라고 입력하시면 계속 진행합니다.` });
@@ -1903,7 +1903,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         const hasJeonse = jeonse.length > 0;
         replaceLastAI({
           type: "text",
-          content: `**${name}** ${targetArea ? `${Math.round(targetArea / 3.3058)}평` : ""}은 최근 1년 내 실거래가 없네요.\n\n현재 매물가랑 ${hasJeonse ? "" : "전세가 "}알려주시면 대략 적정가 분석해드릴게요.\n\n예: "매물가 7.5억, 전세 4억"`,
+          content: `**${name}** ${targetArea ? `${sqmToPyeong(targetArea).pyeong}평` : ""}은 최근 1년 내 실거래가 없네요.\n\n현재 매물가랑 ${hasJeonse ? "" : "전세가 "}알려주시면 대략 적정가 분석해드릴게요.\n\n예: "매물가 7.5억, 전세 4억"`,
         });
         // 입력 대기 상태 세팅
         convStateRef.current = {
@@ -2225,7 +2225,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
               {(msg.areaGroups || []).map((g, i) => {
                 // 가드: g.anchor null/undefined 방지
                 if (!g || g.anchor == null || !Number.isFinite(g.anchor)) return null;
-                const { pyeong } = sqmToPyeong(g.anchor);
+                const { pyeong } = sqmToPyeong(g.anchor).pyeong;
                 const sqm    = g.anchor.toFixed(1);
                 return (
                   <button key={i}

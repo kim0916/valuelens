@@ -11,6 +11,7 @@
  */
 
 import { updateCandidates, updateComplex, getAreaGroups } from './conversationState.js';
+import { sqmToPyeong } from '../utils/pyeong.js';
 
 // ─────────────────────────────────────────────
 // 자동 선택 가능 여부 판단 기준
@@ -161,7 +162,7 @@ export function findBestAreaGroup(areaGroups, targetSqm) {
 // 면적 그룹 표시용 레이블
 // ─────────────────────────────────────────────
 export function areaGroupLabel(group) {
-  const pyeong = Math.round(group.anchor / 3.305785);
+  const pyeong = sqmToPyeong(group.anchor).pyeong;
   const sqm = group.anchor.toFixed(1);
   // 여러 면적이 하나로 묶인 경우
   if (group.areas.length > 1) {
@@ -193,7 +194,7 @@ function groupByPyeong(areaList, tol = 4) {
     if (last && a - last.anchor <= tol) {
       last.areas.push(a);
     } else {
-      groups.push({ anchor: a, areas: [a], pyeong: Math.round(a / 3.305785) });
+      groups.push({ anchor: a, areas: [a], pyeong: sqmToPyeong(a).pyeong });
     }
   }
   return groups;

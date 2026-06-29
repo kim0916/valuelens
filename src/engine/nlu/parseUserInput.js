@@ -19,6 +19,7 @@ import { normalizeText } from './normalizeRealEstateTerms.js';
 import { extractEntities } from './extractEntities.js';
 import { classifyUserIntent, NLU_INTENTS } from './classifyUserIntent.js';
 import { updateConversationMemory, shouldSearch, CONTEXT_ACTIONS } from './updateConversationMemory.js';
+import { sqmToPyeong } from '../../utils/pyeong.js';
 
 // ─────────────────────────────────────────────
 // NLU 결과 구조체 정의
@@ -151,7 +152,7 @@ export function parseAsLegacyIntent(rawInput, state = {}) {
   // 기존 extracted 형식으로 변환
   const extracted = {
     areaSqm:       nlu.areaSqm,
-    pyeong:        nlu.areaSqm ? Math.round(nlu.areaSqm / 3.305785) : null,
+    pyeong:        nlu.areaSqm ? sqmToPyeong(nlu.areaSqm).pyeong : null,
     region:        nlu.region || nlu.sigungu,
     index:         nlu.selectedIndex,
     complexQuery:  nlu.complexQuery,

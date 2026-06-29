@@ -19,6 +19,7 @@ import { LocationPicker } from './LocationPicker.jsx';
 import { ConfirmStep } from './ConfirmStep.jsx';
 import { BuyResult } from './BuyResult.jsx';
 import { FairValueResult } from './FairValueResult.jsx';
+import { sqmToPyeong } from '../utils/pyeong.js';
 
 function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUserId, currentUserEmail, screenerInitial, onClearScreenerInitial, photoTriggerRef }) {
   const [f, setF] = useState(EMPTY);
@@ -380,7 +381,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
       return {
         sale: [], jeonse: [], areaOptions: complexInfo.area_list
           ? groupAreasByPyeong(JSON.parse(complexInfo.area_list))
-              .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: Math.round(g.rep / 3.3058) })) : [],
+              .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: sqmToPyeong(g.rep).pyeong })) : [],
         buildYear: complexInfo.build_year || null, lawdCd: null,
         tradeStatus: { code: "PERIOD_NO_TRADE", msg: `최근 1년 실거래 데이터가 부족합니다. 직접 확인한 가격을 입력해 주세요.`, pipeline: { source: "supabase" } },
         dataSource: "supabase",
@@ -421,7 +422,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
       sale, jeonse,
       areaOptions: complexInfo.area_list
         ? groupAreasByPyeong(JSON.parse(complexInfo.area_list))
-            .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: Math.round(g.rep / 3.3058) }))
+            .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: sqmToPyeong(g.rep).pyeong }))
         : [],
       buildYear:    complexInfo.build_year || null,
       lawdCd:       null,
@@ -796,7 +797,7 @@ function BuyView({ onSaveHistory, onAddWatch, onContext, mode = "buy", currentUs
               {f.areaExclusive && (() => {
                 const sel = areaOptions.find(o => String(o.areaSqm) === String(f.areaExclusive));
                 const { mainLabel } = sel ? areaButtonLabel(sel.areaSqm, sel.supplySqm) : { mainLabel: `전용 ${f.areaExclusive}㎡` };
-                return <p className="mt-1.5 text-xs text-amber-700">분석 기준: 전용 {sel ? sel.areaSqm : f.areaExclusive}㎡ ({Math.round(Number(sel ? sel.areaSqm : f.areaExclusive) / 3.3058)}평)</p>;
+                return <p className="mt-1.5 text-xs text-amber-700">분석 기준: 전용 {sel ? sel.areaSqm : f.areaExclusive}㎡ ({sqmToPyeong(Number(sel ? sel.areaSqm : f.areaExclusive)).pyeong}평)</p>;
               })()}
             </div>
           </div>

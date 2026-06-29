@@ -8,7 +8,7 @@ import { won, pct } from '../constants/grades.js';
 import { computeFairBands, classifyApartmentMarket, RECON } from '../engine/market.js';
 import { computeDataTrust } from '../engine/stats.js';
 import { writeSearchLog } from '../services/storage/searchLog.js';
-import { sqmToPyeong } from '../constants/areaMapping.js';
+import { sqmToPyeong } from '../utils/pyeong.js';
 import {
   AiNotice, DataTrustBadge, GradeInfoPopup,
   InputWarnings, MarketTypeBadge, FairSaveBtn,
@@ -683,7 +683,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
           sigungu:      f.region       || complexInfo?.sigungu || '',
           dong:         f.dong         || complexInfo?.dong || '',
           selectedArea: f.areaExclusive || f.selectedArea || null,
-          pyeong:       f.areaExclusive ? Math.floor((Number(f.areaExclusive) * 1.35) / 3.305785) : null,
+          pyeong:       f.areaExclusive ? sqmToPyeong(Number(f.areaExclusive)).pyeong : null,
           fairValue:    r.fairPrice    || null,
           currentPrice: f.currentPrice || null,
           dealData:     f.deals        || f.saleDeals || [],
@@ -770,7 +770,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
     return null;
   };
   const isNoPrice = (t) => /^(몰라|모름|모르겠|잘\s*모르|평균|실거래|기준으로|상관없|패스|skip)/i.test(t.trim());
-  const sqmToPyeong = (sqm) => Math.floor((Number(sqm)*1.35)/3.305785);
+  // sqmToPyeong → pyeong.js 사용
 
   // 단지 검색
   const searchComplex = async (complexName, sigunguHint, dongHint) => {
@@ -788,7 +788,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
       }
       const hit = hits[0];
       const rawAreas = hit.area_list ? (typeof hit.area_list === 'string' ? JSON.parse(hit.area_list) : hit.area_list) : [];
-      const aGroups = rawAreas.map(a => ({ areaSqm: Number(a), pyeong: sqmToPyeong(Number(a)) })).filter(a => a.areaSqm > 0);
+      const aGroups = rawAreas.map(a => ({ areaSqm: Number(a), pyeong: sqmToPyeong(Number(a).pyeong) })).filter(a => a.areaSqm > 0);
       const cxOverride = { complexName: hit.complex_name, sigungu: hit.sigungu, dong: hit.legal_dong || dongHint || '', complexId: hit.id, areaOptions: aGroups };
 
       if (aGroups.length === 0) {

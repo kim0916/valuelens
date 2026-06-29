@@ -1,3 +1,4 @@
+import { sqmToPyeong } from '../utils/pyeong.js';
 /**
  * ValueLens Conversation Engine — conversationState.js
  *
@@ -200,7 +201,7 @@ export function getAreaGroups(state) {
     if (last && a - last.anchor <= 4) {
       last.areas.push(a);
     } else {
-      groups.push({ anchor: a, areas: [a], pyeong: Math.round(a / 3.305785) });
+      groups.push({ anchor: a, areas: [a], pyeong: sqmToPyeong(a).pyeong });
     }
   }
   return groups;

@@ -1,3 +1,4 @@
+import { sqmToPyeong, pyeongToSqm } from '../utils/pyeong.js';
 /**
  * ValueLens Conversation Engine — ConversationEngine.js v2
  *
@@ -30,10 +31,7 @@ import {
 import {
   classifyIntent,
   INTENTS,
-  pyeongToSqm,
 } from './intentClassifier.js';
-import { sqmToPyeong as _sqmRaw } from '../constants/areaMapping.js';
-const sqmToPyeong = (s) => _sqmRaw(s).pyeong;
 
 import {
   applyPolicy,
@@ -325,7 +323,7 @@ async function execute(decision, intent, extracted, rawText, state) {
           { ...state, lastAreaHint: areaSqm },
           {
             type: RESPONSE_TYPES.NEED_MORE_INFO,
-            text: `${sqmToPyeong(areaSqm)}평으로 볼게요. 어떤 단지인가요?`,
+            text: `${sqmToPyeong(areaSqm).pyeong}평으로 볼게요. 어떤 단지인가요?`,
             ui:   "message",
           },
         ];
@@ -404,7 +402,7 @@ async function execute(decision, intent, extracted, rawText, state) {
       const ns = updatePurpose(state, "jeonse");
       return [ns, {
         type:    RESPONSE_TYPES.READY_TO_ANALYZE,
-        text:    `**${state.currentComplex.complex_name}** ${sqmToPyeong(state.currentArea)}평 전세 정보를 가져올게요...`,
+        text:    `**${state.currentComplex.complex_name}** ${sqmToPyeong(state.currentArea).pyeong}평 전세 정보를 가져올게요...`,
         ui:      "analyzing",
         purpose: "jeonse",
       }];
@@ -491,7 +489,7 @@ async function tryAIFallback(rawText, state) {
     // AI가 단지명/평형/가격을 파싱했으면 → 검색+분석으로 연결
     if (aiRes.type === 'ai_parsed' && aiRes.parsed?.complexName) {
       const { complexName, areaPyeong, price, intent, region } = aiRes.parsed;
-      const areaSqm = areaPyeong ? Math.round(areaPyeong * 3.305785) : null;
+      const areaSqm = areaPyeong ? pyeongToSqm(areaPyeong) : null;
       const currentPrice = price ? Math.round(price * 10000) : null;
       const stateWithRegion = region ? { ...state, region } : state;
 
@@ -678,7 +676,7 @@ function bridgeNLUToLegacy(nlu, rawText, state) {
   // extracted 구성 (기존 형식 + NLU 확장)
   const extracted = {
     areaSqm:      areaSqmOverride,
-    pyeong:       areaSqmOverride ? Math.round(areaSqmOverride / 3.305785) : null,
+    pyeong:       areaSqmOverride ? sqmToPyeong(areaSqmOverride).pyeong : null,
     region:       nlu.region || nlu.sigungu,
     dong:         nlu.dong || null,
     index:        nlu.selectedIndex,
