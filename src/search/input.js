@@ -4,6 +4,7 @@
 import { computeTrimmedMean } from '../engine/stats.js';
 import { typicalPyeong } from '../constants/grades.js';
 import { EMPTY } from '../constants/presets.js';
+import { sqmToPyeong } from '../constants/areaMapping.js';
 
 function buildAnalysisInput(rawData, baseForm, askedArea) {
   // rawData   : fetchApartmentData 반환값 (ApartmentRawData JSON)

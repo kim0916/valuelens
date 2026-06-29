@@ -16,7 +16,8 @@
  * ★ 계산 로직 없음.
  */
 
-import { sqmToPyeong } from './intentClassifier.js';
+import { sqmToPyeong as _sq } from '../constants/areaMapping.js';
+const sqmToPyeong = (s) => _sq(s).pyeong;
 import { areaGroupLabel, findBestAreaGroup } from './candidateSelector.js';
 
 export const RESPONSE_TYPES = {

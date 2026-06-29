@@ -31,8 +31,9 @@ import {
   classifyIntent,
   INTENTS,
   pyeongToSqm,
-  sqmToPyeong,
 } from './intentClassifier.js';
+import { sqmToPyeong as _sqmRaw } from '../constants/areaMapping.js';
+const sqmToPyeong = (s) => _sqmRaw(s).pyeong;
 
 import {
   applyPolicy,

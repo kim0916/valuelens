@@ -1,5 +1,6 @@
 // ValueLens Search — 검색 유틸 (면적 그룹핑, 가격 파싱 등)
 import { typicalPyeong } from '../constants/grades.js';
+import { sqmToPyeong } from '../constants/areaMapping.js';
 
 // [P1 Fix] groupAreasByPyeong — anchor 기준 고정으로 평형 그룹 누적 오류 수정
 // 수정 이유:

@@ -7,6 +7,7 @@ import { analyze } from '../engine/analyze.js';
 import { buildAnalysisInput } from '../search/input.js';
 import { groupAreasByPyeong } from '../search/utils.js';
 import { typicalPyeong } from '../constants/grades.js';
+import { sqmToPyeong } from '../constants/areaMapping.js';
 
 /**
  * 단지 + 면적 + 매물가로 분석 실행

@@ -1,3 +1,5 @@
+import { sqmToPyeong as _sqm } from '../constants/areaMapping.js';
+export const sqmToPyeong = (s) => _sqm(s).pyeong;
 /**
  * ValueLens Conversation Engine — intentClassifier.js v2
  * 사용자 입력을 Intent로 분류한다.
@@ -286,10 +288,7 @@ export function pyeongToSqm(pyeong) {
   return PYEONG_MAP[pyeong] || Math.round(pyeong * 3.305785 * 0.75);
 }
 
-export function sqmToPyeong(sqm) {
-  // 전용면적(㎡) → 공급면적 기준 평수 (Naver식: ×1.35 후 변환)
-  return Math.floor((Number(sqm) * 1.35) / 3.305785);
-}
+// sqmToPyeong moved to areaMapping.js
 
 export function classifyPureNumber(n, state = {}) {
   if (n >= 30 && n <= 200) return "area";

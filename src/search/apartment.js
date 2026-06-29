@@ -4,6 +4,7 @@
 import { getLawdCd } from './location.js';
 import { groupAreasByPyeong } from './utils.js';
 import { fetchMolitData } from './molit.js';
+import { sqmToPyeong } from '../constants/areaMapping.js';
 
 async function fetchApartmentData(query) {
   // query: { complexName, exactAptNm, dong, region, sido, areaExclusive, exclusiveAreas }

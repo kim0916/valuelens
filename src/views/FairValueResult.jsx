@@ -8,6 +8,7 @@ import { won, pct } from '../constants/grades.js';
 import { computeFairBands, classifyApartmentMarket, RECON } from '../engine/market.js';
 import { computeDataTrust } from '../engine/stats.js';
 import { writeSearchLog } from '../services/storage/searchLog.js';
+import { sqmToPyeong } from '../constants/areaMapping.js';
 import {
   AiNotice, DataTrustBadge, GradeInfoPopup,
   InputWarnings, MarketTypeBadge, FairSaveBtn,
