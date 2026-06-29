@@ -1018,7 +1018,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           currentComplex:      cx,
         };
 
-        replaceLastAI({
+        // replaceLastAI 대신 addMsg: thinking 자리가 없을 수 있으므로 새 메시지로 추가
+        addMsg({
           role: 'ai', type: 'confirm_analysis',
           content: summaryMsg,
           onConfirm: async () => {
