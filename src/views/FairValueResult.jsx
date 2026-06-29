@@ -186,15 +186,7 @@ function getStability(trust) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 메인 컴포넌트
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 가격 문자열 → 만원 변환
-function parsePriceStr(str) {
-  const n = Number((str || "").replace(/[^0-9.]/g, ""));
-  if (!n) return null;
-  if (n >= 1000) return n;       // 5000 → 5000만
-  return Math.round(n * 10000);  // 7.5 → 75000만
-}
-
-function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId, onAskMore, onBuyAnalysis, onPriceUpdate, onResultUpdate, complexInfo }) {
+function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], currentUserId, onAskMore, onBuyAnalysis, onResultUpdate, complexInfo }) {
   const [detailOpen, setDetailOpen] = React.useState(false);
   // 평형 선택 / 거래 목록 자동 펼치기
   React.useEffect(() => {
@@ -209,17 +201,6 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
     }
   }, [f._chatReply]);
   const [whyOpen, setWhyOpen] = React.useState(false);
-  const [priceEdit, setPriceEdit] = React.useState(false);
-  const [priceInput, setPriceInput] = React.useState(
-    f.currentPrice > 0 ? (f.currentPrice / 10000).toString() : ""
-  );
-  // f.currentPrice 변경 시 입력값 동기화
-  React.useEffect(() => {
-    if (!priceEdit && f.currentPrice > 0) {
-      setPriceInput((f.currentPrice / 10000).toString());
-    }
-  }, [f.currentPrice]);
-
   // 체크리스트 localStorage 저장 (단지명+면적 기반 key)
   const checkKey = `vl_check_${(f.complexName||"").replace(/\s/g,"")}_${f.areaExclusive||0}`;
   const [checkState, setCheckState] = React.useState(() => {
@@ -361,59 +342,14 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
               </div>
               {f.currentPrice > 0 && (
                 <div style={{ margin: "4px 0 0 21px" }}>
-                  {priceEdit ? (
-                    // 인라인 입력창
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <input
-                        value={priceInput}
-                        onChange={e => setPriceInput(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === "Enter") {
-                            const p = parsePriceStr(priceInput);
-                            if (p && onPriceUpdate) { onPriceUpdate(p); setPriceEdit(false); }
-                          }
-                          if (e.key === "Escape") setPriceEdit(false);
-                        }}
-                        autoFocus
-                        style={{ width: 70, fontSize: 13, fontWeight: 700,
-                          border: "1px solid #5b52e0", borderRadius: 8,
-                          padding: "3px 8px", outline: "none", color: "#1e293b" }}
-                      />
-                      <span style={{ fontSize: 12, color: "#64748b" }}>억</span>
-                      <button
-                        onClick={() => {
-                          const p = parsePriceStr(priceInput);
-                          if (p && onPriceUpdate) { onPriceUpdate(p); setPriceEdit(false); }
-                          else if (!p) setPriceEdit(false);
-                        }}
-                        style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px",
-                          borderRadius: 8, border: "none", background: "#2F6F4F",
-                          color: "#fff", cursor: "pointer" }}>
-                        확인
-                      </button>
-                      <button onClick={() => setPriceEdit(false)}
-                        style={{ fontSize: 12, color: "#94a3b8", background: "none",
-                          border: "none", cursor: "pointer" }}>✕</button>
-                    </div>
-                  ) : (
-                    // 일반 표시
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
-                        {f._userInputPrice ? "입력가 " : "실거래 평균 "}
-                        <span style={{ fontWeight: 700, color: "#334155" }}>
-                          {won(Number(f.currentPrice))}
-                        </span>
-                      </p>
-                      {onPriceUpdate && (
-                        <button onClick={() => setPriceEdit(true)}
-                          style={{ fontSize: 11, color: "#5b52e0", background: "#ede9fe",
-                            border: "1px solid #c4b5fd", borderRadius: 8,
-                            padding: "2px 8px", cursor: "pointer", fontWeight: 600 }}>
-                          수정
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
+                      {f._userInputPrice ? "입력가 " : "실거래 평균 "}
+                      <span style={{ fontWeight: 700, color: "#334155" }}>
+                        {won(Number(f.currentPrice))}
+                      </span>
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
