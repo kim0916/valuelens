@@ -158,8 +158,43 @@ async function process(input, state = createConversationState(), mode = "home") 
   const nlu = parseUserInput(text, s);
 
   // 2a. NLU → 기존 intent 브릿지
-  //     NLU 신규 Intent를 기존 Policy가 이해할 수 있는 형태로 변환
-  const { intent, extracted, confidence } = bridgeNLUToLegacy(nlu, text, s);
+  const { intent: classifiedIntent, extracted, confidence } = bridgeNLUToLegacy(nlu, text, s);
+
+  // 2b. Bridge resolvedIntent 우선순위 적용
+  //     MessyInputResolver → Bridge가 state.resolvedIntent를 세팅한 경우
+  //     NLU가 GREETING/UNKNOWN으로 오분류해도 올바른 intent로 복원
+  const ALLOWED_RESOLVED = new Set([
+    'price_analysis', 'buy_analysis', 'sell_analysis',
+    'recommendation', 'jeonse_info', 'search_complex',
+  ]);
+  // purpose → intent 매핑
+  const PURPOSE_TO_INTENT = {
+    'fair':       'price_analysis',
+    'buy':        'buy_analysis',
+    'sell':       'sell_analysis',
+    'jeonse':     'jeonse_info',
+    'recommend':  'recommendation',
+  };
+  const resolvedFromState =
+    (ALLOWED_RESOLVED.has(s.resolvedIntent) ? s.resolvedIntent : null) ||
+    (s._resolvedPurpose && PURPOSE_TO_INTENT[s._resolvedPurpose]
+      ? PURPOSE_TO_INTENT[s._resolvedPurpose] : null);
+
+  // GREETING/UNKNOWN인데 resolvedIntent가 있으면 override
+  const WEAK_INTENTS = new Set(['greeting', 'unknown', 'general_question']);
+  const intent = (resolvedFromState && WEAK_INTENTS.has(classifiedIntent))
+    ? resolvedFromState
+    : classifiedIntent;
+
+  // DEV 로그
+  if (import.meta.env?.DEV && resolvedFromState) {
+    console.log('[CE] intent resolution', {
+      classifiedIntent,
+      resolvedIntent:  s.resolvedIntent,
+      resolvedPurpose: s._resolvedPurpose,
+      finalIntent:     intent,
+    });
+  }
 
   // 다른평형 요청 → 평형 목록 보여주기
   if ((intent === "larger_area" || intent === "smaller_area")) {
