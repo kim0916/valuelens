@@ -977,35 +977,108 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     if (type === RESPONSE_TYPES.CANDIDATES_LIST) {
       const candidates = response.candidates || [];
 
-      // ★ 근본 수정 (우동→대우동삼 버그 방지)
-      // 후보 목록이 뜰 때, 반드시 원본 검색어(_pendingCandidateQuery)를 저장한다.
-      // 이후 사용자가 지역/동을 입력하면 새 검색이 아니라
-      // searchComplexFromSupabase(originalQuery, '', dong) 형태로 재검색한다.
-      //
-      // 원본 검색어 추출 우선순위:
-      //   1. state.lastComplexQuery (CE가 저장한 값)
-      //   2. response.text에서 파싱
-      //   3. 현재 convStateRef에 있는 _pendingCandidateQuery (이전 세션 잔류)
       const originalQuery =
         state.lastComplexQuery ||
         state.complexQuery ||
         convStateRef.current._pendingCandidateQuery ||
-        '동부아파트';  // 최후 fallback (실제론 항상 위에서 잡힘)
+        '';
 
+      // ── Bridge dong 자동선택 로직 ──
+      // lastDong이 있으면 candidates를 dong 기준으로 필터링
+      // 필터 후 1개면 후보목록 없이 confirm_analysis로 자동 전환
+      const bridgeDong = state.lastDong || convStateRef.current.lastDong || convStateRef.current._pendingDong || '';
+
+      const autoSelectCandidate = async (cx) => {
+        // 선택된 단지로 confirm_analysis 상태 세팅
+        const areaSqm    = state.lastAreaHint || convStateRef.current._pendingArea || null;
+        const inputPyeong = convStateRef.current._pendingInputPyeong ||
+          (areaSqm ? Math.round(areaSqm / 3.3) : null);
+        const purpose    = convStateRef.current._resolvedPurpose || convStateRef.current._pendingPurpose || 'fair';
+        const noPrice    = convStateRef.current._resolvedNoPrice || convStateRef.current._forcedNoPrice || false;
+        const purposeKr  = purpose === 'buy' ? '매수 분석' : '적정가';
+        const cxGu       = cx.sigungu ? cx.sigungu.split(' ').slice(-1)[0] : '';
+        const cxDong     = cx.legal_dong || cx.dong || '';
+        const cxLoc      = [cxGu, cxDong].filter(Boolean).join(' ');
+        const summaryMsg = `${cxLoc ? cxLoc + ' ' : ''}${cx.complex_name}${inputPyeong ? ' ' + inputPyeong + '평' : ''} ${purposeKr}을 분석해드리겠습니다.`;
+
+        if (import.meta.env.DEV) {
+          console.log('[AutoSelect] 단지 자동선택:', cx.complex_name, '| dong 필터:', bridgeDong);
+          console.log('[AutoSelect] confirm_analysis 세팅:', { areaSqm, inputPyeong, purpose, noPrice });
+        }
+
+        convStateRef.current = {
+          ...convStateRef.current,
+          _expectedAnswerType: 'confirm_analysis',
+          _confirmComplex:     cx,
+          _confirmArea:        areaSqm,
+          _confirmPurpose:     purpose,
+          _confirmPrice:       noPrice ? null : undefined,
+          _confirmInputPyeong: inputPyeong,
+          lastDong:            cxDong || bridgeDong,
+          currentComplex:      cx,
+        };
+
+        replaceLastAI({
+          role: 'ai', type: 'confirm_analysis',
+          content: summaryMsg,
+          onConfirm: async () => {
+            const st = convStateRef.current;
+            convStateRef.current = {
+              ...st,
+              _expectedAnswerType: null,
+              _confirmComplex: null, _confirmArea: null,
+              _confirmPurpose: null, _confirmPrice: null, _confirmInputPyeong: null,
+            };
+            addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+            await runAnalysis(st._confirmComplex, {
+              intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
+              areaSqm: st._confirmArea,
+              currentPrice: st._confirmPrice,
+              skipAreaCheck: true,
+              _pendingInputPyeong: st._confirmInputPyeong,
+            });
+          },
+        });
+      };
+
+      if (bridgeDong && candidates.length > 0) {
+        // dong 필터 적용
+        const dongNorm = bridgeDong.replace(/[동구시군]$/, '');
+        const filtered = candidates.filter(c => {
+          const fields = [
+            c.dong, c.legal_dong, c.address, c.roadAddress,
+            c.sigungu, c.region, c.fullAddress,
+          ].filter(Boolean).join(' ');
+          return fields.includes(dongNorm) || fields.includes(bridgeDong);
+        });
+
+        if (import.meta.env.DEV) {
+          console.log('[AutoSelect] dong 필터:', bridgeDong, '→ 필터 전:', candidates.length, '필터 후:', filtered.length);
+        }
+
+        if (filtered.length === 1) {
+          // 1개: 자동선택 → confirm_analysis
+          await autoSelectCandidate(filtered[0]);
+          return;
+        }
+        // 0개 or 2개+: 기존 후보목록 표시 (아래로 fall through)
+      } else if (candidates.length === 1) {
+        // dong 없어도 후보 1개면 자동선택
+        await autoSelectCandidate(candidates[0]);
+        return;
+      }
+
+      // ── 기존 후보목록 표시 (dong 필터 해당 없거나 여러 개 남은 경우) ──
       if (candidates.length > 1) {
-        // 여러 지역에 걸쳐 있을 때만 dong 질문
         const sigunguSet = [...new Set(candidates.map(c => c.sigungu).filter(Boolean))];
         if (sigunguSet.length > 1) {
-          // _pendingCandidateQuery: 원본 검색어 보존 (핵심)
-          // _expectedAnswerType: 'region_or_dong': 다음 입력은 지역/동 필터로만 처리
           convStateRef.current = {
             ...convStateRef.current,
             _expectedAnswerType: 'region_or_dong',
             _pendingCandidateQuery: originalQuery,
           };
           replaceLastAI({
-            role: "ai",
-            type: "text",
+            role: "ai", type: "text",
             content: `어느 지역의 ${originalQuery}를 찾으시나요?\n동 이름을 알려주세요. 예: 우동, 공릉동, 잠실동`,
           });
           return;
@@ -1018,7 +1091,6 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         content: response.text.split("\n")[0].replace(/\*\*/g, ""),
         data: candidates,
         onSelect: async (c) => {
-          // 후보 클릭 시 ConversationEngine에 직접 index 전달 (NLU 파싱 우회)
           const idx = candidates.indexOf(c);
           addMsg({ role: "user", type: "text", content: c.complex_name || String(idx + 1) });
           addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
