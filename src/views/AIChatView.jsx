@@ -23,6 +23,7 @@ import { parseAreaInput, pyeongLabel, filterDealsByArea, sqmToPyeong } from '../
 import { resolveMessyInput } from '../engine/MessyInputResolver.js';
 import { bridgeToState, logBridge } from '../engine/MessyInputBridge.js';
 import { adaptFairValue } from '../parser/FairValueAdapter.js';
+import { selectNearestArea, getAreaOptions } from '../search/areaMatching.js';
 
 // ── confirm_analysis 메시지 생성 헬퍼 ──
 // 표시 데이터를 payload에 고정 → 렌더러는 payload만 읽음
@@ -1263,14 +1264,16 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       const noPriceForAutoSelect  = convStateRef.current._resolvedNoPrice || convStateRef.current._forcedNoPrice || false;
       const areaGroupsForSelect   = response.areaGroups || [];
 
+      const hintInputPyeong = convStateRef.current._pendingInputPyeong || null;
       if (areaHintForAutoSelect && areaGroupsForSelect.length > 0) {
-        // 가장 가까운 평형 찾기
-        const nearest = areaGroupsForSelect.reduce((best, g) =>
-          Math.abs(g.areaSqm - areaHintForAutoSelect) < Math.abs(best.areaSqm - areaHintForAutoSelect) ? g : best
-        );
+        // selectNearestArea: 단지 실제 평형 기준으로 가장 가까운 것 선택
+        const inputPy  = hintInputPyeong || Math.round(areaHintForAutoSelect / 3.3);
+        const matched  = selectNearestArea(inputPy, areaGroupsForSelect);
+        if (!matched) return;
+        const nearest  = { areaSqm: matched.areaSqm, pyeong: matched.matchedPyeong };
         const complex  = state.currentComplex || convStateRef.current.currentComplex;
-        const areaSqm  = nearest.areaSqm;
-        const pyeong   = nearest.pyeong;
+        const areaSqm  = matched.areaSqm;
+        const pyeong   = matched.matchedPyeong;
         const purpose  = convStateRef.current._resolvedPurpose || convStateRef.current._pendingPurpose || 'fair';
 
         if (import.meta.env.DEV) {
@@ -1287,7 +1290,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           // noPrice: 바로 분석 (가격 질문 스킵)
           const cxName  = complex?.complex_name || '';
           const purposeKr = purpose === 'buy' ? '매수 분석' : '적정가';
-          replaceLastAI(createConfirmMsg(complex, areaSqm, purpose, pyeong, null, async () => {
+          replaceLastAI(createConfirmMsg(complex, areaSqm, purpose, inputPy, matched.matchedPyeong, async () => {
               convStateRef.current = { ...convStateRef.current,
                 _resolvedNoPrice: false, _forcedNoPrice: false, lastAreaHint: null,
                 _confirmNearestNote: null };
@@ -1307,8 +1310,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             _confirmComplex: complex, _confirmArea: areaSqm,
             _confirmPurpose: purpose, _confirmPrice: null,
             _confirmInputPyeong: nearest.pyeong };
-          replaceLastAI(createConfirmMsg(complex, nearest.areaSqm, purpose,
-            Math.round(areaHintForAutoSelect / 3.3), nearest.pyeong, async () => {
+          replaceLastAI(createConfirmMsg(complex, matched.areaSqm, purpose,
+            inputPy, matched.matchedPyeong, async () => {
               const st = convStateRef.current;
               convStateRef.current = { ...st, _expectedAnswerType: null,
                 _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
@@ -1333,7 +1336,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         onSelect: async (areaSqm) => {
           // 버튼 클릭 → 텍스트 파싱 없이 직접 면적 확정
           const complex = convStateRef.current.currentComplex;
-          const pyeong = Math.floor((areaSqm * 1.35) / 3.305785);
+          const pyeong = typicalPyeong(areaSqm);
           addMsg({ role: "user", type: "text", content: `${pyeong}평 (${areaSqm}㎡)` });
           // ConversationEngine state 직접 업데이트
           const { updateArea } = await import('../engine/conversationState.js');
@@ -1525,7 +1528,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             areaGroups,
             complex: cx,
             onSelect: async (areaSqm) => {
-              const pyeong = Math.floor((areaSqm * 1.35) / 3.305785);
+              const pyeong = typicalPyeong(areaSqm);
               addMsg({ role: 'user', type: 'text', content: `${pyeong}평` });
               addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
               convStateRef.current = { ...convStateRef.current, currentArea: areaSqm };
@@ -1634,12 +1637,11 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     // ── 사용자가 평형을 이미 입력한 경우: nearest 매핑 후 바로 confirm 카드 ──
     const hintSqm    = convStateRef.current.lastAreaHint || convStateRef.current._pendingArea || null;
     const hintPyeong = convStateRef.current._pendingInputPyeong || convStateRef.current._confirmInputPyeong || null;
-    if (hintSqm && areaGroups.length > 0) {
-      const nearest = areaGroups.reduce((best, g) =>
-        Math.abs(g.areaSqm - hintSqm) < Math.abs(best.areaSqm - hintSqm) ? g : best
-      );
-      const isSame   = nearest.pyeong === hintPyeong;
-      const noteStr  = isSame ? '' : ` (${hintPyeong}평 입력 → 가장 가까운 평형)`;
+    if (hintPyeong && areaGroups.length > 0) {
+      const matched = selectNearestArea(hintPyeong, areaGroups);
+      if (!matched) return; // areaGroups 없으면 하단 칩 표시로 fall-through
+      const nearest  = { areaSqm: matched.areaSqm, pyeong: matched.matchedPyeong };
+      const noteStr  = matched.helperText;
       const summary  = locStr
         ? `${locStr} ${cxName} ${nearest.pyeong}평 ${purposeKr}을 분석해드리겠습니다.`
         : `${cxName} ${nearest.pyeong}평 ${purposeKr}을 분석해드리겠습니다.`;
@@ -1654,7 +1656,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         _confirmNearestNote: noteStr,   // 카드에 표시용
         lastAreaHint:        null,
       };
-      replaceLastAI(createConfirmMsg(cx, nearest.areaSqm, intentStr, hintPyeong, nearest.pyeong, async () => {
+      replaceLastAI(createConfirmMsg(cx, matched.areaSqm, intentStr, hintPyeong, matched.matchedPyeong, async () => {
           const st = convStateRef.current;
           convStateRef.current = { ...st, _expectedAnswerType: null,
             _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
