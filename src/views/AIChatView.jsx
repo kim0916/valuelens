@@ -24,6 +24,47 @@ import { resolveMessyInput } from '../engine/MessyInputResolver.js';
 import { bridgeToState, logBridge } from '../engine/MessyInputBridge.js';
 import { adaptFairValue } from '../parser/FairValueAdapter.js';
 
+// ── confirm_analysis 메시지 생성 헬퍼 ──
+// 표시 데이터를 payload에 고정 → 렌더러는 payload만 읽음
+function createConfirmMsg(cx, areaSqm, purpose, inputPyeong, matchedPyeong, onConfirm) {
+  const cxName   = cx?.complex_name || '';
+  const dong     = cx?.legal_dong   || cx?.dong || '';
+  const sigungu  = cx?.sigungu      || '';
+  const gu       = sigungu ? sigungu.split(' ').slice(-1)[0] : '';
+  const loc      = [gu, dong].filter(Boolean).join(' ');
+
+  // 표시 평형: matchedPyeong 우선, 없으면 inputPyeong, 없으면 sqm→평 변환
+  const displayPyeong = matchedPyeong || inputPyeong || (areaSqm ? typicalPyeong(areaSqm) : null);
+  // 보조 문구: 입력 평형과 매칭 평형이 다를 때만
+  const nearNote = (inputPyeong && matchedPyeong && inputPyeong !== matchedPyeong)
+    ? `입력하신 ${inputPyeong}평과 가장 가까운 평형입니다.`
+    : '';
+
+  const purposeKr = purpose === 'buy' ? '매수 분석' : '적정가';
+  const content   = loc
+    ? `${loc} ${cxName} ${displayPyeong}평 ${purposeKr}을 분석해드리겠습니다.`
+    : `${cxName} ${displayPyeong}평 ${purposeKr}을 분석해드리겠습니다.`;
+
+  return {
+    role: 'ai',
+    type: 'confirm_analysis',
+    content,
+    payload: {
+      complexName:   cxName,
+      dong,
+      loc,
+      inputPyeong:   inputPyeong   || displayPyeong,
+      matchedPyeong: matchedPyeong || displayPyeong,
+      displayPyeong,
+      nearNote,
+      areaSqm,
+      purpose,
+      purposeKr,
+    },
+    onConfirm,
+  };
+}
+
 // ── 매물가 입력 파싱 (다양한 형식/오타 처리) ──
 function parsePriceInput(text) {
   if (!text) return null;
@@ -540,22 +581,18 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           _confirmPrice:       null,
           _confirmInputPyeong: inputPyeong,
         };
-        replaceLastAI({
-          role: 'ai', type: 'confirm_analysis',
-          content: summary,
-          onConfirm: async () => {
+        replaceLastAI(createConfirmMsg(cx, areaSqm, intentStr, inputPyeong, null, async () => {
             const st = convStateRef.current;
             convStateRef.current = { ...st, _expectedAnswerType: null,
               _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
-              _confirmPrice: null, _confirmInputPyeong: null };
+              _confirmPrice: null, _confirmInputPyeong: null, _confirmNearestNote: null };
             addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
             await runAnalysis(st._confirmComplex, {
               intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
               areaSqm: st._confirmArea, currentPrice: null,
               skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
             });
-          },
-        });
+          }));
         return;
       }
 
@@ -723,25 +760,18 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           _confirmPrice:    noPrice ? null : currentPrice,
           _confirmInputPyeong: ecPyeong,
         };
-        addMsg({
-          role: "ai", type: "confirm_analysis",
-          content: summaryMsg,
-          onConfirm: async () => {
-            // [분석 시작] 버튼 클릭 핸들러
+        addMsg(createConfirmMsg(cx, areaSqm, purpose, ecPyeong, null, async () => {
             const st = convStateRef.current;
             convStateRef.current = { ...st, _expectedAnswerType: null,
               _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
-              _confirmPrice: null, _confirmInputPyeong: null };
+              _confirmPrice: null, _confirmInputPyeong: null, _confirmNearestNote: null };
             addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
             await runAnalysis(st._confirmComplex, {
               intent: st._confirmPurpose === "buy" ? "buy" : "fair",
-              areaSqm: st._confirmArea,
-              currentPrice: st._confirmPrice,
-              skipAreaCheck: true,
-              _pendingInputPyeong: st._confirmInputPyeong,
+              areaSqm: st._confirmArea, currentPrice: st._confirmPrice,
+              skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
             });
-          },
-        });
+          }));
         return;
       }
     }
@@ -836,20 +866,18 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             _confirmPurpose: merged.purpose || 'fair',
             _confirmPrice: null, _confirmInputPyeong: mirPyeong,
           };
-          addMsg({ role: 'ai', type: 'confirm_analysis', content: mirSummary,
-            onConfirm: async () => {
+          addMsg(createConfirmMsg(mirCx, merged.areaSqm, merged.purpose || 'fair', mirPyeong, null, async () => {
               const st = convStateRef.current;
               convStateRef.current = { ...st, _expectedAnswerType: null,
                 _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
-                _confirmPrice: null, _confirmInputPyeong: null };
+                _confirmPrice: null, _confirmInputPyeong: null, _confirmNearestNote: null };
               addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
               await runAnalysis(st._confirmComplex, {
                 intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
                 areaSqm: st._confirmArea, currentPrice: null,
                 skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
               });
-            },
-          });
+            }));
           // _pendingPrice 세팅 제거됨
           addMsg({ role: 'ai', type: 'text', content: nextAction.message });
         }
@@ -1044,27 +1072,18 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         };
 
         // replaceLastAI 대신 addMsg: thinking 자리가 없을 수 있으므로 새 메시지로 추가
-        addMsg({
-          role: 'ai', type: 'confirm_analysis',
-          content: summaryMsg,
-          onConfirm: async () => {
+        addMsg(createConfirmMsg(cx, areaSqm, purpose, inputPyeong, null, async () => {
             const st = convStateRef.current;
-            convStateRef.current = {
-              ...st,
-              _expectedAnswerType: null,
-              _confirmComplex: null, _confirmArea: null,
-              _confirmPurpose: null, _confirmPrice: null, _confirmInputPyeong: null,
-            };
+            convStateRef.current = { ...st, _expectedAnswerType: null,
+              _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
+              _confirmPrice: null, _confirmInputPyeong: null, _confirmNearestNote: null };
             addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
             await runAnalysis(st._confirmComplex, {
               intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
-              areaSqm: st._confirmArea,
-              currentPrice: st._confirmPrice,
-              skipAreaCheck: true,
-              _pendingInputPyeong: st._confirmInputPyeong,
+              areaSqm: st._confirmArea, currentPrice: st._confirmPrice,
+              skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
             });
-          },
-        });
+          }));
       };
 
       if (bridgeDong && candidates.length > 0) {
@@ -1194,20 +1213,17 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             _confirmComplex: cx, _confirmArea: aSqm,
             _confirmPurpose: 'fair', _confirmPrice: null,
             _confirmInputPyeong: sellPyeong };
-          replaceLastAI({ role: 'ai', type: 'confirm_analysis',
-            content: `${cx.complex_name} ${sellPyeong}평 적정가를 분석해드리겠습니다.`,
-            onConfirm: async () => {
+          replaceLastAI(createConfirmMsg(cx, aSqm, 'fair', sellPyeong, null, async () => {
               const st = convStateRef.current;
               convStateRef.current = { ...st, _expectedAnswerType: null,
                 _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
-                _confirmPrice: null, _confirmInputPyeong: null };
+                _confirmPrice: null, _confirmInputPyeong: null, _confirmNearestNote: null };
               addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
               await runAnalysis(st._confirmComplex, {
                 intent: 'fair', areaSqm: st._confirmArea, currentPrice: null,
                 skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
               });
-            },
-          });
+            }));
         },
       });
       return;
@@ -1271,22 +1287,17 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           // noPrice: 바로 분석 (가격 질문 스킵)
           const cxName  = complex?.complex_name || '';
           const purposeKr = purpose === 'buy' ? '매수 분석' : '적정가';
-          replaceLastAI({
-            role: 'ai', type: 'confirm_analysis',
-            content: `${cxName} ${pyeong}평 ${purposeKr}을 분석해드리겠습니다.`,
-            onConfirm: async () => {
+          replaceLastAI(createConfirmMsg(complex, areaSqm, purpose, pyeong, null, async () => {
               convStateRef.current = { ...convStateRef.current,
-                _resolvedNoPrice: false, _forcedNoPrice: false, lastAreaHint: null };
+                _resolvedNoPrice: false, _forcedNoPrice: false, lastAreaHint: null,
+                _confirmNearestNote: null };
               addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
               await runAnalysis(complex, {
                 intent: purpose === 'buy' ? 'buy' : 'fair',
-                areaSqm,
-                currentPrice: null,   // noPrice → 실거래 중앙값 사용
-                skipAreaCheck: true,
-                _pendingInputPyeong: pyeong,
+                areaSqm, currentPrice: null,
+                skipAreaCheck: true, _pendingInputPyeong: pyeong,
               });
-            },
-          });
+            }));
         } else {
           // 가격 질문 없이 confirm_analysis 카드로
           const cxName2 = complex?.complex_name || '';
@@ -1296,21 +1307,19 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             _confirmComplex: complex, _confirmArea: areaSqm,
             _confirmPurpose: purpose, _confirmPrice: null,
             _confirmInputPyeong: nearest.pyeong };
-          replaceLastAI({ role: 'ai', type: 'confirm_analysis',
-            content: `${cxName2} ${nearest.pyeong}평 ${purposeKr2}을 분석해드리겠습니다.`,
-            onConfirm: async () => {
+          replaceLastAI(createConfirmMsg(complex, nearest.areaSqm, purpose,
+            Math.round(areaHintForAutoSelect / 3.3), nearest.pyeong, async () => {
               const st = convStateRef.current;
               convStateRef.current = { ...st, _expectedAnswerType: null,
                 _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
-                _confirmPrice: null, _confirmInputPyeong: null };
+                _confirmPrice: null, _confirmInputPyeong: null, _confirmNearestNote: null };
               addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
               await runAnalysis(st._confirmComplex, {
                 intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
                 areaSqm: st._confirmArea, currentPrice: null,
                 skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
               });
-            },
-          });
+            }));
         }
         return;
       }
@@ -1335,20 +1344,17 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             _confirmComplex: complex, _confirmArea: areaSqm,
             _confirmPurpose: 'fair', _confirmPrice: null,
             _confirmInputPyeong: pyeong };
-          addMsg({ role: 'ai', type: 'confirm_analysis',
-            content: `${complex?.complex_name || ''} ${pyeong}평 적정가를 분석해드리겠습니다.`,
-            onConfirm: async () => {
+          addMsg(createConfirmMsg(complex, areaSqm, 'fair', pyeong, null, async () => {
               const st = convStateRef.current;
               convStateRef.current = { ...st, _expectedAnswerType: null,
                 _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
-                _confirmPrice: null, _confirmInputPyeong: null };
+                _confirmPrice: null, _confirmInputPyeong: null, _confirmNearestNote: null };
               addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
               await runAnalysis(st._confirmComplex, {
                 intent: 'fair', areaSqm: st._confirmArea, currentPrice: null,
                 skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
               });
-            },
-          });
+            }));
         },
       });
       return;
@@ -1545,21 +1551,18 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                     _confirmComplex: cx, _confirmArea: areaSqm,
                     _confirmPurpose: purpose, _confirmPrice: null,
                     _confirmInputPyeong: pyeong };
-                  replaceLastAI({ role: 'ai', type: 'confirm_analysis',
-                    content: `${cxName} ${pyeong}평 ${purposeKr3}을 분석해드리겠습니다.`,
-                    onConfirm: async () => {
+                  replaceLastAI(createConfirmMsg(cx, areaSqm, purpose, pyeong, null, async () => {
                       const st = convStateRef.current;
                       convStateRef.current = { ...st, _expectedAnswerType: null,
                         _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
-                        _confirmPrice: null, _confirmInputPyeong: null };
+                        _confirmPrice: null, _confirmInputPyeong: null, _confirmNearestNote: null };
                       addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
                       await runAnalysis(st._confirmComplex, {
                         intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
                         areaSqm: st._confirmArea, currentPrice: null,
                         skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
                       });
-                    },
-                  });
+                    }));
                 },
               });
             },
@@ -1651,10 +1654,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         _confirmNearestNote: noteStr,   // 카드에 표시용
         lastAreaHint:        null,
       };
-      replaceLastAI({
-        role: 'ai', type: 'confirm_analysis',
-        content: summary,
-        onConfirm: async () => {
+      replaceLastAI(createConfirmMsg(cx, nearest.areaSqm, intentStr, hintPyeong, nearest.pyeong, async () => {
           const st = convStateRef.current;
           convStateRef.current = { ...st, _expectedAnswerType: null,
             _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
@@ -1665,8 +1665,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             areaSqm: st._confirmArea, currentPrice: null,
             skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
           });
-        },
-      });
+        }));
       return;
     }
 
@@ -1698,25 +1697,18 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         _confirmPrice:       null,
         _confirmInputPyeong: pyeong,
       };
-      replaceLastAI({
-        role: 'ai', type: 'confirm_analysis',
-        content: summary,
-        data: { cx, areaSqm, purpose: intentStr, pyeong, nearNote: '' },
-        onConfirm: async () => {
+      replaceLastAI(createConfirmMsg(cx, areaSqm, intentStr, pyeong, null, async () => {
           const st = convStateRef.current;
           convStateRef.current = { ...st, _expectedAnswerType: null,
             _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
-            _confirmPrice: null, _confirmInputPyeong: null };
+            _confirmPrice: null, _confirmInputPyeong: null, _confirmNearestNote: null };
           addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
           await runAnalysis(st._confirmComplex, {
             intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
-            areaSqm: st._confirmArea,
-            currentPrice: null,
-            skipAreaCheck: true,
-            _pendingInputPyeong: st._confirmInputPyeong,
+            areaSqm: st._confirmArea, currentPrice: null,
+            skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
           });
-        },
-      });
+        }));
       return;
     }
 
@@ -1754,24 +1746,18 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           _confirmPrice:       null,
           _confirmInputPyeong: chipPyeong,
         };
-        addMsg({
-          role: 'ai', type: 'confirm_analysis',
-          content: summary,
-          onConfirm: async () => {
+        addMsg(createConfirmMsg(cx, areaSqm, intentStr, chipPyeong, null, async () => {
             const st = convStateRef.current;
             convStateRef.current = { ...st, _expectedAnswerType: null,
               _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
-              _confirmPrice: null, _confirmInputPyeong: null };
+              _confirmPrice: null, _confirmInputPyeong: null, _confirmNearestNote: null };
             addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
             await runAnalysis(st._confirmComplex, {
               intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
-              areaSqm: st._confirmArea,
-              currentPrice: null,
-              skipAreaCheck: true,
-              _pendingInputPyeong: st._confirmInputPyeong,
+              areaSqm: st._confirmArea, currentPrice: null,
+              skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
             });
-          },
-        });
+          }));
       },
     });
   }
@@ -2237,20 +2223,13 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     }
 
     if (msg.type === "confirm_analysis") {
-      // 요약 카드: msg.data에서 읽기 (생성 시점에 스냅샷)
-      // fallback: convStateRef (하위 호환)
-      const d = msg.data || {};
-      const st        = convStateRef.current;
-      const cx        = d.cx        || st._confirmComplex;
-      const areaSqm   = d.areaSqm   ?? st._confirmArea;
-      const purpose   = d.purpose   || st._confirmPurpose || 'fair';
-      const pyeong    = d.pyeong    ?? st._confirmInputPyeong ?? (areaSqm ? typicalPyeong(areaSqm) : null);
-      const nearNote  = d.nearNote  || st._confirmNearestNote || '';
-      const cxName    = cx?.complex_name || '';
-      const cxDong    = cx?.legal_dong   || cx?.dong || '';
-      const cxGu      = cx?.sigungu ? cx.sigungu.split(' ').slice(-1)[0] : '';
-      const locLabel  = [cxGu, cxDong].filter(Boolean).join(' ') || '지역 미확인';
-      const purposeKr = purpose === 'buy' ? '매수 분석' : '적정가';
+      // 렌더러: msg.payload만 읽음. convStateRef 절대 참조 금지.
+      const p         = msg.payload || {};
+      const cxName    = p.complexName  || '';
+      const locLabel  = p.loc          || p.dong || '지역 미확인';
+      const pyeong    = p.displayPyeong;
+      const nearNote  = p.nearNote     || '';
+      const purposeKr = p.purposeKr    || '적정가';
 
       return (
         <div key={msg.id} style={{ display:"flex", gap:10, padding:"4px 0" }}>
