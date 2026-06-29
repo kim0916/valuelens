@@ -66,7 +66,7 @@ export async function runAnalysisService(complex, areaSqm, currentPrice = null, 
       kbSalePrice:   0,
       kbJeonse:      0,
       tradeStatus:   { code: "OK" },
-      areaOptions:   groupAreasByPyeong(areaListRaw).map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: typicalPyeong(g.rep) })),
+      areaOptions:   groupAreasByPyeong(areaListRaw).map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: sqmToPyeong(g.rep).pyeong })),
     };
 
     const baseForm = { region: sigungu, dong, complexName: name };

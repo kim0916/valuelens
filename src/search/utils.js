@@ -21,7 +21,7 @@ function groupAreasByPyeong(areaList) {
       last.rep = last.areas.reduce((p,c,_,arr) => arr.filter(x=>x===c).length >= arr.filter(x=>x===p).length ? c : p, last.areas[0]);
     } else {
       // 새 그룹: anchor = 첫 면적(고정), rep = 첫 면적(최빈값 업데이트용)
-      groups.push({ rep: a, anchor: a, areas: [a], pyeong: typicalPyeong(a) });
+      groups.push({ rep: a, anchor: a, areas: [a], pyeong: sqmToPyeong(a).pyeong });
     }
   }
   return groups;

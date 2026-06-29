@@ -26,8 +26,8 @@ function buildAnalysisInput(rawData, baseForm, askedArea) {
   const jd = norm(p.jeonse), sd = norm(p.sale);
   const areaSqm = Number(p.areaSqm) || 0;
   const priceArea = Number(p.priceArea) || 0;
-  const pyeong = areaSqm > 0 ? typicalPyeong(areaSqm) : 0;
-  const areaOptions = Array.isArray(p.areaOptions) ? p.areaOptions.filter((o) => Number(o.areaSqm) > 0).map((o) => ({ areaSqm: Number(o.areaSqm), pyeong: typicalPyeong(Number(o.areaSqm)) })) : [];
+  const pyeong = areaSqm > 0 ? sqmToPyeong(areaSqm).pyeong : 0;
+  const areaOptions = Array.isArray(p.areaOptions) ? p.areaOptions.filter((o) => Number(o.areaSqm) > 0).map((o) => ({ areaSqm: Number(o.areaSqm), pyeong: sqmToPyeong(Number(o.areaSqm).pyeong) })) : [];
 
   // 정합성 검증
   const warns = [];

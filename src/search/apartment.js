@@ -168,7 +168,7 @@ async function fetchApartmentData(query) {
     dong: qDong,
     complexName: qComplexName,
     areaSqm,
-    pyeong: areaSqm > 0 ? typicalPyeong(areaSqm) : 0,
+    pyeong: areaSqm > 0 ? sqmToPyeong(areaSqm).pyeong : 0,
     priceArea: areaSqm,
     buildYear,
     buildYearWarning,

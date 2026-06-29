@@ -35,7 +35,7 @@ function createConfirmMsg(cx, areaSqm, purpose, inputPyeong, matchedPyeong, onCo
   const loc      = [gu, dong].filter(Boolean).join(' ');
 
   // 표시 평형: matchedPyeong 우선, 없으면 inputPyeong, 없으면 sqm→평 변환
-  const displayPyeong = matchedPyeong || inputPyeong || (areaSqm ? typicalPyeong(areaSqm) : null);
+  const displayPyeong = matchedPyeong || inputPyeong || (areaSqm ? sqmToPyeong(areaSqm).pyeong : null);
   // 보조 문구: 입력 평형과 매칭 평형이 다를 때만
   const nearNote = (inputPyeong && matchedPyeong && inputPyeong !== matchedPyeong)
     ? ` (입력하신 ${inputPyeong}평과 가장 가까운 평형입니다.)`
@@ -858,7 +858,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           // 적정가: 가격 질문 없이 confirm_analysis 카드로
           const mirCx = { complex_name: merged.complexQuery, legal_dong: merged.dong,
             sigungu: merged.sigungu, area_list: [] };
-          const mirPyeong = merged.inputPyeong || (merged.areaSqm ? typicalPyeong(merged.areaSqm) : null);
+          const mirPyeong = merged.inputPyeong || (merged.areaSqm ? sqmToPyeong(merged.areaSqm).pyeong : null);
           const mirPurposeKr = (merged.purpose || 'fair') === 'buy' ? '매수 분석' : '적정가';
           const mirSummary = `${merged.complexQuery} ${mirPyeong ? mirPyeong + '평 ' : ''}${mirPurposeKr}을 분석해드리겠습니다.`;
           convStateRef.current = { ...convStateRef.current,
@@ -1207,7 +1207,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             replaceLastAI({ role: "ai", type: "text", content: "단지와 평형을 먼저 선택해 주세요." });
             return;
           }
-          const sellPyeong = typicalPyeong(aSqm);
+          const sellPyeong = sqmToPyeong(aSqm).pyeong;
           convStateRef.current = { ...convStateRef.current,
             purpose: "fair",
             _expectedAnswerType: 'confirm_analysis',
@@ -1338,7 +1338,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         onSelect: async (areaSqm) => {
           // 버튼 클릭 → 텍스트 파싱 없이 직접 면적 확정
           const complex = convStateRef.current.currentComplex;
-          const pyeong = typicalPyeong(areaSqm);
+          const pyeong = sqmToPyeong(areaSqm).pyeong;
           addMsg({ role: "user", type: "text", content: `${pyeong}평 (${areaSqm}㎡)` });
           // ConversationEngine state 직접 업데이트
           const { updateArea } = await import('../engine/conversationState.js');
@@ -1475,7 +1475,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         const { groupAreasByPyeong } = await import("../search/utils.js");
         const { typicalPyeong } = await import("../constants/grades.js");
         const areaGroups = groupAreasByPyeong(areaListRaw)
-          .map(g => ({ areaSqm: g.rep, pyeong: typicalPyeong(g.rep) }));
+          .map(g => ({ areaSqm: g.rep, pyeong: sqmToPyeong(g.rep).pyeong }));
         // 이미 평형이 특정됐으면 목적 질문, 아니면 평형 먼저
         const hasArea = intent.areaSqm || intent.pyeong;
         if (hasArea) {
@@ -1530,7 +1530,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             areaGroups,
             complex: cx,
             onSelect: async (areaSqm) => {
-              const pyeong = typicalPyeong(areaSqm);
+              const pyeong = sqmToPyeong(areaSqm).pyeong;
               addMsg({ role: 'user', type: 'text', content: `${pyeong}평` });
               addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
               convStateRef.current = { ...convStateRef.current, currentArea: areaSqm };
@@ -1896,7 +1896,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         kbJeonse:      0,
         tradeStatus:   { code: "OK" },
         areaOptions:  groupAreasByPyeong(areaListRaw)
-          .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: typicalPyeong(g.rep) })),
+          .map(g => ({ areaSqm: g.rep, exclusiveAreas: g.areas, pyeong: sqmToPyeong(g.rep).pyeong })),
       };
 
       const baseForm = { region: sigungu, dong, complexName: name };
@@ -2411,7 +2411,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
               <button
                 onClick={() => {
                   const cxName = complex?.complex_name || '';
-                  const pyeong = areaSqm ? typicalPyeong(areaSqm) : '';
+                  const pyeong = areaSqm ? sqmToPyeong(areaSqm).pyeong : '';
                   const prompt = `${cxName} ${pyeong}평 매물가를 입력해서 비교해볼게요.\n현재 보고 계신 매물 가격이 얼마인가요?`;
                   addMsg({ role: 'ai', type: 'text', content: prompt });
                   convStateRef.current = {
