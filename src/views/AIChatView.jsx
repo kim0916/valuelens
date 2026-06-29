@@ -526,22 +526,35 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         addMsg({ role: "user", type: "text", content: areaText });
 
         // 상태 세팅 → price 대기
+        // 가격 질문 없이 confirm_analysis 카드로 직행
+        const summary = locStr
+          ? `${locStr} ${cxName} ${inputPyeong}평 ${purposeKr}을 분석해드리겠습니다.`
+          : `${cxName} ${inputPyeong}평 ${purposeKr}을 분석해드리겠습니다.`;
         convStateRef.current = {
           ...ps,
-          _expectedAnswerType: null,
-          _pendingPrice:       true,
-          _pendingComplex:     cx,
-          _pendingArea:        areaSqm,
-          _pendingPurpose:     intentStr,
-          _pendingInputPyeong: inputPyeong,
+          _expectedAnswerType: 'confirm_analysis',
+          _confirmComplex:     cx,
+          _confirmArea:        areaSqm,
+          _confirmPurpose:     intentStr,
+          _confirmPrice:       null,
+          _confirmInputPyeong: inputPyeong,
         };
-
-        // 요약 + 가격 질문 (한 메시지)
-        const summary = locStr
-          ? `${locStr} ${cxName} ${inputPyeong}평 ${purposeKr}을 분석해드릴게요.`
-          : `${cxName} ${inputPyeong}평 ${purposeKr}을 분석해드릴게요.`;
-        addMsg({ role: "ai", type: "text",
-          content: summary + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.' });
+        replaceLastAI({
+          role: 'ai', type: 'confirm_analysis',
+          content: summary,
+          onConfirm: async () => {
+            const st = convStateRef.current;
+            convStateRef.current = { ...st, _expectedAnswerType: null,
+              _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
+              _confirmPrice: null, _confirmInputPyeong: null };
+            addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+            await runAnalysis(st._confirmComplex, {
+              intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
+              areaSqm: st._confirmArea, currentPrice: null,
+              skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
+            });
+          },
+        });
         return;
       }
 
@@ -824,15 +837,33 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'area' };
           addMsg({ role: 'ai', type: 'text', content: nextAction.message });
         } else if (nextAction.field === 'price') {
+          // 적정가: 가격 질문 없이 confirm_analysis 카드로
+          const mirCx = { complex_name: merged.complexQuery, legal_dong: merged.dong,
+            sigungu: merged.sigungu, area_list: [] };
+          const mirPyeong = merged.inputPyeong || (merged.areaSqm ? typicalPyeong(merged.areaSqm) : null);
+          const mirPurposeKr = (merged.purpose || 'fair') === 'buy' ? '매수 분석' : '적정가';
+          const mirSummary = `${merged.complexQuery} ${mirPyeong ? mirPyeong + '평 ' : ''}${mirPurposeKr}을 분석해드리겠습니다.`;
           convStateRef.current = { ...convStateRef.current,
-            _pendingPrice: true,
-            _pendingComplex: { complex_name: merged.complexQuery, legal_dong: merged.dong,
-              sigungu: merged.sigungu, area_list: [] },
-            _pendingArea: merged.areaSqm,
-            _pendingPurpose: merged.purpose || 'fair',
-            _pendingInputPyeong: merged.inputPyeong,
-            _expectedAnswerType: null,
+            _expectedAnswerType: 'confirm_analysis',
+            _confirmComplex: mirCx, _confirmArea: merged.areaSqm,
+            _confirmPurpose: merged.purpose || 'fair',
+            _confirmPrice: null, _confirmInputPyeong: mirPyeong,
           };
+          addMsg({ role: 'ai', type: 'confirm_analysis', content: mirSummary,
+            onConfirm: async () => {
+              const st = convStateRef.current;
+              convStateRef.current = { ...st, _expectedAnswerType: null,
+                _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
+                _confirmPrice: null, _confirmInputPyeong: null };
+              addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+              await runAnalysis(st._confirmComplex, {
+                intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
+                areaSqm: st._confirmArea, currentPrice: null,
+                skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
+              });
+            },
+          });
+          // _pendingPrice 세팅 제거됨
           addMsg({ role: 'ai', type: 'text', content: nextAction.message });
         }
         return;
@@ -945,15 +976,13 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
       // ask_price: 매물가 질문 → 사용자 답변 대기
       // 단, 이미 "몰라요"로 넘어온 경우(currentPrice=null 명시)는 바로 분석
+      // ask_price: 적정가는 가격 질문 없이 바로 분석
       const forcedNoPrice = state._forcedNoPrice || false;
-      if (response.ui === "ask_price" && !forcedNoPrice) {
-        convStateRef.current = { ...convStateRef.current, _pendingPrice: true, _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: purpose };
-        replaceLastAI({ role: "ai", type: "text", content: response.text });
-        return;
-      }
-      // forcedNoPrice면 state 초기화 후 바로 분석으로
-      if (forcedNoPrice) {
-        convStateRef.current = { ...convStateRef.current, _forcedNoPrice: false };
+      if (response.ui === "ask_price") {
+        if (forcedNoPrice) {
+          convStateRef.current = { ...convStateRef.current, _forcedNoPrice: false };
+        }
+        // 가격 질문 스킵 → 실거래 중앙값으로 바로 분석
       }
 
       // analyzing: 바로 분석
@@ -1256,13 +1285,29 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             },
           });
         } else {
-          // 가격 질문
-          const { responseReadyToAnalyze } = await import('../engine/responseGenerator.js');
-          const resp = responseReadyToAnalyze(complex, areaSqm);
+          // 가격 질문 없이 confirm_analysis 카드로
+          const cxName2 = complex?.complex_name || '';
+          const purposeKr2 = purpose === 'buy' ? '매수 분석' : '적정가';
           convStateRef.current = { ...newState,
-            _pendingPrice: true, _pendingComplex: complex,
-            _pendingArea: areaSqm, _pendingPurpose: purpose };
-          replaceLastAI({ role: 'ai', type: 'text', content: resp.text.replace(/\*\*/g, '') });
+            _expectedAnswerType: 'confirm_analysis',
+            _confirmComplex: complex, _confirmArea: areaSqm,
+            _confirmPurpose: purpose, _confirmPrice: null,
+            _confirmInputPyeong: nearest.pyeong };
+          replaceLastAI({ role: 'ai', type: 'confirm_analysis',
+            content: `${cxName2} ${nearest.pyeong}평 ${purposeKr2}을 분석해드리겠습니다.`,
+            onConfirm: async () => {
+              const st = convStateRef.current;
+              convStateRef.current = { ...st, _expectedAnswerType: null,
+                _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
+                _confirmPrice: null, _confirmInputPyeong: null };
+              addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+              await runAnalysis(st._confirmComplex, {
+                intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
+                areaSqm: st._confirmArea, currentPrice: null,
+                skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
+              });
+            },
+          });
         }
         return;
       }
@@ -1280,13 +1325,27 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           addMsg({ role: "user", type: "text", content: `${pyeong}평 (${areaSqm}㎡)` });
           // ConversationEngine state 직접 업데이트
           const { updateArea } = await import('../engine/conversationState.js');
-          const newState = updateArea(convStateRef.current, areaSqm);
-          convStateRef.current = newState;
-          // 매물가 질문으로 바로 이동
-          const { responseReadyToAnalyze } = await import('../engine/responseGenerator.js');
-          const resp = responseReadyToAnalyze(complex, areaSqm);
-          convStateRef.current = { ...newState, _pendingPrice: true, _pendingComplex: complex, _pendingArea: areaSqm, _pendingPurpose: "fair" };
-          addMsg({ role: "ai", type: "text", content: resp.text.replace(/\*\*/g, "") });
+          const newState2 = updateArea(convStateRef.current, areaSqm);
+          // 가격 질문 없이 confirm_analysis 카드로
+          convStateRef.current = { ...newState2,
+            _expectedAnswerType: 'confirm_analysis',
+            _confirmComplex: complex, _confirmArea: areaSqm,
+            _confirmPurpose: 'fair', _confirmPrice: null,
+            _confirmInputPyeong: pyeong };
+          addMsg({ role: 'ai', type: 'confirm_analysis',
+            content: `${complex?.complex_name || ''} ${pyeong}평 적정가를 분석해드리겠습니다.`,
+            onConfirm: async () => {
+              const st = convStateRef.current;
+              convStateRef.current = { ...st, _expectedAnswerType: null,
+                _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
+                _confirmPrice: null, _confirmInputPyeong: null };
+              addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+              await runAnalysis(st._confirmComplex, {
+                intent: 'fair', areaSqm: st._confirmArea, currentPrice: null,
+                skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
+              });
+            },
+          });
         },
       });
       return;
@@ -1476,16 +1535,28 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                   addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
                   const purpose = choice === '매수 의견' ? 'buy' : 'fair';
                   // askAreaThenPrice가 이미 처리하지만, 여기선 area가 이미 선택됐으므로 직접 가격 질문
-                  convStateRef.current = {
-                    ...convStateRef.current,
-                    _pendingPrice: true,
-                    _pendingComplex: cx,
-                    _pendingArea: areaSqm,
-                    _pendingPurpose: purpose,
-                    _expectedAnswerType: null,
-                  };
-                  replaceLastAI({ role: 'ai', type: 'text',
-                    content: `${cxName} ${pyeong}평 현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.` });
+                  // 가격 질문 없이 confirm_analysis 카드로
+                  const purposeKr3 = purpose === 'buy' ? '매수 분석' : '적정가';
+                  convStateRef.current = { ...convStateRef.current,
+                    _expectedAnswerType: 'confirm_analysis',
+                    _confirmComplex: cx, _confirmArea: areaSqm,
+                    _confirmPurpose: purpose, _confirmPrice: null,
+                    _confirmInputPyeong: pyeong };
+                  replaceLastAI({ role: 'ai', type: 'confirm_analysis',
+                    content: `${cxName} ${pyeong}평 ${purposeKr3}을 분석해드리겠습니다.`,
+                    onConfirm: async () => {
+                      const st = convStateRef.current;
+                      convStateRef.current = { ...st, _expectedAnswerType: null,
+                        _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
+                        _confirmPrice: null, _confirmInputPyeong: null };
+                      addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+                      await runAnalysis(st._confirmComplex, {
+                        intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
+                        areaSqm: st._confirmArea, currentPrice: null,
+                        skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
+                      });
+                    },
+                  });
                 },
               });
             },
