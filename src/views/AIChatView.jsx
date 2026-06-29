@@ -1194,17 +1194,27 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             replaceLastAI({ role: "ai", type: "text", content: "단지와 평형을 먼저 선택해 주세요." });
             return;
           }
-          convStateRef.current = {
-            ...convStateRef.current,
-            purpose: "fair",
-            _pendingPrice: true,
-            _pendingComplex: cx,
-            _pendingArea: aSqm,
-            _pendingPurpose: "fair",
-          };
           const sellPyeong = typicalPyeong(aSqm);
-          replaceLastAI({ role: "ai", type: "text",
-            content: `${cx.complex_name} ${sellPyeong}평 현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.` });
+          convStateRef.current = { ...convStateRef.current,
+            purpose: "fair",
+            _expectedAnswerType: 'confirm_analysis',
+            _confirmComplex: cx, _confirmArea: aSqm,
+            _confirmPurpose: 'fair', _confirmPrice: null,
+            _confirmInputPyeong: sellPyeong };
+          replaceLastAI({ role: 'ai', type: 'confirm_analysis',
+            content: `${cx.complex_name} ${sellPyeong}평 적정가를 분석해드리겠습니다.`,
+            onConfirm: async () => {
+              const st = convStateRef.current;
+              convStateRef.current = { ...st, _expectedAnswerType: null,
+                _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
+                _confirmPrice: null, _confirmInputPyeong: null };
+              addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+              await runAnalysis(st._confirmComplex, {
+                intent: 'fair', areaSqm: st._confirmArea, currentPrice: null,
+                skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
+              });
+            },
+          });
         },
       });
       return;
@@ -1693,15 +1703,6 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         // ★ state 먼저 null → EAT area 재진입 완전 차단
         const chipGroup  = areaGroups.find(g => g.areaSqm === areaSqm);
         const chipPyeong = chipGroup?.pyeong ?? Math.round(areaSqm / 3.305785);
-        convStateRef.current = {
-          ...convStateRef.current,
-          _expectedAnswerType: null,   // 반드시 먼저
-          _pendingPrice:       true,
-          _pendingComplex:     cx,
-          _pendingArea:        areaSqm,
-          _pendingPurpose:     intentStr,
-          _pendingInputPyeong: chipPyeong,
-        };
         // addMsg(user) 단 한 번
         addMsg({ role: 'user', type: 'text', content: `${chipPyeong}평` });
         // 요약 카드 → [확인] → 결과
