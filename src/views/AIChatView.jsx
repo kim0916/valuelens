@@ -7,6 +7,7 @@ import { BRAND, BRAND_GREEN, BRAND_MID, BRAND_MUTED, BRAND_LIGHT, BRAND_BG, BRAN
          GRADE_COLOR, GRADE_BG, GRADE_BR } from '../constants/brand.js';
 import { typicalPyeong } from '../constants/grades.js';
 import { analyze } from '../engine/analyze.js';
+import { parseAreaInput, pyeongLabel, filterDealsByArea } from '../constants/areaMapping.js';
 import { groupAreasByPyeong } from '../search/utils.js';
 import { buildAnalysisInput } from '../search/input.js';
 import { searchComplexFromSupabase } from '../search/supabase.js';
