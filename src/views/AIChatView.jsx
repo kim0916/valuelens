@@ -1633,6 +1633,40 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     const areaListRaw = cx.area_list
       ? (typeof cx.area_list === 'string' ? JSON.parse(cx.area_list) : cx.area_list)
       : [];
+
+    // ── stub complex 감지: area_list 없으면 CE로 재검색 ──
+    // MIR/Bridge가 만든 stub {complex_name, dong, sigungu}는 area_list 없음
+    // 이 경우 실제 DB 검색으로 후보 목록 확인 필요
+    if (areaListRaw.length === 0 && cxName) {
+      const dong = cx.legal_dong || cx.dong || convStateRef.current.lastDong || '';
+      const region = cx.sigungu || convStateRef.current.region || '';
+      const res = await searchComplexFromSupabase(cxName, region, dong);
+      const pool = res.fromSupabase ? res.complexes : [];
+
+      if (pool.length === 0) {
+        replaceLastAI({ role: 'ai', type: 'text',
+          content: `${cxName}을(를) 찾지 못했습니다. 단지명을 다시 확인해 주세요.` });
+        return;
+      }
+      if (pool.length === 1) {
+        // 1개: 그 단지로 재귀 호출
+        await askAreaThenPrice(pool[0], intentStr);
+        return;
+      }
+      // 복수: 후보 목록 표시
+      replaceLastAI({
+        role: 'ai', type: 'candidates',
+        content: `${cxName} 후보입니다. 찾으시는 단지를 선택해 주세요.`,
+        data: pool,
+        onSelect: async (selected) => {
+          addMsg({ role: 'user', type: 'text', content: selected.complex_name });
+          addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+          await askAreaThenPrice(selected, intentStr);
+        },
+      });
+      return;
+    }
+
     const areaGroups = groupAreasByPyeong(areaListRaw)
       .map(g => ({ areaSqm: g.rep, pyeong: sqmToPyeong(g.rep).pyeong }));
 
