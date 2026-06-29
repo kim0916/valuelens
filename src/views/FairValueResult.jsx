@@ -925,11 +925,20 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
       return;
     }
 
+    // 매물과 비교하기
+    if (query === '매물과 비교하기') {
+      const pyeongLabel = ctxPyeong ? `${ctxPyeong}평` : '';
+      addAI(`${ctxComplex} ${pyeongLabel} 매물 가격을 입력해 주세요.\n실거래 적정가와 비교해드립니다.\n(예: 8억, 7억 5천)`);
+      setStep('await_price');
+      setPendingArea({ areaSqm: ctxArea, pyeong: ctxPyeong });
+      return;
+    }
+
     // fallback
     addAI('죄송해요, 이해하지 못했습니다.\n"다른 평형은?", "매수 의견은?", "최근 거래는?" 등으로 질문해 주세요.');
   };
 
-  const chips = ['매수 의견은?', '다른 평형은?', '최근 거래 흐름은?', '전세는?'];
+  const chips = ['매물과 비교하기', '매수 의견은?', '다른 평형은?', '최근 거래 흐름은?'];
   const placeholder = step === 'await_price' ? '매물가 입력 (예: 8억, 모름)'
     : step === 'await_area' ? `평형 입력 (예: ${pendingAreas.map(a=>a.pyeong+'평').join(', ')})`
     : `${ctxComplex || '이 아파트'}에 대해 더 궁금한 점은?`;

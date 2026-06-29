@@ -22,6 +22,7 @@ import { ACTIONS } from '../engine/conversationPolicy.js';
 import { parseAreaInput, pyeongLabel, filterDealsByArea, sqmToPyeong } from '../constants/areaMapping.js';
 import { resolveMessyInput } from '../engine/MessyInputResolver.js';
 import { bridgeToState, logBridge } from '../engine/MessyInputBridge.js';
+import { adaptFairValue } from '../parser/FairValueAdapter.js';
 
 // ── 매물가 입력 파싱 (다양한 형식/오타 처리) ──
 function parsePriceInput(text) {
@@ -1574,15 +1575,31 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         : `${cxName} ${pyeong}평 ${purposeKr}을 분석해드릴게요.`;
       convStateRef.current = {
         ...convStateRef.current,
-        _expectedAnswerType: null,
-        _pendingPrice:       true,
-        _pendingComplex:     cx,
-        _pendingArea:        areaSqm,
-        _pendingPurpose:     intentStr,
-        _pendingInputPyeong: pyeong,
+        _expectedAnswerType: 'confirm_analysis',
+        _confirmComplex:     cx,
+        _confirmArea:        areaSqm,
+        _confirmPurpose:     intentStr,
+        _confirmPrice:       null,
+        _confirmInputPyeong: pyeong,
       };
-      replaceLastAI({ role: 'ai', type: 'text',
-        content: summary + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.' });
+      replaceLastAI({
+        role: 'ai', type: 'confirm_analysis',
+        content: summary,
+        onConfirm: async () => {
+          const st = convStateRef.current;
+          convStateRef.current = { ...st, _expectedAnswerType: null,
+            _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
+            _confirmPrice: null, _confirmInputPyeong: null };
+          addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+          await runAnalysis(st._confirmComplex, {
+            intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
+            areaSqm: st._confirmArea,
+            currentPrice: null,
+            skipAreaCheck: true,
+            _pendingInputPyeong: st._confirmInputPyeong,
+          });
+        },
+      });
       return;
     }
 
@@ -1616,12 +1633,37 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         };
         // addMsg(user) 단 한 번
         addMsg({ role: 'user', type: 'text', content: `${chipPyeong}평` });
-        // 요약 + 가격 질문
+        // 요약 카드 → [확인] → 결과
         const summary = locStr
-          ? `${locStr} ${cxName} ${chipPyeong}평 ${purposeKr}을 분석해드릴게요.`
-          : `${cxName} ${chipPyeong}평 ${purposeKr}을 분석해드릴게요.`;
-        addMsg({ role: 'ai', type: 'text',
-          content: summary + '\n\n현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.' });
+          ? `${locStr} ${cxName} ${chipPyeong}평 ${purposeKr}을 분석해드리겠습니다.`
+          : `${cxName} ${chipPyeong}평 ${purposeKr}을 분석해드리겠습니다.`;
+        convStateRef.current = {
+          ...convStateRef.current,
+          _expectedAnswerType: 'confirm_analysis',
+          _confirmComplex:     cx,
+          _confirmArea:        areaSqm,
+          _confirmPurpose:     intentStr,
+          _confirmPrice:       null,
+          _confirmInputPyeong: chipPyeong,
+        };
+        addMsg({
+          role: 'ai', type: 'confirm_analysis',
+          content: summary,
+          onConfirm: async () => {
+            const st = convStateRef.current;
+            convStateRef.current = { ...st, _expectedAnswerType: null,
+              _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
+              _confirmPrice: null, _confirmInputPyeong: null };
+            addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+            await runAnalysis(st._confirmComplex, {
+              intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
+              areaSqm: st._confirmArea,
+              currentPrice: null,
+              skipAreaCheck: true,
+              _pendingInputPyeong: st._confirmInputPyeong,
+            });
+          },
+        });
       },
     });
   }
@@ -1634,23 +1676,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       await askAreaThenPrice(complex, intent.intent || 'fair');
       return;
     }
-    // ★ areaSqm은 있는데 currentPrice가 없으면 가격 질문
-    // _userInputPrice 또는 noPrice 플래그가 없으면 가격 물어봄
-    if (!intent.skipAreaCheck && intent.areaSqm && intent.currentPrice === undefined) {
-      const cxName = complex.complex_name || complex.name || '';
-      const pyeong = typicalPyeong(intent.areaSqm);
-      convStateRef.current = {
-        ...convStateRef.current,
-        _pendingPrice: true,
-        _pendingComplex: complex,
-        _pendingArea: intent.areaSqm,
-        _pendingPurpose: intent.intent || 'fair',
-        _expectedAnswerType: null,
-      };
-      replaceLastAI({ role: 'ai', type: 'text',
-        content: `${cxName} ${pyeong}평 현재 매물 가격을 알고 계시나요?\n모르셔도 괜찮습니다. "몰라요"라고 입력하시면 최근 실거래 데이터를 기준으로 분석해드립니다.` });
-      return;
-    }
+    // 가격 질문 제거 — 실거래 중앙값으로 자동 분석 (새 UX)
+    // currentPrice=null이면 runAnalysis 내부에서 실거래 중앙값 사용
 
     // 문제3: thinking은 addMsg로 추가 (replaceLastAI 오남용 방지)
     addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
@@ -2211,12 +2238,39 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     }
 
     if (msg.type === "result") {
-      const { engine, ff } = msg.data || {};
+      const { engine, ff, complex, areaSqm, intentStr } = msg.data || {};
       if (engine && ff) {
         return (
           <div key={msg.id} style={{ marginBottom:8 }}>
             <FairValueResult r={engine} f={ff} onBack={null} onNewSearch={null}
               onHome={null} areaOptions={[]} currentUserId={currentUserId} />
+            {/* [매물과 비교하기] 버튼 */}
+            <div style={{ marginTop:10, paddingLeft:2 }}>
+              <button
+                onClick={() => {
+                  const cxName = complex?.complex_name || '';
+                  const pyeong = areaSqm ? typicalPyeong(areaSqm) : '';
+                  const prompt = `${cxName} ${pyeong}평 매물가를 입력해서 비교해볼게요.\n현재 보고 계신 매물 가격이 얼마인가요?`;
+                  addMsg({ role: 'ai', type: 'text', content: prompt });
+                  convStateRef.current = {
+                    ...convStateRef.current,
+                    _pendingPrice:   true,
+                    _pendingComplex: complex,
+                    _pendingArea:    areaSqm,
+                    _pendingPurpose: intentStr || 'fair',
+                  };
+                }}
+                style={{ height:36, paddingLeft:16, paddingRight:16, borderRadius:10,
+                  border:`0.5px solid ${BRAND_BORDER}`, background:'#fff', cursor:'pointer',
+                  fontSize:13, color:BRAND_MID, display:'inline-flex', alignItems:'center',
+                  gap:6, transition:'background 0.1s' }}
+                onMouseEnter={e => e.currentTarget.style.background='#fafaf8'}
+                onMouseLeave={e => e.currentTarget.style.background='#fff'}
+              >
+                <CI d="currency-won" s={13} color={BRAND_MUTED} />
+                매물과 비교하기
+              </button>
+            </div>
           </div>
         );
       }
