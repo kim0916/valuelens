@@ -54,6 +54,14 @@ export function bridgeToState(merged, currentState) {
     _pendingArea:           merged.areaSqm      || currentState._pendingArea           || null,
     _pendingInputPyeong:    merged.inputPyeong  || currentState._pendingInputPyeong    || null,
     _pendingPurpose:        merged.purpose      || currentState._pendingPurpose        || null,
+
+    // ── CE intent override: NLU 오분류 방지 ──
+    // CE process()에서 classifiedIntent가 GREETING/UNKNOWN일 때 이 값으로 대체
+    resolvedIntent: merged.purpose === 'buy'      ? 'buy_analysis'
+                  : merged.purpose === 'jeonse'   ? 'jeonse_info'
+                  : merged.purpose === 'fair'      ? 'price_analysis'
+                  : merged.purpose === 'recommend' ? 'recommendation'
+                  : (currentState.resolvedIntent || null),
   };
 }
 
