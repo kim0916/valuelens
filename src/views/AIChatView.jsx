@@ -855,34 +855,20 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'area' };
           addMsg({ role: 'ai', type: 'text', content: nextAction.message });
         } else if (nextAction.field === 'price') {
-          // 적정가: 가격 질문 없이 confirm_analysis 카드로
+          // stub complex → askAreaThenPrice로 위임 (DB 재검색 + 후보목록 처리 포함)
           const mirCx = { complex_name: merged.complexQuery, legal_dong: merged.dong,
             sigungu: merged.sigungu, area_list: [] };
-          const mirPyeong = merged.inputPyeong || (merged.areaSqm ? sqmToPyeong(merged.areaSqm).pyeong : null);
-          const mirPurposeKr = (merged.purpose || 'fair') === 'buy' ? '매수 분석' : '적정가';
-          const mirSummary = `${merged.complexQuery} ${mirPyeong ? mirPyeong + '평 ' : ''}${mirPurposeKr}을 분석해드리겠습니다.`;
+          const mirPurpose = merged.purpose || 'fair';
+          // _pendingInputPyeong 세팅 후 askAreaThenPrice 호출
           convStateRef.current = { ...convStateRef.current,
-            _expectedAnswerType: 'confirm_analysis',
-            _confirmComplex: mirCx, _confirmArea: merged.areaSqm,
-            _confirmPurpose: merged.purpose || 'fair',
-            _confirmPrice: null, _confirmInputPyeong: mirPyeong,
+            _pendingInputPyeong: merged.inputPyeong || null,
+            _pendingArea: merged.areaSqm || null,
+            lastAreaHint: merged.areaSqm || null,
           };
-          addMsg(createConfirmMsg(mirCx, merged.areaSqm, merged.purpose || 'fair', mirPyeong, null, async () => {
-              const st = convStateRef.current;
-              convStateRef.current = { ...st, _expectedAnswerType: null,
-                _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
-                _confirmPrice: null, _confirmInputPyeong: null, _confirmNearestNote: null };
-              addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
-              await runAnalysis(st._confirmComplex, {
-                intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
-                areaSqm: st._confirmArea, currentPrice: null,
-                skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
-              });
-            }));
-          // _pendingPrice 세팅 제거됨
-          addMsg({ role: 'ai', type: 'text', content: nextAction.message });
+          addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+          await askAreaThenPrice(mirCx, mirPurpose);
+          return;
         }
-        return;
       }
 
       // confirm_analysis / recommend / general_question / pass_to_ce
