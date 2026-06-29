@@ -1269,7 +1269,8 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         // selectNearestArea: 단지 실제 평형 기준으로 가장 가까운 것 선택
         const inputPy  = hintInputPyeong || Math.round(areaHintForAutoSelect / 3.3);
         const matched  = selectNearestArea(inputPy, areaGroupsForSelect);
-        if (!matched) return;
+        if (!matched) { /* fall-through to area_chips below */ }
+        else {
         const nearest  = { areaSqm: matched.areaSqm, pyeong: matched.matchedPyeong };
         const complex  = state.currentComplex || convStateRef.current.currentComplex;
         const areaSqm  = matched.areaSqm;
@@ -1325,6 +1326,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             }));
         }
         return;
+        } // end if(matched)
       }
 
       replaceLastAI({
