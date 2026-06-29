@@ -1612,6 +1612,48 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     const areaGroups = groupAreasByPyeong(areaListRaw)
       .map(g => ({ areaSqm: g.rep, pyeong: typicalPyeong(g.rep) }));
 
+    // ── 사용자가 평형을 이미 입력한 경우: nearest 매핑 후 바로 confirm 카드 ──
+    const hintSqm    = convStateRef.current.lastAreaHint || convStateRef.current._pendingArea || null;
+    const hintPyeong = convStateRef.current._pendingInputPyeong || convStateRef.current._confirmInputPyeong || null;
+    if (hintSqm && areaGroups.length > 0) {
+      const nearest = areaGroups.reduce((best, g) =>
+        Math.abs(g.areaSqm - hintSqm) < Math.abs(best.areaSqm - hintSqm) ? g : best
+      );
+      const isSame   = nearest.pyeong === hintPyeong;
+      const noteStr  = isSame ? '' : ` (${hintPyeong}평 입력 → 가장 가까운 평형)`;
+      const summary  = locStr
+        ? `${locStr} ${cxName} ${nearest.pyeong}평 ${purposeKr}을 분석해드리겠습니다.`
+        : `${cxName} ${nearest.pyeong}평 ${purposeKr}을 분석해드리겠습니다.`;
+      convStateRef.current = {
+        ...convStateRef.current,
+        _expectedAnswerType: 'confirm_analysis',
+        _confirmComplex:     cx,
+        _confirmArea:        nearest.areaSqm,
+        _confirmPurpose:     intentStr,
+        _confirmPrice:       null,
+        _confirmInputPyeong: nearest.pyeong,
+        _confirmNearestNote: noteStr,   // 카드에 표시용
+        lastAreaHint:        null,
+      };
+      replaceLastAI({
+        role: 'ai', type: 'confirm_analysis',
+        content: summary,
+        onConfirm: async () => {
+          const st = convStateRef.current;
+          convStateRef.current = { ...st, _expectedAnswerType: null,
+            _confirmComplex: null, _confirmArea: null, _confirmPurpose: null,
+            _confirmPrice: null, _confirmInputPyeong: null, _confirmNearestNote: null };
+          addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+          await runAnalysis(st._confirmComplex, {
+            intent: st._confirmPurpose === 'buy' ? 'buy' : 'fair',
+            areaSqm: st._confirmArea, currentPrice: null,
+            skipAreaCheck: true, _pendingInputPyeong: st._confirmInputPyeong,
+          });
+        },
+      });
+      return;
+    }
+
     // 평형 0개: 텍스트 입력 요청
     if (areaGroups.length === 0) {
       convStateRef.current = {
@@ -2184,6 +2226,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       const areaSqm   = st._confirmArea;
       const purpose   = st._confirmPurpose || 'fair';
       const pyeong    = st._confirmInputPyeong || (areaSqm ? typicalPyeong(areaSqm) : null);
+      const nearNote  = st._confirmNearestNote || '';
       const cxName    = cx?.complex_name || '';
       const cxDong    = cx?.legal_dong   || cx?.dong || '';
       const cxGu      = cx?.sigungu ? cx.sigungu.split(' ').slice(-1)[0] : '';
@@ -2209,7 +2252,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
               {[
                 { label:"단지", value: cxName || '—' },
                 { label:"지역", value: locLabel },
-                { label:"평형", value: pyeong ? `${pyeong}평` : '—' },
+                { label:"평형", value: pyeong ? `${pyeong}평${nearNote}` : '—' },
                 { label:"분석", value: purposeKr },
               ].map(({ label, value }) => (
                 <div key={label} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
