@@ -351,9 +351,10 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             pool = data.complexes || [];
           }
           if (pool.length === 0) {
+            const cxHint = pendingComplex ? `${pendingComplex}` : '아파트';
             replaceLastAI({ role: "ai", type: "text",
-              content: `"${text}" 동을 찾지 못했습니다. 정확한 동 이름을 다시 입력해 주세요.\n예: 우동, 공릉동, 잠실동` });
-            convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'dong', _pendingComplex: pendingComplex };
+              content: `"${text}"에서 ${cxHint}를 찾지 못했습니다.\n다른 지역 이름을 입력해 주세요.` });
+            convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'region_or_dong', _pendingCandidateQuery: pendingComplex };
             return;
           }
           const sigunguGroups = {};
@@ -620,7 +621,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           const pool = r.fromSupabase ? r.complexes : [];
           if (pool.length === 0) {
             replaceLastAI({ role: "ai", type: "text",
-              content: `${text} 지역에서 ${originalQuery}를 찾지 못했습니다.\n다른 동 이름을 입력해 주세요.` });
+              content: `"${text}" 지역에서 ${originalQuery}를 찾지 못했습니다.\n다른 지역 이름을 입력해 주세요.` });
             convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'region_or_dong', _pendingCandidateQuery: originalQuery };
             return;
           }
@@ -1118,7 +1119,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
           };
           replaceLastAI({
             role: "ai", type: "text",
-            content: `어느 지역의 ${originalQuery}를 찾으시나요?\n동 이름을 알려주세요. 예: 우동, 공릉동, 잠실동`,
+            content: `${originalQuery}가 어느 지역에 있나요?\n예: 우동, 잠실, 반포`,
           });
           return;
         }
@@ -1585,7 +1586,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         };
         replaceLastAI({
           type: "text",
-          content: `어느 지역의 ${intent.complexName || rawText}를 찾으시나요?\n동 이름을 알려주세요. 예: 우동, 공릉동, 잠실동`,
+          content: `${intent.complexName || rawText}가 어느 지역에 있나요?\n예: 우동, 잠실, 반포`,
         });
         return;
       }
