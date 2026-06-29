@@ -625,56 +625,26 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
             convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'region_or_dong', _pendingCandidateQuery: originalQuery };
             return;
           }
+          // 단지 1개: 바로 confirm_analysis 카드 (purpose 질문 스킵 — 적정가 기본값)
           if (pool.length === 1) {
             const cx = pool[0];
-            // 이미 purpose를 알고 있으면 (첫 입력에서 "적정가", "매수" 등 언급) → 칩 스킵
-            const knownPurpose = convStateRef.current._resolvedPurpose || convStateRef.current._pendingPurpose || null;
-            if (knownPurpose && knownPurpose !== 'jeonse') {
-              convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
-              addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-              await askAreaThenPrice(cx, knownPurpose);
-            } else {
-            convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'purpose', _pendingComplex: cx, _pendingPurpose: 'fair' };
-            replaceLastAI({ role: "ai", type: "purpose_chips",
-              content: `${cx.complex_name}에서 무엇을 확인할까요?`,
-              choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
-              onSelect: async (choice) => {
-                addMsg({ role: "user", type: "text", content: choice });
-                if (choice === '전세' || choice === '계약 전 체크') {
-                  addMsg({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
-                  convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
-                  return;
-                }
-                const purpose = choice === '매수 의견' ? 'buy' : 'fair';
-                convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
-                addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-                await askAreaThenPrice(cx, purpose);
-              },
-            });
-            }
+            const knownPurpose = convStateRef.current._resolvedPurpose
+              || convStateRef.current._pendingPurpose || 'fair';
+            convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
+            replaceLastAI({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+            await askAreaThenPrice(cx, knownPurpose);
           } else {
+            // 복수: 후보 목록 표시
             replaceLastAI({ role: "ai", type: "candidates",
               content: `${text}의 ${originalQuery} 목록입니다. 찾으시는 단지를 선택해주세요.`,
               data: pool.slice(0, 8),
               onSelect: async (cx) => {
                 addMsg({ role: "user", type: "text", content: cx.complex_name });
-                convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'purpose', _pendingComplex: cx, _pendingPurpose: 'fair' };
-                addMsg({ role: "ai", type: "purpose_chips",
-                  content: `${cx.complex_name}에서 무엇을 확인할까요?`,
-                  choices: ['적정가', '매수 의견', '전세', '계약 전 체크'],
-                  onSelect: async (choice) => {
-                    addMsg({ role: "user", type: "text", content: choice });
-                    if (choice === '전세' || choice === '계약 전 체크') {
-                      addMsg({ role: "ai", type: "text", content: "해당 기능은 준비 중입니다." });
-                      convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
-                      return;
-                    }
-                    const purpose = choice === '매수 의견' ? 'buy' : 'fair';
-                    convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
-                    addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-                    await askAreaThenPrice(cx, purpose);
-                  },
-                });
+                const knownPurpose2 = convStateRef.current._resolvedPurpose
+                  || convStateRef.current._pendingPurpose || 'fair';
+                convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingComplex: null };
+                addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+                await askAreaThenPrice(cx, knownPurpose2);
               },
             });
           }
@@ -1108,46 +1078,52 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
         return;
       }
 
-      // ── 기존 후보목록 표시 (dong 필터 해당 없거나 여러 개 남은 경우) ──
-      if (candidates.length > 1) {
+      // ── 후보목록 표시 → 복수 지역이면 지역 질문도 함께 ──
+      if (candidates.length > 0) {
         const sigunguSet = [...new Set(candidates.map(c => c.sigungu).filter(Boolean))];
-        if (sigunguSet.length > 1) {
+        const multiRegion = sigunguSet.length > 1;
+
+        // 후보 목록 먼저 표시
+        replaceLastAI({
+          role: "ai",
+          type: "candidates",
+          content: multiRegion
+            ? `${originalQuery} 후보입니다. 아래에서 선택하거나 지역을 입력해 주세요.`
+            : response.text.split("\n")[0].replace(/\*\*/g, ""),
+          data: candidates,
+          onSelect: async (c) => {
+            const idx = candidates.indexOf(c);
+            addMsg({ role: "user", type: "text", content: c.complex_name || String(idx + 1) });
+            addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
+            try {
+              const { state: newState, response: res } = await convEngineRef.current.process(
+                `__SELECT_CANDIDATE__${idx}`,
+                convStateRef.current,
+              );
+              convStateRef.current = newState;
+              setConvState(newState);
+              await handleEngineResponse(res, newState);
+            } catch(e) {
+              console.error("[AIChatView] 후보 선택 오류:", e);
+            }
+          },
+          intent: { intent: "fair" },
+        });
+
+        // 복수 지역이면 후보 목록 아래에 지역 질문 추가
+        if (multiRegion) {
           convStateRef.current = {
             ...convStateRef.current,
             _expectedAnswerType: 'region_or_dong',
             _pendingCandidateQuery: originalQuery,
           };
-          replaceLastAI({
+          addMsg({
             role: "ai", type: "text",
-            content: `${originalQuery}가 어느 지역에 있나요?\n예: 우동, 잠실, 반포`,
+            content: `어느 지역의 ${originalQuery}인가요?\n동/구 이름을 입력해 주세요. 예: 우동, 잠실, 공릉동`,
           });
-          return;
         }
+        return;
       }
-
-      replaceLastAI({
-        role: "ai",
-        type: "candidates",
-        content: response.text.split("\n")[0].replace(/\*\*/g, ""),
-        data: candidates,
-        onSelect: async (c) => {
-          const idx = candidates.indexOf(c);
-          addMsg({ role: "user", type: "text", content: c.complex_name || String(idx + 1) });
-          addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
-          try {
-            const { state: newState, response: res } = await convEngineRef.current.process(
-              `__SELECT_CANDIDATE__${idx}`,
-              convStateRef.current,
-            );
-            convStateRef.current = newState;
-            setConvState(newState);
-            await handleEngineResponse(res, newState);
-          } catch(e) {
-            console.error("[AIChatView] 후보 선택 오류:", e);
-          }
-        },
-        intent: { intent: "fair" },
-      });
       return;
     }
 
