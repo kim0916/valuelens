@@ -909,7 +909,12 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       }
       const { state: newState, response } = await convEngineRef.current.process(
         text,
-        { ...convStateRef.current, lastComplexQuery: convStateRef.current.lastComplexQuery || text },
+        {
+          ...convStateRef.current,
+          // Bridge가 lastComplexQuery를 이미 세팅했으면 유지, 없으면 text 사용
+          // "동부 우동 24평 몰라 적정가 봐줘" 전체가 searchQuery가 되지 않도록
+          lastComplexQuery: convStateRef.current.lastComplexQuery || null,
+        },
       );
 
       // State 동기 업데이트 (ref = 동기, setState = 렌더링용)
