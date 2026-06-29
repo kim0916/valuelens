@@ -1,0 +1,270 @@
+/**
+ * src/engine/v2/ActionHandlers.js
+ *
+ * Map 기반 액션 핸들러.
+ * if/else 없음.
+ * 새 기능 추가 = handlers.set('NEW_ACTION', fn) 한 줄.
+ */
+
+import { STATES, EVENTS } from './StateMachine.js';
+import { SLOTS }           from './SlotRegistry.js';
+import { selectNearestArea, getAreaOptions } from '../../search/areaMatching.js';
+import { searchComplexFromSupabase }          from '../../search/supabase.js';
+import { parseFairValueInput }               from '../../parser/fairValueParser.js';
+
+/**
+ * 핸들러 컨텍스트 타입:
+ * {
+ *   slots: SlotRegistry,
+ *   sm:    StateMachine,
+ *   emit:  (uiEvent) => void,   // UI에 이벤트 전달
+ *   text:  string,              // 사용자 원문
+ * }
+ */
+
+// ─────────────────────────────────────────────
+// 공통 유틸
+// ─────────────────────────────────────────────
+async function searchAndResolve(ctx, query, dong) {
+  const res   = await searchComplexFromSupabase(query, '', dong || '');
+  const pool  = res.fromSupabase ? res.complexes : [];
+  return pool;
+}
+
+function buildConfirmPayload(slots) {
+  const cx      = slots.get(SLOTS.COMPLEX);
+  const area    = slots.get(SLOTS.AREA);
+  const purpose = slots.get(SLOTS.PURPOSE) || 'fair';
+  return {
+    complexName:   cx?.complex_name || slots.get(SLOTS.COMPLEX_RAW) || '',
+    dong:          cx?.legal_dong   || slots.get(SLOTS.DONG) || '',
+    sigungu:       cx?.sigungu      || '',
+    inputPyeong:   area?.inputPyeong  || area?.pyeong || null,
+    matchedPyeong: area?.matchedPyeong || area?.pyeong || null,
+    areaSqm:       area?.sqm          || null,
+    purpose,
+    purposeKr:     purpose === 'buy' ? '매수 분석' : '적정가',
+    nearNote:      (area?.inputPyeong && area?.matchedPyeong && area.inputPyeong !== area.matchedPyeong)
+                     ? ` (입력하신 ${area.inputPyeong}평과 가장 가까운 평형입니다.)`
+                     : '',
+  };
+}
+
+// ─────────────────────────────────────────────
+// 핸들러 Map
+// ─────────────────────────────────────────────
+export function createActionHandlers() {
+  const handlers = new Map();
+
+  // ── INPUT: 사용자 입력 처리 ──
+  handlers.set('HANDLE_INPUT', async (ctx) => {
+    const { slots, sm, emit, text } = ctx;
+
+    // 1. Parser로 Slot 추출
+    const parsed = parseFairValueInput(text);
+
+    // 2. 추출된 Slot 병합
+    if (parsed.complexRaw) slots.set(SLOTS.COMPLEX_RAW, parsed.complexRaw);
+    if (parsed.dong)       slots.set(SLOTS.DONG,        parsed.dong);
+    if (parsed.area)       slots.set(SLOTS.AREA,        parsed.area);
+    if (parsed.purpose || parsed.intent === 'FAIR_VALUE') {
+      slots.set(SLOTS.PURPOSE, parsed.purpose || 'fair');
+    }
+    if (parsed.userPrice)  slots.set(SLOTS.PRICE,    parsed.userPrice);
+    if (parsed.noPrice)    slots.set(SLOTS.NO_PRICE, true);
+
+    // 3. 부족한 Slot 확인 → 적절한 액션 실행
+    const missing = slots.missingSlots();
+    const nextAction = missing[0];
+
+    if (!nextAction) {
+      // 모두 채워짐 → confirm으로
+      await handlers.get('SHOW_CONFIRM')(ctx);
+      return;
+    }
+
+    // complex 없으면 검색 필요
+    if (!slots.get(SLOTS.COMPLEX) && slots.get(SLOTS.COMPLEX_RAW)) {
+      await handlers.get('SEARCH_COMPLEX')(ctx);
+      return;
+    }
+
+    // 각 missing slot별 질문
+    const askHandlers = {
+      dong:    'ASK_DONG',
+      purpose: 'ASK_PURPOSE',
+      area:    'ASK_AREA',
+      price:   'SHOW_CONFIRM',  // 가격은 confirm 카드에서 처리
+    };
+    const handler = askHandlers[nextAction];
+    if (handler && handlers.has(handler)) {
+      await handlers.get(handler)(ctx);
+    }
+  });
+
+  // ── SEARCH_COMPLEX ──
+  handlers.set('SEARCH_COMPLEX', async (ctx) => {
+    const { slots, sm, emit } = ctx;
+    const query = slots.get(SLOTS.COMPLEX_RAW) || '';
+    const dong  = slots.get(SLOTS.DONG) || '';
+
+    emit({ type: 'THINKING' });
+    sm.transition(EVENTS.INPUT);
+
+    const pool = await searchAndResolve(ctx, query, dong);
+
+    if (pool.length === 0) {
+      sm.transition(EVENTS.SEARCH_NONE);
+      emit({ type: 'TEXT', content: `"${query}"을(를) 찾지 못했습니다. 단지명을 다시 확인해 주세요.` });
+      return;
+    }
+
+    if (pool.length === 1) {
+      slots.set(SLOTS.COMPLEX, pool[0]);
+      sm.transition(EVENTS.SEARCH_DONE);
+      await handlers.get('HANDLE_INPUT')(ctx); // 다음 missing slot 처리
+      return;
+    }
+
+    // 복수 후보
+    sm.transition(EVENTS.SEARCH_MULTI);
+    emit({
+      type: 'CANDIDATES',
+      data: pool,
+      prompt: `${query} 후보입니다. 찾으시는 단지를 선택해 주세요.`,
+      onSelect: async (cx) => {
+        slots.set(SLOTS.COMPLEX, cx);
+        sm.transition(EVENTS.CANDIDATE_PICK);
+        await handlers.get('HANDLE_INPUT')(ctx);
+      },
+    });
+
+    // 복수 지역이면 지역 질문도 추가
+    const regions = [...new Set(pool.map(c => c.sigungu).filter(Boolean))];
+    if (regions.length > 1) {
+      emit({
+        type: 'TEXT',
+        content: `${query}가 어느 지역에 있나요?\n동/구 이름을 입력해 주세요. 예: 우동, 잠실, 공릉동`,
+      });
+    }
+  });
+
+  // ── ASK_DONG ──
+  handlers.set('ASK_DONG', async (ctx) => {
+    const { slots, sm, emit } = ctx;
+    const name = slots.get(SLOTS.COMPLEX_RAW) || '단지';
+    sm.jumpTo(STATES.ASKING_DONG);
+    emit({ type: 'ASK_DONG', complexName: name });
+  });
+
+  // ── ASK_PURPOSE ──
+  handlers.set('ASK_PURPOSE', async (ctx) => {
+    const { slots, sm, emit } = ctx;
+    const cx = slots.get(SLOTS.COMPLEX);
+    sm.jumpTo(STATES.ASKING_PURPOSE);
+    emit({
+      type: 'PURPOSE_CHIPS',
+      complexName: cx?.complex_name || '',
+      choices: ['적정가', '매수 의견'],
+      onSelect: async (choice) => {
+        const purpose = choice === '매수 의견' ? 'buy' : 'fair';
+        slots.set(SLOTS.PURPOSE, purpose);
+        sm.transition(EVENTS.PURPOSE_SET);
+        await handlers.get('HANDLE_INPUT')(ctx);
+      },
+    });
+  });
+
+  // ── ASK_AREA ──
+  handlers.set('ASK_AREA', async (ctx) => {
+    const { slots, sm, emit } = ctx;
+    const cx = slots.get(SLOTS.COMPLEX);
+    const areaListRaw = cx?.area_list;
+    const areaOptions = areaListRaw ? getAreaOptions(areaListRaw) : [];
+
+    sm.jumpTo(STATES.ASKING_AREA);
+    emit({
+      type: 'AREA_CHIPS',
+      complex: cx,
+      areaOptions,
+      onSelect: async (selectedSqm) => {
+        const { sqmToPyeong } = await import('../../constants/areaMapping.js');
+        const pyeong = sqmToPyeong(selectedSqm).pyeong;
+        slots.set(SLOTS.AREA, { sqm: selectedSqm, pyeong, matchedPyeong: pyeong, inputPyeong: pyeong });
+        sm.transition(EVENTS.AREA_SET);
+        await handlers.get('SHOW_CONFIRM')(ctx);
+      },
+    });
+  });
+
+  // ── SHOW_CONFIRM ──
+  handlers.set('SHOW_CONFIRM', async (ctx) => {
+    const { slots, sm, emit } = ctx;
+
+    // area hint 있으면 nearest 매핑
+    const cx      = slots.get(SLOTS.COMPLEX);
+    const area    = slots.get(SLOTS.AREA);
+    if (cx && area && !area.matchedPyeong) {
+      const areaOptions = getAreaOptions(cx.area_list);
+      if (areaOptions.length > 0) {
+        const matched = selectNearestArea(area.inputPyeong || area.pyeong, areaOptions);
+        if (matched) {
+          slots.set(SLOTS.AREA, {
+            ...area,
+            sqm:          matched.areaSqm,
+            matchedPyeong: matched.matchedPyeong,
+          });
+        }
+      }
+    }
+
+    sm.jumpTo(STATES.CONFIRMING);
+    emit({
+      type: 'CONFIRM',
+      payload: buildConfirmPayload(slots),
+      onConfirm: async () => {
+        sm.transition(EVENTS.CONFIRMED);
+        await handlers.get('RUN_ANALYSIS')(ctx);
+      },
+      onEdit: () => {
+        sm.transition(EVENTS.CANCELLED);
+        emit({ type: 'TEXT', content: '수정할 내용을 입력해 주세요.' });
+      },
+      onCancel: () => {
+        sm.transition(EVENTS.CANCELLED);
+        slots.reset();
+        emit({ type: 'TEXT', content: '취소했습니다. 다른 아파트를 검색해 보세요.' });
+      },
+    });
+  });
+
+  // ── RUN_ANALYSIS ──
+  handlers.set('RUN_ANALYSIS', async (ctx) => {
+    const { slots, sm, emit } = ctx;
+    sm.jumpTo(STATES.ANALYZING);
+    emit({ type: 'THINKING' });
+
+    const cx      = slots.get(SLOTS.COMPLEX);
+    const area    = slots.get(SLOTS.AREA);
+    const purpose = slots.get(SLOTS.PURPOSE) || 'fair';
+    const price   = slots.get(SLOTS.PRICE)   || null;
+
+    emit({
+      type: 'RUN_ANALYSIS',
+      complex:  cx,
+      areaSqm:  area?.sqm || area?.matchedPyeong,
+      purpose,
+      price,
+      onDone: (result) => {
+        sm.transition(EVENTS.ANALYSIS_DONE);
+        emit({ type: 'RESULT', result });
+      },
+      onError: (err) => {
+        sm.transition(EVENTS.ERROR);
+        emit({ type: 'ERROR', message: err.message });
+      },
+    });
+  });
+
+  return handlers;
+}
