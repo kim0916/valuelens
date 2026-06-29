@@ -800,8 +800,24 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
                 return;
               }
               const purpose = choice === '매수 의견' ? 'buy' : 'fair';
-              convStateRef.current = { ...convStateRef.current, _expectedAnswerType: 'area', _pendingPurpose: purpose };
-              addMsg({ role: 'ai', type: 'text', content: `몇 평형을 확인할까요?\n예: 25평, 84㎡` });
+              convStateRef.current = { ...convStateRef.current, _expectedAnswerType: null, _pendingPurpose: purpose };
+              // 평형 힌트 있으면 CE로 패스 → CE가 검색 후 nearest 매핑
+              // (_pendingComplex는 area_list 없는 stub일 수 있으므로 CE 검색이 안전)
+              convStateRef.current = {
+                ...convStateRef.current,
+                _expectedAnswerType: null,
+                _resolvedPurpose: purpose,
+                _pendingPurpose: purpose,
+              };
+              addMsg({ role: 'ai', type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
+              // CE로 위임 (lastComplexQuery + lastDong + lastAreaHint 이미 세팅됨)
+              const fakeText = convStateRef.current.lastComplexQuery || merged.complexQuery || '';
+              const { state: ns2, response: res2 } = await convEngineRef.current.process(
+                fakeText, convStateRef.current
+              );
+              convStateRef.current = ns2;
+              setConvState(ns2);
+              await handleEngineResponse(res2, ns2);
             },
           });
         } else if (nextAction.field === 'area') {
