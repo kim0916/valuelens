@@ -12,6 +12,7 @@ import { selectNearestArea, getAreaOptions } from '../../search/areaMatching.js'
 import { searchComplexFromSupabase }          from '../../search/supabase.js';
 import { parseFairValueInput }               from '../../parser/fairValueParser.js';
 import { sqmToPyeong }                       from '../../utils/pyeong.js';
+import { getMessageText }                    from '../../messages/getMessage.js';
 
 /**
  * 핸들러 컨텍스트 타입:
@@ -70,13 +71,13 @@ function resolveAreaNumberInput(ctx) {
 
   let message;
   if (matched.isSame) {
-    message = `${matched.matchedPyeong}평형으로 분석합니다.`;
+    message = getMessageText('AREA_MATCHED', { matchedPyeong: matched.matchedPyeong });
   } else if (matched.boundary === 'below') {
-    message = `이 단지에는 ${inputPyeong}평형이 없습니다. 가장 작은 평형인 ${matched.matchedPyeong}평형으로 분석합니다.`;
+    message = getMessageText('AREA_BELOW_MIN', { inputPyeong, matchedPyeong: matched.matchedPyeong });
   } else if (matched.boundary === 'above') {
-    message = `이 단지에는 ${inputPyeong}평형이 없습니다. 가장 큰 평형인 ${matched.matchedPyeong}평형으로 분석합니다.`;
+    message = getMessageText('AREA_ABOVE_MAX', { inputPyeong, matchedPyeong: matched.matchedPyeong });
   } else {
-    message = `${inputPyeong}평형은 존재하지 않아 가장 가까운 ${matched.matchedPyeong}평형으로 분석합니다.`;
+    message = getMessageText('AREA_NEAREST', { inputPyeong, matchedPyeong: matched.matchedPyeong });
   }
   emit({ type: 'TEXT', content: message });
   sm.transition(EVENTS.AREA_SET);
@@ -177,7 +178,7 @@ export function createActionHandlers() {
   // ── ASK_COMPLEX: 단지명이 전혀 없는 입력(예: "25평 적정가") 처리 ──
   handlers.set('ASK_COMPLEX', async (ctx) => {
     const { emit } = ctx;
-    emit({ type: 'TEXT', content: '어떤 아파트인지 단지명을 알려주실 수 있을까요?\n예: 래미안, 동부아파트, 헬리오시티' });
+    emit({ type: 'TEXT', content: getMessageText('COMPLEX_REQUIRED_DETAILED') });
   });
 
   // ── SEARCH_COMPLEX ──
@@ -193,7 +194,7 @@ export function createActionHandlers() {
 
     if (pool.length === 0) {
       sm.transition(EVENTS.SEARCH_NONE);
-      emit({ type: 'TEXT', content: `"${query}"을(를) 찾지 못했습니다. 단지명을 다시 확인해 주세요.` });
+      emit({ type: 'TEXT', content: getMessageText('COMPLEX_NOT_FOUND', { query }) });
       return;
     }
 
@@ -222,7 +223,7 @@ export function createActionHandlers() {
     if (regions.length > 1) {
       emit({
         type: 'TEXT',
-        content: `${query}가 어느 지역에 있나요?\n동/구 이름을 입력해 주세요. 예: 우동, 잠실, 공릉동`,
+        content: getMessageText('DONG_REQUIRED', { query }),
       });
     }
   });
@@ -307,12 +308,12 @@ export function createActionHandlers() {
       },
       onEdit: () => {
         sm.transition(EVENTS.CANCELLED);
-        emit({ type: 'TEXT', content: '수정할 내용을 입력해 주세요.' });
+        emit({ type: 'TEXT', content: getMessageText('EDIT_REQUEST') });
       },
       onCancel: () => {
         sm.transition(EVENTS.CANCELLED);
         slots.reset();
-        emit({ type: 'TEXT', content: '취소했습니다. 다른 아파트를 검색해 보세요.' });
+        emit({ type: 'TEXT', content: getMessageText('CANCELLED_FRESH_START') });
       },
     });
   });

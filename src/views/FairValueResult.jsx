@@ -10,6 +10,7 @@ import { computeDataTrust } from '../engine/stats.js';
 import { writeSearchLog } from '../services/storage/searchLog.js';
 import { sqmToPyeong } from '../utils/pyeong.js';
 import { selectNearestArea } from '../search/areaMatching.js';
+import { getMessageText } from '../messages/getMessage.js';
 import {
   AiNotice, DataTrustBadge, GradeInfoPopup,
   InputWarnings, MarketTypeBadge, FairSaveBtn,
@@ -723,7 +724,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
       const data = await res.json();
       const hits = data.complexes || [];
       if (hits.length === 0) {
-        addAI(`"${complexName}"을(를) 찾지 못했습니다. 단지명을 다시 확인해 주세요.`);
+        addAI(getMessageText('COMPLEX_NOT_FOUND', { query: complexName }));
         setLoading(false); return;
       }
       const hit = hits[0];
@@ -732,26 +733,26 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
       const cxOverride = { complexName: hit.complex_name, sigungu: hit.sigungu, dong: hit.legal_dong || dongHint || '', complexId: hit.id, areaOptions: aGroups };
 
       if (aGroups.length === 0) {
-        addAI(`${hit.complex_name}의 평형 정보를 불러오지 못했습니다. 다시 시도해 주세요.`);
+        addAI(getMessageText('AREA_LIST_UNAVAILABLE', { complexName: hit.complex_name }));
         setLoading(false); return;
       }
       if (aGroups.length === 1) {
         setPendingArea(aGroups[0]); setPendingComplex(cxOverride); setStep('await_price');
-        addAI(`${hit.complex_name} ${aGroups[0].pyeong}평이군요.\n현재 매물가를 알고 계시나요?\n모르시면 최근 실거래 평균 기준으로 분석해드립니다.`);
+        addAI(getMessageText('PRICE_REQUIRED', { complexName: hit.complex_name, pyeong: aGroups[0].pyeong }));
       } else {
         const names = aGroups.map(a => `${a.pyeong}평`).join(', ');
         setPendingAreas(aGroups); setPendingComplex(cxOverride); setStep('await_area');
-        addAI(`${hit.complex_name}는 ${names} 분석 가능합니다.\n어떤 평형이 궁금하세요?`);
+        addAI(getMessageText('MULTIPLE_AREA_FOUND', { complexName: hit.complex_name, names }));
       }
     } catch(e) {
-      addAI('단지 검색 중 오류가 발생했습니다. 다시 시도해 주세요.');
+      addAI(getMessageText('SYSTEM_ERROR'));
     }
     setLoading(false);
   };
 
   // 분석 실행
   const runAnalysis = async (areaSqm, price, cxOverride) => {
-    addAI('잠시만 기다려주세요. 분석 결과로 이동합니다.');
+    addAI(getMessageText('ANALYSIS_REDIRECT'));
     setLoading(true);
     await new Promise(r => setTimeout(r, 400));
     setLoading(false);
@@ -774,7 +775,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
     // RESET: 어떤 step/대화 상태에 있든 최우선으로 처리 — 모든 슬롯/상태 초기화
     if (/^(처음|새\s*검색)$/.test(t)) {
       resetDialog();
-      addAI('처음으로 돌아갑니다. 궁금한 아파트를 말씀해 주세요.');
+      addAI(getMessageText('RESET_SUCCESS'));
       return;
     }
 
@@ -783,7 +784,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
     if (/^다른\s*단지$/.test(t)) {
       addUser(t);
       setStep('await_complex'); setPendingAreas([]); setPendingComplex(null);
-      addAI('어떤 단지를 찾아드릴까요? 단지명을 입력해 주세요.');
+      addAI(getMessageText('COMPLEX_REQUIRED'));
       return;
     }
 
@@ -791,7 +792,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
     if (step === 'await_complex') {
       addUser(t);
       setStep(null);
-      addAI(`${t} 검색합니다...`);
+      addAI(getMessageText('SEARCHING', { query: t }));
       await searchComplex(t, null, null);
       return;
     }
@@ -802,10 +803,10 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
       const price = parsePrice(t);
       const noPrice = isNoPrice(t);
       console.log('[ResultChatBar await_price]', { rawInput: t, parsedPrice: price, noPrice, pendingArea, pendingComplex });
-      if (!price && !noPrice) { addAI('금액을 다시 입력해 주세요. 예: 8억, 8.5억, 85000'); return; }
+      if (!price && !noPrice) { addAI(getMessageText('PRICE_INVALID')); return; }
       const savedArea = pendingArea; const savedCx = pendingComplex;
       const priceLabel = noPrice ? '최근 실거래 평균' : `${(price/10000).toFixed(1)}억`;
-      addAI(`입력하신 가격 ${priceLabel} 기준으로 분석합니다.`);
+      addAI(getMessageText('PRICE_CONFIRMED', { priceLabel }));
       setStep(null); setPendingArea(null); setPendingComplex(null);
       await runAnalysis(savedArea.areaSqm, noPrice ? null : price, savedCx);
       return;
@@ -815,27 +816,28 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
     if (step === 'await_area') {
       addUser(t);
       const num = parseInt(t.replace(/[^0-9]/g, ''));
-      if (!num) { addAI(`${pendingAreas.map(a=>`${a.pyeong}평`).join(', ')} 중 하나를 입력해 주세요.`); return; }
+      const areaListLabel = pendingAreas.map(a=>`${a.pyeong}평`).join(', ');
+      if (!num) { addAI(getMessageText('AREA_INVALID_INPUT', { areaList: areaListLabel })); return; }
       const asPyeong = num >= 50 ? sqmToPyeong(num).pyeong : num;
       const matched  = selectNearestArea(asPyeong, pendingAreas.map(a => ({ areaSqm: a.areaSqm, pyeong: a.pyeong })));
-      if (!matched) { addAI(`${pendingAreas.map(a=>`${a.pyeong}평`).join(', ')} 중 하나를 입력해 주세요.`); return; }
+      if (!matched) { addAI(getMessageText('AREA_INVALID_INPUT', { areaList: areaListLabel })); return; }
 
       let note = '';
       if (!matched.isSame) {
         if (matched.boundary === 'below') {
-          note = `이 단지에는 ${asPyeong}평형이 없어 가장 작은 ${matched.matchedPyeong}평형으로 분석합니다`;
+          note = getMessageText('AREA_OUT_OF_RANGE_BELOW', { inputPyeong: asPyeong, matchedPyeong: matched.matchedPyeong });
         } else if (matched.boundary === 'above') {
-          note = `이 단지에는 ${asPyeong}평형이 없어 가장 큰 ${matched.matchedPyeong}평형으로 분석합니다`;
+          note = getMessageText('AREA_OUT_OF_RANGE_ABOVE', { inputPyeong: asPyeong, matchedPyeong: matched.matchedPyeong });
         } else {
-          note = `${asPyeong}평과 가장 가까운 평형`;
+          note = getMessageText('AREA_OUT_OF_RANGE_NEAREST', { inputPyeong: asPyeong });
         }
       }
       setStep(null);
       addConfirm(
         { complexName: pendingComplex?.complexName || ctxComplex, matchedPyeong: matched.matchedPyeong, note },
         async () => { await runAnalysis(matched.areaSqm, null, pendingComplex); },
-        () => { setStep('await_area'); addAI('어떤 평형으로 변경하시겠어요?'); },
-        () => { setStep(null); setPendingArea(null); setPendingComplex(null); addAI('취소되었습니다. 다른 질문이 있으시면 말씀해 주세요.'); },
+        () => { setStep('await_area'); addAI(getMessageText('AREA_CHANGE_PROMPT')); },
+        () => { setStep(null); setPendingArea(null); setPendingComplex(null); addAI(getMessageText('CANCELLED')); },
       );
       return;
     }
@@ -850,32 +852,32 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
         ? ` (적정 기준 대비 ${gap >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(gap * 1000) / 10)}%)`
         : '';
       if (verdict) {
-        addAI(`매수 관점으로 봐도 위 분석이 기준이 됩니다.\n현재 판단: ${verdict.text}${gapText}\n\n${ctxComplex}의 적정가/거래 흐름을 참고해서 결정하시면 좋을 것 같아요.`);
+        addAI(getMessageText('BUY_OPINION', { verdictText: verdict.text, gapText, complexName: ctxComplex }));
       } else {
-        addAI('아직 준비 중인 기능입니다. 곧 제공될 예정입니다.');
+        addAI(getMessageText('FEATURE_UNAVAILABLE'));
       }
       return;
     }
 
     if (/최근 거래|거래 흐름|실거래/.test(t)) {
-      addAI('거래 흐름으로 이동합니다.');
+      addAI(getMessageText('SCROLL_TO_DEALS'));
       setLoading(true); await new Promise(r=>setTimeout(r,400)); setLoading(false);
       const el = document.getElementById('deal-list-section');
       if (el) { el.scrollIntoView({ behavior:'smooth', block:'start' }); setMsgs([]); }
-      else { addAI('아직 준비 중인 기능입니다. 곧 제공될 예정입니다.'); }
+      else { addAI(getMessageText('FEATURE_UNAVAILABLE')); }
       return;
     }
 
-    if (/전세/.test(t)) { addAI('아직 준비 중인 기능입니다. 곧 제공될 예정입니다.'); return; }
+    if (/전세/.test(t)) { addAI(getMessageText('FEATURE_UNAVAILABLE')); return; }
 
     if (/팔|매도|처분/.test(t)) {
-      addAI('매도 분석은 현재 정확도 개선 중입니다.\n\n지금은 적정가·최근 거래 흐름·가격 위치를 기준으로 참고 정보를 제공해 드립니다.\n\n먼저 적정가를 확인해 보시겠어요?\n"적정가 보기" 또는 "최근 거래 보기"를 입력해 주세요.');
+      addAI(getMessageText('SELL_NOT_SUPPORTED_YET'));
       return;
     }
 
     if (/^(적정가 보기|최근 거래 보기)$/.test(t)) {
       const area = f?.areaExclusive;
-      if (!area) { addAI('평형 정보가 없습니다.'); return; }
+      if (!area) { addAI(getMessageText('AREA_DATA_MISSING')); return; }
       await runAnalysis(area, null, null);
       return;
     }
@@ -892,29 +894,29 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
         : areaOptions?.length > 0 ? areaOptions
         : f?.areaOptions || f?._aiAreaOptions || [];
       if (!rawOpts || rawOpts.length === 0) {
-        addAI('현재 단지의 평형 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
+        addAI(getMessageText('AREA_LIST_UNAVAILABLE_CURRENT'));
         return;
       }
       // 입력값이 ㎡로 보일 만큼 크면(50 이상) 평 변환 후 매칭 — 기존 ASK_AREA 정책과 동일 기준
       const asPyeong = inputPyeong >= 50 ? sqmToPyeong(inputPyeong).pyeong : inputPyeong;
       const matched  = selectNearestArea(asPyeong, rawOpts.map(a => ({ areaSqm: a.areaSqm, pyeong: a.pyeong })));
-      if (!matched) { addAI('평형 정보를 매칭하지 못했습니다. 다시 시도해 주세요.'); return; }
+      if (!matched) { addAI(getMessageText('AREA_MATCH_FAILED')); return; }
 
       let note = '';
       if (!matched.isSame) {
         if (matched.boundary === 'below') {
-          note = `이 단지에는 ${asPyeong}평형이 없어 가장 작은 ${matched.matchedPyeong}평형으로 분석합니다`;
+          note = getMessageText('AREA_OUT_OF_RANGE_BELOW', { inputPyeong: asPyeong, matchedPyeong: matched.matchedPyeong });
         } else if (matched.boundary === 'above') {
-          note = `이 단지에는 ${asPyeong}평형이 없어 가장 큰 ${matched.matchedPyeong}평형으로 분석합니다`;
+          note = getMessageText('AREA_OUT_OF_RANGE_ABOVE', { inputPyeong: asPyeong, matchedPyeong: matched.matchedPyeong });
         } else {
-          note = `${asPyeong}평과 가장 가까운 평형`;
+          note = getMessageText('AREA_OUT_OF_RANGE_NEAREST', { inputPyeong: asPyeong });
         }
       }
       addConfirm(
         { complexName: ctxComplex, matchedPyeong: matched.matchedPyeong, note },
         async () => { await runAnalysis(matched.areaSqm, null, null); }, // 단지 컨텍스트 유지, 평형만 변경
-        () => { addAI('어떤 평형으로 변경하시겠어요?'); },
-        () => { addAI('취소되었습니다. 다른 질문이 있으시면 말씀해 주세요.'); },
+        () => { addAI(getMessageText('AREA_CHANGE_PROMPT')); },
+        () => { addAI(getMessageText('CANCELLED')); },
       );
       return;
     }
@@ -925,15 +927,15 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
       const rawOpts = ctx.areaOptions?.length > 0 ? ctx.areaOptions
         : areaOptions?.length > 0 ? areaOptions
         : f?.areaOptions || f?._aiAreaOptions || [];
-      if (!rawOpts || rawOpts.length === 0) { addAI('평형 정보를 불러오지 못했습니다. 다시 시도해 주세요.'); return; }
+      if (!rawOpts || rawOpts.length === 0) { addAI(getMessageText('AREA_OPTIONS_EMPTY')); return; }
       const others = rawOpts.filter(a => Math.abs(Number(a.areaSqm) - currentSqm) > 3);
-      if (others.length === 0) { addAI('현재 확인 가능한 다른 평형이 없습니다.'); return; }
+      if (others.length === 0) { addAI(getMessageText('NO_OTHER_AREA')); return; }
       const names = others.map(a => `${a.pyeong}평`).join(', ');
       setPendingAreas(others); setPendingComplex(null); setStep('await_area');
       if (others.length === 1) {
-        addAI(`${others[0].pyeong}평 말씀하시는 거죠?\n맞으면 "응" 또는 "${others[0].pyeong}평"이라고 입력해 주세요.`);
+        addAI(getMessageText('AREA_SINGLE_SUGGESTION', { pyeong: others[0].pyeong }));
       } else {
-        addAI(`${ctxComplex}는 ${names}도 분석 가능합니다.\n어떤 평형이 궁금하세요?`);
+        addAI(getMessageText('MULTIPLE_AREA_FOUND_OTHER', { complexName: ctxComplex, names }));
       }
       return;
     }
@@ -946,7 +948,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
       const sigunguHint = regionMatch ? regionMatch[1] : ctxRegion;
       const dongHint    = regionMatch ? null : ctxDong;
       const complexQuery = regionMatch ? regionMatch[2].replace(/[은는이가을를]?\??$/, '').trim() : query;
-      addAI(`${complexQuery} 검색합니다...`);
+      addAI(getMessageText('SEARCHING', { query: complexQuery }));
       await searchComplex(complexQuery, sigunguHint, dongHint);
       return;
     }
@@ -954,14 +956,14 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
     // 매물과 비교하기
     if (query === '매물과 비교하기') {
       const pyeongLabel = ctxPyeong ? `${ctxPyeong}평` : '';
-      addAI(`${ctxComplex} ${pyeongLabel} 매물 가격을 입력해 주세요.\n실거래 적정가와 비교해드립니다.\n(예: 8억, 7억 5천)`);
+      addAI(getMessageText('PRICE_COMPARE_REQUEST', { complexName: ctxComplex, pyeongLabel }));
       setStep('await_price');
       setPendingArea({ areaSqm: ctxArea, pyeong: ctxPyeong });
       return;
     }
 
     // fallback
-    addAI('죄송해요, 이해하지 못했습니다.\n"다른 평형은?", "매수 의견은?", "최근 거래는?" 등으로 질문해 주세요.');
+    addAI(getMessageText('UNRECOGNIZED_INPUT'));
   };
 
   const chips = ['매물과 비교하기', '매수 의견은?', '다른 평형은?', '최근 거래 흐름은?'];

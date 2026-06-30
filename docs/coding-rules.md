@@ -99,9 +99,32 @@ analyze()와 쌍을 이루며, 결과 화면의 밴드 차트에 직접 영향�
 |------|------|
 | UI 레이아웃 | 언제든 가능 |
 | 색상, 폰트 | 언제든 가능 |
-| 에러 메시지 | 언제든 가능 |
+| 에러 메시지 | 언제든 가능 — 단, 아래 Message Dictionary 규칙을 따른다 |
 | 검색 UX | 계산 결과에 영향 없는 경우 |
 | 새 기능 추가 | 기존 함수 수정 없이 추가만 |
+
+---
+
+## 사용자 메시지 — Message Dictionary 강제
+
+> v1.0.1부터 적용. `src/messages/` 참고.
+
+ValueLens는 FairValue/Buy/Sell/추천/계약분석 전체에서 하나의 Message Dictionary(`src/messages/messageDictionary.js`)를 공유한다.
+
+```
+절대 금지:
+- addAI("문자열"), emit({ type: 'TEXT', content: "문자열" }), setMessage("문자열") 처럼
+  사용자에게 보이는 문자열을 코드에 직접 쓰는 것
+```
+
+```
+반드시:
+- getMessage(KEY, params) 또는 getMessageText(KEY, params)만 호출한다
+- 새 상황(Situation)이 생기면 messageDictionary.js에 Key를 추가하고 호출부에서는 그 Key만 쓴다
+- Key는 기능(fair/buy/sell)이 아니라 상황 기준으로 만든다 — 같은 상황이면 도메인 간에 Key를 재사용한다
+```
+
+문구의 어조·표현 규칙은 `docs/ai-personality-guide.md`를 따른다.
 
 ---
 

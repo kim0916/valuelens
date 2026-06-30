@@ -15,6 +15,7 @@ import { createSlotRegistry }   from './SlotRegistry.js';
 import { createStateMachine, STATES, EVENTS, resolveStateFromSlots } from './StateMachine.js';
 import { createActionHandlers }  from './ActionHandlers.js';
 import { parseFairValueInput }   from '../../parser/fairValueParser.js';
+import { getMessageText }        from '../../messages/getMessage.js';
 
 export function createConversationEngine_v2() {
   const slots    = createSlotRegistry();
@@ -62,7 +63,7 @@ export function createConversationEngine_v2() {
       if (/^(처음|리셋|reset|초기화|새로)$/i.test(text.trim())) {
         slots.reset();
         sm.transition(EVENTS.RESET);
-        emit({ type: 'TEXT', content: '처음부터 다시 시작합니다. 어떤 아파트가 궁금하세요?' });
+        emit({ type: 'TEXT', content: getMessageText('RESET_SUCCESS_V2') });
         return { uiEvents: [...uiQueue] };
       }
 
