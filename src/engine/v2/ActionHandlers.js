@@ -130,7 +130,6 @@ export function createActionHandlers() {
 
     // 1. Parser로 Slot 추출
     const parsed = parseFairValueInput(text);
-    console.log('[v2 HANDLE_INPUT] parsed:', parsed);
 
     // 2. 추출된 Slot 병합
     if (parsed.complexRaw) slots.set(SLOTS.COMPLEX_RAW, parsed.complexRaw);
@@ -142,12 +141,10 @@ export function createActionHandlers() {
     if (parsed.userPrice)  slots.set(SLOTS.PRICE,    parsed.userPrice);
     if (parsed.noPrice)    slots.set(SLOTS.NO_PRICE, true);
 
-    console.log('[v2 HANDLE_INPUT] slots after merge:', slots.snapshot());
 
     // 3. 부족한 Slot 확인 → 적절한 액션 실행
     const missing = slots.missingSlots();
     const nextAction = missing[0];
-    console.log('[v2 HANDLE_INPUT] missing:', missing, '/ nextAction:', nextAction);
 
     if (!nextAction) {
       // 모두 채워짐 → confirm으로
@@ -157,7 +154,6 @@ export function createActionHandlers() {
 
     // complex 없으면 검색 필요
     if (!slots.get(SLOTS.COMPLEX) && slots.get(SLOTS.COMPLEX_RAW)) {
-      console.log('[v2 HANDLE_INPUT] → SEARCH_COMPLEX 진입, query:', slots.get(SLOTS.COMPLEX_RAW), 'dong:', slots.get(SLOTS.DONG));
       await handlers.get('SEARCH_COMPLEX')(ctx);
       return;
     }
@@ -170,7 +166,6 @@ export function createActionHandlers() {
       price:   'SHOW_CONFIRM',  // 가격은 confirm 카드에서 처리
     };
     const handler = askHandlers[nextAction];
-    console.log('[v2 HANDLE_INPUT] askHandlers lookup:', nextAction, '→', handler);
     if (handler && handlers.has(handler)) {
       await handlers.get(handler)(ctx);
     } else {
@@ -188,7 +183,6 @@ export function createActionHandlers() {
     sm.transition(EVENTS.INPUT);
 
     const pool = await searchAndResolve(ctx, query, dong);
-    console.log('[v2 SEARCH_COMPLEX] query:', query, 'dong:', dong, '→ pool.length:', pool.length, pool);
 
     if (pool.length === 0) {
       sm.transition(EVENTS.SEARCH_NONE);
@@ -199,13 +193,11 @@ export function createActionHandlers() {
     if (pool.length === 1) {
       slots.set(SLOTS.COMPLEX, pool[0]);
       sm.transition(EVENTS.SEARCH_DONE);
-      console.log('[v2 SEARCH_COMPLEX] 단일 후보 확정, COMPLEX set →', pool[0]);
       await handlers.get('HANDLE_INPUT')(ctx); // 다음 missing slot 처리
       return;
     }
 
     // 복수 후보
-    console.log('[v2 SEARCH_COMPLEX] 복수 후보', pool.length, '건 → CANDIDATES emit');
     sm.transition(EVENTS.SEARCH_MULTI);
     emit({
       type: 'CANDIDATES',
@@ -303,7 +295,6 @@ export function createActionHandlers() {
       type: 'CONFIRM',
       payload: buildConfirmPayload(slots),
       onConfirm: async () => {
-        console.log('[v2] onConfirm state =', sm.getState());
         sm.transition(EVENTS.CONFIRMED);
         await handlers.get('RUN_ANALYSIS')(ctx);
       },
@@ -321,7 +312,6 @@ export function createActionHandlers() {
 
   // ── RUN_ANALYSIS ──
   handlers.set('RUN_ANALYSIS', async (ctx) => {
-    console.log('[v2] RUN_ANALYSIS start');
     const { slots, sm, emit } = ctx;
     sm.jumpTo(STATES.ANALYZING);
     emit({ type: 'THINKING' });
