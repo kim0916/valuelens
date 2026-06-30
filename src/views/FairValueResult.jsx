@@ -634,6 +634,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
             onSend={onAskMore}
             onBuyAnalysis={onBuyAnalysis}
             f={f}
+            r={r}
             areaOptions={areaOptions}
             onNewSearch={onNewSearch}
             analysisContext={analysisContext}
@@ -646,7 +647,7 @@ function FairValueResult({ r, f, onBack, onNewSearch, onHome, areaOptions = [], 
 
 // ── 결과지 하단 Quick Action 바 ──
 // ConversationEngine 연결 없음 — 독자 State Machine (안정 버전)
-function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSearch, analysisContext }) {
+function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNewSearch, analysisContext }) {
   // Step1: analysisContext 우선 사용, fallback은 기존 f/complex
   const ctx = analysisContext || {};
   const ctxComplex  = ctx.complexName  || complex || '';
@@ -770,6 +771,22 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
     if (!t || loading) return;
     setText('');
 
+    // RESET: 어떤 step/대화 상태에 있든 최우선으로 처리 — 모든 슬롯/상태 초기화
+    if (/^(처음|새\s*검색)$/.test(t)) {
+      resetDialog();
+      addAI('처음으로 돌아갑니다. 궁금한 아파트를 말씀해 주세요.');
+      return;
+    }
+
+    // await_complex: "다른 단지"로 진입한 다음 메시지는 새 단지명으로 간주
+    if (step === 'await_complex') {
+      addUser(t);
+      setStep(null);
+      addAI(`${t} 검색합니다...`);
+      await searchComplex(t, null, null);
+      return;
+    }
+
     // await_price
     if (step === 'await_price') {
       addUser(t);
@@ -818,11 +835,16 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
     addUser(t);
 
     if (/매수|살까|살만|사도|투자/.test(t)) {
-      if (onBuyAnalysis) {
-        addAI('매수 분석으로 이동합니다.');
-        setLoading(true); await new Promise(r=>setTimeout(r,500)); setLoading(false);
-        onBuyAnalysis();
-      } else { addAI('아직 준비 중인 기능입니다. 곧 제공될 예정입니다.'); }
+      const verdict = r ? getVerdict(r) : null;
+      const gap = r?.gapRatio;
+      const gapText = (gap != null)
+        ? ` (적정 기준 대비 ${gap >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(gap * 1000) / 10)}%)`
+        : '';
+      if (verdict) {
+        addAI(`매수 관점으로 봐도 위 분석이 기준이 됩니다.\n현재 판단: ${verdict.text}${gapText}\n\n${ctxComplex}의 적정가/거래 흐름을 참고해서 결정하시면 좋을 것 같아요.`);
+      } else {
+        addAI('아직 준비 중인 기능입니다. 곧 제공될 예정입니다.');
+      }
       return;
     }
 
@@ -907,6 +929,12 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
       return;
     }
 
+    if (/^다른\s*단지$/.test(t)) {
+      setPendingAreas([]); setPendingComplex(null); setStep('await_complex');
+      addAI('어떤 단지를 찾아드릴까요? 단지명을 입력해 주세요.');
+      return;
+    }
+
     // 단지명 검색 패턴
     const complexMatch = t.match(/^([가-힣A-Za-z0-9\s·]{2,15}(?:아파트|APT|apt)?)(?:는|은|도|의)?\??$/);
     if (complexMatch) {
@@ -936,6 +964,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
   const chips = ['매물과 비교하기', '매수 의견은?', '다른 평형은?', '최근 거래 흐름은?'];
   const placeholder = step === 'await_price' ? '매물가 입력 (예: 8억, 모름)'
     : step === 'await_area' ? `평형 입력 (예: ${pendingAreas.map(a=>a.pyeong+'평').join(', ')})`
+    : step === 'await_complex' ? '단지명 입력 (예: 래미안, 헬리오시티)'
     : `${ctxComplex || '이 아파트'}에 대해 더 궁금한 점은?`;
 
   return (
