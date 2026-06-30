@@ -1818,6 +1818,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
 
   async function runAnalysis(complex, intent) {
+    console.log('[v2] runAnalysis()');
     // ★ 흐름 보호: areaSqm 없으면 평형 질문부터
     // intent.skipAreaCheck 플래그가 있을 때만 스킵 (내부 재귀 방지)
     if (!intent.skipAreaCheck && !intent.areaSqm) {
@@ -1974,6 +1975,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
       // 결과 화면으로 이동 (채팅창 대신 별도 화면)
       if (onNavigate) {
+        console.log('[v2] navigate result');
         onNavigate("result", {
           complex: {
             name,

@@ -252,6 +252,7 @@ export function createActionHandlers() {
 
   // ── RUN_ANALYSIS ──
   handlers.set('RUN_ANALYSIS', async (ctx) => {
+    console.log('[v2] RUN_ANALYSIS start');
     const { slots, sm, emit } = ctx;
     sm.jumpTo(STATES.ANALYZING);
     emit({ type: 'THINKING' });

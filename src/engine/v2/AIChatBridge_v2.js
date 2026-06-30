@@ -80,6 +80,7 @@ export function uiEventToMessage(event, { addMsg, replaceLastAI, runAnalysis, cr
       return;
 
     case 'RUN_ANALYSIS':
+      console.log('[v2] Bridge RUN_ANALYSIS');
       runAnalysis(event.complex, {
         intent:        event.purpose === 'buy' ? 'buy' : 'fair',
         areaSqm:       event.areaSqm,
