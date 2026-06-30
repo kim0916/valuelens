@@ -80,8 +80,9 @@ export function createConversationEngine_v2() {
 }
 
 /**
- * v2 활성화 여부 (Feature Flag)
- * 환경변수 또는 localStorage로 제어
+ * @deprecated 단일 소스는 AIChatBridge_v2.js의 isV2Enabled() 이다.
+ * AIChatView.jsx는 Bridge 쪽 함수를 import해서 쓴다 — 이 함수는 더 이상 호출되지 않음.
+ * (순환참조 방지를 위해 이 파일에서는 재export하지 않고 단순 별도 구현으로 남겨둔다)
  */
 export function isV2Enabled() {
   try {

@@ -102,12 +102,27 @@ export function uiEventToMessage(event, { addMsg, replaceLastAI, runAnalysis, cr
 }
 
 /**
- * Feature Flag 확인
+ * Feature Flag 확인 (단일 소스 — 이 함수가 AIChatView가 실제로 import해서 쓰는 버전)
+ * 우선순위: URL ?ce_v2= (있으면 localStorage에 기록) > localStorage('ce_v2') > VITE_CE_V2 env
+ *
+ * URL에 ?ce_v2=true/false가 있으면 localStorage에 기록해서 다음부터도 유지되게 한다.
+ * (개발자도구 없이 브라우저 주소창만으로 QA 켜고 끄기 가능)
  */
 export function isV2Enabled() {
   try {
-    return typeof localStorage !== 'undefined'
-      && localStorage.getItem('ce_v2') === 'true';
+    if (typeof window !== 'undefined' && window.location?.search) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('ce_v2')) {
+        const val = params.get('ce_v2') === 'true' ? 'true' : 'false';
+        localStorage.setItem('ce_v2', val);
+        return val === 'true';
+      }
+    }
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('ce_v2') : null;
+    if (stored !== null) return stored === 'true';
+
+    // localStorage에 값이 없으면 빌드 시점 env 기본값을 따른다.
+    return import.meta.env.VITE_CE_V2 === 'true';
   } catch {
     return false;
   }
