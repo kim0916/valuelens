@@ -9,6 +9,7 @@ import { computeFairBands, classifyApartmentMarket, RECON } from '../engine/mark
 import { computeDataTrust } from '../engine/stats.js';
 import { writeSearchLog } from '../services/storage/searchLog.js';
 import { sqmToPyeong } from '../utils/pyeong.js';
+import { selectNearestArea } from '../search/areaMatching.js';
 import {
   AiNotice, DataTrustBadge, GradeInfoPopup,
   InputWarnings, MarketTypeBadge, FairSaveBtn,
@@ -724,7 +725,7 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
       }
       const hit = hits[0];
       const rawAreas = hit.area_list ? (typeof hit.area_list === 'string' ? JSON.parse(hit.area_list) : hit.area_list) : [];
-      const aGroups = rawAreas.map(a => ({ areaSqm: Number(a), pyeong: sqmToPyeong(Number(a).pyeong) })).filter(a => a.areaSqm > 0);
+      const aGroups = rawAreas.map(a => ({ areaSqm: Number(a), pyeong: sqmToPyeong(Number(a)).pyeong })).filter(a => a.areaSqm > 0);
       const cxOverride = { complexName: hit.complex_name, sigungu: hit.sigungu, dong: hit.legal_dong || dongHint || '', complexId: hit.id, areaOptions: aGroups };
 
       if (aGroups.length === 0) {
@@ -827,6 +828,38 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
       const area = f?.areaExclusive;
       if (!area) { addAI('평형 정보가 없습니다.'); return; }
       await runAnalysis(area, null, null);
+      return;
+    }
+
+    // 평형 변경 후속 질문 ("30평은?", "33평은?", "84는?", "84평은?")
+    // 단지명 검색 패턴(아래)보다 먼저 체크해야 함 — 그 정규식이 숫자도 단지명으로 캡처해버리기 때문
+    const areaFollowupMatch = t.match(/^(\d{1,3})\s*평?\s*(?:은|는|이|가)?\??$/);
+    if (areaFollowupMatch) {
+      const inputPyeong = parseInt(areaFollowupMatch[1], 10);
+      const rawOpts = ctx.areaOptions?.length > 0 ? ctx.areaOptions
+        : areaOptions?.length > 0 ? areaOptions
+        : f?.areaOptions || f?._aiAreaOptions || [];
+      if (!rawOpts || rawOpts.length === 0) {
+        addAI('현재 단지의 평형 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
+        return;
+      }
+      // 입력값이 ㎡로 보일 만큼 크면(50 이상) 평 변환 후 매칭 — 기존 ASK_AREA 정책과 동일 기준
+      const asPyeong = inputPyeong >= 50 ? sqmToPyeong(inputPyeong).pyeong : inputPyeong;
+      const matched  = selectNearestArea(asPyeong, rawOpts.map(a => ({ areaSqm: a.areaSqm, pyeong: a.pyeong })));
+      if (!matched) { addAI('평형 정보를 매칭하지 못했습니다. 다시 시도해 주세요.'); return; }
+
+      let note;
+      if (matched.isSame) {
+        note = `${matched.matchedPyeong}평으로 분석합니다.`;
+      } else if (matched.boundary === 'below') {
+        note = `이 단지에는 ${asPyeong}평형이 없습니다. 가장 작은 평형인 ${matched.matchedPyeong}평형으로 분석합니다.`;
+      } else if (matched.boundary === 'above') {
+        note = `이 단지에는 ${asPyeong}평형이 없습니다. 가장 큰 평형인 ${matched.matchedPyeong}평형으로 분석합니다.`;
+      } else {
+        note = `${asPyeong}평형은 존재하지 않아 가장 가까운 ${matched.matchedPyeong}평형으로 분석합니다.`;
+      }
+      addAI(note);
+      await runAnalysis(matched.areaSqm, null, null); // 단지 컨텍스트(ctxComplex) 유지, 평형만 변경
       return;
     }
 
