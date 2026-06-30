@@ -688,6 +688,8 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
 
   const addAI   = (t) => setMsgs(p => [...p, { role: 'ai',   text: t }]);
   const addUser = (t) => setMsgs(p => [...p, { role: 'user', text: t }]);
+  const addConfirm = (payload, onConfirm, onEdit, onCancel) =>
+    setMsgs(p => [...p, { role: 'ai', type: 'confirm', payload, onConfirm, onEdit, onCancel }]);
   const resetDialog = () => {
     setMsgs([]); setStep(null);
     setPendingAreas([]); setPendingArea(null); setPendingComplex(null);
@@ -787,12 +789,28 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
     if (step === 'await_area') {
       addUser(t);
       const num = parseInt(t.replace(/[^0-9]/g, ''));
-      const chosen = num ? pendingAreas.find(a => a.pyeong === num) : null;
-      const isConfirm = /^(응|ㅇ|맞|예|네|ok|ㅇㅋ)/i.test(t);
-      const resolved = chosen || (isConfirm && pendingAreas.length === 1 ? pendingAreas[0] : null);
-      if (!resolved) { addAI(`${pendingAreas.map(a=>`${a.pyeong}평`).join(', ')} 중 하나를 입력해 주세요.`); return; }
-      setPendingArea(resolved); setStep('await_price');
-      addAI(`${pendingComplex?.complexName || complex} ${resolved.pyeong}평이군요.\n현재 매물가를 알고 계시나요?\n모르시면 최근 실거래 평균 기준으로 분석해드립니다.`);
+      if (!num) { addAI(`${pendingAreas.map(a=>`${a.pyeong}평`).join(', ')} 중 하나를 입력해 주세요.`); return; }
+      const asPyeong = num >= 50 ? sqmToPyeong(num).pyeong : num;
+      const matched  = selectNearestArea(asPyeong, pendingAreas.map(a => ({ areaSqm: a.areaSqm, pyeong: a.pyeong })));
+      if (!matched) { addAI(`${pendingAreas.map(a=>`${a.pyeong}평`).join(', ')} 중 하나를 입력해 주세요.`); return; }
+
+      let note = '';
+      if (!matched.isSame) {
+        if (matched.boundary === 'below') {
+          note = `이 단지에는 ${asPyeong}평형이 없어 가장 작은 ${matched.matchedPyeong}평형으로 분석합니다`;
+        } else if (matched.boundary === 'above') {
+          note = `이 단지에는 ${asPyeong}평형이 없어 가장 큰 ${matched.matchedPyeong}평형으로 분석합니다`;
+        } else {
+          note = `${asPyeong}평과 가장 가까운 평형`;
+        }
+      }
+      setStep(null);
+      addConfirm(
+        { complexName: pendingComplex?.complexName || ctxComplex, matchedPyeong: matched.matchedPyeong, note },
+        async () => { await runAnalysis(matched.areaSqm, null, pendingComplex); },
+        () => { setStep('await_area'); addAI('어떤 평형으로 변경하시겠어요?'); },
+        () => { setStep(null); setPendingArea(null); setPendingComplex(null); addAI('취소되었습니다. 다른 질문이 있으시면 말씀해 주세요.'); },
+      );
       return;
     }
 
@@ -833,8 +851,11 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
 
     // 평형 변경 후속 질문 ("30평은?", "33평은?", "84는?", "84평은?")
     // 단지명 검색 패턴(아래)보다 먼저 체크해야 함 — 그 정규식이 숫자도 단지명으로 캡처해버리기 때문
-    const areaFollowupMatch = t.match(/^(\d{1,3})\s*평?\s*(?:은|는|이|가)?\??$/);
+    // 결과 화면에서는 검색이 이미 끝난 상태이므로 "검색합니다" 같은 표현을 쓰지 않고,
+    // 같은 단지의 평형 변경(Re-analysis)으로 처리 — Confirm Card 거쳐 사용자가 분석 시작을 눌러야 실행됨
+    const areaFollowupMatch = t.match(/^(\d{1,3})\s*(?:평형?대?)?\s*(?:은|는|이|가)?\??$/);
     if (areaFollowupMatch) {
+      addUser(t);
       const inputPyeong = parseInt(areaFollowupMatch[1], 10);
       const rawOpts = ctx.areaOptions?.length > 0 ? ctx.areaOptions
         : areaOptions?.length > 0 ? areaOptions
@@ -848,18 +869,22 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
       const matched  = selectNearestArea(asPyeong, rawOpts.map(a => ({ areaSqm: a.areaSqm, pyeong: a.pyeong })));
       if (!matched) { addAI('평형 정보를 매칭하지 못했습니다. 다시 시도해 주세요.'); return; }
 
-      let note;
-      if (matched.isSame) {
-        note = `${matched.matchedPyeong}평으로 분석합니다.`;
-      } else if (matched.boundary === 'below') {
-        note = `이 단지에는 ${asPyeong}평형이 없습니다. 가장 작은 평형인 ${matched.matchedPyeong}평형으로 분석합니다.`;
-      } else if (matched.boundary === 'above') {
-        note = `이 단지에는 ${asPyeong}평형이 없습니다. 가장 큰 평형인 ${matched.matchedPyeong}평형으로 분석합니다.`;
-      } else {
-        note = `${asPyeong}평형은 존재하지 않아 가장 가까운 ${matched.matchedPyeong}평형으로 분석합니다.`;
+      let note = '';
+      if (!matched.isSame) {
+        if (matched.boundary === 'below') {
+          note = `이 단지에는 ${asPyeong}평형이 없어 가장 작은 ${matched.matchedPyeong}평형으로 분석합니다`;
+        } else if (matched.boundary === 'above') {
+          note = `이 단지에는 ${asPyeong}평형이 없어 가장 큰 ${matched.matchedPyeong}평형으로 분석합니다`;
+        } else {
+          note = `${asPyeong}평과 가장 가까운 평형`;
+        }
       }
-      addAI(note);
-      await runAnalysis(matched.areaSqm, null, null); // 단지 컨텍스트(ctxComplex) 유지, 평형만 변경
+      addConfirm(
+        { complexName: ctxComplex, matchedPyeong: matched.matchedPyeong, note },
+        async () => { await runAnalysis(matched.areaSqm, null, null); }, // 단지 컨텍스트 유지, 평형만 변경
+        () => { addAI('어떤 평형으로 변경하시겠어요?'); },
+        () => { addAI('취소되었습니다. 다른 질문이 있으시면 말씀해 주세요.'); },
+      );
       return;
     }
 
@@ -943,14 +968,37 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, areaOptions, onNewSe
         <div style={{ maxHeight: 220, overflowY: 'auto', marginBottom: 10,
           display: 'flex', flexDirection: 'column', gap: 6 }}>
           {msgs.map((m, i) => (
-            <div key={i} style={{
-              alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '88%',
-              background: m.role === 'user' ? '#5b52e0' : '#f1f5f9',
-              color: m.role === 'user' ? '#fff' : '#1e293b',
-              borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-              padding: '8px 12px', fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-line',
-            }}>{m.text}</div>
+            m.type === 'confirm' ? (
+              <div key={i} style={{
+                alignSelf: 'flex-start', maxWidth: '92%',
+                background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14,
+                padding: '12px 14px', fontSize: 13, lineHeight: 1.7,
+              }}>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>이렇게 이해했습니다</div>
+                <div>단지&nbsp;&nbsp;<b>{m.payload.complexName}</b></div>
+                <div>평형&nbsp;&nbsp;<b>{m.payload.matchedPyeong}평</b>{m.payload.note && (
+                  <span style={{ color:'#64748b', fontSize:12 }}>&nbsp;({m.payload.note})</span>
+                )}</div>
+                <div>분석&nbsp;&nbsp;<b>적정가</b></div>
+                <div style={{ display:'flex', gap:6, marginTop:10 }}>
+                  <button onClick={m.onConfirm} style={{ background:'#5b52e0', color:'#fff', border:'none',
+                    borderRadius:8, padding:'7px 14px', fontSize:13, fontWeight:600, cursor:'pointer' }}>분석 시작</button>
+                  <button onClick={m.onEdit} style={{ background:'#f1f5f9', color:'#1e293b', border:'none',
+                    borderRadius:8, padding:'7px 14px', fontSize:13, cursor:'pointer' }}>수정</button>
+                  <button onClick={m.onCancel} style={{ background:'#f1f5f9', color:'#94a3b8', border:'none',
+                    borderRadius:8, padding:'7px 14px', fontSize:13, cursor:'pointer' }}>취소</button>
+                </div>
+              </div>
+            ) : (
+              <div key={i} style={{
+                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: '88%',
+                background: m.role === 'user' ? '#5b52e0' : '#f1f5f9',
+                color: m.role === 'user' ? '#fff' : '#1e293b',
+                borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                padding: '8px 12px', fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-line',
+              }}>{m.text}</div>
+            )
           ))}
           {loading && (
             <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 4,
