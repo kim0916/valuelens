@@ -254,9 +254,6 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
   // ── Phase 2: Conversation State (Context 유지) ──
   const [_v2Active] = React.useState(() => isV2Enabled());
-  React.useEffect(() => {
-    console.log(`[Feature Flag] ce_v2 = ${_v2Active ? 'ON (v2)' : 'OFF (v1)'} / localStorage.ce_v2 =`, (() => { try { return localStorage.getItem('ce_v2'); } catch { return '(unavailable)'; } })());
-  }, [_v2Active]);
   const convEngineRef  = React.useRef(createConversationEngine());
   const v2EngineRef    = React.useRef(_v2Active ? createConversationEngine_v2() : null);
   // ── v2 표준 이벤트 소비 경로 ──
@@ -386,8 +383,7 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
     // ── CE v2 Feature Flag ──
     if (_v2Active && v2EngineRef.current) {
-      console.log('[v2] ConversationEngine_v2 진입:', text);
-      addMsg({ role: 'user', type: 'text', content: text });
+        addMsg({ role: 'user', type: 'text', content: text });
       addMsg({ role: 'ai',   type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
       try {
         // uiEvents는 onUIEvent 구독자가 실시간으로 이미 처리함 (표준 경로).
@@ -937,7 +933,6 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
     // ── Phase 2: ConversationEngine 기반 처리 ──
     // 매 입력을 새 검색으로 처리하는 방식 폐기
     // ConversationState를 유지하며 Intent → Policy → UX Policy → Action 순으로 처리
-    console.log('[v1] ConversationEngine(v1) 진입 — _v2Active가 true라면 이 로그는 절대 찍히면 안 됨');
     addMsg({ role: "ai", type: "thinking", content: "잠깐만요, 확인해볼게요~ 🔍" });
 
     // CE 호출 전: 현재 입력을 lastComplexQuery에 저장해둠
@@ -1828,7 +1823,6 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
 
   async function runAnalysis(complex, intent) {
-    console.log('[v2] runAnalysis()');
     // ★ 흐름 보호: areaSqm 없으면 평형 질문부터
     // intent.skipAreaCheck 플래그가 있을 때만 스킵 (내부 재귀 방지)
     if (!intent.skipAreaCheck && !intent.areaSqm) {
@@ -1985,7 +1979,6 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
 
       // 결과 화면으로 이동 (채팅창 대신 별도 화면)
       if (onNavigate) {
-        console.log('[v2] navigate result');
         onNavigate("result", {
           complex: {
             name,
