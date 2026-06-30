@@ -160,6 +160,7 @@ export function createActionHandlers() {
 
     // 각 missing slot별 질문
     const askHandlers = {
+      complex: 'ASK_COMPLEX',  // 단지명조차 없는 경우 (예: "25평 적정가")
       dong:    'ASK_DONG',
       purpose: 'ASK_PURPOSE',
       area:    'ASK_AREA',
@@ -171,6 +172,12 @@ export function createActionHandlers() {
     } else {
       console.warn('[v2 HANDLE_INPUT] ⚠️ 처리할 핸들러 없음! nextAction:', nextAction, '— 아무 응답도 안 나갑니다');
     }
+  });
+
+  // ── ASK_COMPLEX: 단지명이 전혀 없는 입력(예: "25평 적정가") 처리 ──
+  handlers.set('ASK_COMPLEX', async (ctx) => {
+    const { emit } = ctx;
+    emit({ type: 'TEXT', content: '어떤 아파트인지 단지명을 알려주실 수 있을까요?\n예: 래미안, 동부아파트, 헬리오시티' });
   });
 
   // ── SEARCH_COMPLEX ──
