@@ -1509,13 +1509,13 @@ function AppInner() {
 
                     if (/전세|보증금/.test(t)) {
                       const result = await runAnalysisService(complexObj, areaSqm, null, false);
-                      if (result) setChatResultData({ ...d, engine: result.engine, ff: result.ff });
+                      if (result) setChatResultData({ ...d, engine: result.engine, ff: { ...result.ff, areaOptions: result.ff.areaOptions || d.ff.areaOptions } });
 
                     } else if (/매수|살까|살만|사도|투자/.test(t)) {
                       const result = await runAnalysisService(complexObj, areaSqm, curPrice, d.ff._userInputPrice);
                       if (result) {
                         const { analyze } = await import("./engine/analyze.js");
-                        const buyFf = { ...result.ff, purpose: "buy" };
+                        const buyFf = { ...result.ff, purpose: "buy", areaOptions: result.ff.areaOptions || d.ff.areaOptions };
                         const buyEngine = analyze(buyFf);
                         buyEngine.jeonseCalc = result.engine.jeonseCalc;
                         buyEngine.saleCalc   = result.engine.saleCalc;
@@ -1524,7 +1524,7 @@ function AppInner() {
 
                     } else if (/적정가|매매가|시세|가격|얼마/.test(t)) {
                       const result = await runAnalysisService(complexObj, areaSqm, curPrice, d.ff._userInputPrice);
-                      if (result) setChatResultData({ ...d, engine: result.engine, ff: result.ff });
+                      if (result) setChatResultData({ ...d, engine: result.engine, ff: { ...result.ff, areaOptions: result.ff.areaOptions || d.ff.areaOptions } });
 
                     } else if (/다른 평형|평형|평수/.test(t)) {
                       const areaOpts = d.ff.areaOptions || [];
@@ -1589,7 +1589,7 @@ function AppInner() {
                     const result = await runAnalysisService(complexObj, d.ff.areaExclusive, d.ff.currentPrice, d.ff._userInputPrice);
                     if (result) {
                       const { analyze } = await import('./engine/analyze.js');
-                      const buyFf = { ...result.ff, purpose: 'buy' };
+                      const buyFf = { ...result.ff, purpose: 'buy', areaOptions: result.ff.areaOptions || d.ff.areaOptions };
                       const buyEngine = analyze(buyFf);
                       buyEngine.jeonseCalc = result.engine.jeonseCalc;
                       buyEngine.saleCalc = result.engine.saleCalc;
