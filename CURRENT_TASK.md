@@ -2,24 +2,41 @@
 
 > 최종 수정: 2026-06-30
 
-## 종료된 작업
+## 종료된 목표
 
-### FairValue v1.0 — Freeze 완료 ✅
+### FairValue v1.0 Freeze ✅
 
-- Context QA 7/7 PASS, Stress QA 6/6 PASS, Boundary QA 5/5 PASS
-- P0 버그 0건 확인 후 v1.0.0 태그 생성, Freeze 선언
-- 더 이상 이 작업으로 돌아가지 않는다. 추가 변경이 필요하면 새 이슈로 등록하고 P0 여부부터 판단한다.
+-   Context QA 7/7, Stress QA 6/6, Boundary QA 5/5 PASS, P0 0건
+-   Git Tag `v1.0.0` 생성, Freeze 선언 완료
+-   Release Note: `RELEASE_NOTES_v1.0.0.md`
+
+## 현재 목표
+
+**FairValue v1.0.1 UX Patch — Message Architecture**
 
 ## 현재 작업
 
-### Buy Engine v1.0 — 설계 (시작 전)
+-   [x] Message Category 정의 (`src/messages/messageCategories.js`)
+-   [x] Message Dictionary 구축 (`src/messages/messageDictionary.js`) — 39개 situation key
+-   [x] getMessage / getMessageText 조회 함수 (`src/messages/getMessage.js`)
+-   [x] FairValue v2 흐름(FairValueResult.jsx, ActionHandlers.js, ConversationEngine_v2.js) 하드코딩 문자열 → Dictionary 전환, 문구 변경 없음 자동 검증 39/39 PASS
+-   [x] `docs/coding-rules.md`에 Message Dictionary 강제 규칙 추가
+-   [x] `docs/ai-personality-guide.md` 초안 작성
+-   [ ] `DUPLICATE_SITUATIONS`(6개 그룹) 문구 통일 — Style Guide 적용
+-   [ ] Buy/Sell/AIChatView/main.jsx 등 나머지 하드코딩 문자열 Dictionary 이전
 
-- 목표: 매수 의견(매수 추천) 기능을 정식 엔진으로 분리/설계
-- 현재 상태: FairValue v1.0 결과화면에서 "매수 의견" 진입은 기존 "매수 추천"(BuyView, `aptTab="buy"`) 화면으로 연결되어 있음 — 이번 설계 단계에서 이 연결을 그대로 둘지, 전용 Buy Engine으로 분리할지부터 결정 필요
-- 다음 행동: 설계 논의 시작 전 — 요구사항/범위 정의 먼저 진행
+## 완료 조건 (다음 보고 시점)
 
-## 진행 원칙 (FairValue 작업에서 이어지는 합의)
+-   잔여 하드코딩 문자열 0건 (FairValue v2 흐름 기준으로는 이미 0건)
+-   Context QA 7/7, Stress QA 6/6, Boundary QA 5/5 유지 확인 (회귀 없음)
 
-- 구조 변경 전에는 항상 설계를 먼저 보여주고 승인받은 뒤 구현한다.
-- 한 번에 여러 버그를 고칠 때는 "버그 개수"가 아니라 "원인 그룹"으로 묶어서 처리한다.
-- 계산 로직(`analyze.js` 등)은 어떤 작업에서도 수정하지 않는다.
+## 완료 후
+
+1.  문구 통일 작업 승인받고 진행
+2.  Buy 개발 시작
+
+## Claude에게
+
+작업 시작: "PROJECT_CONTEXT.md와 CURRENT_TASK.md를 먼저 읽고 작업한다."
+
+작업 종료: "두 문서를 최신 상태로 업데이트한다."
