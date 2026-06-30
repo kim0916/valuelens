@@ -234,6 +234,7 @@ export function createActionHandlers() {
       type: 'CONFIRM',
       payload: buildConfirmPayload(slots),
       onConfirm: async () => {
+        console.log('[v2] onConfirm state =', sm.getState());
         sm.transition(EVENTS.CONFIRMED);
         await handlers.get('RUN_ANALYSIS')(ctx);
       },
