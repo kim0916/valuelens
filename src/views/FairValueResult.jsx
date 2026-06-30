@@ -778,6 +778,15 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
       return;
     }
 
+    // "다른 단지": 어떤 step(await_area 등)에 있든 최우선으로 처리해야 함
+    // — 그렇지 않으면 직전 step의 숫자 파싱 분기에 가로채임
+    if (/^다른\s*단지$/.test(t)) {
+      addUser(t);
+      setStep('await_complex'); setPendingAreas([]); setPendingComplex(null);
+      addAI('어떤 단지를 찾아드릴까요? 단지명을 입력해 주세요.');
+      return;
+    }
+
     // await_complex: "다른 단지"로 진입한 다음 메시지는 새 단지명으로 간주
     if (step === 'await_complex') {
       addUser(t);
@@ -926,12 +935,6 @@ function ResultChatBar({ complex, onSend, onBuyAnalysis, f, r, areaOptions, onNe
       } else {
         addAI(`${ctxComplex}는 ${names}도 분석 가능합니다.\n어떤 평형이 궁금하세요?`);
       }
-      return;
-    }
-
-    if (/^다른\s*단지$/.test(t)) {
-      setPendingAreas([]); setPendingComplex(null); setStep('await_complex');
-      addAI('어떤 단지를 찾아드릴까요? 단지명을 입력해 주세요.');
       return;
     }
 
