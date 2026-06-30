@@ -11,6 +11,7 @@ import { SLOTS }           from './SlotRegistry.js';
 import { selectNearestArea, getAreaOptions } from '../../search/areaMatching.js';
 import { searchComplexFromSupabase }          from '../../search/supabase.js';
 import { parseFairValueInput }               from '../../parser/fairValueParser.js';
+import { sqmToPyeong }                       from '../../utils/pyeong.js';
 
 /**
  * 핸들러 컨텍스트 타입:
@@ -29,6 +30,51 @@ async function searchAndResolve(ctx, query, dong) {
   const res   = await searchComplexFromSupabase(query, '', dong || '');
   const pool  = res.fromSupabase ? res.complexes : [];
   return pool;
+}
+
+/**
+ * ASKING_AREA 전용 Area Resolver.
+ * 단지가 이미 확정된 상태("어떤 평형을 확인할까요?" 질문 이후)에서
+ * 단위 없는 순수 숫자("24", "30")만 처리한다.
+ * Parser는 손대지 않음 — 평/평형/평대/평형대/㎡/m2/전용 단위가 붙은 입력은
+ * 그대로 parseFairValueInput이 처리하므로 이 함수는 호출되지 않는다.
+ *
+ * 한국 아파트 입력 관행 기준 (ValueLens는 한국 아파트 AI):
+ *   10~49 → 평, 50 이상 → ㎡
+ * 이후 현재 단지의 실제 area_list에서 가장 가까운 평형을 선택한다.
+ *
+ * @returns {'RESOLVED'|'PASS'} PASS면 호출자가 기존 흐름(HANDLE_INPUT)을 계속 진행
+ */
+function resolveAreaNumberInput(ctx) {
+  const { slots, sm, emit, text } = ctx;
+  if (sm.getState() !== STATES.ASKING_AREA) return 'PASS';
+
+  const trimmed = text.trim();
+  if (!/^[0-9]+(\.[0-9]+)?$/.test(trimmed)) return 'PASS'; // 단위 있는 입력은 기존 Parser 경로로
+
+  const num = parseFloat(trimmed);
+  const cx  = slots.get(SLOTS.COMPLEX);
+  const areaOptions = getAreaOptions(cx?.area_list);
+  if (areaOptions.length === 0) return 'PASS';
+
+  // 한국 아파트 입력 관행: 10~49 → 평, 50 이상 → ㎡
+  const inputPyeong = num >= 50 ? sqmToPyeong(num).pyeong : num;
+
+  const matched = selectNearestArea(inputPyeong, areaOptions);
+  if (!matched) return 'PASS';
+
+  slots.set(SLOTS.AREA, {
+    sqm: matched.areaSqm, pyeong: inputPyeong,
+    matchedPyeong: matched.matchedPyeong, inputPyeong,
+  });
+  emit({
+    type: 'TEXT',
+    content: matched.isSame
+      ? `${matched.matchedPyeong}평형으로 분석합니다.`
+      : `${inputPyeong}평형은 존재하지 않아 가장 가까운 ${matched.matchedPyeong}평형으로 분석합니다.`,
+  });
+  sm.transition(EVENTS.AREA_SET);
+  return 'RESOLVED';
 }
 
 function buildConfirmPayload(slots) {
@@ -58,6 +104,13 @@ export function createActionHandlers() {
 
   // ── INPUT: 사용자 입력 처리 ──
   handlers.set('HANDLE_INPUT', async (ctx) => {
+    // ASKING_AREA 상태에서 단위 없는 순수 숫자 입력 처리 (Area Resolver)
+    // Parser보다 먼저 체크 — 단위 있는 입력은 'PASS'로 기존 흐름 유지
+    if (resolveAreaNumberInput(ctx) === 'RESOLVED') {
+      await handlers.get('SHOW_CONFIRM')(ctx);
+      return;
+    }
+
     const { slots, sm, emit, text } = ctx;
 
     // 1. Parser로 Slot 추출
