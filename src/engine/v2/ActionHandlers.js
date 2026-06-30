@@ -65,16 +65,33 @@ function resolveAreaNumberInput(ctx) {
 
   slots.set(SLOTS.AREA, {
     sqm: matched.areaSqm, pyeong: inputPyeong,
-    matchedPyeong: matched.matchedPyeong, inputPyeong,
+    matchedPyeong: matched.matchedPyeong, inputPyeong, boundary: matched.boundary,
   });
-  emit({
-    type: 'TEXT',
-    content: matched.isSame
-      ? `${matched.matchedPyeong}평형으로 분석합니다.`
-      : `${inputPyeong}평형은 존재하지 않아 가장 가까운 ${matched.matchedPyeong}평형으로 분석합니다.`,
-  });
+
+  let message;
+  if (matched.isSame) {
+    message = `${matched.matchedPyeong}평형으로 분석합니다.`;
+  } else if (matched.boundary === 'below') {
+    message = `이 단지에는 ${inputPyeong}평형이 없습니다. 가장 작은 평형인 ${matched.matchedPyeong}평형으로 분석합니다.`;
+  } else if (matched.boundary === 'above') {
+    message = `이 단지에는 ${inputPyeong}평형이 없습니다. 가장 큰 평형인 ${matched.matchedPyeong}평형으로 분석합니다.`;
+  } else {
+    message = `${inputPyeong}평형은 존재하지 않아 가장 가까운 ${matched.matchedPyeong}평형으로 분석합니다.`;
+  }
+  emit({ type: 'TEXT', content: message });
   sm.transition(EVENTS.AREA_SET);
   return 'RESOLVED';
+}
+
+function buildNearNote(area) {
+  if (!area?.inputPyeong || !area?.matchedPyeong || area.inputPyeong === area.matchedPyeong) return '';
+  if (area.boundary === 'below') {
+    return ` (이 단지에는 ${area.inputPyeong}평형이 없어 가장 작은 ${area.matchedPyeong}평형으로 분석합니다.)`;
+  }
+  if (area.boundary === 'above') {
+    return ` (이 단지에는 ${area.inputPyeong}평형이 없어 가장 큰 ${area.matchedPyeong}평형으로 분석합니다.)`;
+  }
+  return ` (입력하신 ${area.inputPyeong}평과 가장 가까운 ${area.matchedPyeong}평형입니다.)`;
 }
 
 function buildConfirmPayload(slots) {
@@ -90,9 +107,7 @@ function buildConfirmPayload(slots) {
     areaSqm:       area?.sqm          || null,
     purpose,
     purposeKr:     purpose === 'buy' ? '매수 분석' : '적정가',
-    nearNote:      (area?.inputPyeong && area?.matchedPyeong && area.inputPyeong !== area.matchedPyeong)
-                     ? ` (입력하신 ${area.inputPyeong}평과 가장 가까운 평형입니다.)`
-                     : '',
+    nearNote:      buildNearNote(area),
   };
 }
 
@@ -277,6 +292,7 @@ export function createActionHandlers() {
             ...area,
             sqm:          matched.areaSqm,
             matchedPyeong: matched.matchedPyeong,
+            boundary:      matched.boundary,
           });
         }
       }

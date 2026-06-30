@@ -56,11 +56,19 @@ export function selectNearestArea(inputPyeong, areaOptions) {
     return best;
   });
 
+  // 입력값이 실제 평형 범위의 어디에 위치하는지 (UX 안내 문구 분기용)
+  const minPyeong = Math.min(...areaOptions.map(a => a.pyeong));
+  const maxPyeong = Math.max(...areaOptions.map(a => a.pyeong));
+  const boundary  = inputPyeong < minPyeong ? 'below'
+                   : inputPyeong > maxPyeong ? 'above'
+                   : 'between';
+
   return {
     areaSqm:        nearest.areaSqm,
     matchedPyeong:  nearest.pyeong,
     inputPyeong,
     isSame:         false,
+    boundary,       // 'below' | 'above' | 'between' — 기존 호출자(매수/추천)는 무시해도 안전
     helperText:     ` (입력하신 ${inputPyeong}평과 가장 가까운 평형입니다.)`,
     displayAreaText: `${nearest.pyeong}평`,
   };
