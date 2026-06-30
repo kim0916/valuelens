@@ -22,16 +22,36 @@ export function createConversationEngine_v2() {
   const handlers = createActionHandlers();
   const uiQueue  = [];
 
+  // ── UI 이벤트 구독자 ──
+  // process() 내부에서 발생한 이벤트뿐 아니라, 버튼/칩 클릭(onConfirm,
+  // onSelect 등) 콜백 안에서 발생한 이벤트도 동일한 경로로 전달하기 위함.
+  // emit()이 호출되는 즉시 구독자에게 전달 + uiQueue에도 기록(호환용).
+  let subscriber = null;
+
   // UI 이벤트 emit 함수
-  const emit = (event) => uiQueue.push(event);
+  const emit = (event) => {
+    uiQueue.push(event);
+    if (subscriber) subscriber(event);
+  };
 
   // 핸들러 컨텍스트
   const makeCtx = (text) => ({ slots, sm, emit, text });
 
   return {
     /**
+     * UI 이벤트 구독 등록.
+     * AIChatView가 마운트 시 1회 호출 — 이후 process() 안에서든
+     * 버튼/칩 클릭 콜백 안에서든 emit()된 모든 이벤트가 여기로 전달됨.
+     * v2의 표준 이벤트 소비 경로 (RUN_ANALYSIS, PURPOSE_CHIPS,
+     * AREA_CHIPS, CONFIRM, 향후 추가될 모든 핸들러가 동일하게 사용).
+     */
+    onUIEvent(callback) {
+      subscriber = callback;
+    },
+
+    /**
      * 사용자 입력 처리
-     * @returns { uiEvents: Array } — UI가 처리할 이벤트 목록
+     * @returns { uiEvents: Array } — UI가 처리할 이벤트 목록 (호환용 — 구독 방식이 표준 경로)
      */
     async process(text) {
       uiQueue.length = 0; // 큐 초기화

@@ -259,6 +259,20 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
   }, [_v2Active]);
   const convEngineRef  = React.useRef(createConversationEngine());
   const v2EngineRef    = React.useRef(_v2Active ? createConversationEngine_v2() : null);
+  // ── v2 표준 이벤트 소비 경로 ──
+  // process() 안에서든, 버튼/칩 클릭(onConfirm/onSelect 등) 콜백 안에서든
+  // emit()된 모든 이벤트가 이 구독자 하나로 들어온다.
+  // RUN_ANALYSIS, PURPOSE_CHIPS, AREA_CHIPS, CONFIRM, 향후 추가될 핸들러도
+  // 전부 동일하게 이 경로를 탄다 (예외 없음).
+  React.useEffect(() => {
+    if (!v2EngineRef.current) return;
+    v2EngineRef.current.onUIEvent((event) => {
+      uiEventToMessage(event, {
+        addMsg, replaceLastAI, runAnalysis, createConfirmMsg,
+        typicalPyeong: (s) => sqmToPyeong(s).pyeong,
+      });
+    });
+  }, []);
   const convStateRef   = React.useRef(createConversationState());
   const [convState, setConvState] = React.useState(() => createConversationState());
 
@@ -376,13 +390,9 @@ function AIChatView({ onNavigate, history, onSaveHistory, currentUserId, current
       addMsg({ role: 'user', type: 'text', content: text });
       addMsg({ role: 'ai',   type: 'thinking', content: '잠깐만요, 확인해볼게요~ 🔍' });
       try {
-        const { uiEvents } = await v2EngineRef.current.process(text);
-        for (const event of uiEvents) {
-          uiEventToMessage(event, {
-            addMsg, replaceLastAI, runAnalysis, createConfirmMsg,
-            typicalPyeong: (s) => sqmToPyeong(s).pyeong,
-          });
-        }
+        // uiEvents는 onUIEvent 구독자가 실시간으로 이미 처리함 (표준 경로).
+        // 여기서 다시 순회하면 같은 이벤트가 중복 렌더링되므로 호출만 한다.
+        await v2EngineRef.current.process(text);
       } catch (err) {
         console.error('[CE v2] 처리 오류:', err);
         replaceLastAI({ role: 'ai', type: 'text', content: '오류가 발생했습니다. 다시 시도해 주세요.' });
