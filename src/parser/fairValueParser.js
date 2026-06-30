@@ -1,4 +1,5 @@
 import { sqmToPyeong, pyeongToSqm } from '../utils/pyeong.js';
+import { FAIR_VALUE_RE, BUY_RE } from './intentDictionary.js';
 /**
  * src/parser/fairValueParser.js
  *
@@ -18,7 +19,7 @@ import { sqmToPyeong, pyeongToSqm } from '../utils/pyeong.js';
 // ─────────────────────────────────────────────
 // 1. Intent 키워드
 // ─────────────────────────────────────────────
-const FAIR_VALUE_RE = /얼마|시세|가격|적정|적당|분석|평가|판단|살\s*만한?|살까|비싼|싼가|싸|괜찮|저평가|고평가|거품|봐줘|알려줘|확인|조회|어때|어떤가|어떠|적정가/;
+// FAIR_VALUE_RE는 intentDictionary.js에서 가져옴 (Intent Vocabulary 단일 소스)
 
 // ─────────────────────────────────────────────
 // 2. Dong 키워드 (법정동/행정동 패턴)
@@ -176,7 +177,10 @@ function extractDong(text) {
 export function parseFairValueInput(text) {
   const t = text.trim();
 
-  const intent     = FAIR_VALUE_RE.test(t) ? 'FAIR_VALUE' : null;
+  const isBuy      = BUY_RE.test(t);
+  const isFair     = FAIR_VALUE_RE.test(t);
+  const intent      = (isBuy || isFair) ? 'FAIR_VALUE' : null; // 분석 의도 자체 (적정가/매수 공통)
+  const purpose     = isBuy ? 'buy' : (isFair ? 'fair' : null);
   const area       = extractArea(t);
   const userPrice  = extractUserPrice(t);
   const noPrice    = extractNoPrice(t);
@@ -185,6 +189,7 @@ export function parseFairValueInput(text) {
 
   return {
     intent:     intent,
+    purpose:    purpose,
     complexRaw: complexRaw,
     dong:       dong,
     area:       area,
