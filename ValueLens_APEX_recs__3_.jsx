@@ -424,7 +424,9 @@ async function callJSON(prompt, maxTokens, retries, useSearch = true) {
   let lastErr;
   for (let attempt = 0; attempt <= (retries ?? 2); attempt++) {
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      // 예전엔 브라우저에서 Anthropic을 직접 불렀지만(키 노출·CORS 문제),
+      // 이제 우리 서버(/api/ai)가 대신 부른다. 키는 서버 환경변수에만 둔다.
+      const res = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -503,7 +505,30 @@ Rules for "type" and which fields to fill:
 - Utilities, telecom, consumer staples, high-dividend stable -> "stable": fill eps, per.
 ALWAYS include "roe" (reported or your best normalized estimate) for every stock regardless of type — it is used to cross-check the fair PBR. ROE must be a sustainable/normalized figure, NOT a one-off peak. If you give a high EPS for a cyclical peak year, make sure ROE reflects a through-cycle level, not the peak. ALSO try to provide avg10yPER, avg10yPBR and peerPER for every stock — these historical/peer averages act like real-estate "comparable sales" and are the most robust anchor for what a FAIR multiple should be. When you set the neutral "per" (fair PER), prefer a value close to the stock's own multi-year average or the peer average rather than today's distorted multiple; for "fairPBR" prefer the stock's multi-year average PBR.
 CRITICAL: for "growth" and "stable" types, "eps" MUST be the FORWARD (next 12 months / next fiscal year) consensus EPS, NEVER the trailing/TTM EPS. For "price", return the MOST RECENT available closing price (the latest trading session on or before ${today}). For the scenario fields: epsCons/perCons should be clearly LOWER than the neutral eps/per (downside case), and epsOpt/perOpt clearly HIGHER (upside case); keep them realistic, not extreme. Output numbers only for numeric fields (or null). You MUST output the JSON object even if some data is uncertain — estimate reasonably and never refuse.`;
-  return callJSON(prompt, 1000, 2);
+  const base = await callJSON(prompt, 1000, 2);
+  // 실시간 시세 덮어쓰기: 미국=Finnhub, 한국=야후(둘 다 /api/quote 가 처리).
+  // 성공하면 AI가 추정한 price 대신 진짜 시세를 쓰고, 실패하면 AI 값을 그대로 둔다.
+  await overrideWithLivePrice(base);
+  return base;
+}
+
+// AI가 준 종목 객체(base)에 실시간 시세를 덮어쓴다.
+// base.currency 로 시장을 판단한다: "₩" -> 한국(KR), 그 외 -> 미국(US).
+async function overrideWithLivePrice(base) {
+  if (!base || !base.ticker) return;
+  const market = base.currency === "₩" ? "KR" : "US";
+  try {
+    const r = await fetch(`/api/quote?ticker=${encodeURIComponent(base.ticker)}&market=${market}`);
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d && typeof d.price === "number" && isFinite(d.price) && d.price > 0) {
+      base.price = d.price;
+      base.priceSource = d.source || base.priceSource; // "Finnhub" / "Yahoo Finance"
+      base.livePrice = true; // 실시간으로 채워졌다는 표시(원하면 UI에서 활용 가능)
+    }
+  } catch (_) {
+    /* 시세 실패 시 AI 추정값 유지 */
+  }
 }
 
 // 추천 종목 발굴: AI가 웹검색으로 "지금 저평가로 보이는" 후보를 던져준다.
